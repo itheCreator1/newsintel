@@ -33,7 +33,11 @@ New sources poll every 30 minutes and accept a minimum interval of 5 minutes. Th
 
 After updating from Phase 1, apply `docker compose run --rm api alembic upgrade head`, then start or recreate both `worker` and `scheduler`. A source can be polled immediately from Sources. Successful, unchanged (`304`), and failed cycles appear in its fetch history. Retiring a source stops polling and hides it from active management while preserving articles and provenance.
 
+Feeds in `full_text` mode enqueue article fetching and extraction. `full_text_html` also retains the source HTML in the `article-data` Docker volume; extracted text and its current/previous hashes remain in PostgreSQL. Recreating containers preserves this volume. Include `article-data`, PostgreSQL, and configuration in backups; Elasticsearch remains rebuildable.
+
 If polling stalls, check `docker compose logs scheduler worker api`, confirm Redis and PostgreSQL health, and inspect the source's fetch history. Security rejections usually mean DNS resolved to a non-public address. Timeouts, `429`, and server errors retry up to three times; the next normal cycle remains scheduled after failure. Elasticsearch may be stopped while ingesting and browsing RSS entries.
+
+If article processing stalls, confirm the worker command includes `app.jobs.articles`, inspect Jobs for queued/retrying/failed stages, and retry terminal failures there. Configure article downloads with `NEWSINTEL_ARTICLE_TIMEOUT_SECONDS`, `NEWSINTEL_ARTICLE_MAX_RESPONSE_BYTES`, `NEWSINTEL_ARTICLE_REDIRECT_LIMIT`, and `NEWSINTEL_ARTICLE_HOST_MIN_INTERVAL_SECONDS`.
 
 ## Deployment
 
