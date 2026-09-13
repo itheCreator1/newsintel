@@ -33,14 +33,19 @@ beforeEach(() => {
     .mockResolvedValueOnce({ items: [article('two', 'Second article')], next_cursor: null })
 })
 
-it('loads the next cursor page without replacing earlier articles', async () => {
+async function renderView(path = '/') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/', component: ArticlesView }],
   })
-  await router.push('/')
+  await router.push(path)
   await router.isReady()
   render(ArticlesView, { global: { plugins: [VueQueryPlugin, router] } })
+  return router
+}
+
+it('loads the next cursor page without replacing earlier articles', async () => {
+  await renderView()
 
   expect(await screen.findByText('First article')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: 'Load more articles' }))
@@ -48,4 +53,19 @@ it('loads the next cursor page without replacing earlier articles', async () => 
   expect(await screen.findByText('Second article')).toBeTruthy()
   expect(screen.getByText('First article')).toBeTruthy()
   expect(api.articles).toHaveBeenLastCalledWith(undefined, 'next')
+})
+
+it('disables processing actions while a request is pending', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({
+    ...article('one', 'First article'), content: null, processing: [],
+  })
+  vi.mocked(api.processArticle).mockReturnValue(new Promise(() => {}))
+  await renderView('/?article=one')
+
+  const button = await screen.findByRole('button', { name: 'Fetch text' })
+  await fireEvent.click(button)
+
+  expect(button.hasAttribute('disabled')).toBe(true)
+  expect(screen.getByText('Scheduling processing…')).toBeTruthy()
 })
