@@ -5,7 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.feeds.models import ArticleContent, ArticleProcessingAttempt, ArticleProcessingJob
+from app.feeds.models import Article, ArticleContent, ArticleProcessingAttempt, ArticleProcessingJob
 
 ACTIVE_STATUSES = ("queued", "running", "retrying")
 MODE_STRENGTH = {"full_text": 1, "full_text_html": 2}
@@ -18,6 +18,8 @@ async def request_processing(
     *,
     automatic: bool = False,
 ) -> tuple[ArticleProcessingJob, bool]:
+    # Serialize creation even when no active job row exists yet.
+    await db.scalar(select(Article.id).where(Article.id == article_id).with_for_update())
     active = await db.scalar(
         select(ArticleProcessingJob)
         .where(

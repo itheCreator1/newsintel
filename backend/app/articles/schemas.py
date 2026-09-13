@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProcessRequest(BaseModel):
@@ -55,7 +55,7 @@ class JobResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     next_attempt_at: datetime
-    attempts: list[AttemptResponse] = []
+    attempts: list[AttemptResponse] = Field(default_factory=list)
 
 
 class JobPage(BaseModel):

@@ -3,6 +3,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import structlog
 from sqlalchemy import select
 
 from app.articles.extraction import EmptyExtraction, TrafilaturaExtractor
@@ -20,6 +21,15 @@ from app.feeds.models import (
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.scheduling import next_retry_delay
 
+log = structlog.get_logger()
+
+
+class ArticleHttpStatus(ValueError):
+    def __init__(self, status_code: int, retry_after: float | None = None) -> None:
+        super().__init__(f"Article returned HTTP {status_code}")
+        self.status_code = status_code
+        self.retry_after = retry_after
+
 
 def _failure(exc: Exception) -> tuple[str, bool]:
     if isinstance(exc, UnsafeFeedUrl):
@@ -32,9 +42,31 @@ def _failure(exc: Exception) -> tuple[str, bool]:
         return "storage", True
     if isinstance(exc, httpx.TimeoutException):
         return "timeout", True
+    if isinstance(exc, ArticleHttpStatus):
+        if exc.status_code == 429 or exc.status_code >= 500:
+            return "http_transient", True
+        return "http_permanent", False
     if isinstance(exc, httpx.HTTPError):
         return "network", True
     return "internal", False
+
+
+def delete_after_commit(
+    storage: LocalObjectStorage, key: str | None, *, article_id: str
+) -> bool:
+    if not key:
+        return True
+    try:
+        storage.delete(key)
+    except ObjectStorageError:
+        log.exception(
+            "article_object_cleanup_failed",
+            article_id=article_id,
+            object_key=key,
+            stage="cleanup",
+        )
+        return False
+    return True
 
 
 async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None:
@@ -68,7 +100,10 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         job.claim_expires_at = None
         if transient and stage_attempts < 3:
             job.status = "retrying"
-            job.next_attempt_at = now + timedelta(seconds=next_retry_delay(stage_attempts))
+            retry_after = exc.retry_after if isinstance(exc, ArticleHttpStatus) else None
+            job.next_attempt_at = now + timedelta(
+                seconds=next_retry_delay(stage_attempts, retry_after=retry_after)
+            )
         else:
             job.status = "failed"
             job.completed_at = now
@@ -97,14 +132,13 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
     try:
         if stage == "fetch":
             response = await fetch_page_http(url, settings)
-            if response.status_code == 429 or response.status_code >= 500:
-                raise httpx.HTTPStatusError(
-                    "Transient article response",
-                    request=httpx.Request("GET", url),
-                    response=httpx.Response(response.status_code),
-                )
             if response.status_code >= 400:
-                raise ValueError(f"Article returned HTTP {response.status_code}")
+                retry_after_value = response.headers.get("retry-after")
+                try:
+                    retry_after = float(retry_after_value) if retry_after_value else None
+                except ValueError:
+                    retry_after = None
+                raise ArticleHttpStatus(response.status_code, retry_after)
             new_key = storage.put(response.content)
             async with session_factory() as db, db.begin():
                 job = await db.scalar(
@@ -112,7 +146,13 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                     .where(ArticleProcessingJob.id == job_id)
                     .with_for_update()
                 )
-                if not job or job.claim_token != token:
+                now = datetime.now(UTC)
+                if (
+                    not job
+                    or job.claim_token != token
+                    or not job.claim_expires_at
+                    or job.claim_expires_at <= now
+                ):
                     storage.delete(new_key)
                     return
                 attempt = await db.scalar(
@@ -123,13 +163,13 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                 if attempt:
                     attempt.status = "succeeded"
                     attempt.http_status = response.status_code
-                    attempt.completed_at = datetime.now(UTC)
+                    attempt.completed_at = now
                 job.temporary_html_key = new_key
                 job.stage = "extract"
                 job.status = "queued"
                 job.claim_token = None
                 job.claim_expires_at = None
-                job.next_attempt_at = datetime.now(UTC)
+                job.next_attempt_at = now
             return
         html = storage.get(temporary_key or "")
         if html is None:
@@ -139,7 +179,12 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                     .where(ArticleProcessingJob.id == job_id)
                     .with_for_update()
                 )
-                if job and job.claim_token == token:
+                if (
+                    job
+                    and job.claim_token == token
+                    and job.claim_expires_at
+                    and job.claim_expires_at > datetime.now(UTC)
+                ):
                     job.stage = "fetch"
                     job.status = "queued"
                     job.claim_token = None
@@ -149,13 +194,19 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
         text = extractor.extract(html)
         digest = hashlib.sha256(text.encode()).hexdigest()
         now = datetime.now(UTC)
+        old_html_key: str | None = None
         async with session_factory() as db, db.begin():
             job = await db.scalar(
                 select(ArticleProcessingJob)
                 .where(ArticleProcessingJob.id == job_id)
                 .with_for_update()
             )
-            if not job or job.claim_token != token:
+            if (
+                not job
+                or job.claim_token != token
+                or not job.claim_expires_at
+                or job.claim_expires_at <= now
+            ):
                 return
             attempt = await db.scalar(
                 select(ArticleProcessingAttempt)
@@ -182,6 +233,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                 )
                 db.add(content)
             else:
+                old_html_key = content.html_object_key
                 if content.content_hash != digest:
                     content.previous_content_hash = content.content_hash
                     content.content_hash = digest
@@ -191,14 +243,15 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                 content.extractor_name = extractor.name
                 content.extractor_version = extractor.version
                 content.extracted_at = now
-                if retained_key:
-                    content.html_object_key = retained_key
+                content.html_object_key = retained_key
             job.status = "succeeded"
             job.completed_at = now
             job.claim_token = None
             job.claim_expires_at = None
             job.temporary_html_key = None
-        if not retained_key and temporary_key:
-            storage.delete(temporary_key)
+        if not retained_key:
+            delete_after_commit(storage, temporary_key, article_id=str(job.article_id))
+        if content is not None and old_html_key and old_html_key != retained_key:
+            delete_after_commit(storage, old_html_key, article_id=str(job.article_id))
     except Exception as exc:
         await _record_failure(job_id, token, exc)
