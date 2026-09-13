@@ -1,7 +1,15 @@
 import re
 from importlib.metadata import version
+from typing import Protocol
 
 import trafilatura
+
+
+class Extractor(Protocol):
+    name: str
+    version: str
+
+    def extract(self, html: bytes) -> str: ...
 
 
 class EmptyExtraction(ValueError):

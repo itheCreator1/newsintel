@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from app.articles.extraction import EmptyExtraction, TrafilaturaExtractor, normalize_text
+from app.articles.extraction import EmptyExtraction, Extractor, TrafilaturaExtractor, normalize_text
 from app.articles.processing import ArticleHttpStatus, _failure, delete_after_commit
-from app.articles.storage import LocalObjectStorage, ObjectStorageError
+from app.articles.storage import LocalObjectStorage, ObjectStorage, ObjectStorageError
 from app.feeds.scheduling import next_retry_delay
 
 
@@ -24,6 +24,12 @@ def test_local_storage_uses_opaque_keys_and_atomic_round_trip(tmp_path: Path) ->
     assert storage.get(key) == b"<html>story</html>"
     storage.delete(key)
     assert storage.get(key) is None
+
+
+def test_default_adapters_satisfy_article_processing_interfaces() -> None:
+    storage: ObjectStorage = LocalObjectStorage("unused")
+    extractor: Extractor = TrafilaturaExtractor()
+    assert storage is not None and extractor.name == "trafilatura"
 
 
 def test_retry_after_is_bounded() -> None:

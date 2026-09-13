@@ -39,6 +39,14 @@ If polling stalls, check `docker compose logs scheduler worker api`, confirm Red
 
 If article processing stalls, confirm the worker command includes `app.jobs.articles`, inspect Jobs for queued/retrying/failed stages, and retry terminal failures there. Configure article downloads with `NEWSINTEL_ARTICLE_TIMEOUT_SECONDS`, `NEWSINTEL_ARTICLE_MAX_RESPONSE_BYTES`, `NEWSINTEL_ARTICLE_REDIRECT_LIMIT`, and `NEWSINTEL_ARTICLE_HOST_MIN_INTERVAL_SECONDS`.
 
+Clean abandoned temporary article objects with
+`docker compose run --rm worker python -m app.cli cleanup-article-storage --dry-run`.
+Dry-run is the default and reports a bounded batch without changing storage. After reviewing
+the counts, add `--apply`; use `--batch-size N` to cap each run between 1 and 5000 objects.
+The command preserves retained HTML, every object referenced by a processing job, and files
+newer than `NEWSINTEL_ARTICLE_TEMPORARY_HTML_HOURS` (24 hours by default). Run cleanup only
+against the same `article-data` volume used by workers.
+
 ## Deployment
 
 Deploy behind an existing HTTPS reverse proxy that forwards to port 8080. Set `NEWSINTEL_ENVIRONMENT=production` and `NEWSINTEL_SESSION_COOKIE_SECURE=true`. Restrict proxy access to the host network and configure the public hostname in `NEWSINTEL_ALLOWED_HOSTS` using Pydantic's JSON-list syntax. Back up the PostgreSQL volume and configuration; Elasticsearch remains derived and rebuildable.
