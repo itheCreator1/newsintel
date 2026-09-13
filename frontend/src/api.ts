@@ -1,4 +1,4 @@
-import type { Article, CursorPage, Feed, FeedFetch } from './api-types'
+import type { Article, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, ProcessingJob } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -26,7 +26,7 @@ export const api = {
     return request<void>('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrf_token } })
   },
   feeds: (cursor?: string) => request<CursorPage<Feed>>(`/feeds${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-  createFeed: (payload: { name: string; url: string; source_country?: string; expected_language?: string; tags?: string[]; poll_interval_minutes?: number }) => mutate<Feed>('/feeds', 'POST', payload),
+  createFeed: (payload: { name: string; url: string; source_country?: string; expected_language?: string; tags?: string[]; poll_interval_minutes?: number; fetching_mode?: 'rss' | 'full_text' | 'full_text_html' }) => mutate<Feed>('/feeds', 'POST', payload),
   updateFeed: (id: string, payload: Partial<Feed>) => mutate<Feed>(`/feeds/${id}`, 'PATCH', payload),
   retireFeed: (id: string) => mutate<void>(`/feeds/${id}`, 'DELETE'),
   pollFeed: (id: string) => mutate<{ fetch_id: string; status: string; reused: boolean }>(`/feeds/${id}/poll`, 'POST'),
@@ -37,7 +37,19 @@ export const api = {
     if (cursor) params.set('cursor', cursor)
     return request<CursorPage<Article>>(`/articles${params.size ? `?${params}` : ''}`)
   },
-  article: (id: string) => request<Article>(`/articles/${id}`),
+  article: (id: string) => request<ArticleDetail>(`/articles/${id}`),
+  processArticle: (id: string, mode: 'full_text' | 'full_text_html') => mutate<{ job_id: string; status: string; reused: boolean }>(`/articles/${id}/process`, 'POST', { mode }),
+  jobs: (filters: { articleId?: string; stage?: string; status?: string; cursor?: string } = {}) => {
+    const params = new URLSearchParams()
+    if (filters.articleId) params.set('article_id', filters.articleId)
+    if (filters.stage) params.set('stage', filters.stage)
+    if (filters.status) params.set('status', filters.status)
+    if (filters.cursor) params.set('cursor', filters.cursor)
+    return request<CursorPage<ProcessingJob>>(`/jobs${params.size ? `?${params}` : ''}`)
+  },
+  job: (id: string) => request<ProcessingJob>(`/jobs/${id}`),
+  backlog: () => request<Backlog>('/jobs/backlog'),
+  retryJob: (id: string) => mutate<{ job_id: string; status: string; reused: boolean }>(`/jobs/${id}/retry`, 'POST'),
 }
 
 async function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
