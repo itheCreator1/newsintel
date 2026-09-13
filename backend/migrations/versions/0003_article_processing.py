@@ -35,17 +35,30 @@ def upgrade() -> None:
         sa.Column("temporary_html_key", sa.String(64), unique=True),
         sa.Column("claim_token", sa.String(64), unique=True),
         sa.Column("claim_expires_at", sa.DateTime(timezone=True)),
-        sa.Column("next_attempt_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "next_attempt_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.Column("error_category", sa.String(64)),
         sa.Column("error_message", sa.Text()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("started_at", sa.DateTime(timezone=True)),
         sa.Column("completed_at", sa.DateTime(timezone=True)),
         sa.ForeignKeyConstraint(["article_id"], ["articles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_article_jobs_due", "article_processing_jobs", ["status", "next_attempt_at", "claim_expires_at"])
-    op.create_index("ix_article_jobs_article_created", "article_processing_jobs", ["article_id", "created_at"])
+    op.create_index(
+        "ix_article_jobs_due",
+        "article_processing_jobs",
+        ["status", "next_attempt_at", "claim_expires_at"],
+    )
+    op.create_index(
+        "ix_article_jobs_article_created", "article_processing_jobs", ["article_id", "created_at"]
+    )
     op.create_index(
         "uq_article_jobs_active",
         "article_processing_jobs",
@@ -63,12 +76,16 @@ def upgrade() -> None:
         sa.Column("http_status", sa.Integer()),
         sa.Column("error_category", sa.String(64)),
         sa.Column("error_message", sa.Text()),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("completed_at", sa.DateTime(timezone=True)),
         sa.ForeignKeyConstraint(["job_id"], ["article_processing_jobs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_article_attempts_job", "article_processing_attempts", ["job_id", "started_at"])
+    op.create_index(
+        "ix_article_attempts_job", "article_processing_attempts", ["job_id", "started_at"]
+    )
 
 
 def downgrade() -> None:
