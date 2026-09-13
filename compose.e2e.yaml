@@ -1,4 +1,14 @@
 services:
+  api:
+    environment:
+      NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["fixture"]'
+  worker:
+    environment:
+      NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["fixture"]'
+      NEWSINTEL_ARTICLE_HOST_MIN_INTERVAL_SECONDS: 0
+  scheduler:
+    environment:
+      NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["fixture"]'
   postgres:
     ports: ["127.0.0.1:55432:5432"]
   fixture:
