@@ -8,7 +8,8 @@
     "build": "vue-tsc -b && vite build",
     "generate:api": "openapi-typescript openapi.json -o src/types.generated.ts",
     "test": "vitest run",
-    "typecheck": "vue-tsc -b"
+    "typecheck": "vue-tsc -b",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.66.0",
@@ -18,6 +19,7 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/vue": "^8.1.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "@vue/tsconfig": "^0.7.0",

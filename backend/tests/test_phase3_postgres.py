@@ -20,6 +20,7 @@ pytestmark = [
     ),
     pytest.mark.asyncio(loop_scope="session"),
 ]
+FIXTURE_PORT = os.getenv("NEWSINTEL_TEST_FIXTURE_PORT", "18080")
 
 
 async def _article(url: str) -> uuid.UUID:
@@ -54,7 +55,7 @@ async def test_successful_extraction_retains_html_and_tracks_content_changes(
         article_host_min_interval_seconds=0,
     )
     monkeypatch.setattr("app.articles.processing.get_settings", lambda: settings)
-    article_id = await _article("http://localhost:18080/article.html")
+    article_id = await _article(f"http://localhost:{FIXTURE_PORT}/article.html")
     async with session_factory() as db:
         job, _ = await request_processing(db, article_id, "full_text_html")
         await db.commit()
@@ -84,7 +85,7 @@ async def test_successful_extraction_retains_html_and_tracks_content_changes(
         )
         article = await db.get(Article, article_id)
         assert article is not None
-        article.original_url = "http://localhost:18080/article-changed.html"
+        article.original_url = f"http://localhost:{FIXTURE_PORT}/article-changed.html"
         changed, _ = await request_processing(db, article_id, "full_text_html")
         await db.commit()
         changed_id = changed.id

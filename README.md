@@ -25,6 +25,10 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
+Run the isolated Phase 3 database and browser acceptance gate with `sh infra/test-phase3.sh`.
+It uses the dedicated `newsintel-phase3-acceptance` Compose project, removes only that project's
+volumes, and retains combined container logs in `/tmp/newsintel-phase3-acceptance.log` on failure.
+
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
 ## Feed polling configuration

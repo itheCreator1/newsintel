@@ -10,8 +10,8 @@ services:
     environment:
       NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["fixture"]'
   postgres:
-    ports: ["127.0.0.1:55432:5432"]
+    ports: ["127.0.0.1:${NEWSINTEL_TEST_POSTGRES_PORT:-55432}:5432"]
   fixture:
     image: nginx:1.29-alpine
-    ports: ["127.0.0.1:18080:80"]
+    ports: ["127.0.0.1:${NEWSINTEL_TEST_FIXTURE_PORT:-18080}:80"]
     volumes: ["./backend/tests/fixtures:/usr/share/nginx/html:ro"]
