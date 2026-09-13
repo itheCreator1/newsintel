@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Second Fixture</title><link rel="alternate" href="https://news.example/"/>
+  <entry><id>second-guid</id><title>Fixture headline from another feed</title><link href="https://NEWS.example:443/story?id=1&amp;fbclid=tracking"/><summary>Second discovery.</summary></entry>
+</feed>

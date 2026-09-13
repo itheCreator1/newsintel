@@ -1,0 +1,7 @@
+services:
+  postgres:
+    ports: ["127.0.0.1:55432:5432"]
+  fixture:
+    image: nginx:1.29-alpine
+    ports: ["127.0.0.1:18080:80"]
+    volumes: ["./backend/tests/fixtures:/usr/share/nginx/html:ro"]

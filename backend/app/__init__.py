@@ -1,0 +1,1 @@
+"""NewsIntel backend."""

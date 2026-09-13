@@ -1,0 +1,1226 @@
+Build a production-quality, self-hosted news-intelligence platform for long-term RSS/news collection, search, analysis, and investigation.
+
+The primary deployment target is Docker Compose. The application must be designed to handle approximately 5 million archived articles without requiring a fundamental rewrite.
+
+Do not casually redesign the architecture below. If you identify a genuine technical problem with one of these decisions, explain it clearly before changing it. Prefer incremental, maintainable implementation over clever abstractions.
+
+# 1. Product goal
+
+The system continuously collects news from configurable RSS feeds, optionally fetches full articles, extracts structured information, archives the data, indexes it for fast search, and provides a rich web dashboard for historical and real-time analysis.
+
+The core application must work entirely without LLMs, cloud AI APIs, or API keys.
+
+AI integrations may be added later as optional plugins, but the core architecture must never depend on them.
+
+Primary use cases:
+
+* archive large numbers of news articles
+* full-text search across the archive
+* filter by date, source, country, language, entities, keywords, etc.
+* identify trends over time
+* compare how different sources cover events
+* analyze geographic coverage
+* inspect entity co-occurrence networks
+* identify multiple outlets reporting the same story
+* save reusable investigations/searches
+* monitor RSS/feed health and processing failures
+
+# 2. Repository structure
+
+Use a monorepo:
+
+/backend
+/frontend
+/infra
+
+Use clear domain-oriented modules rather than giant utility folders.
+
+Suggested backend layout:
+
+backend/app/
+api/
+auth/
+feeds/
+articles/
+ingestion/
+extraction/
+nlp/
+search/
+clustering/
+analytics/
+jobs/
+exports/
+storage/
+db/
+core/
+
+Worker tasks should live close to their respective domains. Do not create one enormous tasks.py.
+
+Suggested frontend layout:
+
+frontend/src/
+features/
+articles/
+search/
+feeds/
+analytics/
+graph/
+jobs/
+settings/
+components/
+api/
+stores/
+router/
+
+# 3. Technology stack
+
+Backend:
+
+* Python
+* FastAPI
+* async request/database architecture
+* uv
+* pyproject.toml
+* SQLAlchemy 2
+* Alembic
+* Pydantic settings
+* PostgreSQL
+
+Frontend:
+
+* Vue 3
+* TypeScript
+* Pinia
+* TanStack Query
+* Tailwind CSS
+* headless UI components
+* Apache ECharts
+
+Background processing:
+
+* Dramatiq
+* Redis
+
+Search:
+
+* Elasticsearch
+
+Article extraction:
+
+* extractor abstraction/interface
+* Trafilatura as the default extractor
+
+NLP:
+
+* plugin/processor architecture
+* optional local spaCy NER
+* no external AI requirement
+
+Live dashboard updates:
+
+* Server-Sent Events where appropriate
+
+# 4. Docker Compose architecture
+
+The primary stack should contain approximately these services:
+
+* frontend
+* api
+* worker
+* postgres
+* redis
+* elasticsearch
+
+Docker Compose is the main deployment environment.
+
+Do not introduce Kubernetes abstractions or enterprise orchestration infrastructure into v1.
+
+Containers should run as non-root where practical.
+
+Provide health/readiness checks.
+
+# 5. PostgreSQL vs Elasticsearch responsibilities
+
+PostgreSQL is the canonical source of truth.
+
+Elasticsearch is a derived, rebuildable search index.
+
+Never store data exclusively in Elasticsearch if losing the Elasticsearch volume would make the archive unrecoverable.
+
+Article persistence flow should generally be:
+
+1. persist/update canonical data in PostgreSQL
+2. commit successfully
+3. enqueue an Elasticsearch indexing job
+4. worker updates Elasticsearch
+5. PostgreSQL tracks indexing state/version
+
+Elasticsearch must be completely rebuildable from PostgreSQL.
+
+Use versioned Elasticsearch indices behind aliases, for example:
+
+articles-v1
+articles-v2
+
+with an alias such as:
+
+articles-current
+
+This should allow future zero-downtime reindexing.
+
+# 6. Core data model
+
+Do not treat every RSS entry as an independent article.
+
+Use a canonical Article entity.
+
+A single article may be discovered through multiple feeds.
+
+Implement an Article/Feed relationship table that can preserve feed-specific discovery information such as:
+
+* feed_id
+* original RSS GUID
+* RSS title
+* RSS description
+* discovery timestamp
+* feed-specific URL
+* feed metadata
+
+Separate article metadata from large extracted content.
+
+Conceptually:
+
+Article
+ArticleContent
+Feed
+FeedFetch
+FeedArticle
+Entity
+ArticleEntity
+Keyword
+ArticleKeyword
+Country
+StoryCluster
+processing/indexing state
+
+Do not blindly use these exact names if better naming is justified, but preserve the conceptual separation.
+
+# 7. Article identity and canonicalization
+
+Store both:
+
+* original URL
+* normalized/canonical URL
+
+URL normalization should account for things such as:
+
+* hostname casing
+* fragments
+* common tracking parameters such as utm_*
+* known redirect/tracking wrappers where safe
+
+Do not destroy the original URL.
+
+Generate hashes for normalized titles and normalized extracted text.
+
+Use those hashes to support duplicate detection.
+
+Initial deduplication should prioritize:
+
+* canonical URL
+* normalized title
+* exact content hashes
+
+Near-duplicate/event clustering must run asynchronously rather than blocking initial ingestion.
+
+# 8. Story clustering
+
+Article and StoryCluster are different concepts.
+
+If Reuters, BBC, AP, and another outlet all report the same event, those remain four independent Article records.
+
+They may belong to one StoryCluster.
+
+The clustering implementation must be replaceable behind an interface.
+
+Initial clustering can combine:
+
+* normalized title similarity
+* extracted text similarity
+* entity overlap
+* timestamps
+
+The UI should support concepts such as:
+
+"Also reported by 7 other sources"
+
+and allow opening the full story cluster.
+
+# 9. Feed configuration
+
+RSS source management is a first-class feature.
+
+Users must be able to:
+
+* add feeds
+* edit feeds
+* enable/disable feeds
+* assign country
+* assign expected language
+* assign categories/tags
+* configure polling interval
+* configure article-fetching behavior
+* inspect health/errors
+
+Each feed should independently support modes roughly equivalent to:
+
+* RSS only
+* RSS + fetch full article
+* RSS + fetch article + retain raw HTML
+
+Feed polling interval must be configurable per feed.
+
+Use conditional HTTP requests using:
+
+* ETag
+* Last-Modified
+
+where supported.
+
+Persist feed-fetch history including useful information such as:
+
+* HTTP status
+* fetch duration
+* discovered entries
+* new articles
+* errors
+* ETag
+* Last-Modified
+* timestamps
+* next scheduled fetch
+
+# 10. Fetching etiquette and security
+
+Implement per-domain concurrency/rate limits.
+
+Use a configurable, identifiable User-Agent.
+
+Do not hammer news websites.
+
+Protect article fetching against SSRF.
+
+Validate URLs and schemes.
+
+Prevent fetching clearly unsafe internal/private network destinations unless explicitly supported by configuration.
+
+Apply conservative outbound-network defaults.
+
+# 11. Ingestion pipeline
+
+Treat processing as independently retryable stages.
+
+Conceptually:
+
+fetch feed
+→ normalize feed entries
+→ canonicalize
+→ deduplicate
+→ persist
+→ optionally fetch article
+→ extract content
+→ NLP processing
+→ clustering
+→ Elasticsearch indexing
+
+Do not build one huge transaction/job that must restart everything when one stage fails.
+
+Jobs should be:
+
+* idempotent
+* safely retryable
+* observable
+* independently recoverable
+
+Use exponential backoff.
+
+After repeated failures, jobs should reach an explicit failed/dead-letter state rather than silently disappearing.
+
+Provide administrative retry mechanisms.
+
+# 12. Article extraction
+
+Define an extractor interface.
+
+Trafilatura is the default implementation.
+
+Store extracted article text in PostgreSQL.
+
+When raw HTML retention is enabled, do not store all raw HTML directly in PostgreSQL.
+
+Use an object-storage abstraction.
+
+Initial implementation:
+
+* local filesystem / Docker volume
+
+Architect the interface so an S3-compatible implementation can be added later without redesigning article storage.
+
+Store the object reference/path in PostgreSQL.
+
+# 13. Article version behavior
+
+Do not implement full historical versioning of every article body in v1.
+
+Maintain the current extracted content and enough metadata to indicate that the content changed.
+
+Use content hashes and timestamps.
+
+Do not silently overwrite without preserving useful change metadata.
+
+# 14. Countries
+
+Distinguish these concepts:
+
+source_country
+primary_story_country
+mentioned_countries
+
+Do not collapse them into one country column.
+
+Use ISO country codes.
+
+"Greek news source" and "article about Greece" must remain different concepts.
+
+# 15. Languages
+
+Architecture must be multilingual-capable.
+
+Ship English processing first.
+
+Feeds may declare an expected language.
+
+Articles should also have a detected language.
+
+Use standard language codes.
+
+NLP processors should be able to declare which languages they support.
+
+# 16. NLP architecture
+
+Use a processor/plugin model.
+
+Examples:
+
+KeywordProcessor
+EntityProcessor
+CountryProcessor
+KeyphraseProcessor
+
+Avoid hard-coding all NLP logic into one worker.
+
+Every generated NLP annotation must record enough information to determine:
+
+* processor
+* processor version
+* relevant algorithm/model version
+
+This is required so millions of articles can be selectively reprocessed later.
+
+# 17. Keywords
+
+Use normalized Keyword records and article-keyword relationships.
+
+ArticleKeyword should be able to retain:
+
+* frequency/count
+* relevance/score
+* algorithm
+* processor version
+
+Support user-editable global stop-word lists.
+
+Do not rely only on simple token frequency.
+
+Support layered processing such as:
+
+* term frequency
+* TF-IDF or equivalent
+* keyphrases
+* named entities
+
+# 18. Entities
+
+Use normalized Entity records.
+
+Entity types should support concepts such as:
+
+* PERSON
+* ORG
+* GPE/COUNTRY
+* LOCATION
+* EVENT
+* PRODUCT
+* OTHER
+
+Do not use a rigid PostgreSQL enum that prevents new processor-defined entity types later.
+
+ArticleEntity relationships should support useful metadata such as:
+
+* occurrence count
+* relevance
+* processor/version
+* offsets or references when practical
+
+Optional local spaCy processing can be used for NER.
+
+The application must still function if the spaCy processor is disabled.
+
+# 19. Processing state
+
+Do not use a single processed=true field.
+
+Track major processing stages independently.
+
+Examples:
+
+* fetched
+* extracted
+* NLP processed
+* clustered
+* search indexed
+
+Store failures and timestamps per stage where useful.
+
+Provide mechanisms to re-run:
+
+* extraction
+* NLP
+* clustering
+* Elasticsearch indexing
+
+for selected articles or date ranges.
+
+# 20. Scale target
+
+Design for approximately 5 million articles.
+
+Do not overengineer for billions of records, but avoid architectural choices that obviously break at a few million.
+
+Important considerations:
+
+* appropriate PostgreSQL indexes
+* bulk inserts/upserts
+* efficient many-to-many tables
+* avoid N+1 queries
+* avoid OFFSET pagination for deep result sets
+* avoid individual inserts for thousands of keywords/entities
+* limit graph result sizes
+* asynchronous large exports
+* efficient Elasticsearch mappings
+
+Do not prematurely partition every PostgreSQL table.
+
+Keep the schema/migrations structured so high-volume time-based tables can be partitioned later if profiling shows it is necessary.
+
+# 21. Identifiers
+
+Expose stable UUID-style identifiers externally through the API.
+
+For high-volume internal association tables, use efficient composite/integer keys when appropriate.
+
+Do not require random UUIDs to be the physical primary/index strategy for every junction table.
+
+# 22. Search
+
+Search must be one of the strongest parts of the application.
+
+Use Elasticsearch.
+
+Default search should cover:
+
+* title
+* RSS description
+* extracted body
+* entities
+* keywords
+
+Support normal users who simply type:
+
+NATO
+
+but also support structured syntax such as:
+
+"Nuclear weapons"
+iran AND israel
+source:reuters
+country:GR
+entity:"Donald Trump"
+after:2026-01-01
+
+Provide an advanced GUI filter builder so search syntax is not required.
+
+Support filters including:
+
+* time range
+* source
+* country
+* language
+* entity
+* entity type
+* keyword
+* story cluster
+* processing state where useful
+
+Search results should support sorting by:
+
+* relevance
+* newest
+* oldest
+* most mentioned / appropriate popularity metric
+
+Default ranking may combine Elasticsearch relevance with sensible recency weighting.
+
+Return highlighted matching snippets.
+
+# 23. Pagination
+
+Use cursor-based pagination for large article/result collections.
+
+Do not depend on deep OFFSET pagination such as:
+
+OFFSET 4000000
+
+Design API pagination for large archives from the beginning.
+
+# 24. Investigation state
+
+Search/filter state should be encoded in the browser URL where practical.
+
+Users should be able to:
+
+* bookmark an investigation
+* reload it
+* share its URL locally
+* navigate back/forward without losing filters
+
+Cross-filtering should be central to the UI.
+
+Clicking an:
+
+* entity
+* source
+* country
+* chart segment
+* graph node
+* timeline region
+
+should be able to refine the active investigation.
+
+# 25. Saved searches
+
+Allow the user to save named investigations.
+
+Save the complete search state, not just the text string.
+
+This should include relevant:
+
+* query
+* filters
+* date range
+* sorting
+* other investigation settings
+
+# 26. Main dashboard navigation
+
+Use approximately:
+
+Overview
+Articles
+Timeline
+Analytics
+Graph
+Sources
+Saved Searches
+Jobs
+Settings
+
+Keep navigation modular so future sections can be added.
+
+# 27. Overview dashboard
+
+Useful cards/views should include:
+
+* total archived articles
+* articles today
+* ingestion rate
+* active feeds
+* failing feeds
+* failed jobs
+* indexing backlog
+* extraction failures
+* top entities
+* top countries
+* notable recent spikes
+
+Avoid decorative charts that do not assist analysis.
+
+# 28. Article browsing
+
+Use a dense, analysis-oriented article table.
+
+Useful columns include:
+
+* publication time
+* source
+* source country
+* primary story country
+* title
+* major entities
+* language
+* processing status
+
+Allow users to customize visible columns.
+
+Use a split-pane/detail workflow where practical so opening an article does not constantly destroy the current investigation context.
+
+The detail view should expose:
+
+* title
+* original URL
+* source
+* RSS metadata
+* extracted text
+* entities
+* keywords
+* countries
+* language
+* story cluster
+* related articles
+* processing metadata
+* extraction/indexing status
+
+# 29. Timeline
+
+Searching for something such as NATO should produce both results and temporal context.
+
+Support an interactive frequency-over-time chart.
+
+Automatically choose useful buckets such as:
+
+* hour
+* day
+* week
+* month
+
+based on the selected date range.
+
+Allow manual bucket override.
+
+Dragging/brushing a section of the timeline should apply the selected date range to the current investigation.
+
+# 30. Initial analytics modules
+
+Implement exactly three strong analytics areas initially.
+
+Do not fill the dashboard with many shallow charts.
+
+## Entity Trends
+
+Show entities gaining or losing coverage over time.
+
+Support filtering by:
+
+* source
+* country
+* entity type
+* date range
+
+Allow drill-down into matching articles.
+
+## Source Comparison
+
+Compare how selected outlets cover topics/events.
+
+Potential dimensions include:
+
+* article volume
+* entities
+* keywords
+* geographic coverage
+* time distribution
+
+The architecture should allow richer comparison metrics later.
+
+## Geographic Coverage
+
+Analyze:
+
+* where sources are based
+* primary story countries
+* mentioned countries
+* volume over time
+
+Keep source_country separate from subject/story geography.
+
+# 31. Analytics extensibility
+
+Analytics must be modular.
+
+Use a registry-style frontend/backend design where adding a new analytics module does not require rewriting the application shell.
+
+Future Codex sessions should be able to add modules independently.
+
+Analytics frontend components should consume stable API endpoints.
+
+Do not place database logic in Vue components.
+
+# 32. Entity co-occurrence graph
+
+Implement a network graph.
+
+Nodes:
+
+* entities
+
+Edges:
+
+* entities appearing together within articles
+
+Edge weight:
+
+* number or weighted count of co-occurrences
+
+Filters should include:
+
+* date
+* source
+* country
+* entity type
+
+Clicking a node should:
+
+* select/filter the entity
+* show connected entities
+* show relevant articles in a side panel
+
+Never send the entire graph for millions of articles to the browser.
+
+Graph API endpoints must return constrained/top-N subgraphs using thresholds and user filters.
+
+# 33. REST API
+
+Use a versioned API:
+
+/api/v1/...
+
+FastAPI/OpenAPI is the contract.
+
+Generate TypeScript API types/client from OpenAPI rather than maintaining duplicate frontend DTO definitions manually.
+
+Keep HTTP handlers reasonably thin.
+
+Use services, repositories, or query objects when they create real separation.
+
+Do not build needless enterprise CRUD abstraction layers.
+
+# 34. Authentication
+
+Initial deployment is single-user.
+
+Implement:
+
+* local username/password
+* strong password hashing
+* secure server-side/session-cookie based authentication
+* CSRF protection where applicable
+* secure cookie settings
+
+Keep authentication behind a clean abstraction so OIDC/OAuth could be added later.
+
+Do not use HTTP Basic Auth as the primary application login.
+
+Provide a documented command/workflow for creating the initial user.
+
+# 35. Frontend state
+
+Use:
+
+* Pinia for appropriate application/client state
+* TanStack Query for server/cache state
+
+Avoid manually reproducing server-cache behavior in Pinia.
+
+# 36. Live updates
+
+Use SSE for useful server-to-browser operational updates such as:
+
+* newly ingested counts
+* feed/job state
+* indexing backlog
+* processing progress
+
+Do not introduce WebSockets unless bidirectional realtime communication is actually needed.
+
+# 37. Jobs/operations dashboard
+
+Provide an operational UI that helps diagnose the pipeline.
+
+Show useful information such as:
+
+* Dramatiq/Redis queue backlog
+* failed jobs
+* indexing backlog
+* extraction failures
+* last successful feed fetch
+* feed errors
+* retries
+
+Allow safe retry/reprocessing actions.
+
+# 38. Exports
+
+Support CSV and JSON export.
+
+Small exports can be synchronous if reasonable.
+
+Large exports must run as asynchronous jobs rather than returning massive blocking HTTP responses.
+
+Provide status and downloadable result handling.
+
+# 39. Feed deletion behavior
+
+Removing a feed must not automatically delete its archived articles.
+
+Feed removal/disabling and article purging are separate operations.
+
+Provide an explicit purge workflow when deletion is really requested.
+
+Avoid adding deleted_at to every table without a concrete reason.
+
+# 40. Logging and observability
+
+Use structured JSON logging.
+
+Include useful contextual fields such as:
+
+* request/job ID
+* feed
+* article ID
+* job type
+* stage
+* error category
+
+Implement:
+
+* health endpoints
+* readiness endpoints
+* persisted feed errors/history
+* job failure visibility
+
+Do not add Prometheus/Grafana as mandatory containers in v1.
+
+Design the code so metrics can be added later.
+
+# 41. Configuration
+
+Use:
+
+.env
++
+typed Pydantic settings
++
+documented environment variables
+
+Never bake secrets into images or commit real secrets.
+
+Provide .env.example.
+
+Validate critical configuration at startup.
+
+# 42. Database migrations
+
+Use Alembic.
+
+Do not automatically let every application container race to run migrations on startup.
+
+Provide an explicit documented migration command/process.
+
+# 43. PostgreSQL integrity
+
+Use database constraints in addition to application validation.
+
+Use:
+
+* foreign keys
+* appropriate unique constraints
+* check constraints where meaningful
+
+Do not assume application code alone will preserve integrity.
+
+# 44. Bulk processing
+
+Use bulk operations where beneficial.
+
+Examples:
+
+* entity associations
+* keyword associations
+* Elasticsearch indexing batches
+* ingestion upserts
+
+Avoid one SQL transaction/query per entity or keyword when processing large batches.
+
+# 45. Backups
+
+Include documented Docker-friendly PostgreSQL backup and restore scripts/workflows.
+
+Also document what must be backed up for:
+
+* PostgreSQL
+* raw HTML/object storage
+* configuration
+
+Elasticsearch does not need to be part of the authoritative backup because it is rebuildable.
+
+# 46. Testing
+
+Maintain meaningful automated tests.
+
+Backend:
+
+* unit tests
+* API integration tests
+* ingestion pipeline tests
+* deduplication/canonicalization tests
+* job idempotency tests
+* search/indexing integration where practical
+
+Frontend:
+
+* important component tests
+* selected E2E flows
+
+Important E2E flows should eventually include:
+
+* login
+* add feed
+* ingest articles
+* search
+* filter
+* open article
+* save search
+* inspect analytics
+
+Do not chase meaningless coverage percentages.
+
+Test critical behavior and failure modes.
+
+# 47. Development quality
+
+Use:
+
+* formatting
+* linting
+* static typing
+* clear naming
+* concise documentation
+* predictable error handling
+
+Avoid giant files.
+
+Avoid unnecessary design patterns.
+
+Prefer domain boundaries and explicit code.
+
+Public interfaces should be documented where their purpose is not obvious.
+
+# 48. Developer workflow
+
+Document a simple workflow for:
+
+* starting the stack
+* stopping the stack
+* installing dependencies
+* running backend locally
+* running frontend locally
+* running migrations
+* creating the first user
+* running tests
+* formatting
+* linting
+* type checking
+* rebuilding Elasticsearch
+* running manual reprocessing
+* backing up PostgreSQL
+* restoring PostgreSQL
+
+The repository should feel straightforward for another developer or future Codex session to understand.
+
+# 49. Implementation strategy
+
+Do not attempt to implement every advanced feature in one giant change.
+
+Work in coherent vertical phases while keeping the repository runnable.
+
+Suggested sequence:
+
+Phase 1:
+
+* repository skeleton
+* Docker Compose
+* PostgreSQL
+* Redis
+* Elasticsearch
+* FastAPI
+* Vue
+* settings
+* migrations
+* auth
+* health checks
+
+Phase 2:
+
+* Feed models/API/UI
+* feed scheduler
+* RSS fetching
+* FeedFetch history
+* ETag/Last-Modified
+* basic article persistence
+* canonicalization/deduplication
+
+Phase 3:
+
+* background Dramatiq pipeline
+* article fetching
+* extraction
+* ArticleContent
+* retry/failure handling
+* operational job visibility
+
+Phase 4:
+
+* Elasticsearch indexing
+* search API
+* filters
+* highlighting
+* cursor pagination
+* article search UI
+
+Phase 5:
+
+* NLP processor framework
+* keywords
+* countries
+* entities
+* language processing
+* versioned NLP output
+
+Phase 6:
+
+* timeline
+* cross-filtering
+* URL investigation state
+* saved searches
+
+Phase 7:
+
+* story clustering
+* related stories
+* entity co-occurrence graph
+
+Phase 8:
+
+* Entity Trends
+* Source Comparison
+* Geographic Coverage
+
+Phase 9:
+
+* exports
+* reprocessing tools
+* backup/restore tooling
+* performance tuning
+* stronger E2E coverage
+
+If some ordering needs adjustment because of dependencies, do so while preserving the architecture.
+
+# 50. Performance mindset
+
+Do not prematurely optimize everything.
+
+However, always evaluate whether an implementation has an obvious pathological behavior at 5 million articles.
+
+Before accepting a major query path, consider:
+
+* query plan
+* index usage
+* pagination strategy
+* payload size
+* N+1 behavior
+* memory usage
+* whether computation belongs in PostgreSQL, Elasticsearch, or a worker
+
+Use realistic indexes from the beginning.
+
+Add comments/documentation around important scaling assumptions.
+
+# 51. Security baseline
+
+At minimum:
+
+* strong password hashing
+* secure session cookies
+* CSRF protection
+* SQL injection prevented through ORM/query APIs
+* SSRF protection
+* URL validation
+* secrets outside repository
+* non-root containers where reasonable
+* dependency hygiene
+* sensible CORS policy
+* strict input validation
+* no arbitrary shell execution from user input
+
+# 52. Important architectural principles
+
+Preserve these principles throughout the project:
+
+1. PostgreSQL is canonical.
+2. Elasticsearch is rebuildable.
+3. Ingestion must not depend on Elasticsearch being healthy.
+4. Background jobs must be retryable and idempotent.
+5. NLP must be replaceable and versioned.
+6. Analytics must be extensible.
+7. Article and story are different concepts.
+8. Source country and story country are different concepts.
+9. Search/filter state should be reusable and bookmarkable.
+10. Raw HTML must not bloat PostgreSQL.
+11. The core system must not require AI services.
+12. Docker Compose is the primary deployment target.
+13. Design for millions of articles without overengineering v1.
+14. Operational failures must be visible rather than silently swallowed.
+
+# 53. First action
+
+Before writing substantial code:
+
+1. inspect the existing repository if one exists
+2. report the current structure and anything that conflicts with this specification
+3. create or update a concise architectural README
+4. establish the monorepo skeleton
+5. create the Docker Compose development environment
+6. create the initial database models/migration foundation
+7. make the smallest end-to-end slice run successfully
+
+The first working vertical slice should demonstrate:
+
+RSS feed
+→ worker fetch
+→ PostgreSQL article
+→ Elasticsearch index
+→ FastAPI search
+→ Vue result
+
+Keep the system runnable after each phase.
+
+When implementing, make reasonable low-level decisions yourself. Do not repeatedly stop for trivial questions. Ask only when a decision would materially change the architecture, data model, security model, or product behavior described above.

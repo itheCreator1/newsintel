@@ -1,0 +1,46 @@
+import type { Article, CursorPage, Feed, FeedFetch } from './api-types'
+
+export interface User { id: string; username: string }
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/v1${path}`, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  })
+  if (!response.ok) throw new Error(response.status === 401 ? 'Invalid username or password' : 'Request failed')
+  return response.status === 204 ? undefined as T : response.json()
+}
+
+export const api = {
+  me: () => request<User>('/auth/me'),
+  login: async (username: string, password: string) => {
+    const { csrf_token } = await request<{ csrf_token: string }>('/auth/csrf')
+    return request<User>('/auth/login', {
+      method: 'POST', headers: { 'X-CSRF-Token': csrf_token }, body: JSON.stringify({ username, password }),
+    })
+  },
+  status: () => request<{ status: string }>('/health/ready'),
+  logout: async () => {
+    const { csrf_token } = await request<{ csrf_token: string }>('/auth/csrf')
+    return request<void>('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrf_token } })
+  },
+  feeds: (cursor?: string) => request<CursorPage<Feed>>(`/feeds${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  createFeed: (payload: { name: string; url: string; source_country?: string; expected_language?: string; tags?: string[]; poll_interval_minutes?: number }) => mutate<Feed>('/feeds', 'POST', payload),
+  updateFeed: (id: string, payload: Partial<Feed>) => mutate<Feed>(`/feeds/${id}`, 'PATCH', payload),
+  retireFeed: (id: string) => mutate<void>(`/feeds/${id}`, 'DELETE'),
+  pollFeed: (id: string) => mutate<{ fetch_id: string; status: string; reused: boolean }>(`/feeds/${id}/poll`, 'POST'),
+  fetches: (id: string, cursor?: string) => request<CursorPage<FeedFetch>>(`/feeds/${id}/fetches${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  articles: (feedId?: string, cursor?: string) => {
+    const params = new URLSearchParams()
+    if (feedId) params.set('feed_id', feedId)
+    if (cursor) params.set('cursor', cursor)
+    return request<CursorPage<Article>>(`/articles${params.size ? `?${params}` : ''}`)
+  },
+  article: (id: string) => request<Article>(`/articles/${id}`),
+}
+
+async function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const { csrf_token } = await request<{ csrf_token: string }>('/auth/csrf')
+  return request<T>(path, { method, headers: { 'X-CSRF-Token': csrf_token }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+}

@@ -1,0 +1,1 @@
+"""RSS feed ingestion domain."""
