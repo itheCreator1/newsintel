@@ -14,7 +14,7 @@ pytestmark = [
         os.getenv("NEWSINTEL_RUN_POSTGRES_TESTS") != "1",
         reason="requires the PostgreSQL fixture stack",
     ),
-    pytest.mark.asyncio(loop_scope="module"),
+    pytest.mark.asyncio(loop_scope="session"),
 ]
 
 
