@@ -43,7 +43,7 @@ async def reset_password(username: str) -> None:
     print(f"Reset password for {normalized} and revoked sessions")
 
 
-async def cleanup_storage(*, apply: bool, batch_size: int) -> None:
+async def cleanup_storage(*, apply: bool, batch_size: int, complete_sweep: bool) -> None:
     settings = get_settings()
     async with session_factory() as db:
         report = await cleanup_article_storage(
@@ -52,12 +52,15 @@ async def cleanup_storage(*, apply: bool, batch_size: int) -> None:
             minimum_age=timedelta(hours=settings.article_temporary_html_hours),
             apply=apply,
             batch_size=batch_size,
+            complete_sweep=complete_sweep,
         )
     mode = "apply" if apply else "dry-run"
     print(
         f"{mode}: scanned={report.scanned} eligible={report.eligible} "
         f"deleted={report.deleted} failed={report.failed}"
     )
+    for failure in report.failures:
+        print(f"failed object {failure.key}: {failure.error}")
 
 
 def main() -> None:
@@ -70,11 +73,18 @@ def main() -> None:
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
     parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--complete-sweep", action="store_true")
     args = parser.parse_args()
     if args.command == "cleanup-article-storage":
         if args.username or args.batch_size < 1 or args.batch_size > 5_000:
             parser.error("cleanup batch size must be between 1 and 5000")
-        asyncio.run(cleanup_storage(apply=args.apply, batch_size=args.batch_size))
+        asyncio.run(
+            cleanup_storage(
+                apply=args.apply,
+                batch_size=args.batch_size,
+                complete_sweep=args.complete_sweep,
+            )
+        )
         return
     if not args.username:
         parser.error("username is required")

@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.articles.storage_locks import lock_storage_keys
 from app.feeds.models import Article, ArticleContent, ArticleProcessingAttempt, ArticleProcessingJob
 
 ACTIVE_STATUSES = ("queued", "running", "retrying")
@@ -113,6 +114,12 @@ async def retry_processing(
         raise LookupError("processing job not found")
     if snapshot.status in ACTIVE_STATUSES:
         return snapshot, True
+
+    await lock_storage_keys(
+        db,
+        [snapshot.temporary_html_key] if snapshot.temporary_html_key else [],
+        shared=True,
+    )
 
     job, reused = await request_processing(db, snapshot.article_id, snapshot.requested_mode)
     if reused:
