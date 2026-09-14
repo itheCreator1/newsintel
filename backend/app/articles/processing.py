@@ -21,6 +21,7 @@ from app.feeds.models import (
 )
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.scheduling import next_retry_delay
+from app.search.service import request_indexing
 
 log = structlog.get_logger()
 
@@ -52,9 +53,7 @@ def _failure(exc: Exception) -> tuple[str, bool]:
     return "internal", False
 
 
-def delete_after_commit(
-    storage: LocalObjectStorage, key: str | None, *, article_id: str
-) -> bool:
+def delete_after_commit(storage: LocalObjectStorage, key: str | None, *, article_id: str) -> bool:
     if not key:
         return True
     try:
@@ -108,6 +107,7 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         else:
             job.status = "failed"
             job.completed_at = now
+        await request_indexing(db, job.article_id)
 
 
 async def process_claim(job_id: uuid.UUID, token: str) -> None:
@@ -174,6 +174,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                 job.claim_token = None
                 job.claim_expires_at = None
                 job.next_attempt_at = now
+                await request_indexing(db, job.article_id)
             return
         html = storage.get(temporary_key or "")
         if html is None:
@@ -207,6 +208,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                     job.temporary_html_key = None
                     job.claim_token = None
                     job.claim_expires_at = None
+                    await request_indexing(db, job.article_id)
             return
         extractor = TrafilaturaExtractor()
         text = extractor.extract(html)
@@ -268,6 +270,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
             job.claim_token = None
             job.claim_expires_at = None
             job.temporary_html_key = None
+            await request_indexing(db, job.article_id)
         if not retained_key:
             delete_after_commit(storage, temporary_key, article_id=str(job.article_id))
         if content is not None and old_html_key and old_html_key != retained_key:

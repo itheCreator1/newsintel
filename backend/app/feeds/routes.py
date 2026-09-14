@@ -29,6 +29,7 @@ from app.feeds.service import (
     decode_cursor,
     encode_cursor,
 )
+from app.search.service import request_source_refresh
 
 router = APIRouter(tags=["feeds"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -84,8 +85,14 @@ async def get_feed(feed_id: uuid.UUID, db: Db, _auth: Auth) -> Feed:
 @router.patch("/feeds/{feed_id}", response_model=FeedResponse)
 async def update_feed(feed_id: uuid.UUID, payload: FeedUpdate, db: Db, _mutation: Mutation) -> Feed:
     feed = await _active_feed(db, feed_id)
-    for key, value in payload.model_dump(exclude_unset=True, mode="json").items():
+    changes = payload.model_dump(exclude_unset=True, mode="json")
+    refresh_search = any(
+        key in changes and getattr(feed, key) != changes[key] for key in ("name", "source_country")
+    )
+    for key, value in changes.items():
         setattr(feed, key, value)
+    if refresh_search:
+        await request_source_refresh(db, feed.id)
     await db.commit()
     await db.refresh(feed)
     return feed

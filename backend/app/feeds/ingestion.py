@@ -17,6 +17,7 @@ from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.normalization import normalize_article_url, normalized_title_hash
 from app.feeds.scheduling import lease_is_current, next_retry_delay
+from app.search.service import request_indexing
 
 log = structlog.get_logger()
 
@@ -99,6 +100,8 @@ async def _persist_success(
                     await request_processing(db, article_id, feed.fetching_mode, automatic=True)
                 except ValueError:
                     pass
+            if discovery_id is not None:
+                await request_indexing(db, article_id)
         fetch.status = "success"
         fetch.attempt_count = attempt
         fetch.http_status = response_status

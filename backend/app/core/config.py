@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     article_host_min_interval_seconds: float = 1
     article_storage_path: str = "/var/lib/newsintel/articles"
     article_temporary_html_hours: int = 24
+    search_lease_seconds: int = 300
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":

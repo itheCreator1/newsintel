@@ -7,6 +7,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.articles.storage_locks import lock_storage_keys
 from app.feeds.models import Article, ArticleContent, ArticleProcessingAttempt, ArticleProcessingJob
+from app.search.service import request_indexing
 
 ACTIVE_STATUSES = ("queued", "running", "retrying")
 MODE_STRENGTH = {"full_text": 1, "full_text_html": 2}
@@ -43,6 +44,7 @@ async def request_processing(
     job = ArticleProcessingJob(article_id=article_id, requested_mode=requested_mode)
     db.add(job)
     await db.flush()
+    await request_indexing(db, article_id)
     return job, False
 
 
@@ -74,6 +76,7 @@ async def claim_due_job(
     job.claim_expires_at = now + timedelta(seconds=lease_seconds)
     job.status = "running"
     job.started_at = job.started_at or now
+    await request_indexing(db, job.article_id)
     await db.commit()
     return job, token
 

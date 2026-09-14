@@ -17,6 +17,13 @@ from app.feeds.models import (  # noqa: F401
     FeedArticle,
     FeedFetch,
 )
+from app.search.models import (  # noqa: F401
+    ArticleSearchState,
+    SearchDelivery,
+    SearchIndexTarget,
+    SearchRebuild,
+    SourceSearchRefresh,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
