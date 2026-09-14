@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.articles.extraction import EmptyExtraction, TrafilaturaExtractor
 from app.articles.service import start_attempt
 from app.articles.storage import LocalObjectStorage, ObjectStorageError
+from app.articles.storage_locks import lock_storage_keys
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.http import FeedTooLarge, fetch_page_http
@@ -127,7 +128,9 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
         article = await db.get(Article, job.article_id)
         if not article:
             return
-        await start_attempt(db, job)
+        attempt = await start_attempt(db, job)
+        if attempt is None:
+            return
         stage, url, temporary_key = job.stage, article.original_url, job.temporary_html_key
     try:
         if stage == "fetch":
@@ -141,6 +144,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                 raise ArticleHttpStatus(response.status_code, retry_after)
             new_key = storage.put(response.content)
             async with session_factory() as db, db.begin():
+                await lock_storage_keys(db, [new_key], shared=True)
                 job = await db.scalar(
                     select(ArticleProcessingJob)
                     .where(ArticleProcessingJob.id == job_id)
@@ -185,8 +189,22 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                     and job.claim_expires_at
                     and job.claim_expires_at > datetime.now(UTC)
                 ):
+                    attempt = await db.scalar(
+                        select(ArticleProcessingAttempt)
+                        .where(
+                            ArticleProcessingAttempt.job_id == job.id,
+                            ArticleProcessingAttempt.status == "running",
+                        )
+                        .order_by(ArticleProcessingAttempt.started_at.desc())
+                    )
+                    if attempt:
+                        attempt.status = "failed"
+                        attempt.error_category = "temporary_html_missing"
+                        attempt.error_message = "Temporary HTML object is missing"
+                        attempt.completed_at = datetime.now(UTC)
                     job.stage = "fetch"
                     job.status = "queued"
+                    job.temporary_html_key = None
                     job.claim_token = None
                     job.claim_expires_at = None
             return
@@ -196,6 +214,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
         now = datetime.now(UTC)
         old_html_key: str | None = None
         async with session_factory() as db, db.begin():
+            await lock_storage_keys(db, [temporary_key] if temporary_key else [], shared=True)
             job = await db.scalar(
                 select(ArticleProcessingJob)
                 .where(ArticleProcessingJob.id == job_id)

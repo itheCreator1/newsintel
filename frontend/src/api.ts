@@ -5,8 +5,8 @@ export interface User { id: string; username: string }
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!response.ok) throw new Error(response.status === 401 ? 'Invalid username or password' : 'Request failed')
   return response.status === 204 ? undefined as T : response.json()

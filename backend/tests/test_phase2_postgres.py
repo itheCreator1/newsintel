@@ -16,6 +16,7 @@ pytestmark = [
     ),
     pytest.mark.asyncio(loop_scope="session"),
 ]
+FIXTURE_PORT = os.getenv("NEWSINTEL_TEST_FIXTURE_PORT", "18080")
 
 
 async def _add_feed(name: str, url: str) -> uuid.UUID:
@@ -29,8 +30,10 @@ async def _add_feed(name: str, url: str) -> uuid.UUID:
 
 
 async def test_repeated_and_cross_feed_ingestion_deduplicates_but_preserves_provenance() -> None:
-    first = await _add_feed("Fixture one", "http://localhost:18080/feed.xml")
-    second = await _add_feed("Fixture two", "http://localhost:18080/feed-duplicate.xml")
+    first = await _add_feed("Fixture one", f"http://localhost:{FIXTURE_PORT}/feed.xml")
+    second = await _add_feed(
+        "Fixture two", f"http://localhost:{FIXTURE_PORT}/feed-duplicate.xml"
+    )
     fetch_ids: list[uuid.UUID] = []
     for feed_id in (first, first, second):
         async with session_factory() as db:
@@ -63,7 +66,9 @@ async def test_repeated_and_cross_feed_ingestion_deduplicates_but_preserves_prov
 
 
 async def test_failed_feed_can_be_corrected_and_repolled() -> None:
-    feed_id = await _add_feed("Broken fixture", "http://localhost:18080/malformed.xml")
+    feed_id = await _add_feed(
+        "Broken fixture", f"http://localhost:{FIXTURE_PORT}/malformed.xml"
+    )
     async with session_factory() as db:
         fetch, _ = await claim_feed(db, feed_id)  # type: ignore[misc]
     await ingest_claim(feed_id, fetch.claim_token)
@@ -72,7 +77,7 @@ async def test_failed_feed_can_be_corrected_and_repolled() -> None:
         assert failed is not None and failed.status == "failed"
         feed = await db.get(Feed, feed_id)
         assert feed is not None
-        feed.url = "http://localhost:18080/feed.xml"
+        feed.url = f"http://localhost:{FIXTURE_PORT}/feed.xml"
         await db.commit()
         recovered, _ = await claim_feed(db, feed_id)  # type: ignore[misc]
     await ingest_claim(feed_id, recovered.claim_token)

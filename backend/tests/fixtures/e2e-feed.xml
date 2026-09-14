@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>E2E News</title><link>http://fixture/</link>
+<description>Deterministic browser fixture</description><item><guid>e2e-story-1</guid>
+<title>Fixture story</title><link>http://fixture/article.html</link>
+<description>A deterministic story for the browser acceptance flow.</description>
+<pubDate>Sun, 13 Sep 2026 12:00:00 GMT</pubDate></item>
+<item><guid>e2e-story-recover</guid><title>Recoverable fixture story</title>
+<link>http://fixture/recover.html</link>
+<description>A story that succeeds only after its failed job is retried.</description>
+<pubDate>Sun, 13 Sep 2026 12:01:00 GMT</pubDate></item></channel></rss>

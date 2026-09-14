@@ -1,6 +1,15 @@
 import os
 import uuid
 from pathlib import Path
+from typing import Protocol
+
+
+class ObjectStorage(Protocol):
+    def put(self, content: bytes) -> str: ...
+
+    def get(self, key: str) -> bytes | None: ...
+
+    def delete(self, key: str) -> None: ...
 
 
 class ObjectStorageError(OSError):
