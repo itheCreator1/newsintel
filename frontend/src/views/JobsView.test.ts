@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/vue'
-import { VueQueryPlugin } from '@tanstack/vue-query'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/vue'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { api } from '../api'
 import JobsView from './JobsView.vue'
@@ -23,9 +23,17 @@ beforeEach(() => {
   vi.mocked(api.backlog).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 1 })
 })
 
+afterEach(cleanup)
+
+function renderJobs() {
+  return render(JobsView, {
+    global: { plugins: [[VueQueryPlugin, { queryClient: new QueryClient() }]] },
+  })
+}
+
 it('shows retry progress and prevents duplicate retry requests', async () => {
   vi.mocked(api.retryJob).mockReturnValue(new Promise(() => {}))
-  render(JobsView, { global: { plugins: [VueQueryPlugin] } })
+  renderJobs()
   const retry = await screen.findByRole('button', { name: 'Retry' })
 
   await fireEvent.click(retry)
@@ -36,9 +44,39 @@ it('shows retry progress and prevents duplicate retry requests', async () => {
 
 it('shows a retry failure without hiding the failed job', async () => {
   vi.mocked(api.retryJob).mockRejectedValue(new Error('failed'))
-  render(JobsView, { global: { plugins: [VueQueryPlugin] } })
+  renderJobs()
   await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
 
   expect(await screen.findByText('Could not retry the job.')).toBeTruthy()
   expect(screen.getAllByText('Broken article').length).toBeGreaterThan(0)
+})
+
+it('resets pagination when a filter changes', async () => {
+  vi.mocked(api.jobs)
+    .mockResolvedValueOnce({ items: [failedJob], next_cursor: 'next-page' })
+    .mockResolvedValue({ items: [failedJob], next_cursor: null })
+  renderJobs()
+  await fireEvent.click(await screen.findByRole('button', { name: 'Next page' }))
+  await vi.waitFor(() => expect(api.jobs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'next-page' })))
+  await fireEvent.update(screen.getByRole('combobox', { name: 'Stage' }), 'fetch')
+
+  await vi.waitFor(() => expect(api.jobs).toHaveBeenLastCalledWith({ stage: 'fetch', status: undefined, cursor: undefined }))
+})
+
+it('shows backlog loading and errors', async () => {
+  vi.mocked(api.backlog).mockReturnValue(new Promise(() => {}))
+  const rendered = renderJobs()
+  expect(screen.getByText('Loading backlog…')).toBeTruthy()
+  rendered.unmount()
+  vi.mocked(api.backlog).mockRejectedValue(new Error('offline'))
+  renderJobs()
+  expect(await screen.findByText('Could not load backlog.')).toBeTruthy()
+})
+
+it('shows successful retry feedback', async () => {
+  vi.mocked(api.retryJob).mockResolvedValue({ job_id: 'new-job', status: 'queued', reused: false })
+  renderJobs()
+  await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+
+  expect(await screen.findByText('Retry scheduled.')).toBeTruthy()
 })
