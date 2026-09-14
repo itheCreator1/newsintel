@@ -4,7 +4,12 @@ NewsIntel is a self-hosted foundation for collecting, searching, and investigati
 
 ## Architecture
 
-The Compose stack contains a Vue frontend, FastAPI API, Dramatiq worker, PostgreSQL, Redis, and Elasticsearch. The browser reaches only the frontend on `127.0.0.1:8080`; nginx serves the application and proxies `/api` to FastAPI. Application containers never run migrations automatically.
+The Compose stack contains a Vue frontend, FastAPI API, general and NLP Dramatiq workers, a
+scheduler, PostgreSQL, Redis, and Elasticsearch. The browser reaches only the frontend on
+`127.0.0.1:8080`; nginx serves the application and proxies `/api` to FastAPI. Application
+containers never run migrations automatically. The NLP worker has its own queue and defaults to
+one process with one execution thread, so CPU-heavy annotation cannot consume ingestion and
+extraction capacity.
 
 PostgreSQL also owns feed schedules and expiring claims. The `scheduler` service claims due feeds and hands them to Dramatiq. Workers fetch RSS or Atom, archive canonical articles and their per-feed discovery records, and update fetch history. This path has no Elasticsearch dependency.
 
@@ -44,6 +49,13 @@ ports, and named volumes; exercises migration upgrade/downgrade, real PostgreSQL
 Elasticsearch, scheduler and worker delivery, an index rebuild, browser search, and ingestion
 during an Elasticsearch outage. Failure logs and browser artifacts are retained under the printed
 `/tmp/newsintel-phase4-<pid>-<timestamp>` directory.
+
+Run the isolated Phase 5 gate with `sh infra/test-phase5.sh`. It uses unique Compose projects,
+ports, and named volumes; builds both the base and optional-NER images; rejects skipped database
+tests; and exercises migration rollback, NLP dispatch and reprocessing, search catch-up during an
+Elasticsearch outage, and browser annotation flows. It retains logs, query plans, measurements,
+and Playwright artifacts under the printed `/tmp/newsintel-phase5-<pid>-<timestamp>` directory on
+failure.
 
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
@@ -96,10 +108,75 @@ PostgreSQL before applying cleanup. Re-run migrations with
 `docker compose run --rm api alembic upgrade head`; Alembic uses `NEWSINTEL_DATABASE_URL`, including
 documented host and Compose credentials.
 
-NLP-derived filters, saved searches, investigation timelines, clustering, analytics, exports,
-complete structured operational logging, SSE updates, production backup restoration, and
-five-million-article performance certification remain later milestones. PostgreSQL remains
-authoritative and the ingestion/extraction path continues while Elasticsearch is absent.
+## NLP operations
+
+Apply the Phase 5 migration before starting the new worker:
+
+```sh
+docker compose run --rm api alembic upgrade head
+docker compose up -d --build api scheduler nlp-worker
+```
+
+The base image provides local Lingua language detection, YAKE keywords and keyphrases, and the
+checked-in ISO country lexicon without API keys or runtime downloads. Named-entity recognition is
+disabled visibly in this configuration. To install and enable the pinned CPU-oriented spaCy model,
+build and run the overlay:
+
+```sh
+docker compose -f compose.yaml -f compose.ner.yaml up -d --build nlp-worker
+```
+
+NLP input is limited to 1,000,000 characters and fails visibly instead of truncating. Each
+processor retries five times, beginning at 30 seconds and capped at 15 minutes. Keyword output and
+annotation API responses are bounded to 50 records, and archive reprocessing scans PostgreSQL in
+keyset batches of 100.
+
+Preview the initial archive backfill, then apply the reviewed selection:
+
+```sh
+docker compose run --rm nlp-worker python -m app.cli reprocess-nlp --all
+docker compose run --rm nlp-worker python -m app.cli reprocess-nlp --all --apply
+docker compose run --rm nlp-worker python -m app.cli nlp-status
+```
+
+Limit a run with `--processors language keywords countries entities`, repeated `--article-id`
+arguments, or a paired `--from-date` and `--to-date` UTC range. The apply command prints a run UUID. Resume
+an interrupted scan with
+`docker compose run --rm nlp-worker python -m app.cli resume-nlp-reprocessing RUN_ID`. Updating the
+global English stop words affects new processing immediately; use an explicit keywords
+reprocessing run to update existing annotations.
+
+After the initial backfill, create and cut over the schema-version-2 search index with
+`docker compose run --rm worker python -m app.cli rebuild-search`. Existing version-1 deliveries
+remain version-1 documents while the replacement is built. Ordinary searches remain available;
+annotation filters return a search-upgrade-required response until the active index supports them.
+Use `search-index-status` and `resume-search-rebuild REBUILD_ID` as described above.
+
+For recovery, inspect `docker compose logs scheduler nlp-worker api`. PostgreSQL leases recover
+abandoned claims and prevent expired workers from publishing. The Jobs page shows bounded failures
+and retries, including disabled, unsupported-language, and configuration outcomes. Fix a missing
+model by rebuilding the optional image, then retry the failed article or start a selected
+reprocessing run. Elasticsearch can remain stopped during ingestion, extraction, and NLP; restart
+it and resume or create a search rebuild to catch indexing up.
+
+To roll Phase 5 back, first stop `scheduler`, `nlp-worker`, and `api`. Restore or rebuild a
+schema-version-1 search index before serving the older application, then run
+`docker compose run --rm api alembic downgrade 0004`. This removes only Phase 5 annotations,
+processor state, NLP jobs, stop-word revisions, and reprocessing runs; canonical articles,
+extracted content, source provenance, and retained objects remain. Start the older application only
+after its database and search schemas agree.
+
+The 2026-09-15 isolated acceptance measurement processed a 58,000-character keyword input in
+0.328 seconds with 65.9 MiB maximum process RSS; the running NLP worker reported 112.4 MiB. The
+representative due-job query used `ix_nlp_jobs_due`, and current article entity retrieval used
+`ix_article_nlp_entities_current`. These observations establish bounded behavior for the tested
+fixture, not production capacity certification.
+
+Saved searches, investigation timelines, clustering, entity disambiguation, analytics,
+multilingual annotation models, broad operational reprocessing UI, complete structured operational
+logging, SSE updates, production backup restoration, and five-million-article performance
+certification remain later milestones. PostgreSQL remains authoritative and the
+ingestion/extraction/NLP path continues while Elasticsearch is absent.
 
 ## Deployment
 
