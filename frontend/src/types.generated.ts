@@ -4,179 +4,6 @@
  */
 
 export interface paths {
-    "/api/v1/health/live": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Live */
-        get: operations["live_api_v1_health_live_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/health/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Ready */
-        get: operations["ready_api_v1_health_ready_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/csrf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Csrf */
-        get: operations["csrf_api_v1_auth_csrf_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Login */
-        post: operations["login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Me */
-        get: operations["me_api_v1_auth_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["logout_api_v1_auth_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/feeds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Feeds */
-        get: operations["list_feeds_api_v1_feeds_get"];
-        put?: never;
-        /** Create Feed */
-        post: operations["create_feed_api_v1_feeds_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/feeds/{feed_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Feed */
-        get: operations["get_feed_api_v1_feeds__feed_id__get"];
-        put?: never;
-        post?: never;
-        /** Retire Feed */
-        delete: operations["retire_feed_api_v1_feeds__feed_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Feed */
-        patch: operations["update_feed_api_v1_feeds__feed_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/feeds/{feed_id}/poll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Poll Feed */
-        post: operations["poll_feed_api_v1_feeds__feed_id__poll_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/feeds/{feed_id}/fetches": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Fetches */
-        get: operations["list_fetches_api_v1_feeds__feed_id__fetches_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/articles": {
         parameters: {
             query?: never;
@@ -222,6 +49,179 @@ export interface paths {
         put?: never;
         /** Process Article Request */
         post: operations["process_article_request_api_v1_articles__article_id__process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/csrf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Csrf */
+        get: operations["csrf_api_v1_auth_csrf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Feeds */
+        get: operations["list_feeds_api_v1_feeds_get"];
+        put?: never;
+        /** Create Feed */
+        post: operations["create_feed_api_v1_feeds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/{feed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Feed */
+        get: operations["get_feed_api_v1_feeds__feed_id__get"];
+        put?: never;
+        post?: never;
+        /** Retire Feed */
+        delete: operations["retire_feed_api_v1_feeds__feed_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Feed */
+        patch: operations["update_feed_api_v1_feeds__feed_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/feeds/{feed_id}/fetches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Fetches */
+        get: operations["list_fetches_api_v1_feeds__feed_id__fetches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/{feed_id}/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll Feed */
+        post: operations["poll_feed_api_v1_feeds__feed_id__poll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live */
+        get: operations["live_api_v1_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ready */
+        get: operations["ready_api_v1_health_ready_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -296,65 +296,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Articles */
+        get: operations["search_articles_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/indexing/articles/{article_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Indexing */
+        post: operations["retry_indexing_api_v1_search_indexing_articles__article_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/indexing/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indexing Failures */
+        get: operations["indexing_failures_api_v1_search_indexing_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/indexing/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indexing Status */
+        get: operations["indexing_status_api_v1_search_indexing_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Sources */
+        get: operations["search_sources_api_v1_search_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** ArticleContentResponse */
         ArticleContentResponse: {
-            /** Text */
-            text: string;
-            /** Content Hash */
-            content_hash: string;
-            /** Previous Content Hash */
-            previous_content_hash: string | null;
             /** Change Count */
             change_count: number;
-            /** Extractor Name */
-            extractor_name: string;
-            /** Extractor Version */
-            extractor_version: string;
+            /** Content Hash */
+            content_hash: string;
             /**
              * Extracted At
              * Format: date-time
              */
             extracted_at: string;
+            /** Extractor Name */
+            extractor_name: string;
+            /** Extractor Version */
+            extractor_version: string;
+            /** Html Retained */
+            html_retained: boolean;
             /**
              * Last Content Change At
              * Format: date-time
              */
             last_content_change_at: string;
-            /** Html Retained */
-            html_retained: boolean;
+            /** Previous Content Hash */
+            previous_content_hash: string | null;
+            /** Text */
+            text: string;
         };
         /** ArticleDetailResponse */
         ArticleDetailResponse: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Original Url */
-            original_url: string;
-            /** Normalized Url */
-            normalized_url: string;
-            /** Title */
-            title: string;
-            /** Published At */
-            published_at: string | null;
+            content: components["schemas"]["ArticleContentResponse"] | null;
             /**
              * First Discovered At
              * Format: date-time
              */
             first_discovered_at: string;
-            /** Provenance */
-            provenance: components["schemas"]["ArticleProvenance"][];
-            content: components["schemas"]["ArticleContentResponse"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Original Url */
+            original_url: string;
             /** Processing */
             processing: components["schemas"]["ArticleJobSummary"][];
+            /** Provenance */
+            provenance: components["schemas"]["ArticleProvenance"][];
+            /** Published At */
+            published_at: string | null;
+            /** Title */
+            title: string;
         };
         /** ArticleJobSummary */
         ArticleJobSummary: {
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
             /**
              * Id
              * Format: uuid
@@ -366,17 +462,6 @@ export interface components {
             stage: string;
             /** Status */
             status: string;
-            /** Error Category */
-            error_category: string | null;
-            /** Error Message */
-            error_message: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Completed At */
-            completed_at: string | null;
         };
         /** ArticlePage */
         ArticlePage: {
@@ -387,6 +472,13 @@ export interface components {
         };
         /** ArticleProvenance */
         ArticleProvenance: {
+            /** Description */
+            description: string | null;
+            /**
+             * Discovered At
+             * Format: date-time
+             */
+            discovered_at: string;
             /**
              * Feed Id
              * Format: uuid
@@ -400,39 +492,42 @@ export interface components {
             title: string;
             /** Url */
             url: string;
-            /** Description */
-            description: string | null;
-            /**
-             * Discovered At
-             * Format: date-time
-             */
-            discovered_at: string;
         };
         /** ArticleResponse */
         ArticleResponse: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Original Url */
-            original_url: string;
-            /** Normalized Url */
-            normalized_url: string;
-            /** Title */
-            title: string;
-            /** Published At */
-            published_at: string | null;
             /**
              * First Discovered At
              * Format: date-time
              */
             first_discovered_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Original Url */
+            original_url: string;
             /** Provenance */
             provenance: components["schemas"]["ArticleProvenance"][];
+            /** Published At */
+            published_at: string | null;
+            /** Title */
+            title: string;
         };
         /** AttemptResponse */
         AttemptResponse: {
+            /** Attempt Number */
+            attempt_number: number;
+            /** Completed At */
+            completed_at: string | null;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Http Status */
+            http_status: number | null;
             /**
              * Id
              * Format: uuid
@@ -440,34 +535,24 @@ export interface components {
             id: string;
             /** Stage */
             stage: string;
-            /** Attempt Number */
-            attempt_number: number;
-            /** Status */
-            status: string;
-            /** Http Status */
-            http_status: number | null;
-            /** Error Category */
-            error_category: string | null;
-            /** Error Message */
-            error_message: string | null;
             /**
              * Started At
              * Format: date-time
              */
             started_at: string;
-            /** Completed At */
-            completed_at: string | null;
+            /** Status */
+            status: string;
         };
         /** BacklogResponse */
         BacklogResponse: {
-            /** Queued */
-            queued: number;
-            /** Running */
-            running: number;
-            /** Retrying */
-            retrying: number;
             /** Failed */
             failed: number;
+            /** Queued */
+            queued: number;
+            /** Retrying */
+            retrying: number;
+            /** Running */
+            running: number;
         };
         /** CsrfResponse */
         CsrfResponse: {
@@ -483,90 +568,90 @@ export interface components {
         };
         /** FeedCreate */
         FeedCreate: {
-            /** Name */
-            name: string;
-            /**
-             * Url
-             * Format: uri
-             */
-            url: string;
-            /** Source Country */
-            source_country?: string | null;
-            /** Expected Language */
-            expected_language?: string | null;
-            /** Tags */
-            tags?: string[];
             /**
              * Enabled
              * @default true
              */
             enabled: boolean;
-            /**
-             * Poll Interval Minutes
-             * @default 30
-             */
-            poll_interval_minutes: number;
+            /** Expected Language */
+            expected_language?: string | null;
             /**
              * Fetching Mode
              * @default rss
              * @enum {string}
              */
             fetching_mode: "rss" | "full_text" | "full_text_html";
+            /** Name */
+            name: string;
+            /**
+             * Poll Interval Minutes
+             * @default 30
+             */
+            poll_interval_minutes: number;
+            /** Source Country */
+            source_country?: string | null;
+            /** Tags */
+            tags?: string[];
+            /**
+             * Url
+             * Format: uri
+             */
+            url: string;
         };
         /** FeedResponse */
         FeedResponse: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Url */
-            url: string;
-            /** Source Country */
-            source_country: string | null;
-            /** Expected Language */
-            expected_language: string | null;
-            /** Tags */
-            tags: string[];
-            /** Enabled */
-            enabled: boolean;
-            /** Poll Interval Minutes */
-            poll_interval_minutes: number;
-            /** Fetching Mode */
-            fetching_mode: string;
-            /**
-             * Next Poll At
-             * Format: date-time
-             */
-            next_poll_at: string;
-            /** Last Success At */
-            last_success_at: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expected Language */
+            expected_language: string | null;
+            /** Fetching Mode */
+            fetching_mode: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Next Poll At
+             * Format: date-time
+             */
+            next_poll_at: string;
+            /** Poll Interval Minutes */
+            poll_interval_minutes: number;
+            /** Source Country */
+            source_country: string | null;
+            /** Tags */
+            tags: string[];
+            /** Url */
+            url: string;
         };
         /** FeedUpdate */
         FeedUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Url */
-            url?: string | null;
-            /** Source Country */
-            source_country?: string | null;
-            /** Expected Language */
-            expected_language?: string | null;
-            /** Tags */
-            tags?: string[] | null;
             /** Enabled */
             enabled?: boolean | null;
-            /** Poll Interval Minutes */
-            poll_interval_minutes?: number | null;
+            /** Expected Language */
+            expected_language?: string | null;
             /** Fetching Mode */
             fetching_mode?: ("rss" | "full_text" | "full_text_html") | null;
+            /** Name */
+            name?: string | null;
+            /** Poll Interval Minutes */
+            poll_interval_minutes?: number | null;
+            /** Source Country */
+            source_country?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Url */
+            url?: string | null;
         };
         /** FetchPage */
         FetchPage: {
@@ -577,46 +662,116 @@ export interface components {
         };
         /** FetchResponse */
         FetchResponse: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Feed Id
-             * Format: uuid
-             */
-            feed_id: string;
-            /** Status */
-            status: string;
             /** Attempt Count */
             attempt_count: number;
-            /** Http Status */
-            http_status: number | null;
+            /** Completed At */
+            completed_at: string | null;
             /** Duration Ms */
             duration_ms: number | null;
             /** Entry Count */
             entry_count: number;
-            /** Invalid Entry Count */
-            invalid_entry_count: number;
-            /** New Article Count */
-            new_article_count: number;
             /** Error Category */
             error_category: string | null;
             /** Error Message */
             error_message: string | null;
             /**
+             * Feed Id
+             * Format: uuid
+             */
+            feed_id: string;
+            /** Http Status */
+            http_status: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Invalid Entry Count */
+            invalid_entry_count: number;
+            /** New Article Count */
+            new_article_count: number;
+            /**
              * Started At
              * Format: date-time
              */
             started_at: string;
-            /** Completed At */
-            completed_at: string | null;
+            /** Status */
+            status: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HighlightSegment */
+        HighlightSegment: {
+            /**
+             * Marked
+             * @default false
+             */
+            marked: boolean;
+            /** Text */
+            text: string;
+        };
+        /** IndexFailure */
+        IndexFailure: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Index Name */
+            index_name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** IndexFailurePage */
+        IndexFailurePage: {
+            /** Items */
+            items: components["schemas"]["IndexFailure"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** IndexStatus */
+        IndexStatus: {
+            /** Active Rebuild */
+            active_rebuild?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Queued
+             * @default 0
+             */
+            queued: number;
+            /**
+             * Retrying
+             * @default 0
+             */
+            retrying: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
         };
         /** JobPage */
         JobPage: {
@@ -628,53 +783,50 @@ export interface components {
         /** JobResponse */
         JobResponse: {
             /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
              * Article Id
              * Format: uuid
              */
             article_id: string;
             /** Article Title */
             article_title: string;
-            /** Requested Mode */
-            requested_mode: string;
-            /** Stage */
-            stage: string;
-            /** Status */
-            status: string;
-            /** Error Category */
-            error_category: string | null;
-            /** Error Message */
-            error_message: string | null;
+            /** Attempts */
+            attempts?: components["schemas"]["AttemptResponse"][];
+            /** Completed At */
+            completed_at: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Started At */
-            started_at: string | null;
-            /** Completed At */
-            completed_at: string | null;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /**
              * Next Attempt At
              * Format: date-time
              */
             next_attempt_at: string;
-            /**
-             * Attempts
-             * @default []
-             */
-            attempts: components["schemas"]["AttemptResponse"][];
+            /** Requested Mode */
+            requested_mode: string;
+            /** Stage */
+            stage: string;
+            /** Started At */
+            started_at: string | null;
+            /** Status */
+            status: string;
         };
         /** LoginRequest */
         LoginRequest: {
-            /** Username */
-            username: string;
             /** Password */
             password: string;
+            /** Username */
+            username: string;
         };
         /** PollResponse */
         PollResponse: {
@@ -683,10 +835,10 @@ export interface components {
              * Format: uuid
              */
             fetch_id: string;
-            /** Status */
-            status: string;
             /** Reused */
             reused: boolean;
+            /** Status */
+            status: string;
         };
         /** ProcessRequest */
         ProcessRequest: {
@@ -704,10 +856,66 @@ export interface components {
              * Format: uuid
              */
             job_id: string;
-            /** Status */
-            status: string;
             /** Reused */
             reused: boolean;
+            /** Status */
+            status: string;
+        };
+        /** RetryIndexResponse */
+        RetryIndexResponse: {
+            /** Status */
+            status: string;
+        };
+        /** SearchPage */
+        SearchPage: {
+            /** Items */
+            items: components["schemas"]["SearchResult"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** SearchResult */
+        SearchResult: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Distinct Source Count */
+            distinct_source_count: number;
+            /**
+             * Effective Date
+             * Format: date-time
+             */
+            effective_date: string;
+            /** Highlights */
+            highlights: components["schemas"]["HighlightSegment"][];
+            /** Sources */
+            sources: string[];
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string;
+        };
+        /** SearchSource */
+        SearchSource: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Retired */
+            retired: boolean;
+            /** Source Country */
+            source_country: string | null;
+        };
+        /** SearchSourcePage */
+        SearchSourcePage: {
+            /** Items */
+            items: components["schemas"]["SearchSource"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** UserResponse */
         UserResponse: {
@@ -721,16 +929,16 @@ export interface components {
         };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -741,9 +949,13 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    live_api_v1_health_live_get: {
+    list_articles_api_v1_articles_get: {
         parameters: {
-            query?: never;
+            query?: {
+                feed_id?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -756,18 +968,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["ArticlePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    ready_api_v1_health_ready_get: {
+    get_article_api_v1_articles__article_id__get: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                article_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -778,9 +999,53 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["ArticleDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    process_article_request_api_v1_articles__article_id__process_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -840,26 +1105,6 @@ export interface operations {
             };
         };
     };
-    me_api_v1_auth_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-        };
-    };
     logout_api_v1_auth_logout_post: {
         parameters: {
             query?: never;
@@ -885,6 +1130,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
                 };
             };
         };
@@ -1055,39 +1320,6 @@ export interface operations {
             };
         };
     };
-    poll_feed_api_v1_feeds__feed_id__poll_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-            };
-            path: {
-                feed_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PollResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_fetches_api_v1_feeds__feed_id__fetches_get: {
         parameters: {
             query?: {
@@ -1122,13 +1354,42 @@ export interface operations {
             };
         };
     };
-    list_articles_api_v1_articles_get: {
+    poll_feed_api_v1_feeds__feed_id__poll_post: {
         parameters: {
-            query?: {
-                feed_id?: string | null;
-                cursor?: string | null;
-                limit?: number;
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
             };
+            path: {
+                feed_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PollResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    live_api_v1_health_live_get: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1141,27 +1402,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticlePage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
         };
     };
-    get_article_api_v1_articles__article_id__get: {
+    ready_api_v1_health_ready_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                article_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1172,53 +1424,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleDetailResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    process_article_request_api_v1_articles__article_id__process_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-            };
-            path: {
-                article_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProcessRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProcessResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
         };
@@ -1329,6 +1537,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_articles_api_v1_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                sort?: "relevance" | "newest" | "oldest" | "most_sources";
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_indexing_api_v1_search_indexing_articles__article_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryIndexResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    indexing_failures_api_v1_search_indexing_failures_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexFailurePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    indexing_status_api_v1_search_indexing_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexStatus"];
+                };
+            };
+        };
+    };
+    search_sources_api_v1_search_sources_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchSourcePage"];
                 };
             };
             /** @description Validation Error */
