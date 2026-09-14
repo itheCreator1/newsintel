@@ -129,8 +129,9 @@ async def retry_job(job_id: uuid.UUID, db: Db, _mutation: Mutation) -> ProcessRe
     if old.status in ACTIVE_STATUSES:
         return ProcessResponse(job_id=old.id, status=old.status, reused=True)
     job, reused = await request_processing(db, old.article_id, old.requested_mode)
-    job.stage = old.stage
-    job.temporary_html_key = old.temporary_html_key
-    old.temporary_html_key = None
+    if not reused:
+        job.stage = old.stage
+        job.temporary_html_key = old.temporary_html_key
+        old.temporary_html_key = None
     await db.commit()
     return ProcessResponse(job_id=job.id, status=job.status, reused=reused)
