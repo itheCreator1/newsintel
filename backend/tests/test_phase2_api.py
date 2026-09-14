@@ -42,3 +42,15 @@ def test_mutation_routes_document_csrf_header() -> None:
     operation = schema["paths"]["/api/v1/feeds"]["post"]
     headers = [parameter for parameter in operation["parameters"] if parameter["in"] == "header"]
     assert any(parameter["name"] == "X-CSRF-Token" for parameter in headers)
+
+
+def test_phase_five_annotation_routes_are_present_in_openapi() -> None:
+    paths = create_app().openapi()["paths"]
+    assert "get" in paths["/api/v1/articles/{article_id}/annotations"]
+    assert "post" in paths["/api/v1/articles/{article_id}/nlp/reprocess"]
+    assert "get" in paths["/api/v1/nlp/status"]
+    assert "get" in paths["/api/v1/nlp/failures"]
+    assert "post" in paths["/api/v1/nlp/jobs/{job_id}/retry"]
+    assert {"get", "put"} <= set(paths["/api/v1/nlp/stop-words"])
+    assert "get" in paths["/api/v1/nlp/entities"]
+    assert "get" in paths["/api/v1/nlp/keywords"]

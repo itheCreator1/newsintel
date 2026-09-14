@@ -27,3 +27,17 @@ def test_query_parser_rejects_actionable_invalid_syntax(value: str) -> None:
 def test_source_field_accepts_uuid() -> None:
     source_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
     assert parse_query(f"source:{source_id}").source_values == [str(source_id)]
+
+
+def test_query_parser_supports_annotation_fields_without_changing_source_country() -> None:
+    parsed = parse_query(
+        'entity:"United Nations" keyword:energy language:en '
+        "story_country:fr mentioned_country:de country:gr"
+    )
+
+    assert parsed.entity_values == ["United Nations"]
+    assert parsed.keyword_values == ["energy"]
+    assert parsed.languages == ["en"]
+    assert parsed.story_countries == ["FR"]
+    assert parsed.mentioned_countries == ["DE"]
+    assert parsed.countries == ["GR"]

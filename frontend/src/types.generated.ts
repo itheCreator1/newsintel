@@ -38,6 +38,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/articles/{article_id}/annotations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Article Annotations */
+        get: operations["article_annotations_api_v1_articles__article_id__annotations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles/{article_id}/nlp/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reprocess Article */
+        post: operations["reprocess_article_api_v1_articles__article_id__nlp_reprocess_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/articles/{article_id}/process": {
         parameters: {
             query?: never;
@@ -296,6 +330,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nlp/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entity Lookup */
+        get: operations["entity_lookup_api_v1_nlp_entities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nlp/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nlp Failures */
+        get: operations["nlp_failures_api_v1_nlp_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nlp/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Nlp Job */
+        post: operations["retry_nlp_job_api_v1_nlp_jobs__job_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nlp/keywords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Keyword Lookup */
+        get: operations["keyword_lookup_api_v1_nlp_keywords_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nlp/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nlp Status */
+        get: operations["nlp_status_api_v1_nlp_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nlp/stop-words": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Stop Words */
+        get: operations["get_stop_words_api_v1_nlp_stop_words_get"];
+        /** Put Stop Words */
+        put: operations["put_stop_words_api_v1_nlp_stop_words_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -385,6 +522,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnnotationLookupItem */
+        AnnotationLookupItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Normalized Text */
+            normalized_text: string;
+            /** Text */
+            text: string;
+        };
+        /** AnnotationLookupPage */
+        AnnotationLookupPage: {
+            /** Items */
+            items: components["schemas"]["AnnotationLookupItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ArticleAnnotationsResponse */
+        ArticleAnnotationsResponse: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Capabilities */
+            capabilities: components["schemas"]["CapabilityResponse"][];
+            /** Countries */
+            countries: components["schemas"]["CountryAnnotationResponse"][];
+            /** Entities */
+            entities: components["schemas"]["EntityAnnotationResponse"][];
+            /** Keywords */
+            keywords: components["schemas"]["KeywordAnnotationResponse"][];
+            language: components["schemas"]["LanguageAnnotationResponse"] | null;
+            /** Processors */
+            processors: components["schemas"]["ProcessorOutcomeResponse"][];
+            /** Source Countries */
+            source_countries: string[];
+        };
         /** ArticleContentResponse */
         ArticleContentResponse: {
             /** Change Count */
@@ -554,6 +733,34 @@ export interface components {
             /** Running */
             running: number;
         };
+        /** CapabilityResponse */
+        CapabilityResponse: {
+            /** Detail */
+            detail?: string | null;
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Version */
+            version?: string | null;
+        };
+        /** CountryAnnotationResponse */
+        CountryAnnotationResponse: {
+            /** Country Code */
+            country_code: string;
+            /** Fresh */
+            fresh: boolean;
+            /** Inferred */
+            inferred: boolean;
+            /** Occurrence Count */
+            occurrence_count: number;
+            /** Occurrences */
+            occurrences: components["schemas"]["OccurrenceResponse"][];
+            /** Role */
+            role: string;
+            /** Rule Version */
+            rule_version: string;
+        };
         /** CsrfResponse */
         CsrfResponse: {
             /** Csrf Token */
@@ -565,6 +772,30 @@ export interface components {
             items: components["schemas"]["FeedResponse"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** EntityAnnotationResponse */
+        EntityAnnotationResponse: {
+            /** Entity Type */
+            entity_type: string;
+            /** Fresh */
+            fresh: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Normalized Text */
+            normalized_text: string;
+            /** Occurrence Count */
+            occurrence_count: number;
+            /** Occurrences */
+            occurrences: components["schemas"]["OccurrenceResponse"][];
+            /** Original Label */
+            original_label: string | null;
+            /** Relevance */
+            relevance: number;
+            /** Text */
+            text: string;
         };
         /** FeedCreate */
         FeedCreate: {
@@ -821,12 +1052,131 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** KeywordAnnotationResponse */
+        KeywordAnnotationResponse: {
+            /** Fresh */
+            fresh: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Normalized Text */
+            normalized_text: string;
+            /** Occurrence Count */
+            occurrence_count: number;
+            /** Occurrences */
+            occurrences: components["schemas"]["OccurrenceResponse"][];
+            /** Raw Score */
+            raw_score: number;
+            /** Relevance */
+            relevance: number;
+            /** Text */
+            text: string;
+        };
+        /** LanguageAnnotationResponse */
+        LanguageAnnotationResponse: {
+            /** Confidence */
+            confidence: number;
+            /** Fresh */
+            fresh: boolean;
+            /** Language */
+            language: string;
+            /** Margin */
+            margin: number;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Password */
             password: string;
             /** Username */
             username: string;
+        };
+        /** NlpFailurePage */
+        NlpFailurePage: {
+            /** Items */
+            items: components["schemas"]["NlpFailureResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** NlpFailureResponse */
+        NlpFailureResponse: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Processor */
+            processor: string;
+        };
+        /** NlpMutationResponse */
+        NlpMutationResponse: {
+            /** Jobs Created */
+            jobs_created: number;
+            /** Status */
+            status: string;
+        };
+        /** NlpStatusResponse */
+        NlpStatusResponse: {
+            /** Capabilities */
+            capabilities: components["schemas"]["CapabilityResponse"][];
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Queued
+             * @default 0
+             */
+            queued: number;
+            /** Reprocessing */
+            reprocessing: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Retrying
+             * @default 0
+             */
+            retrying: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+        };
+        /** OccurrenceResponse */
+        OccurrenceResponse: {
+            /** End */
+            end: number;
+            /** Input End */
+            input_end: number;
+            /** Input Start */
+            input_start: number;
+            /** Reference Id */
+            reference_id: string | null;
+            /** Section */
+            section: string;
+            /** Start */
+            start: number;
         };
         /** PollResponse */
         PollResponse: {
@@ -860,6 +1210,36 @@ export interface components {
             reused: boolean;
             /** Status */
             status: string;
+        };
+        /** ProcessorOutcomeResponse */
+        ProcessorOutcomeResponse: {
+            /** Algorithm Version */
+            algorithm_version?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Completed Generation */
+            completed_generation: number;
+            /** Configuration Fingerprint */
+            configuration_fingerprint: string;
+            /** Detail */
+            detail?: string | null;
+            /** Input Fingerprint */
+            input_fingerprint: string;
+            /** Model Version */
+            model_version?: string | null;
+            /** Processor */
+            processor: string;
+            /** Processor Version */
+            processor_version: string;
+            /** Requested Generation */
+            requested_generation: number;
+            /** Status */
+            status: string;
+        };
+        /** ReprocessRequest */
+        ReprocessRequest: {
+            /** Processors */
+            processors?: string[];
         };
         /** RetryIndexResponse */
         RetryIndexResponse: {
@@ -916,6 +1296,24 @@ export interface components {
             items: components["schemas"]["SearchSource"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** StopWordsResponse */
+        StopWordsResponse: {
+            /** Configuration Fingerprint */
+            configuration_fingerprint: string;
+            /** Language */
+            language: string;
+            /** Revision */
+            revision: number;
+            /** Words */
+            words: string[];
+        };
+        /** StopWordsUpdate */
+        StopWordsUpdate: {
+            /** Current Revision */
+            current_revision: number;
+            /** Words */
+            words: string[];
         };
         /** UserResponse */
         UserResponse: {
@@ -1000,6 +1398,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArticleDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    article_annotations_api_v1_articles__article_id__annotations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleAnnotationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reprocess_article_api_v1_articles__article_id__nlp_reprocess_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReprocessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NlpMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -1550,6 +2016,212 @@ export interface operations {
             };
         };
     };
+    entity_lookup_api_v1_nlp_entities_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnotationLookupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nlp_failures_api_v1_nlp_failures_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NlpFailurePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_nlp_job_api_v1_nlp_jobs__job_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NlpMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    keyword_lookup_api_v1_nlp_keywords_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnotationLookupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    nlp_status_api_v1_nlp_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NlpStatusResponse"];
+                };
+            };
+        };
+    };
+    get_stop_words_api_v1_nlp_stop_words_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StopWordsResponse"];
+                };
+            };
+        };
+    };
+    put_stop_words_api_v1_nlp_stop_words_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StopWordsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StopWordsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     search_articles_api_v1_search_get: {
         parameters: {
             query?: {
@@ -1560,6 +2232,12 @@ export interface operations {
                 before?: string | null;
                 content_available?: boolean | null;
                 processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
                 sort?: "relevance" | "newest" | "oldest" | "most_sources";
                 limit?: number;
                 cursor?: string | null;

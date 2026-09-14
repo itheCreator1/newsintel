@@ -25,6 +25,38 @@ class ProvenanceDocument:
 
 
 @dataclass(frozen=True)
+class EntityDocument:
+    entity_id: uuid.UUID
+    entity_type: str
+    text: str
+    normalized_text: str
+
+    def to_payload(self) -> dict[str, str]:
+        return {
+            "id": str(self.entity_id),
+            "type": self.entity_type,
+            "text": self.text,
+            "normalized_text": self.normalized_text,
+        }
+
+
+@dataclass(frozen=True)
+class KeywordDocument:
+    keyword_id: uuid.UUID
+    kind: str
+    text: str
+    normalized_text: str
+
+    def to_payload(self) -> dict[str, str]:
+        return {
+            "id": str(self.keyword_id),
+            "kind": self.kind,
+            "text": self.text,
+            "normalized_text": self.normalized_text,
+        }
+
+
+@dataclass(frozen=True)
 class ArticleDocument:
     article_id: uuid.UUID
     title: str
@@ -35,10 +67,15 @@ class ArticleDocument:
     content_available: bool
     processing_status: str | None
     provenance: list[ProvenanceDocument]
+    detected_language: str | None = None
+    entities: list[EntityDocument] | None = None
+    keywords: list[KeywordDocument] | None = None
+    primary_story_country: str | None = None
+    mentioned_countries: list[str] | None = None
 
-    def to_index_payload(self) -> dict[str, Any]:
+    def to_index_payload(self, *, schema_version: int = 1) -> dict[str, Any]:
         sources = {item.source_id for item in self.provenance}
-        return {
+        payload: dict[str, Any] = {
             "article_id": str(self.article_id),
             "title": self.title,
             "descriptions": [plain_text(value) for value in self.descriptions if value],
@@ -51,6 +88,22 @@ class ArticleDocument:
             "distinct_source_count": len(sources),
             "provenance": [item.to_payload() for item in self.provenance],
         }
+        if schema_version >= 2:
+            entities = self.entities or []
+            keywords = self.keywords or []
+            payload.update(
+                {
+                    "detected_language": self.detected_language,
+                    "entities": [item.to_payload() for item in entities],
+                    "entity_text": [item.text for item in entities],
+                    "keywords": [item.to_payload() for item in keywords],
+                    "keyword_ids": [str(item.keyword_id) for item in keywords],
+                    "keyword_text": [item.text for item in keywords],
+                    "primary_story_country": self.primary_story_country,
+                    "mentioned_countries": sorted(set(self.mentioned_countries or [])),
+                }
+            )
+        return payload
 
 
 ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
@@ -87,6 +140,46 @@ ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
                         "normalizer": "lowercase_normalizer",
                     },
                     "source_country": {"type": "keyword"},
+                },
+            },
+        },
+    },
+}
+
+ARTICLE_INDEX_SETTINGS_V2: dict[str, Any] = {
+    "settings": ARTICLE_INDEX_SETTINGS["settings"],
+    "mappings": {
+        "dynamic": "strict",
+        "properties": {
+            **ARTICLE_INDEX_SETTINGS["mappings"]["properties"],
+            "detected_language": {"type": "keyword"},
+            "entity_text": {"type": "text", "analyzer": "standard"},
+            "keyword_text": {"type": "text", "analyzer": "standard"},
+            "keyword_ids": {"type": "keyword"},
+            "primary_story_country": {"type": "keyword"},
+            "mentioned_countries": {"type": "keyword"},
+            "entities": {
+                "type": "nested",
+                "properties": {
+                    "id": {"type": "keyword"},
+                    "type": {"type": "keyword"},
+                    "text": {"type": "text", "analyzer": "standard"},
+                    "normalized_text": {
+                        "type": "keyword",
+                        "normalizer": "lowercase_normalizer",
+                    },
+                },
+            },
+            "keywords": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "keyword"},
+                    "kind": {"type": "keyword"},
+                    "text": {"type": "text", "analyzer": "standard"},
+                    "normalized_text": {
+                        "type": "keyword",
+                        "normalizer": "lowercase_normalizer",
+                    },
                 },
             },
         },

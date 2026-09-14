@@ -79,6 +79,26 @@ async def current_stop_words(db: AsyncSession, language: str = "en") -> StopWord
     return revision
 
 
+async def update_stop_words(
+    db: AsyncSession, *, language: str, current_revision: int, words: list[str]
+) -> StopWordRevision:
+    current = await current_stop_words(db, language)
+    if current.revision != current_revision:
+        raise ValueError("stop-word revision has changed; reload before saving")
+    normalized = sorted(
+        {word.strip().casefold() for word in words if word.strip() and word.strip().isalpha()}
+    )
+    revision = StopWordRevision(
+        language=language,
+        revision=current.revision + 1,
+        words=normalized,
+        configuration_fingerprint=stop_words_fingerprint(normalized),
+    )
+    db.add(revision)
+    await db.flush()
+    return revision
+
+
 async def load_input_document(db: AsyncSession, article_id: uuid.UUID) -> InputDocument:
     article = await db.scalar(
         select(Article)

@@ -4,7 +4,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.search.documents import ArticleDocument, ProvenanceDocument
+from app.search.documents import (
+    ArticleDocument,
+    EntityDocument,
+    KeywordDocument,
+    ProvenanceDocument,
+)
 from app.search.elasticsearch import BulkDocument, ElasticsearchAdapter, OversizedDocument
 from app.search.indexing import result_outcome
 
@@ -78,3 +83,30 @@ def test_bulk_results_distinguish_conflicts_transient_and_permanent_failures() -
     assert result_outcome(429) == "transient"
     assert result_outcome(503) == "transient"
     assert result_outcome(400) == "permanent"
+
+
+def test_article_document_serializes_annotations_only_for_schema_version_two() -> None:
+    document = ArticleDocument(
+        article_id=uuid.uuid4(),
+        title="France energy policy",
+        descriptions=[],
+        body=None,
+        published_at=None,
+        first_discovered_at=datetime(2026, 9, 14, tzinfo=UTC),
+        content_available=False,
+        processing_status=None,
+        provenance=[],
+        detected_language="en",
+        entities=[EntityDocument(uuid.uuid4(), "ORG", "European Union", "european union")],
+        keywords=[KeywordDocument(uuid.uuid4(), "keyphrase", "energy policy", "energy policy")],
+        primary_story_country="FR",
+        mentioned_countries=["FR", "DE"],
+    )
+
+    assert "detected_language" not in document.to_index_payload(schema_version=1)
+    payload = document.to_index_payload(schema_version=2)
+    assert payload["detected_language"] == "en"
+    assert payload["entity_text"] == ["European Union"]
+    assert payload["keyword_text"] == ["energy policy"]
+    assert payload["primary_story_country"] == "FR"
+    assert payload["mentioned_countries"] == ["DE", "FR"]

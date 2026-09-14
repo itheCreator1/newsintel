@@ -10,7 +10,7 @@ from app.feeds.models import Article, Feed, FeedArticle
 from app.nlp.execution import process_job
 from app.nlp.models import ArticleLanguageAnnotation, ArticleNlpState, NlpJob
 from app.nlp.reprocessing import create_reprocessing_run, scan_reprocessing
-from app.nlp.service import claim_job, request_article_nlp
+from app.nlp.service import claim_job, current_stop_words, request_article_nlp, update_stop_words
 
 pytestmark = [
     pytest.mark.skipif(
@@ -213,3 +213,41 @@ async def test_reprocessing_run_resumes_with_a_bounded_keyset_cursor() -> None:
             ).all()
         )
     assert len(jobs) == 2
+
+
+async def test_stop_word_revision_requeues_keywords_without_touching_other_processors() -> None:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Energy markets and policy changes in a detailed English report",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("language", "keywords"))
+        current = await current_stop_words(db)
+        unique_word = "revision" + "".join(
+            chr(ord("a") + byte % 26) for byte in uuid.uuid4().bytes
+        )
+        await update_stop_words(
+            db,
+            language="en",
+            current_revision=current.revision,
+            words=[*current.words, unique_word],
+        )
+        assert (
+            await request_article_nlp(db, article.id, processor_names=("keywords",)) == 1
+        )
+        article_id = article.id
+
+    async with session_factory() as db:
+        states = list(
+            (
+                await db.scalars(
+                    select(ArticleNlpState).where(ArticleNlpState.article_id == article_id)
+                )
+            ).all()
+        )
+    generations = {state.processor_name: state.requested_generation for state in states}
+    assert generations == {"language": 1, "keywords": 2}

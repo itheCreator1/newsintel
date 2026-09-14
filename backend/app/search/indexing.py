@@ -8,7 +8,20 @@ from sqlalchemy.orm import selectinload
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article, FeedArticle
-from app.search.documents import ArticleDocument, ProvenanceDocument
+from app.nlp.models import (
+    ArticleCountryAnnotation,
+    ArticleEntity,
+    ArticleKeyword,
+    ArticleLanguageAnnotation,
+    Entity,
+    Keyword,
+)
+from app.search.documents import (
+    ArticleDocument,
+    EntityDocument,
+    KeywordDocument,
+    ProvenanceDocument,
+)
 from app.search.elasticsearch import (
     BulkDocument,
     ElasticsearchAdapter,
@@ -33,7 +46,7 @@ def result_outcome(status: int) -> Outcome:
 
 async def _load_document(
     delivery_id: uuid.UUID,
-) -> tuple[SearchDelivery, str, ArticleDocument] | None:
+) -> tuple[SearchDelivery, str, int, ArticleDocument] | None:
     async with session_factory() as db, db.begin():
         await db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         delivery = await db.get(SearchDelivery, delivery_id)
@@ -51,6 +64,42 @@ async def _load_document(
         )
         if target is None or article is None:
             return None
+        language = await db.scalar(
+            select(ArticleLanguageAnnotation).where(
+                ArticleLanguageAnnotation.article_id == article.id,
+                ArticleLanguageAnnotation.is_current.is_(True),
+            )
+        )
+        entity_rows = (
+            await db.execute(
+                select(ArticleEntity, Entity)
+                .join(Entity)
+                .where(
+                    ArticleEntity.article_id == article.id,
+                    ArticleEntity.is_current.is_(True),
+                )
+            )
+        ).all()
+        keyword_rows = (
+            await db.execute(
+                select(ArticleKeyword, Keyword)
+                .join(Keyword)
+                .where(
+                    ArticleKeyword.article_id == article.id,
+                    ArticleKeyword.is_current.is_(True),
+                )
+            )
+        ).all()
+        country_rows = list(
+            (
+                await db.scalars(
+                    select(ArticleCountryAnnotation).where(
+                        ArticleCountryAnnotation.article_id == article.id,
+                        ArticleCountryAnnotation.is_current.is_(True),
+                    )
+                )
+            ).all()
+        )
         latest_job = max(article.processing_jobs, key=lambda job: job.created_at, default=None)
         document = ArticleDocument(
             article_id=article.id,
@@ -65,9 +114,29 @@ async def _load_document(
                 ProvenanceDocument(item.feed.id, item.feed.name, item.feed.source_country)
                 for item in article.discoveries
             ],
+            detected_language=language.language if language else None,
+            entities=[
+                EntityDocument(
+                    value.id,
+                    value.entity_type,
+                    value.display_text,
+                    value.normalized_text,
+                )
+                for _, value in entity_rows
+            ],
+            keywords=[
+                KeywordDocument(value.id, value.kind, value.display_text, value.normalized_text)
+                for _, value in keyword_rows
+            ],
+            primary_story_country=next(
+                (value.country_code for value in country_rows if value.role == "primary"), None
+            ),
+            mentioned_countries=[
+                value.country_code for value in country_rows if value.role == "mentioned"
+            ],
         )
         db.expunge(delivery)
-        return delivery, target.index_name, document
+        return delivery, target.index_name, target.schema_version, document
 
 
 async def _acknowledge(
@@ -110,7 +179,7 @@ async def process_delivery(delivery_id: str, claim_token: str) -> None:
     loaded = await _load_document(parsed_id)
     if loaded is None:
         return
-    delivery, index_name, document = loaded
+    delivery, index_name, schema_version, document = loaded
     if delivery.claim_token != claim_token:
         return
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
@@ -121,7 +190,7 @@ async def process_delivery(delivery_id: str, claim_token: str) -> None:
                 BulkDocument(
                     str(document.article_id),
                     delivery.requested_revision,
-                    document.to_index_payload(),
+                    document.to_index_payload(schema_version=schema_version),
                 )
             ],
         )

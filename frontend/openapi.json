@@ -1,6 +1,136 @@
 {
   "components": {
     "schemas": {
+      "AnnotationLookupItem": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "kind"
+        ],
+        "title": "AnnotationLookupItem",
+        "type": "object"
+      },
+      "AnnotationLookupPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnnotationLookupItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AnnotationLookupPage",
+        "type": "object"
+      },
+      "ArticleAnnotationsResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/CountryAnnotationResponse"
+            },
+            "title": "Countries",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAnnotationResponse"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "keywords": {
+            "items": {
+              "$ref": "#/components/schemas/KeywordAnnotationResponse"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LanguageAnnotationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "processors": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessorOutcomeResponse"
+            },
+            "title": "Processors",
+            "type": "array"
+          },
+          "source_countries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Countries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "article_id",
+          "source_countries",
+          "language",
+          "keywords",
+          "entities",
+          "countries",
+          "processors",
+          "capabilities"
+        ],
+        "title": "ArticleAnnotationsResponse",
+        "type": "object"
+      },
       "ArticleContentResponse": {
         "properties": {
           "change_count": {
@@ -465,6 +595,92 @@
         "title": "BacklogResponse",
         "type": "object"
       },
+      "CapabilityResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "CapabilityResponse",
+        "type": "object"
+      },
+      "CountryAnnotationResponse": {
+        "properties": {
+          "country_code": {
+            "title": "Country Code",
+            "type": "string"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "inferred": {
+            "title": "Inferred",
+            "type": "boolean"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country_code",
+          "role",
+          "inferred",
+          "rule_version",
+          "occurrence_count",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "CountryAnnotationResponse",
+        "type": "object"
+      },
       "CsrfResponse": {
         "properties": {
           "csrf_token": {
@@ -504,6 +720,70 @@
           "next_cursor"
         ],
         "title": "CursorPage",
+        "type": "object"
+      },
+      "EntityAnnotationResponse": {
+        "properties": {
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "original_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Label"
+          },
+          "relevance": {
+            "title": "Relevance",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "entity_type",
+          "original_label",
+          "occurrence_count",
+          "relevance",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "EntityAnnotationResponse",
         "type": "object"
       },
       "FeedCreate": {
@@ -1227,6 +1507,91 @@
         "title": "JobResponse",
         "type": "object"
       },
+      "KeywordAnnotationResponse": {
+        "properties": {
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "raw_score": {
+            "title": "Raw Score",
+            "type": "number"
+          },
+          "relevance": {
+            "title": "Relevance",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "kind",
+          "occurrence_count",
+          "raw_score",
+          "relevance",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "KeywordAnnotationResponse",
+        "type": "object"
+      },
+      "LanguageAnnotationResponse": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "margin": {
+            "title": "Margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "language",
+          "confidence",
+          "margin",
+          "fresh"
+        ],
+        "title": "LanguageAnnotationResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "password": {
@@ -1247,6 +1612,202 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "NlpFailurePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NlpFailureResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "NlpFailurePage",
+        "type": "object"
+      },
+      "NlpFailureResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "processor": {
+            "title": "Processor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "processor",
+          "attempt_count",
+          "error_category",
+          "error_message",
+          "created_at"
+        ],
+        "title": "NlpFailureResponse",
+        "type": "object"
+      },
+      "NlpMutationResponse": {
+        "properties": {
+          "jobs_created": {
+            "title": "Jobs Created",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobs_created"
+        ],
+        "title": "NlpMutationResponse",
+        "type": "object"
+      },
+      "NlpStatusResponse": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "default": 0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "reprocessing": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Reprocessing",
+            "type": "array"
+          },
+          "retrying": {
+            "default": 0,
+            "title": "Retrying",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "capabilities",
+          "reprocessing"
+        ],
+        "title": "NlpStatusResponse",
+        "type": "object"
+      },
+      "OccurrenceResponse": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "input_end": {
+            "title": "Input End",
+            "type": "integer"
+          },
+          "input_start": {
+            "title": "Input Start",
+            "type": "integer"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Id"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "section",
+          "reference_id",
+          "start",
+          "end",
+          "input_start",
+          "input_end"
+        ],
+        "title": "OccurrenceResponse",
         "type": "object"
       },
       "PollResponse": {
@@ -1310,6 +1871,109 @@
           "reused"
         ],
         "title": "ProcessResponse",
+        "type": "object"
+      },
+      "ProcessorOutcomeResponse": {
+        "properties": {
+          "algorithm_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithm Version"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_generation": {
+            "title": "Completed Generation",
+            "type": "integer"
+          },
+          "configuration_fingerprint": {
+            "title": "Configuration Fingerprint",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "input_fingerprint": {
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "processor": {
+            "title": "Processor",
+            "type": "string"
+          },
+          "processor_version": {
+            "title": "Processor Version",
+            "type": "string"
+          },
+          "requested_generation": {
+            "title": "Requested Generation",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "processor",
+          "status",
+          "requested_generation",
+          "completed_generation",
+          "processor_version",
+          "configuration_fingerprint",
+          "input_fingerprint"
+        ],
+        "title": "ProcessorOutcomeResponse",
+        "type": "object"
+      },
+      "ReprocessRequest": {
+        "properties": {
+          "processors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Processors",
+            "type": "array"
+          }
+        },
+        "title": "ReprocessRequest",
         "type": "object"
       },
       "RetryIndexResponse": {
@@ -1473,6 +2137,60 @@
           "next_cursor"
         ],
         "title": "SearchSourcePage",
+        "type": "object"
+      },
+      "StopWordsResponse": {
+        "properties": {
+          "configuration_fingerprint": {
+            "title": "Configuration Fingerprint",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "language",
+          "revision",
+          "words",
+          "configuration_fingerprint"
+        ],
+        "title": "StopWordsResponse",
+        "type": "object"
+      },
+      "StopWordsUpdate": {
+        "properties": {
+          "current_revision": {
+            "minimum": 1.0,
+            "title": "Current Revision",
+            "type": "integer"
+          },
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5000,
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_revision",
+          "words"
+        ],
+        "title": "StopWordsUpdate",
         "type": "object"
       },
       "UserResponse": {
@@ -1660,6 +2378,118 @@
         "summary": "Get Article",
         "tags": [
           "feeds"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}/annotations": {
+      "get": {
+        "operationId": "article_annotations_api_v1_articles__article_id__annotations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAnnotationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Article Annotations",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}/nlp/reprocess": {
+      "post": {
+        "operationId": "reprocess_article_api_v1_articles__article_id__nlp_reprocess_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReprocessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reprocess Article",
+        "tags": [
+          "nlp"
         ]
       }
     },
@@ -2567,6 +3397,367 @@
         ]
       }
     },
+    "/api/v1/nlp/entities": {
+      "get": {
+        "operationId": "entity_lookup_api_v1_nlp_entities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationLookupPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Lookup",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/failures": {
+      "get": {
+        "operationId": "nlp_failures_api_v1_nlp_failures_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpFailurePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Nlp Failures",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_nlp_job_api_v1_nlp_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Nlp Job",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/keywords": {
+      "get": {
+        "operationId": "keyword_lookup_api_v1_nlp_keywords_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationLookupPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Keyword Lookup",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/status": {
+      "get": {
+        "operationId": "nlp_status_api_v1_nlp_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Nlp Status",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/stop-words": {
+      "get": {
+        "operationId": "get_stop_words_api_v1_nlp_stop_words_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopWordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Stop Words",
+        "tags": [
+          "nlp"
+        ]
+      },
+      "put": {
+        "operationId": "put_stop_words_api_v1_nlp_stop_words_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopWordsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopWordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Stop Words",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
     "/api/v1/search": {
       "get": {
         "operationId": "search_articles_api_v1_search_get",
@@ -2687,6 +3878,122 @@
                 }
               ],
               "title": "Processing Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "keyword_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Keyword Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mentioned_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mentioned Country"
             }
           },
           {

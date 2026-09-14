@@ -18,6 +18,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.feeds.service import decode_cursor, encode_cursor
+from app.nlp.models import Entity, Keyword
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.query import SearchSyntaxError, parse_query
@@ -135,6 +136,26 @@ async def _resolve_sources(db: AsyncSession, values: list[str]) -> list[str]:
     return sorted(resolved)
 
 
+async def _resolve_annotations(
+    db: AsyncSession, values: list[str], model: type[Entity] | type[Keyword]
+) -> list[str]:
+    resolved: set[str] = set()
+    names: list[str] = []
+    for value in values:
+        try:
+            resolved.add(str(uuid.UUID(value)))
+        except ValueError:
+            names.append(" ".join(value.casefold().split()))
+    if names:
+        resolved.update(
+            str(value)
+            for value in (
+                await db.scalars(select(model.id).where(model.normalized_text.in_(names)))
+            ).all()
+        )
+    return sorted(resolved)
+
+
 @router.get("/search", response_model=SearchPage)
 async def search_articles(
     db: Db,
@@ -147,6 +168,12 @@ async def search_articles(
     before: date | None = None,
     content_available: bool | None = None,
     processing_status: Annotated[list[str] | None, Query()] = None,
+    language: Annotated[list[str] | None, Query()] = None,
+    entity_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    entity_type: Annotated[list[str] | None, Query()] = None,
+    keyword_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    story_country: Annotated[list[str] | None, Query()] = None,
+    mentioned_country: Annotated[list[str] | None, Query()] = None,
     sort: Sort = "relevance",
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     cursor: str | None = None,
@@ -162,6 +189,26 @@ async def search_articles(
         }
     )
     countries = sorted({value.upper() for value in source_country or []} | set(parsed.countries))
+    languages = sorted({value.casefold() for value in language or []} | set(parsed.languages))
+    entity_ids = sorted(
+        {
+            *(str(value) for value in entity_id or []),
+            *(await _resolve_annotations(db, parsed.entity_values, Entity)),
+        }
+    )
+    keyword_ids = sorted(
+        {
+            *(str(value) for value in keyword_id or []),
+            *(await _resolve_annotations(db, parsed.keyword_values, Keyword)),
+        }
+    )
+    entity_types = sorted({value.upper() for value in entity_type or []})
+    story_countries = sorted(
+        {value.upper() for value in story_country or []} | set(parsed.story_countries)
+    )
+    mentioned_countries = sorted(
+        {value.upper() for value in mentioned_country or []} | set(parsed.mentioned_countries)
+    )
     start, end = after or parsed.after, before or parsed.before
     criteria = {
         "q": q.strip(),
@@ -171,12 +218,28 @@ async def search_articles(
         "before": str(end or ""),
         "content": content_available,
         "processing": sorted(processing_status or []),
+        "languages": languages,
+        "entities": entity_ids,
+        "entity_types": entity_types,
+        "keywords": keyword_ids,
+        "story_countries": story_countries,
+        "mentioned_countries": mentioned_countries,
         "sort": sort,
         "limit": limit,
     }
     criteria_hash = hashlib.sha256(json.dumps(criteria, sort_keys=True).encode()).hexdigest()
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     search_after: list[Any] | None = None
+    annotation_search = bool(
+        languages
+        or entity_ids
+        or entity_types
+        or keyword_ids
+        or story_countries
+        or mentioned_countries
+        or parsed.entity_values
+        or parsed.keyword_values
+    )
     try:
         if cursor:
             cursor_data = _read_cursor(cursor, settings.secret_key)
@@ -190,15 +253,33 @@ async def search_articles(
                     409, {"code": "restart_search", "message": "Search snapshot expired"}
                 )
             pit_id, search_after = cursor_data["pit"], cursor_data["after"]
+            schema_version = int(cursor_data.get("schema", 1))
         else:
-            pit_id = await adapter.open_point_in_time(ALIAS)
+            current_target = await db.scalar(
+                select(SearchIndexTarget).where(SearchIndexTarget.role == "current").limit(1)
+            )
+            schema_version = current_target.schema_version if current_target else 1
+            if annotation_search and schema_version < 2:
+                raise HTTPException(
+                    409,
+                    {
+                        "code": "search_upgrade_required",
+                        "message": "Rebuild search to schema version 2 to use annotation filters",
+                    },
+                )
+            pit_id = await adapter.open_point_in_time(
+                current_target.index_name if current_target else ALIAS
+            )
+        text_fields = ["title^3", "descriptions", "body"]
+        if schema_version >= 2:
+            text_fields.extend(["entity_text", "keyword_text"])
         must: list[dict[str, Any]] = []
         for term in parsed.terms:
             must.append(
                 {
                     "multi_match": {
                         "query": term,
-                        "fields": ["title^3", "descriptions", "body"],
+                        "fields": text_fields,
                         "operator": "and",
                     }
                 }
@@ -208,7 +289,7 @@ async def search_articles(
                 {
                     "multi_match": {
                         "query": phrase,
-                        "fields": ["title^3", "descriptions", "body"],
+                        "fields": text_fields,
                         "type": "phrase",
                     }
                 }
@@ -234,6 +315,23 @@ async def search_articles(
             filters.append({"term": {"content_available": content_available}})
         if processing_status:
             filters.append({"terms": {"processing_status": processing_status}})
+        if languages:
+            filters.append({"terms": {"detected_language": languages}})
+        entity_must: list[dict[str, Any]] = []
+        if entity_ids or parsed.entity_values:
+            entity_must.append({"terms": {"entities.id": entity_ids}})
+        if entity_types:
+            entity_must.append({"terms": {"entities.type": entity_types}})
+        if entity_must:
+            filters.append(
+                {"nested": {"path": "entities", "query": {"bool": {"must": entity_must}}}}
+            )
+        if keyword_ids or parsed.keyword_values:
+            filters.append({"terms": {"keyword_ids": keyword_ids}})
+        if story_countries:
+            filters.append({"terms": {"primary_story_country": story_countries}})
+        if mentioned_countries:
+            filters.append({"terms": {"mentioned_countries": mentioned_countries}})
         sort_clause: list[Any] = {
             "relevance": [{"_score": "desc"}, {"effective_date": "desc"}],
             "newest": [{"effective_date": "desc"}],
@@ -254,7 +352,12 @@ async def search_articles(
                 "provenance",
             ],
             "highlight": {
-                "fields": {"title": {}, "descriptions": {}, "body": {}},
+                "fields": {
+                    "title": {},
+                    "descriptions": {},
+                    "body": {},
+                    **({"entity_text": {}, "keyword_text": {}} if schema_version >= 2 else {}),
+                },
                 "pre_tags": ["\ue000"],
                 "post_tags": ["\ue001"],
                 "fragment_size": 220,
@@ -298,6 +401,7 @@ async def search_articles(
             "session": str(session.id),
             "criteria": criteria_hash,
             "expires": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
+            "schema": schema_version,
         }
         next_cursor = _sign_cursor(payload, settings.secret_key)
     return SearchPage(items=items, next_cursor=next_cursor)
