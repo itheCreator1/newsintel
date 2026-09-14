@@ -39,6 +39,12 @@ detail after worker recreation. The runner also verified deterministic 200/404/5
 kept Elasticsearch stopped, and compared retained HTML plus PostgreSQL content before and after
 worker recreation.
 
+Run the isolated Phase 4 gate with `sh infra/test-phase4.sh`. It uses its own Compose project,
+ports, and named volumes; exercises migration upgrade/downgrade, real PostgreSQL, Redis,
+Elasticsearch, scheduler and worker delivery, an index rebuild, browser search, and ingestion
+during an Elasticsearch outage. Failure logs and browser artifacts are retained under the printed
+`/tmp/newsintel-phase4-<pid>-<timestamp>` directory.
+
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
 ## Feed polling configuration
@@ -52,6 +58,24 @@ Feeds in `full_text` mode enqueue article fetching and extraction. `full_text_ht
 If polling stalls, check `docker compose logs scheduler worker api`, confirm Redis and PostgreSQL health, and inspect the source's fetch history. Security rejections usually mean DNS resolved to a non-public address. Timeouts, `429`, and server errors retry up to three times; the next normal cycle remains scheduled after failure. Elasticsearch may be stopped while ingesting and browsing RSS entries.
 
 If article processing stalls, confirm the worker command includes `app.jobs.articles`, inspect Jobs for queued/retrying/failed stages, and retry terminal failures there. Configure article downloads with `NEWSINTEL_ARTICLE_TIMEOUT_SECONDS`, `NEWSINTEL_ARTICLE_MAX_RESPONSE_BYTES`, `NEWSINTEL_ARTICLE_REDIRECT_LIMIT`, and `NEWSINTEL_ARTICLE_HOST_MIN_INTERVAL_SECONDS`.
+
+## Search index operations
+
+After applying the Phase 4 migration and recreating `worker` and `scheduler`, initialize search with
+`docker compose run --rm worker python -m app.cli rebuild-search`. The command creates a uniquely
+named schema-versioned index, registers it as a delivery target, scans PostgreSQL in bounded
+keyset batches, and prints its rebuild UUID. Check progress with
+`docker compose run --rm worker python -m app.cli search-index-status`; resume an interrupted or
+catching-up rebuild with `docker compose run --rm worker python -m app.cli resume-search-rebuild REBUILD_ID`.
+
+Cutover waits for the scan, source refreshes, and replacement-index deliveries to finish, then
+refreshes the replacement and atomically switches `articles-current`. If a process stops during
+cutover, resume the same UUID; recovery checks the actual alias before acknowledging completion.
+The prior index is retained. Inspect Elasticsearch indices and the alias before deleting a retained
+index manually. The Jobs page reports indexing backlog and bounded failures and provides a
+CSRF-protected per-article retry. Indexing requests default to at most 100 documents and 5 MiB;
+oversized documents remain visible failures. This milestone records bounded behavior and does not
+certify a five-million-article deployment.
 
 Clean abandoned temporary article objects with
 `docker compose run --rm worker python -m app.cli cleanup-article-storage --dry-run`.
@@ -72,10 +96,10 @@ PostgreSQL before applying cleanup. Re-run migrations with
 `docker compose run --rm api alembic upgrade head`; Alembic uses `NEWSINTEL_DATABASE_URL`, including
 documented host and Compose credentials.
 
-Phase 4 search remains deferred. This Phase 3 gate does not certify five-million-article scale,
-later NLP/investigation/clustering/analytics/export phases, complete structured operational
-logging, SSE updates, or production backup restoration. PostgreSQL remains authoritative and the
-tested ingestion/extraction path runs with Elasticsearch absent.
+NLP-derived filters, saved searches, investigation timelines, clustering, analytics, exports,
+complete structured operational logging, SSE updates, production backup restoration, and
+five-million-article performance certification remain later milestones. PostgreSQL remains
+authoritative and the ingestion/extraction path continues while Elasticsearch is absent.
 
 ## Deployment
 

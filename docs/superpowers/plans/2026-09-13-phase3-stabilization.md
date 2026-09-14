@@ -226,3 +226,15 @@ Create a separate search implementation plan after the Phase 3 gate passes. This
 Avoid inventing unsupported data: current articles lack detected language, primary-story/mentioned-country annotations, entities, keywords, and story clusters. Prepare extension points, but add their functional filters when Phases 5 and 7 supply canonical data. Define popularity ranking against an actual measurable signal rather than fabricating it. Full URL investigations/saved searches remain Phase 6.
 
 After search: Phase 5 NLP → Phase 6 investigations/timeline → Phase 7 clustering/graph → Phase 8 the three analytics modules → Phase 9 exports, broader reprocessing, backups, and performance validation. Track earlier-phase compliance gaps alongside this roadmap so they are not forgotten.
+
+### Phase 4 evidence — 2026-09-14
+
+Phase 4 implemented durable PostgreSQL indexing intent, external-versioned Elasticsearch delivery,
+resumable alias-based rebuilds, authenticated PIT cursor search, safe structured highlights, the
+Search page, and indexing controls. On 2026-09-14, `infra/test-phase4.sh` passed 71 backend tests
+against PostgreSQL with no skips, migration upgrade/downgrade/upgrade, live Redis, Elasticsearch,
+scheduler and worker delivery, ingestion and extraction while Elasticsearch was stopped, recovery,
+rebuild cutover, and browser search/detail. The separate Phase 3 regression gate also passed 70
+backend tests with no skips, Ruff, mypy, 16 frontend tests, type checking, production build, and
+both browser scenarios. This does not change the historical Phase 3 findings above or certify
+production-scale performance. NLP and investigation features remain in their later milestones.

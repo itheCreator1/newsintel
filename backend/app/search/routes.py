@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -91,8 +92,11 @@ async def search_sources(
     if q.strip():
         query = query.where(Feed.name.ilike(f"%{q.strip()}%"))
     if cursor:
-        name, raw_id = base64.urlsafe_b64decode(cursor).decode().split("|", 1)
-        item_id = uuid.UUID(raw_id)
+        try:
+            name, raw_id = base64.urlsafe_b64decode(cursor).decode().split("|", 1)
+            item_id = uuid.UUID(raw_id)
+        except (binascii.Error, UnicodeDecodeError, ValueError) as exc:
+            raise HTTPException(422, "Invalid source cursor; restart source selection") from exc
         query = query.where(or_(Feed.name > name, and_(Feed.name == name, Feed.id > item_id)))
     rows = list((await db.scalars(query.limit(limit + 1))).all())
     next_cursor = None

@@ -6,7 +6,7 @@ import { api } from '../api'
 import JobsView from './JobsView.vue'
 
 vi.mock('../api', () => ({
-  api: { jobs: vi.fn(), backlog: vi.fn(), retryJob: vi.fn() },
+  api: { jobs: vi.fn(), backlog: vi.fn(), retryJob: vi.fn(), indexingStatus: vi.fn(), indexingFailures: vi.fn(), retryIndexing: vi.fn() },
 }))
 
 const failedJob = {
@@ -21,6 +21,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.jobs).mockResolvedValue({ items: [failedJob], next_cursor: null })
   vi.mocked(api.backlog).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 1 })
+  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 2, running: 0, retrying: 1, failed: 1, active_rebuild: null })
+  vi.mocked(api.indexingFailures).mockResolvedValue({ items: [{ id: 'failure-one', article_id: 'article-one', index_name: 'articles-v1', attempt_count: 3, error_category: 'document', error_message: 'too large', updated_at: '2026-09-14T12:00:00Z' }], next_cursor: null })
 })
 
 afterEach(cleanup)
@@ -79,4 +81,13 @@ it('shows successful retry feedback', async () => {
   await fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
 
   expect(await screen.findByText('Retry scheduled.')).toBeTruthy()
+})
+
+it('shows indexing backlog and retries a failed article', async () => {
+  vi.mocked(api.retryIndexing).mockResolvedValue({ status: 'queued' })
+  renderJobs()
+  expect(await screen.findByText('Search indexing')).toBeTruthy()
+  await fireEvent.click(await screen.findByRole('button', { name: 'Retry indexing' }))
+  expect(api.retryIndexing).toHaveBeenCalledWith('article-one')
+  expect(await screen.findByText('Indexing retry scheduled.')).toBeTruthy()
 })

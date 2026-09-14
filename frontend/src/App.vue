@@ -41,7 +41,7 @@ async function signOut() {
     </section>
   </main>
   <div v-else class="shell">
-    <aside><h1>NewsIntel</h1><nav aria-label="Main navigation"><RouterLink to="/">Overview</RouterLink><RouterLink to="/sources">Sources</RouterLink><RouterLink to="/articles">Articles</RouterLink><RouterLink to="/jobs">Jobs</RouterLink></nav><button class="secondary signout" @click="signOut">Sign out</button></aside>
+    <aside><h1>NewsIntel</h1><nav aria-label="Main navigation"><RouterLink to="/">Overview</RouterLink><RouterLink to="/sources">Sources</RouterLink><RouterLink to="/articles">Articles</RouterLink><RouterLink to="/search">Search</RouterLink><RouterLink to="/jobs">Jobs</RouterLink></nav><button class="secondary signout" @click="signOut">Sign out</button></aside>
     <main class="dashboard">
       <RouterView />
     </main>

@@ -84,6 +84,31 @@ async def test_source_refresh_requests_are_deduplicated_while_active() -> None:
         assert count == 1
 
 
+async def test_index_intent_does_not_requeue_retained_indices() -> None:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Retained target",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        retained = SearchIndexTarget(
+            index_name=f"articles-v1-{uuid.uuid4()}", schema_version=1, role="retained"
+        )
+        db.add_all([article, retained])
+        await db.flush()
+        await request_indexing(db, article.id)
+        retained_id, article_id = retained.id, article.id
+    async with session_factory() as db:
+        delivery = await db.scalar(
+            select(SearchDelivery).where(
+                SearchDelivery.target_id == retained_id,
+                SearchDelivery.article_id == article_id,
+            )
+        )
+        assert delivery is None
+
+
 async def test_source_refresh_advances_with_a_bounded_article_cursor() -> None:
     async with session_factory() as db, db.begin():
         feed = Feed(

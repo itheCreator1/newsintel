@@ -16,7 +16,7 @@ describe('application shell', () => {
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy()
   })
 
-  it('offers routed source, article, and job management after sign in', async () => {
+  it('offers routed source, article, search, and job management after sign in', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
       if (path.endsWith('/auth/me')) return new Response(JSON.stringify({ id: '1', username: 'admin' }))
@@ -28,6 +28,7 @@ describe('application shell', () => {
     render(App, { global: { plugins: [VueQueryPlugin, router] } })
     expect(await screen.findByRole('link', { name: 'Sources' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Articles' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Jobs' })).toBeTruthy()
   })
 })

@@ -31,6 +31,7 @@ async def create_rebuild() -> uuid.UUID:
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
     await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS)
     async with session_factory() as db, db.begin():
+        await db.execute(text("SELECT pg_advisory_xact_lock(728341904)"))
         active = await db.scalar(
             select(SearchRebuild.id).where(SearchRebuild.active_key == "active")
         )
@@ -95,6 +96,7 @@ async def scan_rebuild(rebuild_id: uuid.UUID, *, batch_size: int = 500) -> int:
 
 async def try_cutover(rebuild_id: uuid.UUID) -> bool:
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+    alias_indices = await adapter.alias_indices(ALIAS)
     async with session_factory() as db, db.begin():
         await db.execute(text("SELECT pg_advisory_xact_lock(728341904)"))
         rebuild = await db.scalar(
@@ -105,12 +107,6 @@ async def try_cutover(rebuild_id: uuid.UUID) -> bool:
         target = await db.get(SearchIndexTarget, rebuild.target_id)
         if target is None:
             raise LookupError("search target not found")
-        if target.index_name in await adapter.alias_indices(ALIAS) and rebuild.cutover_intent_at:
-            rebuild.status = "completed"
-            rebuild.active_key = None
-            rebuild.completed_at = datetime.now(UTC)
-            target.role = "current"
-            return True
         outstanding = await db.scalar(
             select(func.count())
             .select_from(SearchDelivery)
@@ -128,10 +124,38 @@ async def try_cutover(rebuild_id: uuid.UUID) -> bool:
         if rebuild.status == "scanning" or outstanding or refreshes:
             return False
         rebuild.cutover_intent_at = datetime.now(UTC)
-        await db.flush()
-        previous = await adapter.alias_indices(ALIAS)
-        await adapter.refresh(target.index_name)
-        await adapter.switch_alias(ALIAS, target.index_name, previous)
+        index_name = target.index_name
+
+    if index_name not in alias_indices:
+        await adapter.refresh(index_name)
+        await adapter.switch_alias(ALIAS, index_name, alias_indices)
+
+    async with session_factory() as db, db.begin():
+        await db.execute(text("SELECT pg_advisory_xact_lock(728341904)"))
+        rebuild = await db.scalar(
+            select(SearchRebuild).where(SearchRebuild.id == rebuild_id).with_for_update()
+        )
+        if rebuild is None:
+            raise LookupError("search rebuild not found")
+        target = await db.get(SearchIndexTarget, rebuild.target_id)
+        if target is None:
+            raise LookupError("search target not found")
+        outstanding = await db.scalar(
+            select(func.count())
+            .select_from(SearchDelivery)
+            .where(
+                SearchDelivery.target_id == target.id,
+                (SearchDelivery.indexed_revision < SearchDelivery.requested_revision)
+                | (SearchDelivery.status == "failed"),
+            )
+        )
+        refreshes = await db.scalar(
+            select(func.count())
+            .select_from(SourceSearchRefresh)
+            .where(SourceSearchRefresh.status != "succeeded")
+        )
+        if outstanding or refreshes:
+            return False
         await db.execute(
             text("UPDATE search_index_targets SET role = 'retained' WHERE role = 'current'")
         )

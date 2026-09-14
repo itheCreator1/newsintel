@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import session_factory
@@ -57,6 +57,7 @@ def delivery_due(now: datetime):  # type: ignore[no-untyped-def]
 
 
 async def request_indexing(db: AsyncSession, article_id: uuid.UUID) -> int:
+    await db.execute(text("SELECT pg_advisory_xact_lock_shared(728341904)"))
     state = await db.get(ArticleSearchState, article_id, with_for_update=True)
     if state is None:
         state = ArticleSearchState(article_id=article_id, requested_revision=1)
@@ -64,7 +65,13 @@ async def request_indexing(db: AsyncSession, article_id: uuid.UUID) -> int:
     else:
         state.requested_revision += 1
     await db.flush()
-    for target in (await db.scalars(select(SearchIndexTarget))).all():
+    for target in (
+        await db.scalars(
+            select(SearchIndexTarget).where(
+                SearchIndexTarget.role.in_(("current", "replacement"))
+            )
+        )
+    ).all():
         delivery = await db.scalar(
             select(SearchDelivery)
             .where(SearchDelivery.article_id == article_id, SearchDelivery.target_id == target.id)
