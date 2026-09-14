@@ -4,6 +4,11 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
+ARG NEWSINTEL_INSTALL_SPACY=false
+COPY requirements-ner.txt ./
+RUN if [ "$NEWSINTEL_INSTALL_SPACY" = "true" ]; then \
+      uv pip install --python /app/.venv/bin/python -r requirements-ner.txt; \
+    fi
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./

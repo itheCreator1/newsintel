@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     article_storage_path: str = "/var/lib/newsintel/articles"
     article_temporary_html_hours: int = 24
     search_lease_seconds: int = 300
+    nlp_max_input_characters: int = 1_000_000
+    nlp_ner_enabled: bool = False
+    nlp_ner_model: str = "en_core_web_sm"
+    nlp_lease_seconds: int = 300
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":
