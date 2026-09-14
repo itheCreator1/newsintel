@@ -1,4 +1,4 @@
-import type { Article, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, IndexFailurePage, IndexStatus, ProcessingJob, SearchPage, SearchSourcePage } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, IndexFailurePage, IndexStatus, NlpFailurePage, NlpStatus, ProcessingJob, SearchPage, SearchSourcePage, StopWords } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -46,7 +46,9 @@ export const api = {
     return request<CursorPage<Article>>(`/articles${params.size ? `?${params}` : ''}`)
   },
   article: (id: string) => request<ArticleDetail>(`/articles/${id}`),
+  articleAnnotations: (id: string) => request<ArticleAnnotations>(`/articles/${id}/annotations`),
   processArticle: (id: string, mode: 'full_text' | 'full_text_html') => mutate<{ job_id: string; status: string; reused: boolean }>(`/articles/${id}/process`, 'POST', { mode }),
+  reprocessArticle: (id: string, processors: string[] = []) => mutate<{ status: string; jobs_created: number }>(`/articles/${id}/nlp/reprocess`, 'POST', { processors }),
   jobs: (filters: { articleId?: string; stage?: string; status?: string; cursor?: string } = {}) => {
     const params = new URLSearchParams()
     if (filters.articleId) params.set('article_id', filters.articleId)
@@ -68,6 +70,18 @@ export const api = {
   indexingStatus: () => request<IndexStatus>('/search/indexing/status'),
   indexingFailures: (cursor?: string) => request<IndexFailurePage>(`/search/indexing/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   retryIndexing: (articleId: string) => mutate<{ status: string }>(`/search/indexing/articles/${articleId}/retry`, 'POST'),
+  nlpStatus: () => request<NlpStatus>('/nlp/status'),
+  nlpFailures: (cursor?: string) => request<NlpFailurePage>(`/nlp/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  retryNlpJob: (jobId: string) => mutate<{ status: string; jobs_created: number }>(`/nlp/jobs/${jobId}/retry`, 'POST'),
+  stopWords: () => request<StopWords>('/nlp/stop-words'),
+  updateStopWords: (currentRevision: number, words: string[]) => mutate<StopWords>('/nlp/stop-words', 'PUT', { current_revision: currentRevision, words }),
+  nlpEntities: (q = '', cursor?: string) => annotationLookup('/nlp/entities', q, cursor),
+  nlpKeywords: (q = '', cursor?: string) => annotationLookup('/nlp/keywords', q, cursor),
+}
+
+function annotationLookup(path: string, q: string, cursor?: string): Promise<AnnotationLookupPage> {
+  const params = new URLSearchParams({ ...(q ? { q } : {}), ...(cursor ? { cursor } : {}) })
+  return request<AnnotationLookupPage>(`${path}?${params}`)
 }
 
 async function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
