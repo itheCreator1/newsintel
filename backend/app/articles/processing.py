@@ -21,6 +21,7 @@ from app.feeds.models import (
 )
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.scheduling import next_retry_delay
+from app.nlp.service import request_article_nlp
 from app.search.service import request_indexing
 
 log = structlog.get_logger()
@@ -270,6 +271,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
             job.claim_token = None
             job.claim_expires_at = None
             job.temporary_html_key = None
+            await request_article_nlp(db, job.article_id)
             await request_indexing(db, job.article_id)
         if not retained_key:
             delete_after_commit(storage, temporary_key, article_id=str(job.article_id))

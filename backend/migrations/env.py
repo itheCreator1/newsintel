@@ -17,6 +17,18 @@ from app.feeds.models import (  # noqa: F401
     FeedArticle,
     FeedFetch,
 )
+from app.nlp.models import (  # noqa: F401
+    ArticleCountryAnnotation,
+    ArticleEntity,
+    ArticleKeyword,
+    ArticleNlpState,
+    Entity,
+    Keyword,
+    NlpJob,
+    NlpProcessorRun,
+    NlpReprocessingRun,
+    StopWordRevision,
+)
 from app.search.models import (  # noqa: F401
     ArticleSearchState,
     SearchDelivery,

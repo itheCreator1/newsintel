@@ -17,6 +17,7 @@ from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.normalization import normalize_article_url, normalized_title_hash
 from app.feeds.scheduling import lease_is_current, next_retry_delay
+from app.nlp.service import request_article_nlp
 from app.search.service import request_indexing
 
 log = structlog.get_logger()
@@ -77,10 +78,18 @@ async def _persist_success(
             )
             if article_id is not None:
                 new_count += 1
+                article_input_changed = True
             else:
-                article_id = await db.scalar(
-                    select(Article.id).where(Article.normalized_url == normalized)
+                article = await db.scalar(
+                    select(Article).where(Article.normalized_url == normalized).with_for_update()
                 )
+                if article is None:
+                    continue
+                article_id = article.id
+                article_input_changed = article.title != entry.title
+                if article_input_changed:
+                    article.title = entry.title
+                    article.normalized_title_hash = normalized_title_hash(entry.title)
             discovery_id = await db.scalar(
                 insert(FeedArticle)
                 .values(
@@ -95,12 +104,31 @@ async def _persist_success(
                 .on_conflict_do_nothing()
                 .returning(FeedArticle.id)
             )
+            discovery_input_changed = discovery_id is not None
+            if discovery_id is None:
+                discovery = await db.scalar(
+                    select(FeedArticle)
+                    .where(
+                        FeedArticle.feed_id == feed.id,
+                        FeedArticle.article_id == article_id,
+                    )
+                    .with_for_update()
+                )
+                if discovery is not None and (
+                    discovery.feed_title != entry.title
+                    or discovery.description != entry.description
+                ):
+                    discovery.feed_title = entry.title
+                    discovery.description = entry.description
+                    discovery.metadata_json = entry.metadata
+                    discovery_input_changed = True
             if discovery_id is not None and feed.fetching_mode != "rss":
                 try:
                     await request_processing(db, article_id, feed.fetching_mode, automatic=True)
                 except ValueError:
                     pass
-            if discovery_id is not None:
+            if discovery_input_changed or article_input_changed:
+                await request_article_nlp(db, article_id)
                 await request_indexing(db, article_id)
         fetch.status = "success"
         fetch.attempt_count = attempt
