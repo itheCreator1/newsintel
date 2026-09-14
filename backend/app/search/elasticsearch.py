@@ -100,3 +100,34 @@ class ElasticsearchAdapter:
                 )
             )
         return results
+
+    async def _request(
+        self, method: str, path: str, *, json_body: dict[str, Any] | None = None
+    ) -> httpx.Response:
+        try:
+            async with httpx.AsyncClient(base_url=self.base_url, timeout=30) as client:
+                response = await client.request(method, path, json=json_body)
+                response.raise_for_status()
+                return response
+        except httpx.HTTPError as exc:
+            raise ElasticsearchUnavailable(str(exc)) from exc
+
+    async def create_index(self, name: str, settings: dict[str, Any]) -> None:
+        await self._request("PUT", f"/{name}", json_body=settings)
+
+    async def refresh(self, name: str) -> None:
+        await self._request("POST", f"/{name}/_refresh")
+
+    async def alias_indices(self, alias: str) -> list[str]:
+        try:
+            response = await self._request("GET", f"/_alias/{alias}")
+        except ElasticsearchUnavailable as exc:
+            if "404" in str(exc):
+                return []
+            raise
+        return list(response.json())
+
+    async def switch_alias(self, alias: str, replacement: str, previous: list[str]) -> None:
+        actions = [{"remove": {"index": name, "alias": alias}} for name in previous]
+        actions.append({"add": {"index": replacement, "alias": alias}})
+        await self._request("POST", "/_aliases", json_body={"actions": actions})

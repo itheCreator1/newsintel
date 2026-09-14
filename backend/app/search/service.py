@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import session_factory
+from app.feeds.models import FeedArticle
 from app.search.models import (
     ArticleSearchState,
     SearchDelivery,
@@ -94,3 +96,34 @@ async def request_source_refresh(db: AsyncSession, feed_id: uuid.UUID) -> None:
     )
     if active is None:
         db.add(SourceSearchRefresh(feed_id=feed_id))
+
+
+async def process_source_refresh(refresh_id: uuid.UUID, *, batch_size: int = 500) -> int:
+    async with session_factory() as db, db.begin():
+        refresh = await db.scalar(
+            select(SourceSearchRefresh)
+            .where(SourceSearchRefresh.id == refresh_id)
+            .with_for_update()
+        )
+        if refresh is None or refresh.status == "succeeded":
+            return 0
+        query = (
+            select(FeedArticle.article_id)
+            .where(FeedArticle.feed_id == refresh.feed_id)
+            .order_by(FeedArticle.article_id)
+            .limit(batch_size)
+        )
+        if refresh.article_cursor:
+            query = query.where(FeedArticle.article_id > refresh.article_cursor)
+        article_ids = list((await db.scalars(query)).all())
+        refresh.status = "running"
+        refresh.attempt_count += 1
+        for article_id in article_ids:
+            await request_indexing(db, article_id)
+        if article_ids:
+            refresh.article_cursor = article_ids[-1]
+        if len(article_ids) < batch_size:
+            refresh.status = "succeeded"
+            refresh.claim_token = None
+            refresh.claim_expires_at = None
+        return len(article_ids)

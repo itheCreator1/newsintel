@@ -12,8 +12,12 @@ from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.ingestion import ingest_feed
 from app.jobs.search import index_article
-from app.search.models import SearchDelivery
-from app.search.service import claim_delivery, delivery_due
+from app.search.models import SearchDelivery, SourceSearchRefresh
+from app.search.service import (
+    claim_delivery,
+    delivery_due,
+    process_source_refresh,
+)
 
 log = structlog.get_logger()
 
@@ -129,12 +133,30 @@ async def schedule_due_search(batch_size: int = 100) -> int:
     return queued
 
 
+async def schedule_source_refreshes(batch_size: int = 10) -> int:
+    async with session_factory() as db:
+        ids = list(
+            (
+                await db.scalars(
+                    select(SourceSearchRefresh.id)
+                    .where(SourceSearchRefresh.status.in_(("queued", "running", "retrying")))
+                    .order_by(SourceSearchRefresh.next_attempt_at, SourceSearchRefresh.id)
+                    .limit(batch_size)
+                )
+            ).all()
+        )
+    for refresh_id in ids:
+        await process_source_refresh(refresh_id)
+    return len(ids)
+
+
 async def run_scheduler(interval_seconds: float = 10) -> None:
     while True:
         try:
             await schedule_due_feeds()
             await schedule_due_articles()
             await schedule_due_search()
+            await schedule_source_refreshes()
         except Exception:
             log.exception("scheduler_cycle_failed")
         await asyncio.sleep(interval_seconds)

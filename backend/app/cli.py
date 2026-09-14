@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import getpass
+import uuid
 from datetime import timedelta
 
 from sqlalchemy import delete, select
@@ -12,6 +13,7 @@ from app.auth.security import hash_password
 from app.auth.service import normalize_username
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.search.rebuild import create_rebuild, rebuild_status, scan_rebuild, try_cutover
 
 
 async def create_user(username: str) -> None:
@@ -63,10 +65,34 @@ async def cleanup_storage(*, apply: bool, batch_size: int, complete_sweep: bool)
         print(f"failed object {failure.key}: {failure.error}")
 
 
+async def run_search_rebuild(rebuild_id: uuid.UUID | None = None) -> None:
+    active_id = rebuild_id or await create_rebuild()
+    while await scan_rebuild(active_id):
+        pass
+    cutover = await try_cutover(active_id)
+    print(f"rebuild_id={active_id} status={'completed' if cutover else 'catching_up'}")
+
+
+async def print_search_status() -> None:
+    rows = await rebuild_status()
+    if not rows:
+        print("No search rebuilds have been started")
+    for row in rows:
+        print(f"{row['id']} status={row['status']} index={row['index']} scanned={row['scanned']}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "command", choices=["create-user", "reset-password", "cleanup-article-storage"]
+        "command",
+        choices=[
+            "create-user",
+            "reset-password",
+            "cleanup-article-storage",
+            "rebuild-search",
+            "search-index-status",
+            "resume-search-rebuild",
+        ],
     )
     parser.add_argument("username", nargs="?")
     mode = parser.add_mutually_exclusive_group()
@@ -75,6 +101,25 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--complete-sweep", action="store_true")
     args = parser.parse_args()
+    if args.command == "rebuild-search":
+        if args.username:
+            parser.error("rebuild-search does not accept an argument")
+        asyncio.run(run_search_rebuild())
+        return
+    if args.command == "search-index-status":
+        if args.username:
+            parser.error("search-index-status does not accept an argument")
+        asyncio.run(print_search_status())
+        return
+    if args.command == "resume-search-rebuild":
+        if not args.username:
+            parser.error("resume-search-rebuild requires REBUILD_ID")
+        try:
+            rebuild_id = uuid.UUID(args.username)
+        except ValueError:
+            parser.error("REBUILD_ID must be a UUID")
+        asyncio.run(run_search_rebuild(rebuild_id))
+        return
     if args.command == "cleanup-article-storage":
         if args.username or args.batch_size < 1 or args.batch_size > 5_000:
             parser.error("cleanup batch size must be between 1 and 5000")
