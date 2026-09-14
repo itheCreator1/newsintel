@@ -56,6 +56,18 @@ async def claim_due_job(
         return None
     if job.claim_expires_at and job.claim_expires_at > now:
         return None
+    if job.claim_token and job.claim_expires_at and job.claim_expires_at <= now:
+        abandoned = await db.scalars(
+            select(ArticleProcessingAttempt).where(
+                ArticleProcessingAttempt.job_id == job.id,
+                ArticleProcessingAttempt.status == "running",
+            )
+        )
+        for attempt in abandoned:
+            attempt.status = "failed"
+            attempt.error_category = "lease_expired"
+            attempt.error_message = "Processing lease expired before the attempt completed"
+            attempt.completed_at = now
     token = uuid.uuid4().hex
     job.claim_token = token
     job.claim_expires_at = now + timedelta(seconds=lease_seconds)
@@ -65,7 +77,18 @@ async def claim_due_job(
     return job, token
 
 
-async def start_attempt(db: AsyncSession, job: ArticleProcessingJob) -> ArticleProcessingAttempt:
+async def start_attempt(
+    db: AsyncSession, job: ArticleProcessingJob
+) -> ArticleProcessingAttempt | None:
+    running = await db.scalar(
+        select(ArticleProcessingAttempt.id).where(
+            ArticleProcessingAttempt.job_id == job.id,
+            ArticleProcessingAttempt.stage == job.stage,
+            ArticleProcessingAttempt.status == "running",
+        )
+    )
+    if running is not None:
+        return None
     count = await db.scalar(
         select(func.count())
         .select_from(ArticleProcessingAttempt)
@@ -80,6 +103,35 @@ async def start_attempt(db: AsyncSession, job: ArticleProcessingJob) -> ArticleP
     db.add(attempt)
     await db.flush()
     return attempt
+
+
+async def retry_processing(
+    db: AsyncSession, failed_job_id: uuid.UUID
+) -> tuple[ArticleProcessingJob, bool]:
+    snapshot = await db.get(ArticleProcessingJob, failed_job_id)
+    if snapshot is None:
+        raise LookupError("processing job not found")
+    if snapshot.status in ACTIVE_STATUSES:
+        return snapshot, True
+
+    job, reused = await request_processing(db, snapshot.article_id, snapshot.requested_mode)
+    if reused:
+        return job, True
+
+    failed = await db.scalar(
+        select(ArticleProcessingJob)
+        .where(ArticleProcessingJob.id == failed_job_id)
+        .with_for_update()
+    )
+    if failed is None:
+        raise LookupError("processing job not found")
+    temporary_key = failed.temporary_html_key
+    failed.temporary_html_key = None
+    await db.flush()
+    if temporary_key:
+        job.stage = failed.stage
+        job.temporary_html_key = temporary_key
+    return job, False
 
 
 def due_filter(now: datetime) -> ColumnElement[bool]:

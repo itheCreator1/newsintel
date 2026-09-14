@@ -127,7 +127,9 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
         article = await db.get(Article, job.article_id)
         if not article:
             return
-        await start_attempt(db, job)
+        attempt = await start_attempt(db, job)
+        if attempt is None:
+            return
         stage, url, temporary_key = job.stage, article.original_url, job.temporary_html_key
     try:
         if stage == "fetch":
@@ -185,8 +187,22 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:
                     and job.claim_expires_at
                     and job.claim_expires_at > datetime.now(UTC)
                 ):
+                    attempt = await db.scalar(
+                        select(ArticleProcessingAttempt)
+                        .where(
+                            ArticleProcessingAttempt.job_id == job.id,
+                            ArticleProcessingAttempt.status == "running",
+                        )
+                        .order_by(ArticleProcessingAttempt.started_at.desc())
+                    )
+                    if attempt:
+                        attempt.status = "failed"
+                        attempt.error_category = "temporary_html_missing"
+                        attempt.error_message = "Temporary HTML object is missing"
+                        attempt.completed_at = datetime.now(UTC)
                     job.stage = "fetch"
                     job.status = "queued"
+                    job.temporary_html_key = None
                     job.claim_token = None
                     job.claim_expires_at = None
             return

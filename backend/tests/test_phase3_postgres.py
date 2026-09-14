@@ -5,13 +5,19 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from app.articles.processing import ArticleHttpStatus, _record_failure, process_claim
 from app.articles.routes import retry_job
 from app.articles.service import claim_due_job, request_processing, start_attempt
 from app.core.config import Settings
 from app.db.session import session_factory
-from app.feeds.models import Article, ArticleContent, ArticleProcessingJob
+from app.feeds.models import (
+    Article,
+    ArticleContent,
+    ArticleProcessingAttempt,
+    ArticleProcessingJob,
+)
 
 pytestmark = [
     pytest.mark.skipif(
@@ -202,3 +208,139 @@ async def test_retry_does_not_overwrite_an_existing_active_job() -> None:
         assert active is not None
         assert (active.stage, active.temporary_html_key) == ("fetch", active_key)
         assert failed is not None and failed.temporary_html_key == failed_key
+
+
+async def test_duplicate_claim_delivery_starts_only_one_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        article_storage_path=str(tmp_path),
+        feed_test_allowed_hosts=["localhost"],
+        article_host_min_interval_seconds=0,
+    )
+    monkeypatch.setattr("app.articles.processing.get_settings", lambda: settings)
+    article_id = await _article(f"http://localhost:{FIXTURE_PORT}/article.html")
+    async with session_factory() as db:
+        job, _ = await request_processing(db, article_id, "full_text")
+        await db.commit()
+        claimed = await claim_due_job(db, job.id, 300)
+        assert claimed is not None
+
+    await asyncio.gather(
+        process_claim(job.id, claimed[1]),
+        process_claim(job.id, claimed[1]),
+    )
+
+    async with session_factory() as db:
+        attempts = list(
+            await db.scalars(
+                select(ArticleProcessingAttempt).where(
+                    ArticleProcessingAttempt.job_id == job.id,
+                    ArticleProcessingAttempt.stage == "fetch",
+                )
+            )
+        )
+        assert len(attempts) == 1
+
+
+async def test_reclaim_finishes_abandoned_attempt_and_rejects_stale_completion() -> None:
+    article_id = await _article("https://example.com/stale-completion")
+    async with session_factory() as db:
+        job, _ = await request_processing(db, article_id, "full_text")
+        await db.commit()
+        first = await claim_due_job(db, job.id, 300)
+        assert first is not None
+        await start_attempt(db, first[0])
+        first[0].claim_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        await db.commit()
+        recovered = await claim_due_job(db, job.id, 300)
+        assert recovered is not None
+
+    await _record_failure(job.id, first[1], ArticleHttpStatus(503))
+
+    async with session_factory() as db:
+        attempts = list(
+            await db.scalars(
+                select(ArticleProcessingAttempt)
+                .where(ArticleProcessingAttempt.job_id == job.id)
+                .order_by(ArticleProcessingAttempt.started_at)
+            )
+        )
+        current = await db.get(ArticleProcessingJob, job.id)
+        assert len(attempts) == 1
+        assert (attempts[0].status, attempts[0].error_category) == (
+            "failed",
+            "lease_expired",
+        )
+        assert attempts[0].completed_at is not None
+        assert current is not None
+        assert (current.status, current.claim_token) == ("running", recovered[1])
+
+
+async def test_missing_temporary_html_requeues_fetch_and_finishes_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    article_id = await _article("https://example.com/missing-temporary-html")
+    async with session_factory() as db:
+        job = ArticleProcessingJob(
+            article_id=article_id,
+            requested_mode="full_text_html",
+            stage="extract",
+            status="queued",
+            temporary_html_key=uuid.uuid4().hex,
+        )
+        db.add(job)
+        await db.commit()
+        claimed = await claim_due_job(db, job.id, 300)
+        assert claimed is not None
+
+    monkeypatch.setattr(
+        "app.articles.processing.get_settings",
+        lambda: Settings(article_storage_path=str(tmp_path)),
+    )
+    await process_claim(job.id, claimed[1])
+
+    async with session_factory() as db:
+        current = await db.get(ArticleProcessingJob, job.id)
+        attempt = await db.scalar(
+            select(ArticleProcessingAttempt).where(ArticleProcessingAttempt.job_id == job.id)
+        )
+        assert current is not None
+        assert (current.stage, current.status, current.temporary_html_key) == (
+            "fetch",
+            "queued",
+            None,
+        )
+        assert attempt is not None
+        assert (attempt.status, attempt.error_category) == ("failed", "temporary_html_missing")
+        assert attempt.completed_at is not None
+
+
+async def test_simultaneous_retries_transfer_temporary_html_once() -> None:
+    article_id = await _article("https://example.com/simultaneous-retry")
+    temporary_key = uuid.uuid4().hex
+    async with session_factory() as db:
+        failed = ArticleProcessingJob(
+            article_id=article_id,
+            requested_mode="full_text_html",
+            stage="extract",
+            status="failed",
+            temporary_html_key=temporary_key,
+        )
+        db.add(failed)
+        await db.commit()
+        failed_id = failed.id
+
+    async def retry() -> uuid.UUID:
+        async with session_factory() as db:
+            response = await retry_job(failed_id, db, None)  # type: ignore[arg-type]
+            return response.job_id
+
+    retried_ids = await asyncio.gather(retry(), retry())
+    assert retried_ids[0] == retried_ids[1]
+    async with session_factory() as db:
+        old = await db.get(ArticleProcessingJob, failed_id)
+        new = await db.get(ArticleProcessingJob, retried_ids[0])
+        assert old is not None and old.temporary_html_key is None
+        assert new is not None
+        assert (new.stage, new.temporary_html_key) == ("extract", temporary_key)

@@ -13,7 +13,7 @@ from app.articles.schemas import (
     ProcessRequest,
     ProcessResponse,
 )
-from app.articles.service import ACTIVE_STATUSES, request_processing
+from app.articles.service import request_processing, retry_processing
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
@@ -123,17 +123,9 @@ async def get_job(job_id: uuid.UUID, db: Db, _auth: Auth) -> JobResponse:
 
 @router.post("/jobs/{job_id}/retry", response_model=ProcessResponse, status_code=202)
 async def retry_job(job_id: uuid.UUID, db: Db, _mutation: Mutation) -> ProcessResponse:
-    old = await db.get(ArticleProcessingJob, job_id)
-    if not old:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found")
-    if old.status in ACTIVE_STATUSES:
-        return ProcessResponse(job_id=old.id, status=old.status, reused=True)
-    job, reused = await request_processing(db, old.article_id, old.requested_mode)
-    if reused:
-        await db.commit()
-        return ProcessResponse(job_id=job.id, status=job.status, reused=True)
-    job.stage = old.stage
-    job.temporary_html_key = old.temporary_html_key
-    old.temporary_html_key = None
+    try:
+        job, reused = await retry_processing(db, job_id)
+    except LookupError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found") from None
     await db.commit()
     return ProcessResponse(job_id=job.id, status=job.status, reused=reused)
