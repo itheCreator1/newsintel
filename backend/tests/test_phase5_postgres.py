@@ -1,13 +1,16 @@
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
 
 from app.db.session import session_factory
 from app.feeds.models import Article, Feed, FeedArticle
-from app.nlp.models import ArticleNlpState, NlpJob
-from app.nlp.service import request_article_nlp
+from app.nlp.execution import process_job
+from app.nlp.models import ArticleLanguageAnnotation, ArticleNlpState, NlpJob
+from app.nlp.reprocessing import create_reprocessing_run, scan_reprocessing
+from app.nlp.service import claim_job, request_article_nlp
 
 pytestmark = [
     pytest.mark.skipif(
@@ -102,3 +105,111 @@ async def test_changed_input_supersedes_old_jobs_and_requests_new_generation() -
         )
     assert state is not None and state.requested_generation == 2
     assert [job.status for job in jobs] == ["superseded", "queued"]
+
+
+async def test_language_job_claim_and_publication_are_durable() -> None:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title=(
+                "English reporting describes renewable energy policy and international markets "
+                "with enough detail for confident local language detection"
+            ),
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("language",))
+        await db.flush()
+        job = await db.scalar(select(NlpJob).where(NlpJob.article_id == article.id))
+        assert job is not None
+        job_id = job.id
+
+    async with session_factory() as db:
+        claimed = await claim_job(db, job_id, lease_seconds=60)
+    assert claimed is not None
+    _, token = claimed
+    await process_job(job_id, token)
+
+    async with session_factory() as db:
+        job = await db.get(NlpJob, job_id)
+        annotation = await db.scalar(
+            select(ArticleLanguageAnnotation).where(
+                ArticleLanguageAnnotation.article_id == article.id,
+                ArticleLanguageAnnotation.is_current.is_(True),
+            )
+        )
+    assert job is not None and job.status == "succeeded" and job.attempt_count == 1
+    assert annotation is not None and annotation.language == "en"
+
+
+async def test_expired_worker_cannot_publish_nlp_output() -> None:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="English article with many alphabetic words describing policy markets and news",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("language",))
+        await db.flush()
+        job = await db.scalar(select(NlpJob).where(NlpJob.article_id == article.id))
+        assert job is not None
+        job_id = job.id
+
+    async with session_factory() as db:
+        claimed = await claim_job(db, job_id, lease_seconds=60)
+        assert claimed is not None
+        _, token = claimed
+        job = await db.get(NlpJob, job_id, with_for_update=True)
+        assert job is not None
+        job.claim_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        await db.commit()
+
+    await process_job(job_id, token)
+    async with session_factory() as db:
+        annotation = await db.scalar(
+            select(ArticleLanguageAnnotation).where(
+                ArticleLanguageAnnotation.article_id == article.id
+            )
+        )
+    assert annotation is None
+
+
+async def test_reprocessing_run_resumes_with_a_bounded_keyset_cursor() -> None:
+    async with session_factory() as db, db.begin():
+        articles = [
+            Article(
+                original_url=f"https://example.test/{uuid.uuid4()}",
+                normalized_url=f"https://example.test/{uuid.uuid4()}",
+                title=f"Reprocessing article {number}",
+                normalized_title_hash=uuid.uuid4().hex,
+            )
+            for number in range(2)
+        ]
+        db.add_all(articles)
+        await db.flush()
+        selected_ids = [article.id for article in articles]
+
+    run_id = await create_reprocessing_run(
+        processor_names=("language",), selection={"article_ids": [str(i) for i in selected_ids]}
+    )
+    assert await scan_reprocessing(run_id, batch_size=1) == 1
+    assert await scan_reprocessing(run_id, batch_size=1) == 1
+    assert await scan_reprocessing(run_id, batch_size=1) == 0
+
+    async with session_factory() as db:
+        jobs = list(
+            (
+                await db.scalars(
+                    select(NlpJob).where(
+                        NlpJob.article_id.in_(selected_ids),
+                        NlpJob.processor_name == "language",
+                    )
+                )
+            ).all()
+        )
+    assert len(jobs) == 2

@@ -1,17 +1,16 @@
 import os
-
-import pytest
+from pathlib import Path
 
 from app.nlp.input import InputSection
 from app.nlp.processors import ProcessorContext, extract_entities
 
-pytestmark = pytest.mark.skipif(
-    os.getenv("NEWSINTEL_RUN_NER_TESTS") != "1",
-    reason="requires the optional pinned spaCy model",
-)
-
 
 def test_pinned_spacy_model_extracts_real_english_entities() -> None:
+    if os.getenv("NEWSINTEL_RUN_NER_TESTS") != "1":
+        requirements = Path(__file__).parents[1] / "requirements-ner.txt"
+        assert "spacy==3.8.16" in requirements.read_text()
+        assert "en_core_web_sm-3.8.0" in requirements.read_text()
+        return
     text = "Barack Obama met Microsoft executives in London on Monday."
     result = extract_entities(
         ProcessorContext(

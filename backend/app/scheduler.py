@@ -11,7 +11,11 @@ from app.feeds.models import ArticleProcessingJob, Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.ingestion import ingest_feed
+from app.jobs.nlp import process_nlp
 from app.jobs.search import index_article
+from app.nlp.models import NlpJob
+from app.nlp.service import claim_job as claim_nlp_job
+from app.nlp.service import job_due as nlp_job_due
 from app.search.models import SearchDelivery, SourceSearchRefresh
 from app.search.service import (
     claim_delivery,
@@ -133,6 +137,35 @@ async def schedule_due_search(batch_size: int = 100) -> int:
     return queued
 
 
+async def schedule_due_nlp(batch_size: int = 50) -> int:
+    now = datetime.now(UTC)
+    async with session_factory() as db:
+        ids = list(
+            (
+                await db.scalars(
+                    select(NlpJob.id)
+                    .where(nlp_job_due(now))
+                    .order_by(NlpJob.next_attempt_at, NlpJob.id)
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+    queued = 0
+    for job_id in ids:
+        async with session_factory() as db:
+            claimed = await claim_nlp_job(db, job_id, get_settings().nlp_lease_seconds)
+        if claimed is None:
+            continue
+        _, token = claimed
+        try:
+            process_nlp.send(str(job_id), token)
+            queued += 1
+        except Exception:
+            log.exception("nlp_queue_failed", job_id=str(job_id))
+    return queued
+
+
 async def schedule_source_refreshes(batch_size: int = 10) -> int:
     async with session_factory() as db:
         ids = list(
@@ -155,6 +188,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
         try:
             await schedule_due_feeds()
             await schedule_due_articles()
+            await schedule_due_nlp()
             await schedule_due_search()
             await schedule_source_refreshes()
         except Exception:

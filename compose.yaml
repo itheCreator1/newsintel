@@ -49,6 +49,14 @@ services:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
+  nlp-worker:
+    build: ./backend
+    command: ["dramatiq", "app.jobs.nlp", "--processes", "1", "--threads", "1"]
+    environment: *backend-env
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+
   scheduler:
     build: ./backend
     command: ["python", "-m", "app.scheduler"]

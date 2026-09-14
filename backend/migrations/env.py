@@ -21,6 +21,7 @@ from app.nlp.models import (  # noqa: F401
     ArticleCountryAnnotation,
     ArticleEntity,
     ArticleKeyword,
+    ArticleLanguageAnnotation,
     ArticleNlpState,
     Entity,
     Keyword,

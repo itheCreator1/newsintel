@@ -90,6 +90,21 @@ class NlpProcessorRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ArticleLanguageAnnotation(Base):
+    __tablename__ = "article_language_annotations"
+    __table_args__ = (Index("ix_article_language_current", "article_id", "is_current"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
+    )
+    language: Mapped[str] = mapped_column(String(16))
+    confidence: Mapped[float] = mapped_column(Float)
+    margin: Mapped[float] = mapped_column(Float)
+    input_fingerprint: Mapped[str] = mapped_column(String(64))
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Entity(Base):
     __tablename__ = "nlp_entities"
     __table_args__ = (
