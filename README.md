@@ -26,8 +26,18 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
 Run the isolated Phase 3 database and browser acceptance gate with `sh infra/test-phase3.sh`.
-It uses the dedicated `newsintel-phase3-acceptance` Compose project, removes only that project's
-volumes, and retains combined container logs in `/tmp/newsintel-phase3-acceptance.log` on failure.
+Each invocation chooses an unused frontend, fixture, and PostgreSQL port plus a unique
+`newsintel-phase3-<pid>-<timestamp>` Compose project. It removes only that invocation's containers
+and volumes. On failure it retains Compose logs and Playwright screenshots/traces under the printed
+`/tmp/newsintel-phase3-<pid>-<timestamp>` artifact directory.
+
+The completed gate was run twice consecutively on 2026-09-14. Both runs passed 54 backend tests
+with no skips, Ruff, mypy, 13 frontend tests, type checking, the production build, Compose
+validation, and both browser scenarios. The browser covered login, source creation, ingestion,
+successful retained extraction, a three-attempt transient failure, retry, recovery, and article
+detail after worker recreation. The runner also verified deterministic 200/404/503 fixtures,
+kept Elasticsearch stopped, and compared retained HTML plus PostgreSQL content before and after
+worker recreation.
 
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
@@ -46,10 +56,26 @@ If article processing stalls, confirm the worker command includes `app.jobs.arti
 Clean abandoned temporary article objects with
 `docker compose run --rm worker python -m app.cli cleanup-article-storage --dry-run`.
 Dry-run is the default and reports a bounded batch without changing storage. After reviewing
-the counts, add `--apply`; use `--batch-size N` to cap each run between 1 and 5000 objects.
+the counts, add `--apply`; use `--batch-size N` to cap each database batch between 1 and 5000
+objects. Add `--complete-sweep` to stream successive bounded batches through the directory in one
+invocation. Malformed keys, symbolic links, stat failures, and deletion failures are reported per
+entry. Publication, reference transfer, and deletion use PostgreSQL transaction advisory locks.
 The command preserves retained HTML, every object referenced by a processing job, and files
 newer than `NEWSINTEL_ARTICLE_TEMPORARY_HTML_HOURS` (24 hours by default). Run cleanup only
 against the same `article-data` volume used by workers.
+
+For recovery, inspect `docker compose logs scheduler worker api`, then recreate only the worker
+with `docker compose up -d --force-recreate worker`; PostgreSQL leases make abandoned work
+claimable again. Retry terminal article failures from Jobs. Confirm storage with
+`docker compose exec worker ls -la /var/lib/newsintel/articles` and inspect job/content rows in
+PostgreSQL before applying cleanup. Re-run migrations with
+`docker compose run --rm api alembic upgrade head`; Alembic uses `NEWSINTEL_DATABASE_URL`, including
+documented host and Compose credentials.
+
+Phase 4 search remains deferred. This Phase 3 gate does not certify five-million-article scale,
+later NLP/investigation/clustering/analytics/export phases, complete structured operational
+logging, SSE updates, or production backup restoration. PostgreSQL remains authoritative and the
+tested ingestion/extraction path runs with Elasticsearch absent.
 
 ## Deployment
 
