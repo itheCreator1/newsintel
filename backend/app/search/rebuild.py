@@ -107,6 +107,10 @@ async def try_cutover(rebuild_id: uuid.UUID) -> bool:
         target = await db.get(SearchIndexTarget, rebuild.target_id)
         if target is None:
             raise LookupError("search target not found")
+        if rebuild.status == "completed":
+            return target.index_name in alias_indices
+        if rebuild.active_key != "active":
+            return False
         outstanding = await db.scalar(
             select(func.count())
             .select_from(SearchDelivery)
