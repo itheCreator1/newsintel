@@ -11,6 +11,9 @@ from app.feeds.models import ArticleProcessingJob, Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.ingestion import ingest_feed
+from app.jobs.search import index_article
+from app.search.models import SearchDelivery
+from app.search.service import claim_delivery, delivery_due
 
 log = structlog.get_logger()
 
@@ -97,11 +100,41 @@ async def schedule_due_articles(batch_size: int = 50) -> int:
     return queued
 
 
+async def schedule_due_search(batch_size: int = 100) -> int:
+    now = datetime.now(UTC)
+    async with session_factory() as db:
+        ids = list(
+            (
+                await db.scalars(
+                    select(SearchDelivery.id)
+                    .where(delivery_due(now))
+                    .order_by(SearchDelivery.next_attempt_at, SearchDelivery.id)
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+    queued = 0
+    for delivery_id in ids:
+        async with session_factory() as db:
+            claimed = await claim_delivery(db, delivery_id, get_settings().search_lease_seconds)
+        if claimed is None:
+            continue
+        _, token = claimed
+        try:
+            index_article.send(str(delivery_id), token)
+            queued += 1
+        except Exception:
+            log.exception("search_queue_failed", delivery_id=str(delivery_id))
+    return queued
+
+
 async def run_scheduler(interval_seconds: float = 10) -> None:
     while True:
         try:
             await schedule_due_feeds()
             await schedule_due_articles()
+            await schedule_due_search()
         except Exception:
             log.exception("scheduler_cycle_failed")
         await asyncio.sleep(interval_seconds)
