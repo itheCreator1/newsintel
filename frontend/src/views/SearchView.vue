@@ -6,10 +6,14 @@ import { api, ApiError } from '../api'
 
 const route = useRoute(), router = useRouter()
 const read = (key: string) => typeof route.query[key] === 'string' ? String(route.query[key]) : ''
+const readMany = (key: string) => {
+  const value = route.query[key]
+  return (Array.isArray(value) ? value : value ? [value] : []).filter((item): item is string => typeof item === 'string')
+}
 const routeForm = () => ({
-  q: read('q'), source_id: read('source_id'), country: read('country'), after: read('after'), before: read('before'),
+  q: read('q'), source_id: readMany('source_id'), country: read('country'), after: read('after'), before: read('before'),
   content_available: read('content_available'), processing_status: read('processing_status'), sort: read('sort') || 'relevance',
-  language: read('language'), entity_id: read('entity_id'), entity_type: read('entity_type'), keyword_id: read('keyword_id'),
+  language: read('language'), entity_id: readMany('entity_id'), entity_type: readMany('entity_type'), keyword_id: readMany('keyword_id'),
   story_country: read('story_country'), mentioned_country: read('mentioned_country'),
 })
 const form = reactive(routeForm())
@@ -21,9 +25,9 @@ const sources = computed(() => sourcePages.data.value?.pages.flatMap(page => pag
 const entities = computed(() => entityPages.data.value?.pages.flatMap(page => page.items) ?? [])
 const keywords = computed(() => keywordPages.data.value?.pages.flatMap(page => page.items) ?? [])
 const criteria = computed(() => ({
-  q: read('q'), source_id: read('source_id'), source_country: read('country'), after: read('after'), before: read('before'),
+  q: read('q'), source_id: readMany('source_id'), source_country: read('country'), after: read('after'), before: read('before'),
   content_available: read('content_available'), processing_status: read('processing_status'), sort: read('sort') || 'relevance',
-  language: read('language'), entity_id: read('entity_id'), entity_type: read('entity_type'), keyword_id: read('keyword_id'),
+  language: read('language'), entity_id: readMany('entity_id'), entity_type: readMany('entity_type'), keyword_id: readMany('keyword_id'),
   story_country: read('story_country'), mentioned_country: read('mentioned_country'),
 }))
 const search = useInfiniteQuery({ queryKey: ['search', criteria], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.search(criteria.value, pageParam), getNextPageParam: page => page.next_cursor ?? undefined, retry: false })
@@ -32,7 +36,7 @@ const error = computed(() => search.error.value instanceof ApiError ? search.err
 const errorCode = computed(() => error.value?.detail && typeof error.value.detail === 'object' && 'code' in error.value.detail ? String(error.value.detail.code) : '')
 const expired = computed(() => error.value?.status === 409 && errorCode.value === 'restart_search')
 const upgradeRequired = computed(() => error.value?.status === 409 && errorCode.value === 'search_upgrade_required')
-function submit() { router.push({ path: '/search', query: Object.fromEntries(Object.entries(form).filter(([, value]) => value !== '')) }) }
+function submit() { router.push({ path: '/search', query: Object.fromEntries(Object.entries(form).filter(([, value]) => Array.isArray(value) ? value.length : value !== '')) }) }
 function restart() { search.refetch() }
 function openArticle(id: string) { router.push({ path: '/articles', query: { article: id, from: route.fullPath } }) }
 watch(() => route.query, () => Object.assign(form, routeForm()))
@@ -44,14 +48,14 @@ watch(() => route.query, () => Object.assign(form, routeForm()))
   <form class="search-filters panel" role="search" @submit.prevent="submit">
     <label class="wide">Query<input v-model="form.q" placeholder='climate AND "sea level"' /></label>
     <label>Source search<input v-model="sourceTerm" placeholder="Find active or retired sources" /></label>
-    <label>Source<select v-model="form.source_id"><option value="">All sources</option><option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }}{{ source.retired ? ' (retired)' : '' }}</option></select></label>
+    <label>Source<select v-model="form.source_id" multiple><option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }}{{ source.retired ? ' (retired)' : '' }}</option></select></label>
     <label>Source country<input v-model="form.country" maxlength="2" placeholder="US" /></label>
     <label>Detected language<input v-model="form.language" maxlength="3" placeholder="en" /></label>
     <label>Entity search<input v-model="entityTerm" placeholder="Find an entity" /></label>
-    <label>Entity<select v-model="form.entity_id"><option value="">Any entity</option><option v-for="entity in entities" :key="entity.id" :value="entity.id">{{ entity.text }} ({{ entity.kind }})</option></select></label>
-    <label>Entity type<select v-model="form.entity_type"><option value="">Any type</option><option v-for="kind in ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER']" :key="kind">{{ kind }}</option></select></label>
+    <label>Entity<select v-model="form.entity_id" multiple><option v-for="entity in entities" :key="entity.id" :value="entity.id">{{ entity.text }} ({{ entity.kind }})</option></select></label>
+    <label>Entity type<select v-model="form.entity_type" multiple><option v-for="kind in ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER']" :key="kind">{{ kind }}</option></select></label>
     <label>Keyword search<input v-model="keywordTerm" placeholder="Find a keyword" /></label>
-    <label>Keyword<select v-model="form.keyword_id"><option value="">Any keyword</option><option v-for="keyword in keywords" :key="keyword.id" :value="keyword.id">{{ keyword.text }}</option></select></label>
+    <label>Keyword<select v-model="form.keyword_id" multiple><option v-for="keyword in keywords" :key="keyword.id" :value="keyword.id">{{ keyword.text }}</option></select></label>
     <label>Story country<input v-model="form.story_country" maxlength="2" placeholder="DE" /></label>
     <label>Mentioned country<input v-model="form.mentioned_country" maxlength="2" placeholder="FR" /></label>
     <label>After<input v-model="form.after" type="date" /></label><label>Before<input v-model="form.before" type="date" /></label>

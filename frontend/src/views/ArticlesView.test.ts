@@ -131,14 +131,15 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
     language: { language: 'en', confidence: 0.97, margin: 0.43, fresh: true }, source_countries: ['FR'],
     keywords: [{ id: 'keyword-one', text: 'climate policy', normalized_text: 'climate policy', kind: 'keyphrase', relevance: 0.9, raw_score: 0.1, occurrence_count: 2, fresh: true, occurrences: [] }],
     entities: [{ id: 'entity-one', text: 'Acme', normalized_text: 'acme', entity_type: 'ORG', original_label: 'ORG', relevance: 0.8, occurrence_count: 1, occurrences: [], fresh: true }],
-    countries: [{ country_code: 'DE', role: 'mentioned', inferred: false, occurrence_count: 2, occurrences: [], fresh: true, rule_version: 'iso-country-lexicon-1' }, { country_code: 'DE', role: 'primary_story', inferred: true, occurrence_count: 2, occurrences: [], fresh: true, rule_version: 'primary-title-body-1' }],
-    processors: [{ processor: 'keywords', status: 'succeeded', requested_generation: 1, completed_generation: 1, processor_version: '1', algorithm_version: 'yake', model_version: null, configuration_fingerprint: 'config', input_fingerprint: 'input', completed_at: '2026-09-14T12:00:00Z', detail: null }],
+    countries: [{ country_code: 'DE', role: 'mentioned', inferred: false, occurrence_count: 2, occurrences: [], fresh: true, rule_version: 'iso-country-lexicon-1' }, { country_code: 'DE', role: 'primary', inferred: true, occurrence_count: 2, occurrences: [], fresh: true, rule_version: 'primary-title-body-1' }],
+    processors: [{ processor: 'keywords', status: 'queued', requested_generation: 2, completed_generation: 1, processor_version: '1', algorithm_version: 'yake', model_version: null, configuration_fingerprint: 'config', input_fingerprint: 'input', completed_at: '2026-09-14T12:00:00Z', detail: null }],
   })
   const router = await renderView('/?article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS')
 
   expect(await screen.findByText('Detected language: en')).toBeTruthy()
   expect(screen.getByText('Source countries: FR')).toBeTruthy()
   expect(screen.getByText('Primary story country: DE (inferred)')).toBeTruthy()
+  expect(screen.getByText(/keywords · stale · queued/)).toBeTruthy()
   expect(screen.getByText((_, node) => node?.textContent === 'entities · disabled · NER is disabled')).toBeTruthy()
   await fireEvent.click(screen.getByRole('link', { name: 'climate policy' }))
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/search'))

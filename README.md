@@ -126,10 +126,10 @@ build and run the overlay:
 docker compose -f compose.yaml -f compose.ner.yaml up -d --build nlp-worker
 ```
 
-NLP input is limited to 1,000,000 characters and fails visibly instead of truncating. Each
-processor retries five times, beginning at 30 seconds and capped at 15 minutes. Keyword output and
-annotation API responses are bounded to 50 records, and archive reprocessing scans PostgreSQL in
-keyset batches of 100.
+NLP input is limited to 1,000,000 characters and fails visibly instead of truncating. Transient
+processor failures retry up to five attempts, beginning at 30 seconds and capped at 15 minutes.
+Keyword output and annotation API responses are bounded to 50 records, and archive reprocessing
+scans PostgreSQL in keyset batches of 100.
 
 Preview the initial archive backfill, then apply the reviewed selection:
 

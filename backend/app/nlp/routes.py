@@ -1,4 +1,5 @@
 import base64
+import binascii
 import importlib.metadata
 import importlib.util
 import uuid
@@ -62,10 +63,16 @@ Config = Annotated[Settings, Depends(get_settings)]
 
 def _capabilities(settings: Settings) -> list[CapabilityResponse]:
     ner_installed = importlib.util.find_spec("spacy") is not None
+    model_installed = ner_installed and importlib.util.find_spec(settings.nlp_ner_model) is not None
     if not settings.nlp_ner_enabled:
         ner_state, detail = "disabled", "Enable the optional local spaCy image to run NER"
     elif not ner_installed:
         ner_state, detail = "configuration_failure", "spaCy is enabled but not installed"
+    elif not model_installed:
+        ner_state, detail = (
+            "configuration_failure",
+            f"spaCy model {settings.nlp_ner_model!r} is not installed",
+        )
     else:
         ner_state, detail = "available", settings.nlp_ner_model
     return [
@@ -374,7 +381,7 @@ def _lookup_cursor(value: str) -> tuple[str, uuid.UUID]:
     try:
         text_value, raw_id = base64.urlsafe_b64decode(value).decode().split("|", 1)
         return text_value, uuid.UUID(raw_id)
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (binascii.Error, ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(422, "Invalid annotation lookup cursor") from exc
 
 

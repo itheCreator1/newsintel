@@ -43,7 +43,22 @@ it('restores annotation criteria and explains annotation syntax', async () => {
   expect(await screen.findByRole('option', { name: 'Acme (ORG)' })).toBeTruthy()
   await fireEvent.update(screen.getByLabelText('Keyword'), 'keyword-one')
   await fireEvent.submit(screen.getByRole('search'))
-  await vi.waitFor(() => expect(router.currentRoute.value.query.keyword_id).toBe('keyword-one'))
-  expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en', story_country: 'DE', entity_id: 'entity-one', keyword_id: 'keyword-one' }), undefined)
+  await vi.waitFor(() => expect(router.currentRoute.value.query.keyword_id).toEqual(['keyword-one']))
+  expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en', story_country: 'DE', entity_id: ['entity-one'], keyword_id: ['keyword-one'] }), undefined)
   expect(screen.getByText(/entity:, keyword:, language:, story_country:/)).toBeTruthy()
+})
+
+it('preserves repeated picker selections as OR values in the URL', async () => {
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [
+    { id: 'entity-one', kind: 'ORG', normalized_text: 'acme', text: 'Acme' },
+    { id: 'entity-two', kind: 'PERSON', normalized_text: 'jane doe', text: 'Jane Doe' },
+  ], next_cursor: null })
+  const { router } = await renderSearch('/search?entity_id=entity-one&entity_id=entity-two')
+
+  const picker = await screen.findByLabelText('Entity') as HTMLSelectElement
+  await vi.waitFor(() => expect([...picker.selectedOptions].map(option => option.value)).toEqual(['entity-one', 'entity-two']))
+  await fireEvent.submit(screen.getByRole('search'))
+
+  await vi.waitFor(() => expect(router.currentRoute.value.query.entity_id).toEqual(['entity-one', 'entity-two']))
+  expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ entity_id: ['entity-one', 'entity-two'] }), undefined)
 })

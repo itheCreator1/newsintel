@@ -5,6 +5,7 @@ from starlette.requests import Request
 from app.auth.routes import current_session
 from app.core.config import Settings
 from app.main import create_app
+from app.nlp.routes import _capabilities, _lookup_cursor
 
 
 @pytest.mark.asyncio
@@ -54,3 +55,24 @@ def test_phase_five_annotation_routes_are_present_in_openapi() -> None:
     assert {"get", "put"} <= set(paths["/api/v1/nlp/stop-words"])
     assert "get" in paths["/api/v1/nlp/entities"]
     assert "get" in paths["/api/v1/nlp/keywords"]
+
+
+def test_enabled_ner_reports_a_missing_configured_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.nlp.routes.importlib.util.find_spec",
+        lambda name: object() if name == "spacy" else None,
+    )
+    monkeypatch.setattr("app.nlp.routes.importlib.metadata.version", lambda _name: "3.8.16")
+
+    capabilities = _capabilities(Settings(nlp_ner_enabled=True, nlp_ner_model="missing_model"))
+
+    entities = next(item for item in capabilities if item.name == "entities")
+    assert entities.state == "configuration_failure"
+    assert entities.detail == "spaCy model 'missing_model' is not installed"
+
+
+def test_annotation_lookup_rejects_malformed_base64_cursor() -> None:
+    with pytest.raises(HTTPException) as exc:
+        _lookup_cursor("a")
+
+    assert exc.value.status_code == 422

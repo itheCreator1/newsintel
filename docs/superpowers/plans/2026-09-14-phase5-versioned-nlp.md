@@ -140,3 +140,7 @@ operational reprocessing UI, and five-million-article certification remain later
   `ix_nlp_jobs_due` for due claims and `ix_article_nlp_entities_current` for bounded current-entity
   retrieval. These measurements describe the acceptance fixture and are not archive-scale
   certification.
+- A post-gate review corrected primary-country role rendering, explicit stale-generation labels,
+  repeated GUI picker values, configured-model capability detection, and malformed annotation
+  cursors. The focused backend suite passed 7 tests; the complete frontend suite passed 21 tests,
+  with type checking, Ruff, and strict mypy also passing.
