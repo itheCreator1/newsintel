@@ -5,7 +5,7 @@ test('search restores URL state, opens detail, and reports unavailability', asyn
   await page.getByLabel('Username').fill('phase4')
   await page.getByLabel('Password').fill('phase4-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await page.getByRole('link', { name: 'Search' }).click()
+  await page.getByRole('link', { name: 'Search', exact: true }).click()
   await page.getByLabel('Query').fill('Fixture AND story')
   await page.getByLabel('Sort').selectOption('newest')
   await page.getByRole('button', { name: 'Search archive' }).click()

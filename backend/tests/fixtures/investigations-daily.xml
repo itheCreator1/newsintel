@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Harbor Daily</title><link>http://fixture/</link>
+<description>Deterministic investigation fixture</description>
+<item><guid>harbor-daily-1</guid><title>Harbor daily council report</title><link>http://fixture/harbor-daily-1.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Wed, 02 Sep 2026 15:00:00 GMT</pubDate></item>
+<item><guid>harbor-daily-2</guid><title>Harbor daily dredging report</title><link>http://fixture/harbor-daily-2.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Tue, 08 Sep 2026 15:00:00 GMT</pubDate></item>
+<item><guid>harbor-daily-3</guid><title>Harbor daily closing report</title><link>http://fixture/harbor-daily-3.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Sat, 12 Sep 2026 15:00:00 GMT</pubDate></item>
+</channel></rss>

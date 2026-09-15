@@ -57,6 +57,20 @@ Elasticsearch outage, and browser annotation flows. It retains logs, query plans
 and Playwright artifacts under the printed `/tmp/newsintel-phase5-<pid>-<timestamp>` directory on
 failure.
 
+Run the isolated Phase 6 gate with `sh infra/test-phase6.sh`. It uses its own Compose project,
+ports, and named volumes; rejects skipped database tests; checks that the saved-search migration
+downgrades without touching canonical articles; seeds two dated fixture sources; rebuilds search;
+and drives timeline brushing, manual intervals, cross-filtering, back/forward and reload, and saved
+search save/open/rename/delete plus an invalid stored state in a real browser. Failure logs and
+Playwright artifacts are retained under the printed `/tmp/newsintel-phase6-<pid>-<timestamp>`
+directory.
+
+The completed Phase 6 gate passed on 2026-09-15 with 130 backend tests and no skips, Ruff, mypy,
+46 frontend tests, type checking, the production build, and all three browser scenarios. The two
+earlier attempts that day failed in the harness (an off-screen drag and a miscounted `psql` result)
+and were fixed before that run. The Phase 5 gate was then rerun as a regression check and passed
+after one browser locator was made exact, because the new Saved Searches link also matched `Search`.
+
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
 ## Feed polling configuration
@@ -172,11 +186,44 @@ representative due-job query used `ix_nlp_jobs_due`, and current article entity 
 `ix_article_nlp_entities_current`. These observations establish bounded behavior for the tested
 fixture, not production capacity certification.
 
-Saved searches, investigation timelines, clustering, entity disambiguation, analytics,
+Clustering, entity disambiguation, analytics,
 multilingual annotation models, broad operational reprocessing UI, complete structured operational
 logging, SSE updates, production backup restoration, and five-million-article performance
 certification remain later milestones. PostgreSQL remains authoritative and the
 ingestion/extraction/NLP path continues while Elasticsearch is absent.
+
+## Investigations
+
+Apply the Phase 6 migration, then recreate the API and frontend:
+
+```sh
+docker compose run --rm api alembic upgrade head
+docker compose up -d --build api frontend
+```
+
+Search keeps the whole investigation in the URL: query, sources, source/story/mentioned
+countries, language, entities, entity types, keywords, date range, content and processing state,
+sort order, and timeline interval. Bookmarks, reloads, and browser back/forward reproduce it.
+Older links that use `country=` for source country keep working.
+
+The timeline above results charts the same filtered query. It picks the finest hour, day, week,
+month, or year bucket that stays within 200 buckets; a manual interval that would exceed that
+limit is refused with a prompt to choose a larger one. Drag across bars, or click one, to apply
+that span as the date range. Date ranges are whole UTC days with an exclusive end, so an hourly
+selection widens to the days it touches. Clicking a result's source, source country, or story
+country, or an entity, keyword, or country in article detail, narrows that one filter to the clicked
+value and keeps the rest of the investigation.
+
+Saved searches store a named, versioned copy of that state in PostgreSQL per user; names are
+unique per user ignoring case. Open one from Saved Searches to restore its exact URL, or rename
+or delete it there. A stored state that no longer validates after an upgrade stays listed with the
+reason and can be deleted, but is not opened. Saved-search mutations require the CSRF token like
+other changes.
+
+The timeline requires the active search index; annotation filters on the timeline need the
+schema-version-2 index described above. To roll Phase 6 back, stop `api`, then run
+`docker compose run --rm api alembic downgrade 0006`. This drops only saved searches; articles,
+annotations, and search indices are unaffected.
 
 ## Deployment
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Harbor Wire</title><link>http://fixture/</link>
+<description>Deterministic investigation fixture</description>
+<item><guid>harbor-wire-1</guid><title>Harbor wire opening report</title><link>http://fixture/harbor-wire-1.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Tue, 01 Sep 2026 09:00:00 GMT</pubDate></item>
+<item><guid>harbor-wire-2</guid><title>Harbor wire cargo report</title><link>http://fixture/harbor-wire-2.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Thu, 03 Sep 2026 09:00:00 GMT</pubDate></item>
+<item><guid>harbor-wire-3</guid><title>Harbor wire strike report</title><link>http://fixture/harbor-wire-3.html</link><description>Harbor investigation coverage for the timeline acceptance flow.</description><pubDate>Sat, 05 Sep 2026 09:00:00 GMT</pubDate></item>
+</channel></rss>

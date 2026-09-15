@@ -44,3 +44,12 @@ What we can build on:
 
 ## Verification
 `cd backend && uv run pytest && uv run ruff check . && uv run mypy app`; `cd frontend && npm test && npm run typecheck && npm run build`; `docker compose config --quiet`; `sh infra/test-phase6.sh` (0 skipped) plus `sh infra/test-phase5.sh` as the regression check.
+
+## Evidence (2026-09-15)
+- Commits: `fa41326` timeline API, `33af473` saved searches, `cf26f40` filterable result references, `3275587` frontend investigation state, plus the acceptance commit.
+- `infra/test-phase6.sh`: passed on the third run (project `newsintel-phase6-69106-1789465344`). Backend pytest 130 passed / 0 skipped; Ruff and mypy (73 files) clean; Vitest 46 passed across 8 files; `vue-tsc` and `vite build` passed; migration downgrade to 0006 removed `saved_searches` with an unchanged article count. Playwright: seed, investigation workflow (brush 1–5 September → 4 of 6 articles, clear, source cross-filter → 3, back/forward, reload, manual week interval, save, duplicate-name 409, open restores the exact URL, rename, delete), and the invalid stored state message.
+- Earlier runs failed in the harness only: run 1 dragged an off-screen chart (fixed by scrolling it into view); run 2 miscounted `psql` output from `UPDATE … RETURNING` (fixed with a counting CTE). Only one full green run of all three scenarios exists.
+- Regression: `infra/test-phase5.sh` first failed because `getByRole('link', { name: 'Search' })` also matched the new Saved Searches link; with `exact: true` it passed (130 backend, 46 frontend, all three browser scenarios, project `newsintel-phase5-88363-1789465757`).
+- `docker compose config --quiet` passed.
+- Deferred: a standalone Timeline navigation item (spec §7) is not part of this plan; the long Search filter form pushes the timeline below the fold at 720 px and is worth a collapsible-filters follow-up.
+
