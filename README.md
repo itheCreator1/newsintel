@@ -72,6 +72,39 @@ earlier attempts that day failed in the harness (an off-screen drag and a miscou
 and were fixed before that run. The Phase 5 gate was then rerun as a regression check and passed
 after one browser locator was made exact, because the new Saved Searches link also matched `Search`.
 
+Run the isolated Phase 7 gate with `sh infra/test-phase7.sh`. It uses its own Compose project,
+ports, and named volumes; rejects skipped database tests; checks that the clustering migration
+downgrades to `0007` (removing `story_clusters`, `story_cluster_members`, `article_cluster_state`,
+and `cluster_jobs`) without touching the canonical article count; and, unlike every earlier phase
+gate, keeps the optional NER-enabled `nlp-worker` running for its whole run instead of only
+smoke-testing it in isolation, because the entity graph needs real entities in every seeded
+document. It seeds two fixture feeds that report the same two events (byte-identical titles, so
+clustering is guaranteed regardless of NER extraction quality) plus one unrelated story, waits for
+NLP and clustering to settle, rebuilds search to schema version 3, and drives a real browser
+through the search-to-cluster cross-link, the cluster view, article detail's related article,
+"Search within this story", and the entity graph (node render, connected-entity click-through, and
+a cross-filter into search by entity). It then asserts cluster shape and the unrelated article's
+non-membership in PostgreSQL, and calls the live, authenticated entity-graph endpoint to confirm
+`nodes=50` stays within the documented 50-node/150-edge bounds. Failure logs and Playwright
+artifacts are retained under the printed `/tmp/newsintel-phase7-<pid>-<timestamp>` directory.
+
+The completed Phase 7 gate passed twice in a row on 2026-09-15, with no fixes needed to the script
+itself between runs: 196 backend tests and no skips (including real-PostgreSQL and
+real-Elasticsearch clustering and graph coverage), Ruff and mypy clean, 69 frontend tests, type
+checking, the production build, and both browser scenarios (seed, then the
+search/cluster/article-detail/graph workflow) in each run. The bounded-graph API check reported 11
+nodes and 6 edges against the fixture data, well within the 50-node/150-edge caps. Running the
+Phase 6 gate as a regression check surfaced a real, pre-existing gap: `tests/test_phase7_postgres.py`
+(collected by every phase gate's pytest run, since all of them run the whole `tests/` directory)
+needs a real Elasticsearch reachable from the host-side pytest process, which no gate script before
+Phase 7 published a port for. `compose.e2e.yaml` now publishes `elasticsearch` on
+`NEWSINTEL_TEST_ELASTICSEARCH_PORT` (default `0`, letting the kernel choose a free port) so every
+existing gate script keeps working unmodified, and `test-phase6.sh` additionally exports
+`NEWSINTEL_ELASTICSEARCH_URL` for its pytest run, the same way it already overrides the database
+URL. After that fix, `test-phase6.sh` and one more `test-phase7.sh` run both passed cleanly.
+`test-phase3.sh`, `test-phase4.sh`, and `test-phase5.sh` have the same latent gap and are not fixed
+here (out of this phase's scope); each needs the identical three-line change `test-phase6.sh` got.
+
 Validate Compose with `docker compose config --quiet`. Generate a current OpenAPI document with `cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))"`.
 
 ## Feed polling configuration
@@ -187,7 +220,7 @@ representative due-job query used `ix_nlp_jobs_due`, and current article entity 
 `ix_article_nlp_entities_current`. These observations establish bounded behavior for the tested
 fixture, not production capacity certification.
 
-Clustering, entity disambiguation, analytics,
+Entity disambiguation, analytics,
 multilingual annotation models, broad operational reprocessing UI, complete structured operational
 logging, SSE updates, production backup restoration, and five-million-article performance
 certification remain later milestones. PostgreSQL remains authoritative and the
@@ -225,6 +258,69 @@ The timeline requires the active search index; annotation filters on the timelin
 schema-version-2 index described above. To roll Phase 6 back, stop `api`, then run
 `docker compose run --rm api alembic downgrade 0006`. This drops only saved searches; articles,
 annotations, and search indices are unaffected.
+
+## Relationships
+
+Apply the Phase 7 migration, then recreate the API, workers, and frontend:
+
+```sh
+docker compose run --rm api alembic upgrade head
+docker compose up -d --build api worker nlp-worker scheduler frontend
+```
+
+Clustering is PostgreSQL-only rule-based grouping (`rule-1`): whenever the entities NLP processor
+succeeds for an article, it becomes a candidate against articles published within 48 hours whose
+normalized title hash matches exactly, or that share at least 2 current ORG/PERSON/GPE/EVENT
+entities. Candidates score `0.5 × title-token Jaccard + 0.35 × shared-entity Jaccard + 0.15 × time
+proximity`; a candidate at or above `0.45` joins that article's story. An article from the same feed
+as a candidate is never treated as separate related coverage of itself. Creating, joining, and
+merging clusters (the smaller cluster merges into the larger; ties keep the older cluster) serialize
+behind one PostgreSQL advisory lock, and a cluster that drops below two members is dissolved. Re-run
+the algorithm over a selection with `recluster`:
+
+```sh
+docker compose run --rm nlp-worker python -m app.cli recluster --all
+docker compose run --rm nlp-worker python -m app.cli recluster --all --apply
+```
+
+Dry-run (the default) reports the candidate count; `--apply` queues clustering jobs. `--article-id`
+(repeatable) or a paired `--from-date`/`--to-date` UTC range narrow the selection instead of `--all`,
+and `--batch-size` caps each scan batch between 1 and 500. `GET /api/v1/clustering/status` reports
+queued/running/retrying/failed job counts and cluster/clustered-article totals; the Clustering
+failures list supports a CSRF-protected per-job retry.
+
+Search results, the story cluster endpoint, article detail's related articles, and the entity
+co-occurrence graph all read from the schema-version-3 search index, which `rebuild-search` now
+always builds:
+
+```sh
+docker compose run --rm worker python -m app.cli rebuild-search
+```
+
+Schema-version-3 documents carry each article's `story_cluster_id` and its cluster's source count,
+so search can show "Also reported by N other sources", filter to one story with the
+`story_cluster_id` annotation, and keep the schema-version-2 entity/keyword/language filters from
+Phase 6 working. `GET /api/v1/graph/entities` aggregates entity co-occurrence over the current
+search criteria into a bounded graph: at most 50 nodes (`nodes`, clamped server-side regardless of
+the requested value) and at most 150 edges, with an edge dropped below `min_edge_weight` (default 2
+co-occurring articles); a response that hit either bound is flagged `truncated` so the UI can say
+so. The graph needs at least the schema-version-2 index; on an older index it returns the same
+`search_upgrade_required` 409 as annotation search filters.
+
+To roll Phase 7 back, stop `nlp-worker`, then run `docker compose run --rm api alembic downgrade
+0007`. This drops only `story_clusters`, `story_cluster_members`, `article_cluster_state`, and
+`cluster_jobs`; canonical articles, annotations, and the search index are unaffected. Rebuild search
+again after downgrading, since existing schema-version-3 documents keep stale cluster fields until
+the next rebuild; serve an older application only once search matches its schema.
+
+**Acceptance gate architecture note:** the Phase 5 and 6 gates only ever smoke-test the NER-enabled
+image in isolation, then run every real workflow — including all annotation assertions — against
+the default NER-disabled stack, because nothing in those phases needs real entities to pass.
+`infra/test-phase7.sh` cannot follow that pattern: with NER disabled, indexed documents carry zero
+entities and the entity graph would have zero nodes to render for any query, which the acceptance
+plan requires to be non-empty. So this gate builds `compose.ner.yaml`'s `nlp-worker` and keeps NER
+enabled for the entire run instead of tearing the NER-enabled stack down after a smoke test — a
+deliberate, one-off deviation from the Phase 5/6 precedent, not a new default for future gates.
 
 ## Deployment
 

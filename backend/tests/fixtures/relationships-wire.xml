@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Relationships Wire</title><link>http://fixture/</link>
+<description>Deterministic relationships fixture</description>
+<item><guid>relationships-wire-1</guid><title>Barack Obama meets Microsoft executives in Washington</title><link>http://fixture/relationships-wire-1.html</link><description>Barack Obama visited Redmond on Tuesday to tour Microsoft and discuss technology policy with Microsoft leadership.</description><pubDate>Mon, 07 Sep 2026 09:00:00 GMT</pubDate></item>
+<item><guid>relationships-wire-2</guid><title>United Nations envoy visits Brussels for a climate summit</title><link>http://fixture/relationships-wire-2.html</link><description>A United Nations envoy arrived in Brussels this week, and the United Nations confirmed the Brussels agenda covers a new climate summit.</description><pubDate>Wed, 09 Sep 2026 09:00:00 GMT</pubDate></item>
+<item><guid>relationships-wire-3</guid><title>Town council opens a renovated library branch</title><link>http://fixture/relationships-wire-3.html</link><description>The town council opened a renovated library branch downtown after months of construction work.</description><pubDate>Fri, 11 Sep 2026 09:00:00 GMT</pubDate></item>
+</channel></rss>
