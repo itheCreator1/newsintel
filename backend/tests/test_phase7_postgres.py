@@ -28,12 +28,15 @@ from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article, Feed, FeedArticle
 from app.feeds.routes import get_article
+from app.graph.schemas import GraphResponse
+from app.graph.service import MAX_NODES, edges_body, focus_query, parse_edges
+from app.graph.service import entity_graph as collect_entity_graph
 from app.nlp.execution import process_job as process_nlp_job
 from app.nlp.models import ArticleEntity, ArticleNlpState, Entity, NlpJob, NlpProcessorRun
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import request_article_nlp
 from app.search.criteria import SearchCriteria, build_query
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS_V2, ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.indexing import process_delivery
 from app.search.models import ArticleSearchState, SearchDelivery, SearchIndexTarget
@@ -100,10 +103,10 @@ async def _article(  # type: ignore[no-untyped-def]
     return article
 
 
-async def _entity(db, text_value: str) -> Entity:  # type: ignore[no-untyped-def]
+async def _entity(db, text_value: str, entity_type: str = "ORG") -> Entity:  # type: ignore[no-untyped-def]
     entity = Entity(
         language="en",
-        entity_type="ORG",
+        entity_type=entity_type,
         normalized_text=f"{text_value}-{uuid.uuid4().hex}",
         display_text=text_value,
     )
@@ -819,6 +822,132 @@ async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timelin
     solo_source = solo_hit["hits"]["hits"][0]["_source"]
     assert solo_source["story_cluster_id"] is None
     assert solo_source["cluster_source_count"] is None
+
+
+async def _publish_graph_index(article_ids: list[uuid.UUID]) -> str:
+    """Index the given articles into a fresh schema v2 index the graph aggregations can read."""
+    index_name = f"articles-v2-graph-{uuid.uuid4().hex}"
+    adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS_V2)
+    async with session_factory() as db, db.begin():
+        target = SearchIndexTarget(index_name=index_name, schema_version=2, role="replacement")
+        db.add(target)
+        await db.flush()
+        target_id = target.id
+        for article_id in article_ids:
+            await request_indexing(db, article_id)
+    async with session_factory() as db:
+        delivery_ids = list(
+            (
+                await db.scalars(
+                    select(SearchDelivery.id).where(SearchDelivery.target_id == target_id)
+                )
+            ).all()
+        )
+    assert len(delivery_ids) == len(article_ids)
+    for delivery_id in delivery_ids:
+        async with session_factory() as db:
+            claimed = await claim_delivery(db, delivery_id, lease_seconds=60)
+        assert claimed is not None
+        await process_delivery(str(delivery_id), claimed[1])
+    await adapter.refresh(index_name)
+    return index_name
+
+
+async def _graph(  # type: ignore[no-untyped-def]
+    index_name: str, criteria, focus_entity_id=None, nodes: int = 30, min_edge_weight: int = 2
+) -> GraphResponse:
+    adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+    async with session_factory() as db:
+        return await collect_entity_graph(
+            db,
+            adapter,
+            index_name,
+            query=focus_query(build_query(criteria, 2), focus_entity_id),
+            entity_types=criteria.entity_types,
+            nodes=nodes,
+            min_edge_weight=min_edge_weight,
+            focus_entity_id=focus_entity_id,
+        )
+
+
+async def test_entity_graph_aggregates_real_co_occurrence_within_a_bounded_payload() -> None:
+    async with session_factory() as db, db.begin():
+        feed = await _feed(db, "Graph Wire")
+        authority = await _entity(db, "Harbour Authority")
+        reyes = await _entity(db, "Ada Reyes", entity_type="PERSON")
+        trust = await _entity(db, "Port Trust")
+        articles = []
+        for index, members in enumerate(
+            ([authority, reyes, trust], [authority, reyes], [authority, trust])
+        ):
+            article = await _article(
+                db,
+                feeds=[feed],
+                title=f"Graph coverage {index}",
+                title_hash=uuid.uuid4().hex,
+                hours=index,
+            )
+            await _attach_entities(db, article.id, members)
+            articles.append(article)
+        article_ids = [article.id for article in articles]
+
+    index_name = await _publish_graph_index(article_ids)
+    adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+
+    graph = await _graph(index_name, _criteria())
+
+    assert {(node.id, node.text, node.type): node.article_count for node in graph.nodes} == {
+        (authority.id, "Harbour Authority", "ORG"): 3,
+        (reyes.id, "Ada Reyes", "PERSON"): 2,
+        (trust.id, "Port Trust", "ORG"): 2,
+    }
+    assert graph.nodes[0].id == authority.id
+    # Ada Reyes and Port Trust share only one article, which is below the default weight.
+    assert {frozenset((edge.source, edge.target)): edge.weight for edge in graph.edges} == {
+        frozenset((authority.id, reyes.id)): 2,
+        frozenset((authority.id, trust.id)): 2,
+    }
+    assert graph.truncated is False
+
+    typed = await _graph(index_name, _criteria(entity_types=["PERSON"]))
+    assert [(node.id, node.article_count) for node in typed.nodes] == [(reyes.id, 2)]
+    assert typed.edges == []
+
+    focused = await _graph(index_name, _criteria(), focus_entity_id=trust.id)
+    assert {node.id: node.article_count for node in focused.nodes} == {
+        trust.id: 2,
+        authority.id: 2,
+        reyes.id: 1,
+    }
+    assert {frozenset((edge.source, edge.target)): edge.weight for edge in focused.edges} == {
+        frozenset((trust.id, authority.id)): 2
+    }
+
+    # The focus entity survives a type filter that excludes it, and still carries its edges.
+    spliced = await _graph(
+        index_name, _criteria(entity_types=["PERSON"]), focus_entity_id=trust.id, min_edge_weight=1
+    )
+    assert {node.id: node.article_count for node in spliced.nodes} == {trust.id: 1, reyes.id: 1}
+    assert [frozenset((edge.source, edge.target)) for edge in spliced.edges] == [
+        frozenset((trust.id, reyes.id))
+    ]
+
+    capped = await _graph(index_name, _criteria(), nodes=1)
+    assert [node.id for node in capped.nodes] == [authority.id]
+    assert (capped.edges, capped.truncated) == ([], True)
+
+    # Elasticsearch accepts an adjacency matrix at the node cap this API enforces.
+    crowd = [str(authority.id), str(reyes.id), str(trust.id)] + [
+        str(uuid.uuid4()) for _ in range(MAX_NODES - 3)
+    ]
+    matrix = await adapter.search_index(index_name, edges_body(build_query(_criteria(), 2), crowd))
+    edges, truncated = parse_edges(matrix, node_ids=crowd, min_edge_weight=2)
+    assert {frozenset((edge.source, edge.target)) for edge in edges} == {
+        frozenset((str(authority.id), str(reyes.id))),
+        frozenset((str(authority.id), str(trust.id))),
+    }
+    assert truncated is False
 
 
 async def test_downgrade_to_0007_removes_clustering_without_touching_the_archive() -> None:
