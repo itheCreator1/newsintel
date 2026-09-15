@@ -5,11 +5,15 @@ import structlog
 from sqlalchemy import or_, select
 
 from app.articles.service import claim_due_job, due_filter
+from app.clustering.models import ClusterJob
+from app.clustering.service import claim_job as claim_cluster_job
+from app.clustering.service import job_due as cluster_job_due
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import ArticleProcessingJob, Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
+from app.jobs.clustering import process_clustering
 from app.jobs.ingestion import ingest_feed
 from app.jobs.nlp import process_nlp
 from app.jobs.search import index_article
@@ -166,6 +170,35 @@ async def schedule_due_nlp(batch_size: int = 50) -> int:
     return queued
 
 
+async def schedule_due_clustering(batch_size: int = 50) -> int:
+    now = datetime.now(UTC)
+    async with session_factory() as db:
+        ids = list(
+            (
+                await db.scalars(
+                    select(ClusterJob.id)
+                    .where(cluster_job_due(now))
+                    .order_by(ClusterJob.next_attempt_at, ClusterJob.id)
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+    queued = 0
+    for job_id in ids:
+        async with session_factory() as db:
+            claimed = await claim_cluster_job(db, job_id, get_settings().clustering_lease_seconds)
+        if claimed is None:
+            continue
+        _, token = claimed
+        try:
+            process_clustering.send(str(job_id), token)
+            queued += 1
+        except Exception:
+            log.exception("clustering_queue_failed", job_id=str(job_id))
+    return queued
+
+
 async def schedule_source_refreshes(batch_size: int = 10) -> int:
     async with session_factory() as db:
         ids = list(
@@ -189,6 +222,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             await schedule_due_feeds()
             await schedule_due_articles()
             await schedule_due_nlp()
+            await schedule_due_clustering()
             await schedule_due_search()
             await schedule_source_refreshes()
         except Exception:

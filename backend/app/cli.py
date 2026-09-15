@@ -11,6 +11,7 @@ from app.articles.storage import LocalObjectStorage
 from app.auth.models import Session, User
 from app.auth.security import hash_password
 from app.auth.service import normalize_username
+from app.clustering.service import count_recluster_selection, run_recluster
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.nlp.reprocessing import (
@@ -119,6 +120,32 @@ async def print_nlp_status() -> None:
         )
 
 
+async def run_clustering_selection(*, selection: dict[str, object], apply: bool) -> None:
+    if not apply:
+        count = await count_recluster_selection(selection)
+        print(f"dry-run: articles={count}")
+        return
+    queued = await run_recluster(selection)
+    print(f"recluster: jobs_queued={queued}")
+
+
+def _selection_from(args: argparse.Namespace, parser: argparse.ArgumentParser) -> dict[str, object]:
+    selection: dict[str, object] = {}
+    if args.article_id:
+        try:
+            selection["article_ids"] = [str(uuid.UUID(value)) for value in args.article_id]
+        except ValueError:
+            parser.error("--article-id values must be UUIDs")
+    elif args.all:
+        selection["all"] = True
+    else:
+        if args.from_date:
+            selection["from_date"] = args.from_date
+        if args.to_date:
+            selection["to_date"] = args.to_date
+    return selection
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -133,6 +160,7 @@ def main() -> None:
             "reprocess-nlp",
             "nlp-status",
             "resume-nlp-reprocessing",
+            "recluster",
         ],
     )
     parser.add_argument("username", nargs="?")
@@ -178,25 +206,26 @@ def main() -> None:
             parser.error(
                 "reprocess-nlp requires exactly one of --article-id, a date range, or --all"
             )
-        selection: dict[str, object] = {}
-        if args.article_id:
-            try:
-                selection["article_ids"] = [str(uuid.UUID(value)) for value in args.article_id]
-            except ValueError:
-                parser.error("--article-id values must be UUIDs")
-        elif args.all:
-            selection["all"] = True
-        else:
-            if args.from_date:
-                selection["from_date"] = args.from_date
-            if args.to_date:
-                selection["to_date"] = args.to_date
         asyncio.run(
             run_nlp_reprocessing(
                 run_id=None,
                 processors=tuple(args.processors),
-                selection=selection,
+                selection=_selection_from(args, parser),
                 apply=args.apply,
+            )
+        )
+        return
+    if args.command == "recluster":
+        if args.username:
+            parser.error("recluster does not accept an argument")
+        selection_modes = (
+            int(bool(args.article_id)) + int(bool(args.from_date or args.to_date)) + int(args.all)
+        )
+        if selection_modes != 1:
+            parser.error("recluster requires exactly one of --article-id, a date range, or --all")
+        asyncio.run(
+            run_clustering_selection(
+                selection=_selection_from(args, parser), apply=args.apply
             )
         )
         return

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
+from app.clustering.service import request_clustering
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.nlp.models import (
@@ -336,6 +337,9 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
         job.completed_at = now
         state.completed_generation = job.generation
         state.status = result.outcome
+        if job.processor_name == "entities":
+            # Entities feed candidate selection, so clustering follows their publication.
+            await request_clustering(db, job.article_id)
         await request_indexing(db, job.article_id)
     return True
 

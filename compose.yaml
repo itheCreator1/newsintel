@@ -51,7 +51,8 @@ services:
 
   nlp-worker:
     build: ./backend
-    command: ["dramatiq", "app.jobs.nlp", "--processes", "1", "--threads", "1"]
+    command:
+      ["dramatiq", "app.jobs.nlp", "app.jobs.clustering", "--processes", "1", "--threads", "1"]
     environment: *backend-env
     depends_on:
       redis: { condition: service_healthy }
