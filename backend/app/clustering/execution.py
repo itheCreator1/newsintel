@@ -74,7 +74,13 @@ async def _heartbeat(job_id: uuid.UUID, token: str, finished: asyncio.Event) -> 
 
 
 async def _publish(loaded: LoadedJob, token: str) -> Assignment | None:
-    """Assign the article and commit the membership, job state, and reindexing together."""
+    """Assign the article and commit the membership, job state, and reindexing together.
+
+    The isolation level stays at READ COMMITTED on purpose: `assign` serialises on an
+    advisory lock, and `pg_advisory_xact_lock` takes its snapshot before the lock is
+    granted, so REPEATABLE READ would make every queued job rebuild state a predecessor
+    already committed. `test_concurrent_workers_converge_on_one_consistent_cluster` guards it.
+    """
     now = datetime.now(UTC)
     try:
         async with session_factory() as db, db.begin():

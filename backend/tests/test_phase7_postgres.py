@@ -16,7 +16,12 @@ from app.clustering.engine import (
 )
 from app.clustering.execution import process_job
 from app.clustering.models import ArticleClusterState, ClusterJob, StoryCluster, StoryClusterMember
-from app.clustering.service import claim_job, request_clustering
+from app.clustering.service import (
+    claim_job,
+    count_recluster_selection,
+    request_clustering,
+    run_recluster,
+)
 from app.db.session import session_factory
 from app.feeds.models import Article, Feed, FeedArticle
 from app.nlp.execution import process_job as process_nlp_job
@@ -58,6 +63,7 @@ async def _article(  # type: ignore[no-untyped-def]
     title: str,
     title_hash: str,
     hours: float = 0,
+    discovered: datetime | None = None,
 ) -> Article:
     article = Article(
         original_url=f"https://example.test/{uuid.uuid4()}",
@@ -65,6 +71,7 @@ async def _article(  # type: ignore[no-untyped-def]
         title=title,
         normalized_title_hash=title_hash,
         published_at=BASE_TIME + timedelta(hours=hours),
+        first_discovered_at=discovered or BASE_TIME + timedelta(hours=hours),
     )
     db.add(article)
     await db.flush()
@@ -393,6 +400,126 @@ async def test_rerunning_clustering_is_idempotent() -> None:
         "succeeded",
         "succeeded",
     ]
+
+
+async def test_an_article_that_no_longer_matches_dissolves_the_remaining_singleton() -> None:
+    title = "Island ferry contract awarded after the review"
+    title_hash = uuid.uuid4().hex
+    async with session_factory() as db, db.begin():
+        kept = await _article(
+            db, feeds=[await _feed(db, "Island Wire")], title=title, title_hash=title_hash
+        )
+        leaving = await _article(
+            db,
+            feeds=[await _feed(db, "Island Daily")],
+            title=title,
+            title_hash=title_hash,
+            hours=2,
+        )
+        ids = [kept.id, leaving.id]
+
+    await _run_clustering(ids[0])
+    await _run_clustering(ids[1])
+    membership = await _membership(ids)
+    assert len(set(membership.values())) == 1
+    cluster_id = membership[ids[0]]
+    async with session_factory() as db:
+        revisions_before = await _search_revisions(db, ids)
+
+    # The departing article is re-titled, so nothing links it to the article it left behind.
+    async with session_factory() as db, db.begin():
+        article = await db.get(Article, ids[1], with_for_update=True)
+        assert article is not None
+        article.title = "Unrelated coverage of a regional airport terminal upgrade"
+        article.normalized_title_hash = uuid.uuid4().hex
+
+    await _run_clustering(ids[1])
+
+    async with session_factory() as db:
+        cluster = await db.get(StoryCluster, cluster_id)
+        members = list(
+            (
+                await db.scalars(
+                    select(StoryClusterMember).where(StoryClusterMember.article_id.in_(ids))
+                )
+            ).all()
+        )
+        revisions_after = await _search_revisions(db, ids)
+        articles = await db.scalar(
+            select(func.count()).select_from(Article).where(Article.id.in_(ids))
+        )
+    assert cluster is None, "a cluster that drops below two members is deleted"
+    assert members == [], "the orphaned article keeps no membership row"
+    assert revisions_after[ids[0]] > revisions_before[ids[0]], "the orphan is reindexed"
+    assert articles == 2, "dissolving a cluster never touches the article archive"
+
+
+async def test_recluster_selection_counts_then_queues_one_job_for_each_article() -> None:
+    window_start = datetime(2026, 7, 1, tzinfo=UTC)
+    async with session_factory() as db, db.begin():
+        feed = await _feed(db, "Selection Wire")
+        inside = [
+            await _article(
+                db,
+                feeds=[feed],
+                title=f"Selection article {index}",
+                title_hash=uuid.uuid4().hex,
+                discovered=window_start + timedelta(days=index),
+            )
+            for index in range(3)
+        ]
+        outside = await _article(
+            db,
+            feeds=[feed],
+            title="Selection article outside the window",
+            title_hash=uuid.uuid4().hex,
+            discovered=window_start + timedelta(days=40),
+        )
+        ids = [article.id for article in inside]
+        all_ids = [*ids, outside.id]
+
+    selection: dict[str, object] = {"article_ids": [str(value) for value in ids]}
+    assert await count_recluster_selection(selection) == 3
+    async with session_factory() as db:
+        assert (
+            await db.scalar(
+                select(func.count())
+                .select_from(ClusterJob)
+                .where(ClusterJob.article_id.in_(all_ids))
+            )
+            == 0
+        ), "counting a selection queues nothing"
+
+    # A batch size below the selection size forces the keyset cursor to take a second page.
+    assert await run_recluster(selection, batch_size=2) == 3
+
+    async with session_factory() as db:
+        jobs = list(
+            (
+                await db.scalars(select(ClusterJob).where(ClusterJob.article_id.in_(all_ids)))
+            ).all()
+        )
+    assert {job.article_id for job in jobs} == set(ids)
+    assert [job.status for job in jobs] == ["queued"] * 3
+    assert [job.generation for job in jobs] == [1] * 3
+
+    window = {
+        "from_date": window_start.isoformat(),
+        "to_date": (window_start + timedelta(days=30)).isoformat(),
+    }
+    assert await count_recluster_selection(window) >= 3
+    async with session_factory() as db:
+        excluded = await db.scalar(
+            select(func.count())
+            .select_from(ClusterJob)
+            .where(ClusterJob.article_id == outside.id)
+        )
+    assert excluded == 0, "an article outside the date range is never selected"
+
+    with pytest.raises(ValueError, match="UTC offset"):
+        await count_recluster_selection({"from_date": "2026-07-01"})
+    with pytest.raises(ValueError, match="article IDs"):
+        await count_recluster_selection({})
 
 
 async def test_clustering_retries_with_backoff_then_fails_terminally(

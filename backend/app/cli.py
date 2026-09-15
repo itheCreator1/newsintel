@@ -11,7 +11,12 @@ from app.articles.storage import LocalObjectStorage
 from app.auth.models import Session, User
 from app.auth.security import hash_password
 from app.auth.service import normalize_username
-from app.clustering.service import count_recluster_selection, run_recluster
+from app.clustering.service import (
+    MAX_RECLUSTER_BATCH,
+    count_recluster_selection,
+    run_recluster,
+    validate_selection,
+)
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.nlp.reprocessing import (
@@ -120,12 +125,14 @@ async def print_nlp_status() -> None:
         )
 
 
-async def run_clustering_selection(*, selection: dict[str, object], apply: bool) -> None:
+async def run_clustering_selection(
+    *, selection: dict[str, object], apply: bool, batch_size: int
+) -> None:
     if not apply:
         count = await count_recluster_selection(selection)
         print(f"dry-run: articles={count}")
         return
-    queued = await run_recluster(selection)
+    queued = await run_recluster(selection, batch_size=batch_size)
     print(f"recluster: jobs_queued={queued}")
 
 
@@ -223,9 +230,17 @@ def main() -> None:
         )
         if selection_modes != 1:
             parser.error("recluster requires exactly one of --article-id, a date range, or --all")
+        if args.batch_size < 1 or args.batch_size > MAX_RECLUSTER_BATCH:
+            parser.error(f"recluster batch size must be between 1 and {MAX_RECLUSTER_BATCH}")
+        selection = _selection_from(args, parser)
+        try:
+            # Reject bad dates as an argument error rather than a traceback from the worker.
+            validate_selection(selection)
+        except ValueError as exc:
+            parser.error(str(exc))
         asyncio.run(
             run_clustering_selection(
-                selection=_selection_from(args, parser), apply=args.apply
+                selection=selection, apply=args.apply, batch_size=args.batch_size
             )
         )
         return

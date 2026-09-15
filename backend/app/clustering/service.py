@@ -11,16 +11,19 @@ from app.feeds.models import Article
 from app.nlp.service import next_retry_at
 
 MAX_ATTEMPTS = 5
+MAX_RECLUSTER_BATCH = 500
 
 __all__ = [
     "CLUSTER_ALGORITHM_VERSION",
     "MAX_ATTEMPTS",
+    "MAX_RECLUSTER_BATCH",
     "claim_job",
     "count_recluster_selection",
     "job_due",
     "next_retry_at",
     "request_clustering",
     "run_recluster",
+    "validate_selection",
 ]
 
 
@@ -122,13 +125,16 @@ def _apply_selection(query, selection: dict[str, object]):  # type: ignore[no-un
     return query
 
 
-def _validate_selection(selection: dict[str, object]) -> None:
+def validate_selection(selection: dict[str, object]) -> None:
+    """Check a selection without touching the database, so callers can fail fast."""
     if not any(key in selection for key in ("article_ids", "from_date", "to_date", "all")):
         raise ValueError("reclustering requires article IDs, a UTC date range, or explicit all")
+    _parse_datetime(selection.get("from_date"))
+    _parse_datetime(selection.get("to_date"))
 
 
 async def count_recluster_selection(selection: dict[str, object]) -> int:
-    _validate_selection(selection)
+    validate_selection(selection)
     async with session_factory() as db:
         query = _apply_selection(select(func.count()).select_from(Article), selection)
         return int(await db.scalar(query) or 0)
@@ -136,9 +142,9 @@ async def count_recluster_selection(selection: dict[str, object]) -> int:
 
 async def run_recluster(selection: dict[str, object], *, batch_size: int = 100) -> int:
     """Queue clustering for every selected article, walking a bounded keyset cursor."""
-    _validate_selection(selection)
-    if batch_size < 1 or batch_size > 500:
-        raise ValueError("recluster batch size must be between 1 and 500")
+    validate_selection(selection)
+    if batch_size < 1 or batch_size > MAX_RECLUSTER_BATCH:
+        raise ValueError(f"recluster batch size must be between 1 and {MAX_RECLUSTER_BATCH}")
     cursor: uuid.UUID | None = None
     queued = 0
     while True:
