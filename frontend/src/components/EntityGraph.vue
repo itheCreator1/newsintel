@@ -19,7 +19,7 @@ function render() {
   const categories = [...new Set(props.nodes.map(node => node.type))]
   chart.setOption({
     animation: false,
-    tooltip: { formatter: (params: { data?: { name?: string; value?: number } }) => params.data ? `${params.data.name} · ${params.data.value} articles` : '' },
+    tooltip: { formatter: (params: { dataType?: string; data?: { name?: string; value?: number } }) => params.dataType === 'node' && params.data ? `${params.data.name} · ${params.data.value} articles` : '' },
     legend: [{ data: categories, textStyle: { color: '#91a7b4' }, top: 0 }],
     series: [{
       type: 'graph',
