@@ -37,6 +37,13 @@ it('restores filters from the URL and requests the bounded graph', async () => {
   expect(api.entityGraph).toHaveBeenLastCalledWith({ q: 'grid', source_country: ['US'], nodes: '40' })
 })
 
+it('clamps a hand-edited node count to the backend maximum of 50', async () => {
+  await renderGraph('/graph?nodes=500')
+
+  await screen.findByText('Chart with 2 nodes')
+  expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '50' })
+})
+
 it('commits filter changes to the URL and refetches', async () => {
   const { router } = await renderGraph()
   await screen.findByText('Chart with 2 nodes')

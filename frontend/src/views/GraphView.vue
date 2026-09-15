@@ -9,9 +9,11 @@ const EntityGraph = defineAsyncComponent(() => import('../components/EntityGraph
 const route = useRoute(), router = useRouter()
 const state = computed(() => stateFromQuery(route.query))
 const focus = computed(() => typeof route.query.focus === 'string' ? route.query.focus : '')
+const MAX_NODES = 50
 const nodeCount = computed(() => {
   const raw = typeof route.query.nodes === 'string' ? Number(route.query.nodes) : NaN
-  return Number.isFinite(raw) && raw > 0 ? raw : 30
+  // A hand-edited URL or bookmark can carry any value; the backend rejects anything over MAX_NODES with a 422.
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), MAX_NODES) : 30
 })
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
 const formFromState = (current: Investigation) => ({
@@ -62,7 +64,7 @@ const upgradeRequired = computed(() => error.value?.status === 409 && errorCode(
 function navigate(next: Investigation, extra: { focus?: string; nodes?: number } = {}) {
   const query = queryFromState(next)
   const nextFocus = extra.focus !== undefined ? extra.focus : focus.value
-  const nextNodes = extra.nodes !== undefined ? extra.nodes : nodeCount.value
+  const nextNodes = Math.min(extra.nodes !== undefined ? extra.nodes : nodeCount.value, MAX_NODES)
   if (nextFocus) query.focus = nextFocus
   if (nextNodes !== 30) query.nodes = String(nextNodes)
   router.push({ path: '/graph', query })
