@@ -1370,6 +1370,162 @@
         "title": "IndexStatus",
         "type": "object"
       },
+      "InvestigationState": {
+        "additionalProperties": false,
+        "description": "Complete search investigation, using the /search query parameter names.",
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "content_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Available"
+          },
+          "entity_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Entity Id",
+            "type": "array"
+          },
+          "entity_type": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Entity Type",
+            "type": "array"
+          },
+          "interval": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "hour",
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "title": "Interval",
+            "type": "string"
+          },
+          "keyword_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Keyword Id",
+            "type": "array"
+          },
+          "language": {
+            "items": {
+              "pattern": "^[A-Za-z][A-Za-z-]{1,15}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Language",
+            "type": "array"
+          },
+          "mentioned_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Mentioned Country",
+            "type": "array"
+          },
+          "processing_status": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Processing Status",
+            "type": "array"
+          },
+          "q": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Q",
+            "type": "string"
+          },
+          "sort": {
+            "default": "relevance",
+            "enum": [
+              "relevance",
+              "newest",
+              "oldest",
+              "most_sources"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "source_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Source Country",
+            "type": "array"
+          },
+          "source_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Source Id",
+            "type": "array"
+          },
+          "story_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Story Country",
+            "type": "array"
+          }
+        },
+        "title": "InvestigationState",
+        "type": "object"
+      },
       "JobPage": {
         "properties": {
           "items": {
@@ -1987,6 +2143,141 @@
           "status"
         ],
         "title": "RetryIndexResponse",
+        "type": "object"
+      },
+      "SavedSearchCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/InvestigationState"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "SavedSearchCreate",
+        "type": "object"
+      },
+      "SavedSearchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedSearchResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SavedSearchPage",
+        "type": "object"
+      },
+      "SavedSearchResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state_version",
+          "state",
+          "problem",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavedSearchResponse",
+        "type": "object"
+      },
+      "SavedSearchUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SavedSearchUpdate",
         "type": "object"
       },
       "SearchPage": {
@@ -3807,6 +4098,284 @@
         "summary": "Put Stop Words",
         "tags": [
           "nlp"
+        ]
+      }
+    },
+    "/api/v1/saved-searches": {
+      "get": {
+        "operationId": "list_searches_api_v1_saved_searches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Searches",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "post": {
+        "operationId": "create_search_api_v1_saved_searches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedSearchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Search",
+        "tags": [
+          "investigations"
+        ]
+      }
+    },
+    "/api/v1/saved-searches/{saved_search_id}": {
+      "delete": {
+        "operationId": "delete_search_api_v1_saved_searches__saved_search_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Search",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "get": {
+        "operationId": "get_search_api_v1_saved_searches__saved_search_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Search",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "patch": {
+        "operationId": "update_search_api_v1_saved_searches__saved_search_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedSearchUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Search",
+        "tags": [
+          "investigations"
         ]
       }
     },

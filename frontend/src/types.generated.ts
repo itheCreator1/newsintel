@@ -433,6 +433,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/saved-searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Searches */
+        get: operations["list_searches_api_v1_saved_searches_get"];
+        put?: never;
+        /** Create Search */
+        post: operations["create_search_api_v1_saved_searches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/saved-searches/{saved_search_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Search */
+        get: operations["get_search_api_v1_saved_searches__saved_search_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Search */
+        delete: operations["delete_search_api_v1_saved_searches__saved_search_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Search */
+        patch: operations["update_search_api_v1_saved_searches__saved_search_id__patch"];
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -1021,6 +1058,53 @@ export interface components {
              */
             running: number;
         };
+        /**
+         * InvestigationState
+         * @description Complete search investigation, using the /search query parameter names.
+         */
+        InvestigationState: {
+            /** After */
+            after?: string | null;
+            /** Before */
+            before?: string | null;
+            /** Content Available */
+            content_available?: boolean | null;
+            /** Entity Id */
+            entity_id?: string[];
+            /** Entity Type */
+            entity_type?: string[];
+            /**
+             * Interval
+             * @default auto
+             * @enum {string}
+             */
+            interval: "auto" | "hour" | "day" | "week" | "month" | "year";
+            /** Keyword Id */
+            keyword_id?: string[];
+            /** Language */
+            language?: string[];
+            /** Mentioned Country */
+            mentioned_country?: string[];
+            /** Processing Status */
+            processing_status?: string[];
+            /**
+             * Q
+             * @default
+             */
+            q: string;
+            /**
+             * Sort
+             * @default relevance
+             * @enum {string}
+             */
+            sort: "relevance" | "newest" | "oldest" | "most_sources";
+            /** Source Country */
+            source_country?: string[];
+            /** Source Id */
+            source_id?: string[];
+            /** Story Country */
+            story_country?: string[];
+        };
         /** JobPage */
         JobPage: {
             /** Items */
@@ -1262,6 +1346,50 @@ export interface components {
         RetryIndexResponse: {
             /** Status */
             status: string;
+        };
+        /** SavedSearchCreate */
+        SavedSearchCreate: {
+            /** Name */
+            name: string;
+            state: components["schemas"]["InvestigationState"];
+        };
+        /** SavedSearchPage */
+        SavedSearchPage: {
+            /** Items */
+            items: components["schemas"]["SavedSearchResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** SavedSearchResponse */
+        SavedSearchResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Problem */
+            problem: string | null;
+            state: components["schemas"]["InvestigationState"] | null;
+            /** State Version */
+            state_version: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SavedSearchUpdate */
+        SavedSearchUpdate: {
+            /** Name */
+            name?: string | null;
+            state?: components["schemas"]["InvestigationState"] | null;
         };
         /** SearchPage */
         SearchPage: {
@@ -2248,6 +2376,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StopWordsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_searches_api_v1_saved_searches_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_search_api_v1_saved_searches_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_search_api_v1_saved_searches__saved_search_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saved_search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_search_api_v1_saved_searches__saved_search_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                saved_search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_search_api_v1_saved_searches__saved_search_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                saved_search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedSearchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedSearchResponse"];
                 };
             };
             /** @description Validation Error */

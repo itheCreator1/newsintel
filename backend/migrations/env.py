@@ -17,6 +17,7 @@ from app.feeds.models import (  # noqa: F401
     FeedArticle,
     FeedFetch,
 )
+from app.investigations.models import SavedSearch  # noqa: F401
 from app.nlp.models import (  # noqa: F401
     ArticleCountryAnnotation,
     ArticleEntity,
