@@ -29,6 +29,7 @@ describe('application shell', () => {
     expect(await screen.findByRole('link', { name: 'Sources' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Articles' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Search' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Saved Searches' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Jobs' })).toBeTruthy()
   })
 })

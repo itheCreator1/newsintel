@@ -16,4 +16,8 @@ export type NlpStatus = components['schemas']['NlpStatusResponse']
 export type NlpFailurePage = components['schemas']['NlpFailurePage']
 export type StopWords = components['schemas']['StopWordsResponse']
 export type AnnotationLookupPage = components['schemas']['AnnotationLookupPage']
+export type InvestigationState = components['schemas']['InvestigationState']
+export type SavedSearch = components['schemas']['SavedSearchResponse']
+export type SavedSearchPage = components['schemas']['SavedSearchPage']
+export type SearchTimeline = components['schemas']['SearchTimeline']
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

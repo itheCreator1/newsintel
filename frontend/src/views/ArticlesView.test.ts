@@ -137,11 +137,31 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
   const router = await renderView('/?article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS')
 
   expect(await screen.findByText('Detected language: en')).toBeTruthy()
-  expect(screen.getByText('Source countries: FR')).toBeTruthy()
-  expect(screen.getByText('Primary story country: DE (inferred)')).toBeTruthy()
+  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Source countries: FR')).toBeTruthy()
+  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Primary story country: DE (inferred)')).toBeTruthy()
   expect(screen.getByText(/keywords · stale · queued/)).toBeTruthy()
   expect(screen.getByText((_, node) => node?.textContent === 'entities · disabled · NER is disabled')).toBeTruthy()
   await fireEvent.click(screen.getByRole('link', { name: 'climate policy' }))
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/search'))
-  expect(router.currentRoute.value.query).toMatchObject({ q: 'energy', country: 'US', keyword_id: 'keyword-one' })
+  expect(router.currentRoute.value.query).toMatchObject({ q: 'energy', country: ['US'], keyword_id: ['keyword-one'] })
+})
+
+it.each([
+  ['Filter by source Wire', { source_id: ['feed-wire'], country: ['US'] }],
+  ['Filter by source country FR', { country: ['FR'] }],
+  ['Filter by mentioned country DE', { mentioned_country: ['DE'], country: ['US'] }],
+  ['Filter by story country GR', { story_country: ['GR'], country: ['US'] }],
+])('cross-filters the originating investigation from %s', async (name, expected) => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), provenance: [{ feed_id: 'feed-wire', feed_name: 'Wire', description: null, discovered_at: '2026-09-13T12:00:00Z', guid: null, title: 'First article', url: 'https://example.com/one' }], content: null, processing: [] })
+  vi.mocked(api.articleAnnotations).mockResolvedValue({
+    article_id: 'one', capabilities: [], language: null, source_countries: ['FR'], keywords: [], entities: [], processors: [],
+    countries: [{ country_code: 'DE', role: 'mentioned', inferred: false, occurrence_count: 1, occurrences: [], fresh: true, rule_version: 'r' }, { country_code: 'GR', role: 'primary', inferred: false, occurrence_count: 1, occurrences: [], fresh: true, rule_version: 'r' }],
+  })
+  const router = await renderView('/?article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS%26after%3D2026-01-01')
+
+  await fireEvent.click(await screen.findByRole('link', { name }))
+
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/search'))
+  expect(router.currentRoute.value.query).toEqual({ q: 'energy', after: '2026-01-01', ...expected })
 })

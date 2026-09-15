@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, IndexFailurePage, IndexStatus, NlpFailurePage, NlpStatus, ProcessingJob, SearchPage, SearchSourcePage, StopWords } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, IndexFailurePage, IndexStatus, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -60,12 +60,16 @@ export const api = {
   job: (id: string) => request<ProcessingJob>(`/jobs/${id}`),
   backlog: () => request<Backlog>('/jobs/backlog'),
   retryJob: (id: string) => mutate<{ job_id: string; status: string; reused: boolean }>(`/jobs/${id}/retry`, 'POST'),
-  search: (filters: Record<string, string | string[] | undefined>, cursor?: string) => {
-    const params = new URLSearchParams()
-    for (const [key, value] of Object.entries(filters)) for (const item of Array.isArray(value) ? value : value === undefined || value === '' ? [] : [value]) params.append(key, item)
+  search: (filters: Filters, cursor?: string) => {
+    const params = filterParams(filters)
     if (cursor) params.set('cursor', cursor)
     return request<SearchPage>(`/search?${params}`)
   },
+  timeline: (filters: Filters) => request<SearchTimeline>(`/search/timeline?${filterParams(filters)}`),
+  savedSearches: (cursor?: string) => request<SavedSearchPage>(`/saved-searches${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`),
+  createSavedSearch: (name: string, state: InvestigationState) => mutate<SavedSearch>('/saved-searches', 'POST', { name, state }),
+  updateSavedSearch: (id: string, payload: { name?: string; state?: InvestigationState }) => mutate<SavedSearch>(`/saved-searches/${id}`, 'PATCH', payload),
+  deleteSavedSearch: (id: string) => mutate<void>(`/saved-searches/${id}`, 'DELETE'),
   searchSources: (q = '', cursor?: string) => request<SearchSourcePage>(`/search/sources?${new URLSearchParams({ ...(q ? { q } : {}), ...(cursor ? { cursor } : {}) })}`),
   indexingStatus: () => request<IndexStatus>('/search/indexing/status'),
   indexingFailures: (cursor?: string) => request<IndexFailurePage>(`/search/indexing/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
@@ -77,6 +81,14 @@ export const api = {
   updateStopWords: (currentRevision: number, words: string[]) => mutate<StopWords>('/nlp/stop-words', 'PUT', { current_revision: currentRevision, words }),
   nlpEntities: (q = '', cursor?: string) => annotationLookup('/nlp/entities', q, cursor),
   nlpKeywords: (q = '', cursor?: string) => annotationLookup('/nlp/keywords', q, cursor),
+}
+
+type Filters = Record<string, string | string[] | undefined>
+
+function filterParams(filters: Filters): URLSearchParams {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) for (const item of Array.isArray(value) ? value : value === undefined || value === '' ? [] : [value]) params.append(key, item)
+  return params
 }
 
 function annotationLookup(path: string, q: string, cursor?: string): Promise<AnnotationLookupPage> {
