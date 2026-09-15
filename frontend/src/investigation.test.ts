@@ -7,13 +7,13 @@ describe('investigation URL state', () => {
     const state = stateFromQuery({
       q: 'climate', source_id: ['s1', 's2'], country: 'gr', after: '2026-01-01', before: '2026-02-01', content_available: 'true',
       processing_status: 'failed', language: ['en', 'de'], entity_id: 'e1', entity_type: 'ORG', keyword_id: ['k1'],
-      story_country: 'de', mentioned_country: 'FR', sort: 'newest', interval: 'week',
+      story_country: 'de', mentioned_country: 'FR', story_cluster_id: 'cluster-1', sort: 'newest', interval: 'week',
     })
 
     expect(state).toEqual({
       q: 'climate', source_id: ['s1', 's2'], source_country: ['GR'], after: '2026-01-01', before: '2026-02-01', content_available: true,
       processing_status: ['failed'], language: ['en', 'de'], entity_id: ['e1'], entity_type: ['ORG'], keyword_id: ['k1'],
-      story_country: ['DE'], mentioned_country: ['FR'], sort: 'newest', interval: 'week',
+      story_country: ['DE'], mentioned_country: ['FR'], story_cluster_id: ['cluster-1'], sort: 'newest', interval: 'week',
     })
     const typed: InvestigationState = state
     expect(typed.sort).toBe('newest')
@@ -61,6 +61,14 @@ describe('cross-filtering', () => {
     expect(refine(state, 'entity_id', 'e3')).toEqual({ ...state, entity_id: ['e3'] })
     expect(refine(state, 'story_country', 'de').story_country).toEqual(['DE'])
     expect(state.entity_id).toEqual(['e1', 'e2'])
+  })
+
+  it('treats story_cluster_id as a UUID list field, not a country field', () => {
+    const state = { ...emptyInvestigation(), q: 'grid' }
+
+    expect(refine(state, 'story_cluster_id', 'cluster-1')).toEqual({ ...state, story_cluster_id: ['cluster-1'] })
+    expect(queryFromState({ ...state, story_cluster_id: ['cluster-1'] })).toEqual({ q: 'grid', story_cluster_id: ['cluster-1'] })
+    expect(stateFromQuery({ q: 'grid', story_cluster_id: 'cluster-1' }).story_cluster_id).toEqual(['cluster-1'])
   })
 })
 

@@ -14,7 +14,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.search).mockResolvedValue({
 afterEach(cleanup)
 
 async function renderSearch(url = '/search') {
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/search', component: SearchView }, { path: '/articles', component: { template: '<div />' } }] })
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/search', component: SearchView }, { path: '/articles', component: { template: '<div />' } }, { path: '/clusters/:id', component: { template: '<div />' } }] })
   await router.push(url); await router.isReady()
   return { router, ...render(SearchView, { global: { plugins: [[VueQueryPlugin, { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) }], router] } }) }
 }
@@ -87,6 +87,21 @@ it('cross-filters from a result source or story country and keeps the investigat
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'grid', after: '2026-01-01', source_id: ['s1'], sort: 'relevance' }, undefined))
 })
 
+it('links a multi-source result to its cluster and hides the link for single-source results', async () => {
+  vi.mocked(api.search).mockResolvedValueOnce({ items: [
+    { ...result, article_id: 'a1', story_cluster: { id: 'cluster-1', source_count: 2 } },
+    { ...result, article_id: 'a2', story_cluster: { id: 'cluster-2', source_count: 1 } },
+  ], next_cursor: null })
+  const { router } = await renderSearch('/search?q=grid')
+
+  expect(await screen.findByRole('link', { name: 'Also reported by 1 other source' })).toBeTruthy()
+  expect(screen.queryAllByRole('link', { name: /Also reported by/ })).toHaveLength(1)
+
+  await fireEvent.click(screen.getByRole('link', { name: 'Also reported by 1 other source' }))
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/clusters/cluster-1'))
+  expect(router.currentRoute.value.query).toEqual({ from: '/search?q=grid' })
+})
+
 it('opens an article with a return path to the investigation', async () => {
   const { router } = await renderSearch('/search?q=grid')
 
@@ -133,7 +148,7 @@ it('saves the complete investigation state by name', async () => {
 
   await vi.waitFor(() => expect(api.createSavedSearch).toHaveBeenCalledWith('Greek grid', {
     q: 'grid', source_id: [], source_country: ['GR'], after: null, before: '2026-02-01', content_available: null, processing_status: [], language: [],
-    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], sort: 'newest', interval: 'month',
+    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month',
   }))
   expect(await screen.findByText('Saved “Greek grid”.')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))

@@ -41,7 +41,7 @@ afterEach(cleanup)
 async function renderView(path = '/') {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/', component: ArticlesView }, { path: '/search', component: { template: '<div />' } }],
+    routes: [{ path: '/', component: ArticlesView }, { path: '/search', component: { template: '<div />' } }, { path: '/clusters/:id', component: { template: '<div />' } }],
   })
   await router.push(path)
   await router.isReady()
@@ -144,6 +144,31 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
   await fireEvent.click(screen.getByRole('link', { name: 'climate policy' }))
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/search'))
   expect(router.currentRoute.value.query).toMatchObject({ q: 'energy', country: ['US'], keyword_id: ['keyword-one'] })
+})
+
+it('shows the not-part-of-a-story empty state when an article has no cluster', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  await renderView('/?article=one')
+
+  expect(await screen.findByText('Not part of a detected story.')).toBeTruthy()
+})
+
+it('shows the story section with related articles and links to the full cluster and a story filter', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({
+    ...article('one', 'First article'), content: null, processing: [],
+    story_cluster: { id: 'cluster-1', article_count: 3, source_count: 2 },
+    related: [{ article_id: 'two', title: 'Second report', effective_date: '2026-09-13T13:00:00Z', score: 0.8 }],
+  })
+  const router = await renderView('/?article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS')
+
+  expect(await screen.findByText('3 articles from 2 sources')).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Second report' })).toBeTruthy()
+
+  await fireEvent.click(screen.getByRole('link', { name: 'Filter by story' }))
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/search'))
+  expect(router.currentRoute.value.query).toEqual({ q: 'energy', country: ['US'], story_cluster_id: ['cluster-1'] })
 })
 
 it.each([

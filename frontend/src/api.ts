@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, CursorPage, Feed, FeedFetch, IndexFailurePage, IndexStatus, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -75,6 +75,8 @@ export const api = {
     return request<SearchPage>(`/search?${params}`)
   },
   timeline: (filters: Filters) => request<SearchTimeline>(`/search/timeline?${filterParams(filters)}`),
+  cluster: (id: string, cursor?: string) => request<ClusterDetail>(`/clusters/${id}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   savedSearches: (cursor?: string) => request<SavedSearchPage>(`/saved-searches${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`),
   createSavedSearch: (name: string, state: InvestigationState) => mutate<SavedSearch>('/saved-searches', 'POST', { name, state }),
   updateSavedSearch: (id: string, payload: { name?: string; state?: InvestigationState }) => mutate<SavedSearch>(`/saved-searches/${id}`, 'PATCH', payload),

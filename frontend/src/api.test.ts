@@ -51,6 +51,25 @@ it('manages saved searches with CSRF-protected mutations', async () => {
   expect(new Headers(fetchMock.mock.calls[6][1]?.headers).get('X-CSRF-Token')).toBe('token')
 })
 
+it('requests a cluster with an optional cursor', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ id: 'cluster-1', article_count: 2, source_count: 2, first_published_at: null, last_published_at: null, representative_article_id: null, members: { items: [], next_cursor: null } }), { status: 200 }))
+
+  await api.cluster('cluster-1')
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/clusters/cluster-1')
+
+  fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'cluster-1', article_count: 2, source_count: 2, first_published_at: null, last_published_at: null, representative_article_id: null, members: { items: [], next_cursor: null } }), { status: 200 }))
+  await api.cluster('cluster-1', 'next')
+  expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/clusters/cluster-1?cursor=next')
+})
+
+it('requests the entity graph with repeated filters and a focus entity', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ nodes: [], edges: [], truncated: false }), { status: 200 }))
+
+  await api.entityGraph({ q: 'grid', source_country: ['US', 'GR'], entity_type: ['ORG'], focus_entity_id: 'entity-one', nodes: '40' })
+
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/graph/entities?q=grid&source_country=US&source_country=GR&entity_type=ORG&focus_entity_id=entity-one&nodes=40')
+})
+
 it('explains validation errors returned as a list of field problems', async () => {
   vi.spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
