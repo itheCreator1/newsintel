@@ -177,6 +177,30 @@ def test_parse_nodes_never_returns_more_nodes_than_requested() -> None:
     assert truncated is True
 
 
+def test_parse_nodes_clamps_a_caller_asking_past_the_absolute_node_cap() -> None:
+    # entity_graph is reachable without the route's Query(le=MAX_NODES) validation,
+    # so the absolute cap has to hold on its own.
+    buckets = [_bucket(f"n{index:03d}", 1, 500 - index) for index in range(60)]
+
+    counted, truncated = parse_nodes(_nodes_response(buckets), nodes=1000, focus_entity_id=None)
+
+    assert len(counted) == MAX_NODES
+    assert [item.entity_id for item in counted] == [f"n{index:03d}" for index in range(MAX_NODES)]
+    assert truncated is True
+
+
+def test_nodes_body_never_asks_elasticsearch_past_the_absolute_node_cap() -> None:
+    body = nodes_body(
+        build_query(_criteria(), schema_version=2),
+        entity_types=[],
+        nodes=1000,
+        focus_entity_id=None,
+    )
+
+    terms = body["aggs"]["entities"]["aggs"]["filtered"]["aggs"]["top"]["terms"]
+    assert terms["size"] == MAX_NODES
+
+
 def test_parse_nodes_splices_a_focus_entity_the_type_filter_excluded() -> None:
     focus = uuid.uuid4()
     buckets = [_bucket("a", 1, 9), _bucket("b", 1, 4), _bucket("c", 1, 2)]
