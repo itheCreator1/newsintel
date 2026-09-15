@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,11 +18,10 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.feeds.service import decode_cursor, encode_cursor
-from app.nlp.models import Entity, Keyword
+from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 from app.search.models import SearchDelivery, SearchIndexTarget
-from app.search.query import SearchSyntaxError, parse_query
-from app.search.rebuild import ALIAS, rebuild_status
+from app.search.rebuild import rebuild_status
 from app.search.schemas import (
     HighlightSegment,
     IndexFailure,
@@ -33,6 +32,14 @@ from app.search.schemas import (
     SearchResult,
     SearchSource,
     SearchSourcePage,
+    SearchTimeline,
+    TimelineBucket,
+)
+from app.search.timeline import (
+    RequestedInterval,
+    TimelineTooFine,
+    histogram_bounds,
+    select_interval,
 )
 
 router = APIRouter(tags=["search"])
@@ -40,6 +47,7 @@ Db = Annotated[AsyncSession, Depends(get_db)]
 Auth = Annotated[Session, Depends(current_session)]
 Mutation = Annotated[Session, Depends(require_csrf)]
 Config = Annotated[Settings, Depends(get_settings)]
+Criteria = Annotated[SearchCriteria, Depends(search_criteria)]
 Sort = Literal["relevance", "newest", "oldest", "most_sources"]
 
 
@@ -118,128 +126,20 @@ async def search_sources(
     )
 
 
-async def _resolve_sources(db: AsyncSession, values: list[str]) -> list[str]:
-    resolved: set[str] = set()
-    names: list[str] = []
-    for value in values:
-        try:
-            resolved.add(str(uuid.UUID(value)))
-        except ValueError:
-            names.append(value.lower())
-    if names:
-        resolved.update(
-            str(value)
-            for value in (
-                await db.scalars(select(Feed.id).where(func.lower(Feed.name).in_(names)))
-            ).all()
-        )
-    return sorted(resolved)
-
-
-async def _resolve_annotations(
-    db: AsyncSession, values: list[str], model: type[Entity] | type[Keyword]
-) -> list[str]:
-    resolved: set[str] = set()
-    names: list[str] = []
-    for value in values:
-        try:
-            resolved.add(str(uuid.UUID(value)))
-        except ValueError:
-            names.append(" ".join(value.casefold().split()))
-    if names:
-        resolved.update(
-            str(value)
-            for value in (
-                await db.scalars(select(model.id).where(model.normalized_text.in_(names)))
-            ).all()
-        )
-    return sorted(resolved)
-
-
 @router.get("/search", response_model=SearchPage)
 async def search_articles(
     db: Db,
     session: Auth,
     settings: Config,
-    q: str = "",
-    source_id: Annotated[list[uuid.UUID] | None, Query()] = None,
-    source_country: Annotated[list[str] | None, Query()] = None,
-    after: date | None = None,
-    before: date | None = None,
-    content_available: bool | None = None,
-    processing_status: Annotated[list[str] | None, Query()] = None,
-    language: Annotated[list[str] | None, Query()] = None,
-    entity_id: Annotated[list[uuid.UUID] | None, Query()] = None,
-    entity_type: Annotated[list[str] | None, Query()] = None,
-    keyword_id: Annotated[list[uuid.UUID] | None, Query()] = None,
-    story_country: Annotated[list[str] | None, Query()] = None,
-    mentioned_country: Annotated[list[str] | None, Query()] = None,
+    criteria: Criteria,
     sort: Sort = "relevance",
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     cursor: str | None = None,
 ) -> SearchPage:
-    try:
-        parsed = parse_query(q)
-    except SearchSyntaxError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    sources = sorted(
-        {
-            *(str(value) for value in source_id or []),
-            *(await _resolve_sources(db, parsed.source_values)),
-        }
-    )
-    countries = sorted({value.upper() for value in source_country or []} | set(parsed.countries))
-    languages = sorted({value.casefold() for value in language or []} | set(parsed.languages))
-    entity_ids = sorted(
-        {
-            *(str(value) for value in entity_id or []),
-            *(await _resolve_annotations(db, parsed.entity_values, Entity)),
-        }
-    )
-    keyword_ids = sorted(
-        {
-            *(str(value) for value in keyword_id or []),
-            *(await _resolve_annotations(db, parsed.keyword_values, Keyword)),
-        }
-    )
-    entity_types = sorted({value.upper() for value in entity_type or []})
-    story_countries = sorted(
-        {value.upper() for value in story_country or []} | set(parsed.story_countries)
-    )
-    mentioned_countries = sorted(
-        {value.upper() for value in mentioned_country or []} | set(parsed.mentioned_countries)
-    )
-    start, end = after or parsed.after, before or parsed.before
-    criteria = {
-        "q": q.strip(),
-        "sources": sources,
-        "countries": countries,
-        "after": str(start or ""),
-        "before": str(end or ""),
-        "content": content_available,
-        "processing": sorted(processing_status or []),
-        "languages": languages,
-        "entities": entity_ids,
-        "entity_types": entity_types,
-        "keywords": keyword_ids,
-        "story_countries": story_countries,
-        "mentioned_countries": mentioned_countries,
-        "sort": sort,
-        "limit": limit,
-    }
-    criteria_hash = hashlib.sha256(json.dumps(criteria, sort_keys=True).encode()).hexdigest()
+    fingerprint = {**criteria.fingerprint(), "sort": sort, "limit": limit}
+    criteria_hash = hashlib.sha256(json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     search_after: list[Any] | None = None
-    annotation_search = bool(
-        languages
-        or entity_ids
-        or entity_types
-        or keyword_ids
-        or story_countries
-        or mentioned_countries
-        or parsed.entity_values
-        or parsed.keyword_values
-    )
     try:
         if cursor:
             cursor_data = _read_cursor(cursor, settings.secret_key)
@@ -255,83 +155,8 @@ async def search_articles(
             pit_id, search_after = cursor_data["pit"], cursor_data["after"]
             schema_version = int(cursor_data.get("schema", 1))
         else:
-            current_target = await db.scalar(
-                select(SearchIndexTarget).where(SearchIndexTarget.role == "current").limit(1)
-            )
-            schema_version = current_target.schema_version if current_target else 1
-            if annotation_search and schema_version < 2:
-                raise HTTPException(
-                    409,
-                    {
-                        "code": "search_upgrade_required",
-                        "message": "Rebuild search to schema version 2 to use annotation filters",
-                    },
-                )
-            pit_id = await adapter.open_point_in_time(
-                current_target.index_name if current_target else ALIAS
-            )
-        text_fields = ["title^3", "descriptions", "body"]
-        if schema_version >= 2:
-            text_fields.extend(["entity_text", "keyword_text"])
-        must: list[dict[str, Any]] = []
-        for term in parsed.terms:
-            must.append(
-                {
-                    "multi_match": {
-                        "query": term,
-                        "fields": text_fields,
-                        "operator": "and",
-                    }
-                }
-            )
-        for phrase in parsed.phrases:
-            must.append(
-                {
-                    "multi_match": {
-                        "query": phrase,
-                        "fields": text_fields,
-                        "type": "phrase",
-                    }
-                }
-            )
-        filters: list[dict[str, Any]] = []
-        provenance_must: list[dict[str, Any]] = []
-        if sources:
-            provenance_must.append({"terms": {"provenance.source_id": sources}})
-        if countries:
-            provenance_must.append({"terms": {"provenance.source_country": countries}})
-        if provenance_must:
-            filters.append(
-                {"nested": {"path": "provenance", "query": {"bool": {"must": provenance_must}}}}
-            )
-        if start or end:
-            bounds: dict[str, str] = {}
-            if start:
-                bounds["gte"] = datetime.combine(start, time.min, UTC).isoformat()
-            if end:
-                bounds["lt"] = datetime.combine(end, time.min, UTC).isoformat()
-            filters.append({"range": {"effective_date": bounds}})
-        if content_available is not None:
-            filters.append({"term": {"content_available": content_available}})
-        if processing_status:
-            filters.append({"terms": {"processing_status": processing_status}})
-        if languages:
-            filters.append({"terms": {"detected_language": languages}})
-        entity_must: list[dict[str, Any]] = []
-        if entity_ids or parsed.entity_values:
-            entity_must.append({"terms": {"entities.id": entity_ids}})
-        if entity_types:
-            entity_must.append({"terms": {"entities.type": entity_types}})
-        if entity_must:
-            filters.append(
-                {"nested": {"path": "entities", "query": {"bool": {"must": entity_must}}}}
-            )
-        if keyword_ids or parsed.keyword_values:
-            filters.append({"terms": {"keyword_ids": keyword_ids}})
-        if story_countries:
-            filters.append({"terms": {"primary_story_country": story_countries}})
-        if mentioned_countries:
-            filters.append({"terms": {"mentioned_countries": mentioned_countries}})
+            index_name, schema_version = await current_search_target(db, criteria)
+            pit_id = await adapter.open_point_in_time(index_name)
         sort_clause: list[Any] = {
             "relevance": [{"_score": "desc"}, {"effective_date": "desc"}],
             "newest": [{"effective_date": "desc"}],
@@ -342,7 +167,7 @@ async def search_articles(
         body: dict[str, Any] = {
             "size": limit,
             "pit": {"id": pit_id, "keep_alive": "5m"},
-            "query": {"bool": {"must": must or [{"match_all": {}}], "filter": filters}},
+            "query": build_query(criteria, schema_version),
             "sort": sort_clause,
             "_source": [
                 "article_id",
@@ -405,6 +230,80 @@ async def search_articles(
         }
         next_cursor = _sign_cursor(payload, settings.secret_key)
     return SearchPage(items=items, next_cursor=next_cursor)
+
+
+@router.get("/search/timeline", response_model=SearchTimeline)
+async def search_timeline(
+    db: Db,
+    _auth: Auth,
+    settings: Config,
+    criteria: Criteria,
+    interval: RequestedInterval = "auto",
+) -> SearchTimeline:
+    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+    try:
+        index_name, schema_version = await current_search_target(db, criteria)
+        query = build_query(criteria, schema_version)
+        extent = await adapter.search_index(
+            index_name,
+            {
+                "size": 0,
+                "track_total_hits": False,
+                "query": query,
+                "aggs": {
+                    "first": {"min": {"field": "effective_date"}},
+                    "last": {"max": {"field": "effective_date"}},
+                },
+            },
+        )
+        data_min = extent.get("aggregations", {}).get("first", {}).get("value")
+        data_max = extent.get("aggregations", {}).get("last", {}).get("value")
+        if data_min is None or data_max is None:
+            return SearchTimeline(
+                interval="day" if interval == "auto" else interval, total=0, buckets=[]
+            )
+        first, last = histogram_bounds(
+            criteria,
+            datetime.fromtimestamp(data_min / 1000, UTC),
+            datetime.fromtimestamp(data_max / 1000, UTC),
+        )
+        try:
+            chosen = select_interval(interval, first, last)
+        except TimelineTooFine as exc:
+            raise HTTPException(422, {"code": "timeline_too_fine", "message": str(exc)}) from exc
+        response = await adapter.search_index(
+            index_name,
+            {
+                "size": 0,
+                "track_total_hits": False,
+                "query": query,
+                "aggs": {
+                    "timeline": {
+                        "date_histogram": {
+                            "field": "effective_date",
+                            "calendar_interval": chosen,
+                            "time_zone": "UTC",
+                            "min_doc_count": 0,
+                            "extended_bounds": {
+                                "min": int(first.timestamp() * 1000),
+                                "max": int(last.timestamp() * 1000),
+                            },
+                        }
+                    }
+                },
+            },
+        )
+    except ElasticsearchUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    buckets = [
+        TimelineBucket(
+            start=datetime.fromtimestamp(item["key"] / 1000, UTC), count=item["doc_count"]
+        )
+        for item in response.get("aggregations", {}).get("timeline", {}).get("buckets", [])
+    ]
+    return SearchTimeline(
+        interval=chosen, total=sum(bucket.count for bucket in buckets), buckets=buckets
+    )
 
 
 @router.get("/search/indexing/status", response_model=IndexStatus)

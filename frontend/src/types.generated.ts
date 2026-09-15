@@ -518,6 +518,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Timeline */
+        get: operations["search_timeline_api_v1_search_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1297,6 +1314,18 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** SearchTimeline */
+        SearchTimeline: {
+            /** Buckets */
+            buckets: components["schemas"]["TimelineBucket"][];
+            /**
+             * Interval
+             * @enum {string}
+             */
+            interval: "hour" | "day" | "week" | "month" | "year";
+            /** Total */
+            total: number;
+        };
         /** StopWordsResponse */
         StopWordsResponse: {
             /** Configuration Fingerprint */
@@ -1314,6 +1343,16 @@ export interface components {
             current_revision: number;
             /** Words */
             words: string[];
+        };
+        /** TimelineBucket */
+        TimelineBucket: {
+            /** Count */
+            count: number;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
         };
         /** UserResponse */
         UserResponse: {
@@ -2225,6 +2264,9 @@ export interface operations {
     search_articles_api_v1_search_get: {
         parameters: {
             query?: {
+                sort?: "relevance" | "newest" | "oldest" | "most_sources";
+                limit?: number;
+                cursor?: string | null;
                 q?: string;
                 source_id?: string[] | null;
                 source_country?: string[] | null;
@@ -2238,9 +2280,6 @@ export interface operations {
                 keyword_id?: string[] | null;
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
-                sort?: "relevance" | "newest" | "oldest" | "most_sources";
-                limit?: number;
-                cursor?: string | null;
             };
             header?: never;
             path?: never;
@@ -2373,6 +2412,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchSourcePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_timeline_api_v1_search_timeline_get: {
+        parameters: {
+            query?: {
+                interval?: "auto" | "hour" | "day" | "week" | "month" | "year";
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchTimeline"];
                 };
             };
             /** @description Validation Error */

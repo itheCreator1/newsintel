@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -61,3 +62,14 @@ class SearchSource(BaseModel):
 class SearchSourcePage(BaseModel):
     items: list[SearchSource]
     next_cursor: str | None
+
+
+class TimelineBucket(BaseModel):
+    start: datetime
+    count: int
+
+
+class SearchTimeline(BaseModel):
+    interval: Literal["hour", "day", "week", "month", "year"]
+    total: int
+    buckets: list[TimelineBucket]

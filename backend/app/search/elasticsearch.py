@@ -140,3 +140,8 @@ class ElasticsearchAdapter:
         response = await self._request("POST", "/_search", json_body=body)
         result: dict[str, Any] = response.json()
         return result
+
+    async def search_index(self, index_name: str, body: dict[str, Any]) -> dict[str, Any]:
+        response = await self._request("POST", f"/{index_name}/_search", json_body=body)
+        result: dict[str, Any] = response.json()
+        return result
