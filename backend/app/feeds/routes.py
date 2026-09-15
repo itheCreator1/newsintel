@@ -3,24 +3,27 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
+from app.clustering.models import ArticleClusterState, StoryCluster, StoryClusterMember
 from app.db.session import get_db
 from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
 from app.feeds.schemas import (
     ArticleDetailResponse,
     ArticlePage,
+    ArticleStoryCluster,
     CursorPage,
     FeedCreate,
     FeedResponse,
     FeedUpdate,
     FetchPage,
     PollResponse,
+    RelatedArticle,
 )
 from app.feeds.service import (
     article_detail_response,
@@ -214,4 +217,49 @@ async def get_article(article_id: uuid.UUID, db: Db, _auth: Auth) -> ArticleDeta
     )
     if article is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Article not found")
-    return article_detail_response(article)
+    cluster_state = await db.scalar(
+        select(ArticleClusterState).where(ArticleClusterState.article_id == article_id)
+    )
+    membership = await db.scalar(
+        select(StoryClusterMember).where(StoryClusterMember.article_id == article_id)
+    )
+    story_cluster: ArticleStoryCluster | None = None
+    related: list[RelatedArticle] = []
+    if membership is not None:
+        cluster = await db.get(StoryCluster, membership.cluster_id)
+        if cluster is not None:
+            story_cluster = ArticleStoryCluster(
+                id=cluster.id,
+                article_count=cluster.article_count,
+                source_count=cluster.source_count,
+            )
+            effective_date = func.coalesce(Article.published_at, Article.first_discovered_at)
+            related_rows = (
+                await db.execute(
+                    select(StoryClusterMember, Article, effective_date.label("effective_date"))
+                    .join(Article, Article.id == StoryClusterMember.article_id)
+                    .where(
+                        StoryClusterMember.cluster_id == membership.cluster_id,
+                        StoryClusterMember.article_id != article_id,
+                    )
+                    .order_by(
+                        StoryClusterMember.score.desc(), StoryClusterMember.article_id.asc()
+                    )
+                    .limit(5)
+                )
+            ).all()
+            related = [
+                RelatedArticle(
+                    article_id=related_article.id,
+                    title=related_article.title,
+                    effective_date=related_effective_date,
+                    score=related_member.score,
+                )
+                for related_member, related_article, related_effective_date in related_rows
+            ]
+    return article_detail_response(
+        article,
+        clustering_status=cluster_state.status if cluster_state is not None else None,
+        story_cluster=story_cluster,
+        related=related,
+    )

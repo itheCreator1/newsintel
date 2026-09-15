@@ -44,6 +44,7 @@ class InvestigationState(BaseModel):
     keyword_id: list[uuid.UUID] = Field(default_factory=list, max_length=50)
     story_country: list[CountryCode] = Field(default_factory=list, max_length=50)
     mentioned_country: list[CountryCode] = Field(default_factory=list, max_length=50)
+    story_cluster_id: list[uuid.UUID] = Field(default_factory=list, max_length=50)
     sort: Literal["relevance", "newest", "oldest", "most_sources"] = "relevance"
     interval: RequestedInterval = "auto"
 

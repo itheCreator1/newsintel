@@ -31,6 +31,7 @@ class SearchCriteria:
     keyword_ids: list[str]
     story_countries: list[str]
     mentioned_countries: list[str]
+    story_cluster_ids: list[str]
 
     @property
     def annotation_search(self) -> bool:
@@ -44,6 +45,10 @@ class SearchCriteria:
             or self.parsed.entity_values
             or self.parsed.keyword_values
         )
+
+    @property
+    def schema_v3_required(self) -> bool:
+        return bool(self.story_cluster_ids)
 
     def fingerprint(self) -> dict[str, Any]:
         return {
@@ -60,6 +65,7 @@ class SearchCriteria:
             "keywords": self.keyword_ids,
             "story_countries": self.story_countries,
             "mentioned_countries": self.mentioned_countries,
+            "story_clusters": self.story_cluster_ids,
         }
 
 
@@ -116,6 +122,7 @@ async def search_criteria(
     keyword_id: Annotated[list[uuid.UUID] | None, Query()] = None,
     story_country: Annotated[list[str] | None, Query()] = None,
     mentioned_country: Annotated[list[str] | None, Query()] = None,
+    story_cluster_id: Annotated[list[uuid.UUID] | None, Query()] = None,
 ) -> SearchCriteria:
     try:
         parsed = parse_query(q)
@@ -155,6 +162,12 @@ async def search_criteria(
         mentioned_countries=sorted(
             {value.upper() for value in mentioned_country or []} | set(parsed.mentioned_countries)
         ),
+        story_cluster_ids=sorted(
+            {
+                *(str(value) for value in story_cluster_id or []),
+                *parsed.story_cluster_ids,
+            }
+        ),
     )
 
 
@@ -169,6 +182,14 @@ async def current_search_target(db: AsyncSession, criteria: SearchCriteria) -> t
             {
                 "code": "search_upgrade_required",
                 "message": "Rebuild search to schema version 2 to use annotation filters",
+            },
+        )
+    if criteria.schema_v3_required and schema_version < 3:
+        raise HTTPException(
+            409,
+            {
+                "code": "search_upgrade_required",
+                "message": "Rebuild search to schema version 3 to use the story cluster filter",
             },
         )
     return (target.index_name if target else ALIAS), schema_version
@@ -227,4 +248,6 @@ def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]
         filters.append({"terms": {"primary_story_country": criteria.story_countries}})
     if criteria.mentioned_countries:
         filters.append({"terms": {"mentioned_countries": criteria.mentioned_countries}})
+    if criteria.story_cluster_ids:
+        filters.append({"terms": {"story_cluster_id": criteria.story_cluster_ids}})
     return {"bool": {"must": must or [{"match_all": {}}], "filter": filters}}

@@ -72,6 +72,8 @@ class ArticleDocument:
     keywords: list[KeywordDocument] | None = None
     primary_story_country: str | None = None
     mentioned_countries: list[str] | None = None
+    story_cluster_id: uuid.UUID | None = None
+    cluster_source_count: int | None = None
 
     def to_index_payload(self, *, schema_version: int = 1) -> dict[str, Any]:
         sources = {item.source_id for item in self.provenance}
@@ -101,6 +103,15 @@ class ArticleDocument:
                     "keyword_text": [item.text for item in keywords],
                     "primary_story_country": self.primary_story_country,
                     "mentioned_countries": sorted(set(self.mentioned_countries or [])),
+                }
+            )
+        if schema_version >= 3:
+            payload.update(
+                {
+                    "story_cluster_id": (
+                        str(self.story_cluster_id) if self.story_cluster_id else None
+                    ),
+                    "cluster_source_count": self.cluster_source_count,
                 }
             )
         return payload
@@ -182,6 +193,18 @@ ARTICLE_INDEX_SETTINGS_V2: dict[str, Any] = {
                     },
                 },
             },
+        },
+    },
+}
+
+ARTICLE_INDEX_SETTINGS_V3: dict[str, Any] = {
+    "settings": ARTICLE_INDEX_SETTINGS_V2["settings"],
+    "mappings": {
+        "dynamic": "strict",
+        "properties": {
+            **ARTICLE_INDEX_SETTINGS_V2["mappings"]["properties"],
+            "story_cluster_id": {"type": "keyword"},
+            "cluster_source_count": {"type": "integer"},
         },
     },
 }

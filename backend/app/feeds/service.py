@@ -12,6 +12,8 @@ from app.feeds.schemas import (
     ArticleJobSummary,
     ArticleProvenance,
     ArticleResponse,
+    ArticleStoryCluster,
+    RelatedArticle,
 )
 
 
@@ -68,7 +70,13 @@ def article_response(article: Article) -> ArticleResponse:
     )
 
 
-def article_detail_response(article: Article) -> ArticleDetailResponse:
+def article_detail_response(
+    article: Article,
+    *,
+    clustering_status: str | None = None,
+    story_cluster: ArticleStoryCluster | None = None,
+    related: list[RelatedArticle] | None = None,
+) -> ArticleDetailResponse:
     basic = article_response(article)
     content = article.content
     return ArticleDetailResponse(
@@ -94,4 +102,7 @@ def article_detail_response(article: Article) -> ArticleDetailResponse:
                 article.processing_jobs, key=lambda item: item.created_at, reverse=True
             )
         ],
+        clustering_status=clustering_status,
+        story_cluster=story_cluster,
+        related=related or [],
     )

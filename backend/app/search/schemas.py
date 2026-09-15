@@ -16,6 +16,11 @@ class SearchResultSource(BaseModel):
     country: str | None
 
 
+class StoryClusterRef(BaseModel):
+    id: uuid.UUID
+    source_count: int
+
+
 class SearchResult(BaseModel):
     article_id: uuid.UUID
     title: str
@@ -24,6 +29,7 @@ class SearchResult(BaseModel):
     sources: list[str]
     source_refs: list[SearchResultSource]
     story_country: str | None = None
+    story_cluster: StoryClusterRef | None = None
     summary: str | None
     highlights: list[HighlightSegment]
 

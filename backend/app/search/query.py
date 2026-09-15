@@ -1,4 +1,5 @@
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -7,7 +8,10 @@ class SearchSyntaxError(ValueError):
     pass
 
 
-FIELDS = "source|country|after|before|entity|keyword|language|story_country|mentioned_country"
+FIELDS = (
+    "source|country|after|before|entity|keyword|language|story_country|mentioned_country"
+    "|story_cluster"
+)
 TOKEN = re.compile(rf'(?:{FIELDS}):(?:"[^"]*"|\S+)|"[^"]*"|\S+')
 
 
@@ -22,6 +26,7 @@ class ParsedQuery:
     languages: list[str] = field(default_factory=list)
     story_countries: list[str] = field(default_factory=list)
     mentioned_countries: list[str] = field(default_factory=list)
+    story_cluster_ids: list[str] = field(default_factory=list)
     after: date | None = None
     before: date | None = None
 
@@ -52,6 +57,7 @@ def parse_query(value: str) -> ParsedQuery:
                 "language",
                 "story_country",
                 "mentioned_country",
+                "story_cluster",
             }:
                 raise SearchSyntaxError(f"Unsupported search field: {field_name}")
             raw = raw.strip('"')
@@ -80,6 +86,11 @@ def parse_query(value: str) -> ParsedQuery:
                     else parsed.mentioned_countries
                 )
                 target.append(raw.upper())
+            elif field_name == "story_cluster":
+                try:
+                    parsed.story_cluster_ids.append(str(uuid.UUID(raw)))
+                except ValueError as exc:
+                    raise SearchSyntaxError("story_cluster: requires a valid UUID") from exc
             else:
                 try:
                     parsed_date = date.fromisoformat(raw)

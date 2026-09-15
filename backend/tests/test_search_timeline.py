@@ -36,6 +36,7 @@ def _criteria(q: str = "", **overrides: object) -> SearchCriteria:
         "keyword_ids": [],
         "story_countries": [],
         "mentioned_countries": [],
+        "story_cluster_ids": [],
     }
     values.update(overrides)
     return SearchCriteria(**values)  # type: ignore[arg-type]

@@ -119,9 +119,25 @@ class ArticleJobSummary(BaseModel):
     completed_at: datetime | None
 
 
+class ArticleStoryCluster(BaseModel):
+    id: uuid.UUID
+    article_count: int
+    source_count: int
+
+
+class RelatedArticle(BaseModel):
+    article_id: uuid.UUID
+    title: str
+    effective_date: datetime
+    score: float
+
+
 class ArticleDetailResponse(ArticleResponse):
     content: ArticleContentResponse | None
     processing: list[ArticleJobSummary]
+    clustering_status: str | None = None
+    story_cluster: ArticleStoryCluster | None = None
+    related: list[RelatedArticle] = Field(default_factory=list)
 
 
 class ArticlePage(BaseModel):

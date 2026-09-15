@@ -5,6 +5,7 @@ from typing import Literal
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
+from app.clustering.models import StoryCluster, StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article, FeedArticle
@@ -101,6 +102,12 @@ async def _load_document(
             ).all()
         )
         latest_job = max(article.processing_jobs, key=lambda job: job.created_at, default=None)
+        membership = await db.scalar(
+            select(StoryClusterMember).where(StoryClusterMember.article_id == article.id)
+        )
+        cluster = (
+            await db.get(StoryCluster, membership.cluster_id) if membership is not None else None
+        )
         document = ArticleDocument(
             article_id=article.id,
             title=article.title,
@@ -134,6 +141,8 @@ async def _load_document(
             mentioned_countries=[
                 value.country_code for value in country_rows if value.role == "mentioned"
             ],
+            story_cluster_id=cluster.id if cluster is not None else None,
+            cluster_source_count=cluster.source_count if cluster is not None else None,
         )
         db.expunge(delivery)
         return delivery, target.index_name, target.schema_version, document

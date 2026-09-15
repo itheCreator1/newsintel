@@ -6,7 +6,11 @@ from sqlalchemy import func, select, text
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article
-from app.search.documents import ARTICLE_INDEX_SETTINGS, ARTICLE_INDEX_SETTINGS_V2
+from app.search.documents import (
+    ARTICLE_INDEX_SETTINGS,
+    ARTICLE_INDEX_SETTINGS_V2,
+    ARTICLE_INDEX_SETTINGS_V3,
+)
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.models import (
     ArticleSearchState,
@@ -17,7 +21,7 @@ from app.search.models import (
 )
 from app.search.service import new_claim_token
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ALIAS = "articles-current"
 
 
@@ -29,7 +33,13 @@ def new_index_name(schema_version: int) -> str:
 async def create_rebuild() -> uuid.UUID:
     index_name = new_index_name(SCHEMA_VERSION)
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
-    settings = ARTICLE_INDEX_SETTINGS_V2 if SCHEMA_VERSION >= 2 else ARTICLE_INDEX_SETTINGS
+    settings = (
+        ARTICLE_INDEX_SETTINGS_V3
+        if SCHEMA_VERSION >= 3
+        else ARTICLE_INDEX_SETTINGS_V2
+        if SCHEMA_VERSION >= 2
+        else ARTICLE_INDEX_SETTINGS
+    )
     await adapter.create_index(index_name, settings)
     async with session_factory() as db, db.begin():
         await db.execute(text("SELECT pg_advisory_xact_lock(728341904)"))

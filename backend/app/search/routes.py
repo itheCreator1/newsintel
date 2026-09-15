@@ -34,6 +34,7 @@ from app.search.schemas import (
     SearchSource,
     SearchSourcePage,
     SearchTimeline,
+    StoryClusterRef,
     TimelineBucket,
 )
 from app.search.timeline import (
@@ -177,6 +178,8 @@ async def search_articles(
                 "distinct_source_count",
                 "provenance",
                 "primary_story_country",
+                "story_cluster_id",
+                "cluster_source_count",
             ],
             "highlight": {
                 "fields": {
@@ -224,6 +227,14 @@ async def search_articles(
                 sources=sorted({item["source_name"] for item in source["provenance"]}),
                 source_refs=sorted(refs.values(), key=lambda ref: (ref.name.lower(), str(ref.id))),
                 story_country=source.get("primary_story_country"),
+                story_cluster=(
+                    StoryClusterRef(
+                        id=source["story_cluster_id"],
+                        source_count=source["cluster_source_count"],
+                    )
+                    if source.get("story_cluster_id")
+                    else None
+                ),
                 summary="".join(segment.text for segment in segments)[:500] or None,
                 highlights=segments,
             )

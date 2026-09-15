@@ -41,3 +41,13 @@ def test_query_parser_supports_annotation_fields_without_changing_source_country
     assert parsed.story_countries == ["FR"]
     assert parsed.mentioned_countries == ["DE"]
     assert parsed.countries == ["GR"]
+
+
+def test_story_cluster_field_accepts_uuid() -> None:
+    cluster_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
+    assert parse_query(f"story_cluster:{cluster_id}").story_cluster_ids == [str(cluster_id)]
+
+
+def test_story_cluster_field_rejects_non_uuid_values() -> None:
+    with pytest.raises(SearchSyntaxError, match="story_cluster"):
+        parse_query("story_cluster:not-a-uuid")

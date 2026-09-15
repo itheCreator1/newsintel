@@ -46,6 +46,19 @@ def test_investigation_state_normalizes_codes_and_query() -> None:
     assert state.model_dump(mode="json")["after"] == "2026-01-01"
 
 
+def test_investigation_state_carries_a_story_cluster_filter() -> None:
+    cluster_id = uuid.uuid4()
+    state = InvestigationState(story_cluster_id=[cluster_id])
+
+    assert state.story_cluster_id == [cluster_id]
+
+
+def test_investigation_state_without_a_story_cluster_key_still_validates() -> None:
+    state = InvestigationState.model_validate({"q": "energy", "sort": "newest"})
+
+    assert state.story_cluster_id == []
+
+
 @pytest.mark.parametrize(
     "state",
     [

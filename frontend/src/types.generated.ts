@@ -157,6 +157,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clustering/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clustering Failures */
+        get: operations["clustering_failures_api_v1_clustering_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clustering/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Clustering Job */
+        post: operations["retry_clustering_job_api_v1_clustering_jobs__job_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clustering/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clustering Status */
+        get: operations["clustering_status_api_v1_clustering_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clusters/{cluster_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cluster */
+        get: operations["get_cluster_api_v1_clusters__cluster_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feeds": {
         parameters: {
             query?: never;
@@ -647,6 +715,8 @@ export interface components {
         };
         /** ArticleDetailResponse */
         ArticleDetailResponse: {
+            /** Clustering Status */
+            clustering_status?: string | null;
             content: components["schemas"]["ArticleContentResponse"] | null;
             /**
              * First Discovered At
@@ -668,6 +738,9 @@ export interface components {
             provenance: components["schemas"]["ArticleProvenance"][];
             /** Published At */
             published_at: string | null;
+            /** Related */
+            related?: components["schemas"]["RelatedArticle"][];
+            story_cluster?: components["schemas"]["ArticleStoryCluster"] | null;
             /** Title */
             title: string;
         };
@@ -749,6 +822,18 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ArticleStoryCluster */
+        ArticleStoryCluster: {
+            /** Article Count */
+            article_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source Count */
+            source_count: number;
+        };
         /** AttemptResponse */
         AttemptResponse: {
             /** Attempt Number */
@@ -797,6 +882,117 @@ export interface components {
             state: string;
             /** Version */
             version?: string | null;
+        };
+        /** ClusterMemberFeedRef */
+        ClusterMemberFeedRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ClusterMemberPage */
+        ClusterMemberPage: {
+            /** Items */
+            items: components["schemas"]["ClusterMemberResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ClusterMemberResponse */
+        ClusterMemberResponse: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /**
+             * Effective Date
+             * Format: date-time
+             */
+            effective_date: string;
+            /** Feeds */
+            feeds: components["schemas"]["ClusterMemberFeedRef"][];
+            /** Score */
+            score: number;
+            /** Title */
+            title: string;
+        };
+        /** ClusteringFailurePage */
+        ClusteringFailurePage: {
+            /** Items */
+            items: components["schemas"]["ClusteringFailureResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ClusteringFailureResponse */
+        ClusteringFailureResponse: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** ClusteringMutationResponse */
+        ClusteringMutationResponse: {
+            /** Jobs Created */
+            jobs_created: number;
+            /** Status */
+            status: string;
+        };
+        /** ClusteringStatusResponse */
+        ClusteringStatusResponse: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /**
+             * Clustered Articles
+             * @default 0
+             */
+            clustered_articles: number;
+            /**
+             * Clusters
+             * @default 0
+             */
+            clusters: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Queued
+             * @default 0
+             */
+            queued: number;
+            /**
+             * Retrying
+             * @default 0
+             */
+            retrying: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
         };
         /** CountryAnnotationResponse */
         CountryAnnotationResponse: {
@@ -1102,6 +1298,8 @@ export interface components {
             source_country?: string[];
             /** Source Id */
             source_id?: string[];
+            /** Story Cluster Id */
+            story_cluster_id?: string[];
             /** Story Country */
             story_country?: string[];
         };
@@ -1337,6 +1535,23 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** RelatedArticle */
+        RelatedArticle: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /**
+             * Effective Date
+             * Format: date-time
+             */
+            effective_date: string;
+            /** Score */
+            score: number;
+            /** Title */
+            title: string;
+        };
         /** ReprocessRequest */
         ReprocessRequest: {
             /** Processors */
@@ -1418,6 +1633,7 @@ export interface components {
             source_refs: components["schemas"]["SearchResultSource"][];
             /** Sources */
             sources: string[];
+            story_cluster?: components["schemas"]["StoryClusterRef"] | null;
             /** Story Country */
             story_country?: string | null;
             /** Summary */
@@ -1487,6 +1703,37 @@ export interface components {
             current_revision: number;
             /** Words */
             words: string[];
+        };
+        /** StoryClusterDetailResponse */
+        StoryClusterDetailResponse: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Article Count */
+            article_count: number;
+            /** First Published At */
+            first_published_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Published At */
+            last_published_at: string | null;
+            members: components["schemas"]["ClusterMemberPage"];
+            /** Representative Article Id */
+            representative_article_id: string | null;
+            /** Source Count */
+            source_count: number;
+        };
+        /** StoryClusterRef */
+        StoryClusterRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source Count */
+            source_count: number;
         };
         /** TimelineBucket */
         TimelineBucket: {
@@ -1799,6 +2046,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    clustering_failures_api_v1_clustering_failures_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusteringFailurePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_clustering_job_api_v1_clustering_jobs__job_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusteringMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clustering_status_api_v1_clustering_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusteringStatusResponse"];
+                };
+            };
+        };
+    };
+    get_cluster_api_v1_clusters__cluster_id__get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                cluster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryClusterDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2590,6 +2956,7 @@ export interface operations {
                 keyword_id?: string[] | null;
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -2752,6 +3119,7 @@ export interface operations {
                 keyword_id?: string[] | null;
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
             };
             header?: never;
             path?: never;

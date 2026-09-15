@@ -110,3 +110,47 @@ def test_article_document_serializes_annotations_only_for_schema_version_two() -
     assert payload["keyword_text"] == ["energy policy"]
     assert payload["primary_story_country"] == "FR"
     assert payload["mentioned_countries"] == ["DE", "FR"]
+    assert "story_cluster_id" not in payload
+
+
+def test_article_document_serializes_cluster_membership_only_for_schema_version_three() -> None:
+    cluster_id = uuid.uuid4()
+    document = ArticleDocument(
+        article_id=uuid.uuid4(),
+        title="A clustered story",
+        descriptions=[],
+        body=None,
+        published_at=None,
+        first_discovered_at=datetime(2026, 9, 14, tzinfo=UTC),
+        content_available=False,
+        processing_status=None,
+        provenance=[],
+        story_cluster_id=cluster_id,
+        cluster_source_count=3,
+    )
+
+    payload_v2 = document.to_index_payload(schema_version=2)
+    assert "story_cluster_id" not in payload_v2
+    assert "cluster_source_count" not in payload_v2
+
+    payload_v3 = document.to_index_payload(schema_version=3)
+    assert payload_v3["story_cluster_id"] == str(cluster_id)
+    assert payload_v3["cluster_source_count"] == 3
+
+
+def test_article_document_serializes_no_cluster_as_null_for_schema_version_three() -> None:
+    document = ArticleDocument(
+        article_id=uuid.uuid4(),
+        title="An unclustered story",
+        descriptions=[],
+        body=None,
+        published_at=None,
+        first_discovered_at=datetime(2026, 9, 14, tzinfo=UTC),
+        content_available=False,
+        processing_status=None,
+        provenance=[],
+    )
+
+    payload = document.to_index_payload(schema_version=3)
+    assert payload["story_cluster_id"] is None
+    assert payload["cluster_source_count"] is None

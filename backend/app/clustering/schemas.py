@@ -32,3 +32,32 @@ class ClusteringFailurePage(BaseModel):
 class ClusteringMutationResponse(BaseModel):
     status: str
     jobs_created: int
+
+
+class ClusterMemberFeedRef(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class ClusterMemberResponse(BaseModel):
+    article_id: uuid.UUID
+    title: str
+    effective_date: datetime
+    feeds: list[ClusterMemberFeedRef]
+    score: float
+
+
+class ClusterMemberPage(BaseModel):
+    items: list[ClusterMemberResponse]
+    next_cursor: str | None
+
+
+class StoryClusterDetailResponse(BaseModel):
+    id: uuid.UUID
+    algorithm_version: str
+    article_count: int
+    source_count: int
+    first_published_at: datetime | None
+    last_published_at: datetime | None
+    representative_article_id: uuid.UUID | None
+    members: ClusterMemberPage

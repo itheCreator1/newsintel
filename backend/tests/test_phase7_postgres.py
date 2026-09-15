@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import HTTPException
 from sqlalchemy import func, select, text
 
 from app.clustering.engine import (
@@ -16,19 +17,28 @@ from app.clustering.engine import (
 )
 from app.clustering.execution import process_job
 from app.clustering.models import ArticleClusterState, ClusterJob, StoryCluster, StoryClusterMember
+from app.clustering.routes import get_cluster
 from app.clustering.service import (
     claim_job,
     count_recluster_selection,
     request_clustering,
     run_recluster,
 )
+from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.routes import get_article
 from app.nlp.execution import process_job as process_nlp_job
 from app.nlp.models import ArticleEntity, ArticleNlpState, Entity, NlpJob, NlpProcessorRun
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import request_article_nlp
-from app.search.models import ArticleSearchState
+from app.search.criteria import SearchCriteria, build_query
+from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.elasticsearch import ElasticsearchAdapter
+from app.search.indexing import process_delivery
+from app.search.models import ArticleSearchState, SearchDelivery, SearchIndexTarget
+from app.search.query import parse_query
+from app.search.service import claim_delivery, request_indexing
 
 pytestmark = [
     pytest.mark.skipif(
@@ -192,6 +202,28 @@ async def _membership(article_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID
             )
         ).all()
     return {row[0]: row[1] for row in rows}
+
+
+def _criteria(**overrides: object) -> SearchCriteria:
+    values: dict[str, object] = {
+        "parsed": parse_query(""),
+        "q": "",
+        "sources": [],
+        "countries": [],
+        "start": None,
+        "end": None,
+        "content_available": None,
+        "processing": [],
+        "languages": [],
+        "entity_ids": [],
+        "entity_types": [],
+        "keyword_ids": [],
+        "story_countries": [],
+        "mentioned_countries": [],
+        "story_cluster_ids": [],
+    }
+    values.update(overrides)
+    return SearchCriteria(**values)  # type: ignore[arg-type]
 
 
 async def test_two_outlets_covering_one_event_stay_separate_articles_in_one_cluster() -> None:
@@ -601,6 +633,192 @@ async def test_publishing_entities_chains_a_clustering_request() -> None:
             (await db.scalars(select(ClusterJob).where(ClusterJob.article_id == article_id))).all()
         )
     assert len(cluster_jobs) == 1 and cluster_jobs[0].status == "queued"
+
+
+async def test_article_detail_reports_related_reporting_and_clustering_status() -> None:
+    title = "Regional water board approves the reservoir expansion"
+    title_hash = uuid.uuid4().hex
+    async with session_factory() as db, db.begin():
+        wire = await _feed(db, "Detail Wire")
+        daily = await _feed(db, "Detail Daily")
+        first = await _article(db, feeds=[wire], title=title, title_hash=title_hash)
+        second = await _article(db, feeds=[daily], title=title, title_hash=title_hash, hours=2)
+        untouched = await _article(
+            db,
+            feeds=[await _feed(db, "Untouched Wire")],
+            title="A story that was never queued for clustering",
+            title_hash=uuid.uuid4().hex,
+            hours=4,
+        )
+        first_id, second_id, untouched_id = first.id, second.id, untouched.id
+
+    await _run_clustering(first_id)
+    await _run_clustering(second_id)
+    membership = await _membership([first_id, second_id])
+    assert len(set(membership.values())) == 1
+    cluster_id = membership[first_id]
+
+    async with session_factory() as db:
+        detail = await get_article(first_id, db, None)  # type: ignore[arg-type]
+    assert detail.clustering_status == "succeeded"
+    assert detail.story_cluster is not None
+    assert (detail.story_cluster.id, detail.story_cluster.article_count) == (cluster_id, 2)
+    assert len(detail.related) == 1
+    assert detail.related[0].article_id == second_id
+    assert detail.related[0].score > 0
+
+    async with session_factory() as db:
+        untouched_detail = await get_article(untouched_id, db, None)  # type: ignore[arg-type]
+    assert untouched_detail.clustering_status is None
+    assert untouched_detail.story_cluster is None
+    assert untouched_detail.related == []
+
+
+async def test_get_cluster_paginates_members_by_effective_date_then_id() -> None:
+    title = "City transit authority unveils the new tram timetable"
+    title_hash = uuid.uuid4().hex
+    async with session_factory() as db, db.begin():
+        articles = [
+            await _article(
+                db,
+                feeds=[await _feed(db, f"Pagination outlet {index}")],
+                title=title,
+                title_hash=title_hash,
+                hours=index,
+            )
+            for index in range(3)
+        ]
+        article_ids = [article.id for article in articles]
+
+    for article_id in article_ids:
+        await _run_clustering(article_id)
+    membership = await _membership(article_ids)
+    assert len(set(membership.values())) == 1
+    cluster_id = membership[article_ids[0]]
+
+    async with session_factory() as db:
+        page = await get_cluster(cluster_id, db, None, cursor=None, limit=2)  # type: ignore[arg-type]
+    assert [item.article_id for item in page.members.items] == list(reversed(article_ids))[:2]
+    assert page.members.next_cursor is not None
+    assert page.article_count == 3 and page.source_count == 3
+
+    async with session_factory() as db:
+        second_page = await get_cluster(  # type: ignore[arg-type]
+            cluster_id, db, None, cursor=page.members.next_cursor, limit=2
+        )
+    assert [item.article_id for item in second_page.members.items] == [article_ids[0]]
+    assert second_page.members.next_cursor is None
+
+    async with session_factory() as db:
+        with pytest.raises(HTTPException) as excinfo:
+            await get_cluster(uuid.uuid4(), db, None, cursor=None, limit=10)  # type: ignore[arg-type]
+    assert excinfo.value.status_code == 404
+
+
+async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timeline() -> None:
+    title = "Two outlets cover the harbour authority recount"
+    title_hash = uuid.uuid4().hex
+    async with session_factory() as db, db.begin():
+        first = await _article(
+            db, feeds=[await _feed(db, "V3 Wire")], title=title, title_hash=title_hash
+        )
+        second = await _article(
+            db,
+            feeds=[await _feed(db, "V3 Daily")],
+            title=title,
+            title_hash=title_hash,
+            hours=1,
+        )
+        solo = await _article(
+            db,
+            feeds=[await _feed(db, "V3 Solo")],
+            title="An unrelated single-source story about harbour weather",
+            title_hash=uuid.uuid4().hex,
+            hours=2,
+        )
+        article_ids = [first.id, second.id, solo.id]
+
+    await _run_clustering(first.id)
+    await _run_clustering(second.id)
+    membership = await _membership([first.id, second.id])
+    assert len(set(membership.values())) == 1
+    cluster_id = membership[first.id]
+
+    index_name = f"articles-v3-{uuid.uuid4().hex}"
+    adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS_V3)
+
+    async with session_factory() as db, db.begin():
+        target = SearchIndexTarget(index_name=index_name, schema_version=3, role="replacement")
+        db.add(target)
+        await db.flush()
+        target_id = target.id
+        for article_id in article_ids:
+            await request_indexing(db, article_id)
+
+    async with session_factory() as db:
+        delivery_ids = list(
+            (
+                await db.scalars(
+                    select(SearchDelivery.id).where(SearchDelivery.target_id == target_id)
+                )
+            ).all()
+        )
+    assert len(delivery_ids) == 3
+    for delivery_id in delivery_ids:
+        async with session_factory() as db:
+            claimed = await claim_delivery(db, delivery_id, lease_seconds=60)
+        assert claimed is not None
+        await process_delivery(str(delivery_id), claimed[1])
+    await adapter.refresh(index_name)
+
+    async with session_factory() as db:
+        deliveries = list(
+            (
+                await db.scalars(
+                    select(SearchDelivery).where(SearchDelivery.target_id == target_id)
+                )
+            ).all()
+        )
+    assert [delivery.status for delivery in deliveries] == ["succeeded"] * 3
+
+    clustered_query = build_query(_criteria(story_cluster_ids=[str(cluster_id)]), schema_version=3)
+    clustered = await adapter.search_index(index_name, {"query": clustered_query, "size": 10})
+    hit_ids = {hit["_source"]["article_id"] for hit in clustered["hits"]["hits"]}
+    assert hit_ids == {str(first.id), str(second.id)}
+    for hit in clustered["hits"]["hits"]:
+        assert hit["_source"]["story_cluster_id"] == str(cluster_id)
+        assert hit["_source"]["cluster_source_count"] == 2
+
+    solo_query = build_query(_criteria(), schema_version=3)
+    timeline = await adapter.search_index(
+        index_name,
+        {
+            "size": 0,
+            "track_total_hits": False,
+            "query": solo_query,
+            "aggs": {
+                "timeline": {
+                    "date_histogram": {
+                        "field": "effective_date",
+                        "calendar_interval": "day",
+                        "time_zone": "UTC",
+                        "min_doc_count": 0,
+                    }
+                }
+            },
+        },
+    )
+    buckets = timeline["aggregations"]["timeline"]["buckets"]
+    assert sum(bucket["doc_count"] for bucket in buckets) == 3
+
+    solo_hit = await adapter.search_index(
+        index_name,
+        {"query": {"term": {"article_id": str(solo.id)}}, "size": 1},
+    )
+    solo_source = solo_hit["hits"]["hits"][0]["_source"]
+    assert solo_source["story_cluster_id"] is None
+    assert solo_source["cluster_source_count"] is None
 
 
 async def test_downgrade_to_0007_removes_clustering_without_touching_the_archive() -> None:
