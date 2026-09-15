@@ -1414,12 +1414,28 @@ export interface components {
             effective_date: string;
             /** Highlights */
             highlights: components["schemas"]["HighlightSegment"][];
+            /** Source Refs */
+            source_refs: components["schemas"]["SearchResultSource"][];
             /** Sources */
             sources: string[];
+            /** Story Country */
+            story_country?: string | null;
             /** Summary */
             summary: string | null;
             /** Title */
             title: string;
+        };
+        /** SearchResultSource */
+        SearchResultSource: {
+            /** Country */
+            country: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** SearchSource */
         SearchSource: {

@@ -2331,12 +2331,30 @@
             "title": "Highlights",
             "type": "array"
           },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultSource"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
           "sources": {
             "items": {
               "type": "string"
             },
             "title": "Sources",
             "type": "array"
+          },
+          "story_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Story Country"
           },
           "summary": {
             "anyOf": [
@@ -2360,10 +2378,42 @@
           "effective_date",
           "distinct_source_count",
           "sources",
+          "source_refs",
           "summary",
           "highlights"
         ],
         "title": "SearchResult",
+        "type": "object"
+      },
+      "SearchResultSource": {
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "country"
+        ],
+        "title": "SearchResultSource",
         "type": "object"
       },
       "SearchSource": {

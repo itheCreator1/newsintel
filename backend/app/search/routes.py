@@ -30,6 +30,7 @@ from app.search.schemas import (
     RetryIndexResponse,
     SearchPage,
     SearchResult,
+    SearchResultSource,
     SearchSource,
     SearchSourcePage,
     SearchTimeline,
@@ -175,6 +176,7 @@ async def search_articles(
                 "effective_date",
                 "distinct_source_count",
                 "provenance",
+                "primary_story_country",
             ],
             "highlight": {
                 "fields": {
@@ -207,6 +209,12 @@ async def search_articles(
             value for values in hit.get("highlight", {}).values() for value in values
         ]
         segments = _segments(highlight_values)
+        refs = {
+            item["source_id"]: SearchResultSource(
+                id=item["source_id"], name=item["source_name"], country=item.get("source_country")
+            )
+            for item in source["provenance"]
+        }
         items.append(
             SearchResult(
                 article_id=source["article_id"],
@@ -214,6 +222,8 @@ async def search_articles(
                 effective_date=source["effective_date"],
                 distinct_source_count=source["distinct_source_count"],
                 sources=sorted({item["source_name"] for item in source["provenance"]}),
+                source_refs=sorted(refs.values(), key=lambda ref: (ref.name.lower(), str(ref.id))),
+                story_country=source.get("primary_story_country"),
                 summary="".join(segment.text for segment in segments)[:500] or None,
                 highlights=segments,
             )

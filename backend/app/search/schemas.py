@@ -10,12 +10,20 @@ class HighlightSegment(BaseModel):
     marked: bool = False
 
 
+class SearchResultSource(BaseModel):
+    id: uuid.UUID
+    name: str
+    country: str | None
+
+
 class SearchResult(BaseModel):
     article_id: uuid.UUID
     title: str
     effective_date: datetime
     distinct_source_count: int
     sources: list[str]
+    source_refs: list[SearchResultSource]
+    story_country: str | None = None
     summary: str | None
     highlights: list[HighlightSegment]
 

@@ -6,7 +6,7 @@ import { api } from '../api'
 import SearchView from './SearchView.vue'
 
 vi.mock('../api', async importOriginal => ({ ...(await importOriginal<typeof import('../api')>()), api: { search: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
-const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }] }
+const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }] }
 
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(api.search).mockResolvedValue({ items: [result], next_cursor: 'next' }); vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: true }], next_cursor: null }); vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'entity-one', kind: 'ORG', normalized_text: 'acme', text: 'Acme' }], next_cursor: null }); vi.mocked(api.nlpKeywords).mockResolvedValue({ items: [{ id: 'keyword-one', kind: 'keyword', normalized_text: 'climate policy', text: 'climate policy' }], next_cursor: null }) })
 afterEach(cleanup)
