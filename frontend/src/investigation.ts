@@ -17,13 +17,18 @@ export function emptyInvestigation(): Investigation {
   return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], sort: 'relevance', interval: 'auto' }
 }
 
-function many(query: LocationQueryRaw, key: string): string[] {
+function values(query: LocationQueryRaw, key: string): string[] {
   const value = query[key]
   return (Array.isArray(value) ? value : [value]).filter((item): item is string => typeof item === 'string' && item.trim() !== '')
 }
 
+// List filters also accept hand-written comma-separated values; scalar fields such as `q` keep their commas.
+function many(query: LocationQueryRaw, key: string): string[] {
+  return values(query, key).flatMap(item => item.split(',')).map(item => item.trim()).filter(Boolean)
+}
+
 function one(query: LocationQueryRaw, key: string): string {
-  return many(query, key)[0] ?? ''
+  return values(query, key)[0] ?? ''
 }
 
 function pick<T extends readonly string[]>(options: T, value: string, fallback: T[number]): T[number] {

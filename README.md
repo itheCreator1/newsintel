@@ -66,7 +66,8 @@ Playwright artifacts are retained under the printed `/tmp/newsintel-phase6-<pid>
 directory.
 
 The completed Phase 6 gate passed on 2026-09-15 with 130 backend tests and no skips, Ruff, mypy,
-46 frontend tests, type checking, the production build, and all three browser scenarios. The two
+46 frontend tests, type checking, the production build, and all three browser scenarios, and passed
+again with 50 frontend tests after the code-review fixes. The two
 earlier attempts that day failed in the harness (an off-screen drag and a miscounted `psql` result)
 and were fixed before that run. The Phase 5 gate was then rerun as a regression check and passed
 after one browser locator was made exact, because the new Saved Searches link also matched `Search`.
@@ -208,9 +209,9 @@ Older links that use `country=` for source country keep working.
 
 The timeline above results charts the same filtered query. It picks the finest hour, day, week,
 month, or year bucket that stays within 200 buckets; a manual interval that would exceed that
-limit is refused with a prompt to choose a larger one. Drag across bars, or click one, to apply
-that span as the date range. Date ranges are whole UTC days with an exclusive end, so an hourly
-selection widens to the days it touches. Clicking a result's source, source country, or story
+limit is refused with a prompt to choose a larger one. Drag across bars to apply that span as the
+date range; a selection only narrows an existing range. Date ranges are whole UTC days with an
+exclusive end, so an hourly selection widens to the days it touches. Clicking a result's source, source country, or story
 country, or an entity, keyword, or country in article detail, narrows that one filter to the clicked
 value and keeps the rest of the investigation.
 

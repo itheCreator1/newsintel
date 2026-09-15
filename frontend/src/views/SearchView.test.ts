@@ -139,3 +139,21 @@ it('saves the complete investigation state by name', async () => {
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'A saved search with this name already exists')
 })
+
+it('keeps a brushed edge bucket inside the active date range', async () => {
+  const { router } = await renderSearch('/search?q=grid&after=2026-01-07&interval=week')
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Brush 2 week buckets' }))
+
+  await vi.waitFor(() => expect(router.currentRoute.value.query.before).toBe('2026-01-19'))
+  expect(router.currentRoute.value.query.after).toBe('2026-01-07')
+})
+
+it('never widens an active end date when brushing the last bucket', async () => {
+  const { router } = await renderSearch('/search?q=grid&before=2026-01-15&interval=week')
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Brush 2 week buckets' }))
+
+  await vi.waitFor(() => expect(router.currentRoute.value.query.after).toBe('2026-01-05'))
+  expect(router.currentRoute.value.query.before).toBe('2026-01-15')
+})

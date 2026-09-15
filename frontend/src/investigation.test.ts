@@ -29,6 +29,10 @@ describe('investigation URL state', () => {
     expect(queryFromState(emptyInvestigation())).toEqual({})
   })
 
+  it('splits comma-separated list values from hand-written URLs', () => {
+    expect(stateFromQuery({ country: 'gr, us', entity_type: ['ORG,PERSON'], q: 'iran, israel' })).toMatchObject({ source_country: ['GR', 'US'], entity_type: ['ORG', 'PERSON'], q: 'iran, israel' })
+  })
+
   it('falls back to defaults for unknown sort, interval, and boolean values', () => {
     expect(stateFromQuery({ sort: 'random', interval: 'minute', content_available: 'maybe' })).toEqual(emptyInvestigation())
   })

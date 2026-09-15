@@ -50,3 +50,16 @@ it('manages saved searches with CSRF-protected mutations', async () => {
   ])
   expect(new Headers(fetchMock.mock.calls[6][1]?.headers).get('X-CSRF-Token')).toBe('token')
 })
+
+it('explains validation errors returned as a list of field problems', async () => {
+  vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ detail: [
+      { loc: ['body', 'state'], msg: 'Value error, after must be earlier than before', type: 'value_error' },
+      { loc: ['body', 'state', 'source_country', 0], msg: "String should match pattern '^[A-Za-z]{2}$'", type: 'string_pattern_mismatch' },
+    ] }), { status: 422 }))
+
+  await expect(api.createSavedSearch('Grid', { q: '', sort: 'relevance', interval: 'auto' })).rejects.toThrow(
+    "state: Value error, after must be earlier than before; state.source_country.0: String should match pattern '^[A-Za-z]{2}$'",
+  )
+})

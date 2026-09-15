@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '../api'
 import { brushRange, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, type Investigation, type ListField } from '../investigation'
 
 const TimelineChart = defineAsyncComponent(() => import('../components/TimelineChart.vue').then(module => module.default))
-const route = useRoute(), router = useRouter()
+const route = useRoute(), router = useRouter(), client = useQueryClient()
 const state = computed(() => stateFromQuery(route.query))
 const joined = (values: string[]) => values.join(', ')
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -34,7 +34,7 @@ const error = computed(() => search.error.value instanceof ApiError ? search.err
 const expired = computed(() => error.value?.status === 409 && errorCode(error.value) === 'restart_search')
 const upgradeRequired = computed(() => error.value?.status === 409 && errorCode(error.value) === 'search_upgrade_required')
 const timelineTooFine = computed(() => errorCode(timeline.error.value) === 'timeline_too_fine')
-const save = useMutation({ mutationFn: (name: string) => api.createSavedSearch(name, state.value) })
+const save = useMutation({ mutationFn: (name: string) => api.createSavedSearch(name, state.value), onSuccess: () => client.invalidateQueries({ queryKey: ['saved-searches'] }) })
 function navigate(next: Investigation) { router.push({ path: '/search', query: queryFromState(next) }) }
 function submit() {
   navigate({
@@ -45,7 +45,11 @@ function submit() {
   })
 }
 function crossFilter(field: ListField, value: string) { navigate(refine(state.value, field, value)) }
-function selectRange(range: { start: string; end: string }) { navigate({ ...state.value, ...brushRange(range.start, range.end) }) }
+function selectRange(range: { start: string; end: string }) {
+  // Edge buckets are calendar-aligned and can start before `after` or end after `before`; brushing must only narrow.
+  const brushed = brushRange(range.start, range.end), { after, before } = state.value
+  navigate({ ...state.value, after: after && after > brushed.after ? after : brushed.after, before: before && before < brushed.before ? before : brushed.before })
+}
 function setInterval(interval: string) { navigate({ ...state.value, interval: INTERVALS.find(item => item === interval) ?? 'auto' }) }
 function saveSearch() { if (saveName.value.trim()) save.mutate(saveName.value.trim()) }
 function restart() { search.refetch() }

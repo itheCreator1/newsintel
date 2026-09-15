@@ -53,3 +53,18 @@ What we can build on:
 - `docker compose config --quiet` passed.
 - Deferred: a standalone Timeline navigation item (spec §7) is not part of this plan; the long Search filter form pushes the timeline below the fold at 720 px and is worth a collapsible-filters follow-up.
 
+## Code review follow-up (2026-09-15)
+Review of `250badd..fe8ac51` found no critical issues. Fixed:
+- Brushing a calendar-aligned edge bucket could widen an active `after`/`before`; the selection is now clamped so it only narrows.
+- FastAPI validation errors arrive as a list and surfaced as "Request failed"; the client now shows each field and message, so a state that `/search` tolerates but a saved search rejects (for example `after` ≥ `before` or a three-letter country) is explained.
+- Hand-written comma-separated list values in the URL are split; the query text keeps its commas.
+- Saving a search refreshes the Saved Searches list.
+
+Recorded deviations and follow-ups:
+- Migration is 0007, not 0006. URL state lives in the pure `src/investigation.ts` module rather than a `useInvestigationState` composable.
+- Cross-filtering replaces the clicked field's values (narrowing), not appends. Search results offer source, source country, and story country; entity/keyword cross-filters come from article detail because results carry no annotations.
+- Backend timeline tests use a fake Elasticsearch adapter; real-Elasticsearch timeline coverage comes from the manual check during step 1 and the Phase 6 browser gate, not a schema-v2 integration test.
+- Click-to-select a single bar is wired in `TimelineChart.vue` but not browser-verified, so the README documents dragging only.
+- Follow-ups: order saved searches case-insensitively (current order and its test depend on byte collation); map only the name constraint's `IntegrityError` to a 409; keep extra `processing_status` values when the form is resubmitted; one validated criteria model shared by `/search`, the timeline, and saved searches; keyboard access and theme tokens for the chart.
+- After these fixes `infra/test-phase6.sh` passed again (project `newsintel-phase6-102864-1789466311`): 130 backend passed / 0 skipped, Ruff and mypy clean, Vitest 50 passed, typecheck and build, all three browser scenarios.
+

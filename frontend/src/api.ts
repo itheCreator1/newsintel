@@ -6,6 +6,15 @@ export class ApiError extends Error {
   constructor(message: string, public readonly status: number, public readonly detail?: unknown) { super(message) }
 }
 
+function validationMessage(problems: unknown[]): string | undefined {
+  const messages = problems.flatMap(problem => {
+    if (!problem || typeof problem !== 'object' || !('msg' in problem)) return []
+    const location = 'loc' in problem && Array.isArray(problem.loc) ? problem.loc.filter(part => part !== 'body' && part !== 'query').join('.') : ''
+    return [location ? `${location}: ${String(problem.msg)}` : String(problem.msg)]
+  })
+  return messages.join('; ') || undefined
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     credentials: 'same-origin',
@@ -14,7 +23,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as { detail?: unknown }
-    const detail = typeof payload.detail === 'string' ? payload.detail : payload.detail && typeof payload.detail === 'object' && 'message' in payload.detail ? String(payload.detail.message) : undefined
+    const detail = typeof payload.detail === 'string' ? payload.detail : Array.isArray(payload.detail) ? validationMessage(payload.detail) : payload.detail && typeof payload.detail === 'object' && 'message' in payload.detail ? String(payload.detail.message) : undefined
     throw new ApiError(response.status === 401 ? 'Invalid username or password' : detail || 'Request failed', response.status, payload.detail)
   }
   return response.status === 204 ? undefined as T : response.json()
