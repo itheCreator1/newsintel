@@ -10,7 +10,8 @@ pick_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",
 NEWSINTEL_PORT=$(pick_port)
 NEWSINTEL_TEST_POSTGRES_PORT=$(pick_port)
 NEWSINTEL_TEST_FIXTURE_PORT=$(pick_port)
-export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT
+NEWSINTEL_TEST_ELASTICSEARCH_PORT=$(pick_port)
+export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT NEWSINTEL_TEST_ELASTICSEARCH_PORT
 export NEWSINTEL_E2E_BASE_URL="http://127.0.0.1:$NEWSINTEL_PORT"
 export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
 compose="docker compose -p $project -f compose.yaml -f compose.e2e.yaml"
@@ -27,7 +28,11 @@ $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade
 $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic downgrade 0003
 $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade head
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen pytest -q -rs tests) > "$artifacts/pytest.log"
+# tests/test_phase7_postgres.py (added on the Phase 7 branch, collected here too since this runs
+# the whole tests/ directory) needs a real Elasticsearch reachable from this host-side pytest
+# process, the same way NEWSINTEL_DATABASE_URL above overrides the host-mapped Postgres.
+host_elasticsearch_url="http://127.0.0.1:$NEWSINTEL_TEST_ELASTICSEARCH_PORT"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL="$host_elasticsearch_url" NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen pytest -q -rs tests) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
 if grep -Eq '(^|[^0-9])[1-9][0-9]* skipped|^SKIPPED ' "$artifacts/pytest.log"; then echo "Required backend tests were skipped" >&2; exit 1; fi
 $compose run --rm api alembic upgrade head
