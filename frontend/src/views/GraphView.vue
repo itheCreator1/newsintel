@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, reactive, watch } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
+import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '../api'
 import { queryFromState, refine, stateFromQuery, type Investigation } from '../investigation'
@@ -17,10 +17,13 @@ const nodeCount = computed(() => {
 })
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
 const formFromState = (current: Investigation) => ({
-  q: current.q, country: current.source_country.join(', '), story_country: current.story_country.join(', '),
+  q: current.q, source_id: [...current.source_id], country: current.source_country.join(', '), story_country: current.story_country.join(', '),
   entity_type: [...current.entity_type], after: current.after ?? '', before: current.before ?? '', nodes: String(nodeCount.value),
 })
 const form = reactive(formFromState(state.value))
+const sourceTerm = ref('')
+const sourcePages = useInfiniteQuery({ queryKey: ['graph-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm.value, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
+const sources = computed(() => sourcePages.data.value?.pages.flatMap(page => page.items) ?? [])
 
 // Only the fields the graph filter form exposes are sent: the graph endpoint accepts more (entity_id,
 // keyword_id, story_cluster_id, ...) via the shared search criteria, but leaking whatever happens to be
@@ -28,6 +31,7 @@ const form = reactive(formFromState(state.value))
 const graphFilters = computed(() => {
   const filters: Record<string, string | string[] | undefined> = {}
   if (state.value.q) filters.q = state.value.q
+  if (state.value.source_id.length) filters.source_id = state.value.source_id
   if (state.value.source_country.length) filters.source_country = state.value.source_country
   if (state.value.story_country.length) filters.story_country = state.value.story_country
   if (state.value.entity_type.length) filters.entity_type = state.value.entity_type
@@ -71,7 +75,7 @@ function navigate(next: Investigation, extra: { focus?: string; nodes?: number }
 }
 function submit() {
   navigate({
-    ...state.value, q: form.q.trim(), source_country: split(form.country).map(code => code.toUpperCase()),
+    ...state.value, q: form.q.trim(), source_id: form.source_id, source_country: split(form.country).map(code => code.toUpperCase()),
     story_country: split(form.story_country).map(code => code.toUpperCase()), entity_type: form.entity_type,
     after: form.after || null, before: form.before || null,
   }, { nodes: Number(form.nodes) || 30 })
@@ -85,6 +89,8 @@ watch(state, current => Object.assign(form, formFromState(current)))
   <header><div><p class="eyebrow">Relationships</p><h2>Graph</h2></div></header>
   <form class="search-filters panel" role="search" @submit.prevent="submit">
     <label class="wide">Query<input v-model="form.q" placeholder='climate AND "sea level"' /></label>
+    <label>Source search<input v-model="sourceTerm" placeholder="Find active or retired sources" /></label>
+    <label>Source<select v-model="form.source_id" multiple><option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }}{{ source.retired ? ' (retired)' : '' }}</option></select></label>
     <label>Source country<input v-model="form.country" placeholder="US, GR" /></label>
     <label>Story country<input v-model="form.story_country" placeholder="DE" /></label>
     <label>Entity type<select v-model="form.entity_type" multiple><option v-for="kind in ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER']" :key="kind">{{ kind }}</option></select></label>

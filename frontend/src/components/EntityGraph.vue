@@ -19,7 +19,9 @@ function render() {
   const categories = [...new Set(props.nodes.map(node => node.type))]
   chart.setOption({
     animation: false,
-    tooltip: { formatter: (params: { dataType?: string; data?: { name?: string; value?: number } }) => params.dataType === 'node' && params.data ? `${params.data.name} · ${params.data.value} articles` : '' },
+    // richText mode renders the formatter's returned string as escaped text rather than innerHTML, so
+    // spaCy-extracted entity text that happens to contain HTML-like characters can't be interpreted as markup.
+    tooltip: { renderMode: 'richText', formatter: (params: { dataType?: string; data?: { name?: string; value?: number } }) => params.dataType === 'node' && params.data ? `${params.data.name} · ${params.data.value} articles` : '' },
     legend: [{ data: categories, textStyle: { color: '#91a7b4' }, top: 0 }],
     series: [{
       type: 'graph',

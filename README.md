@@ -289,6 +289,14 @@ and `--batch-size` caps each scan batch between 1 and 500. `GET /api/v1/clusteri
 queued/running/retrying/failed job counts and cluster/clustered-article totals; the Clustering
 failures list supports a CSRF-protected per-job retry.
 
+Clustering assignment is intentionally serial, and that has a throughput consequence worth stating
+plainly: creating, joining, and merging clusters across the whole archive serializes behind the one
+PostgreSQL transaction advisory lock above (id `728341906` in `app/clustering/engine.py`), and the
+clustering job shares its worker with NLP processing — `compose.yaml` runs `app.jobs.nlp` and
+`app.jobs.clustering` on the same `nlp-worker` process at `--processes 1 --threads 1`. A slow
+clustering pass can therefore delay NLP throughput on that same worker, and a full `recluster --all`
+over a large archive runs strictly one cluster assignment at a time rather than in parallel.
+
 Search results, the story cluster endpoint, article detail's related articles, and the entity
 co-occurrence graph all read from the schema-version-3 search index, which `rebuild-search` now
 always builds:
@@ -307,11 +315,12 @@ co-occurring articles); a response that hit either bound is flagged `truncated` 
 so. The graph needs at least the schema-version-2 index; on an older index it returns the same
 `search_upgrade_required` 409 as annotation search filters.
 
-To roll Phase 7 back, stop `nlp-worker`, then run `docker compose run --rm api alembic downgrade
-0007`. This drops only `story_clusters`, `story_cluster_members`, `article_cluster_state`, and
-`cluster_jobs`; canonical articles, annotations, and the search index are unaffected. Rebuild search
-again after downgrading, since existing schema-version-3 documents keep stale cluster fields until
-the next rebuild; serve an older application only once search matches its schema.
+To roll Phase 7 back, stop `api`, `worker`, `nlp-worker`, and `scheduler`, then run `docker compose
+run --rm api alembic downgrade 0007`. This drops only `story_clusters`, `story_cluster_members`,
+`article_cluster_state`, and `cluster_jobs`; canonical articles, annotations, and the search index
+are unaffected. Rebuild search again after downgrading, since existing schema-version-3 documents
+keep stale cluster fields until the next rebuild; serve an older application only once search
+matches its schema.
 
 **Acceptance gate architecture note:** the Phase 5 and 6 gates only ever smoke-test the NER-enabled
 image in isolation, then run every real workflow — including all annotation assertions — against

@@ -89,8 +89,8 @@ it('cross-filters from a result source or story country and keeps the investigat
 
 it('links a multi-source result to its cluster and hides the link for single-source results', async () => {
   vi.mocked(api.search).mockResolvedValueOnce({ items: [
-    { ...result, article_id: 'a1', story_cluster: { id: 'cluster-1', source_count: 2 } },
-    { ...result, article_id: 'a2', story_cluster: { id: 'cluster-2', source_count: 1 } },
+    { ...result, article_id: 'a1', story_cluster: { id: 'cluster-1', source_count: 3 } },
+    { ...result, article_id: 'a2', distinct_source_count: 1, story_cluster: { id: 'cluster-2', source_count: 1 } },
   ], next_cursor: null })
   const { router } = await renderSearch('/search?q=grid')
 

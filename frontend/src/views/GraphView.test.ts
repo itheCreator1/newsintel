@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../api'
 import GraphView from './GraphView.vue'
 
-vi.mock('../api', async importOriginal => ({ ...(await importOriginal<typeof import('../api')>()), api: { entityGraph: vi.fn(), search: vi.fn() } }))
+vi.mock('../api', async importOriginal => ({ ...(await importOriginal<typeof import('../api')>()), api: { entityGraph: vi.fn(), search: vi.fn(), searchSources: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the clicked node id.
 vi.mock('../components/EntityGraph.vue', async () => { const { defineComponent, h } = await import('vue'); return { default: defineComponent({ props: { nodes: Array, edges: Array, focus: String }, emits: ['select'], setup: (props, { emit }) => () => h('button', { type: 'button', onClick: () => emit('select', 'entity-two') }, `Chart with ${props.nodes?.length} nodes`) }) } })
 
@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges, truncated: false })
   vi.mocked(api.search).mockResolvedValue({ items: [{ article_id: 'a1', title: 'Acme partners with Jane Doe', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 1, sources: ['Wire'], source_refs: [], highlights: [], summary: null }], next_cursor: null })
+  vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: false }], next_cursor: null })
 })
 afterEach(cleanup)
 
