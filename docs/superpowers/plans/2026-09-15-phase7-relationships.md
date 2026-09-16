@@ -133,3 +133,93 @@ both browser scenarios, graph bounded at 11 nodes/6 edges);
 `test_phase7_postgres.py`, on an unresolvable `elasticsearch` hostname from the host pytest
 process), fixed as described above, then passed cleanly (196 backend / 0 skipped, 69 frontend, all
 three browser scenarios).
+
+## Evidence (2026-09-16)
+- Commits: `655b131`/`3d63ae4` clustering domain, `c1e2e48` cluster API + search v3, `46b5079`
+  entity graph, `d8519e4`/`d4b116a`/`725d530` frontend relationships UI, `6aaba63`/`257b45e`/`86d68d1`
+  acceptance gate + fixtures + docs, `0d5c3a1` final-review fix round. Branch point `7e5ac4d` off
+  `main`; final `0d5c3a1` — 12 commits total.
+- `infra/test-phase7.sh` passed 3 clean runs (project prefix `newsintel-phase7-*`): 196 backend
+  passed / 0 skipped (real Postgres + Elasticsearch, NER enabled for the whole run per Ruling R5),
+  69 frontend, ruff/mypy clean, both browser scenarios (relationships seed, relationships
+  workflow), graph bounded at 11 nodes/6 edges every run — deterministic. Migration downgrade to
+  `0007` removed all four Phase 7 tables with an unchanged canonical article count.
+- `infra/test-phase6.sh` regression: failed once for a real, pre-existing reason (§ above), fixed,
+  then passed cleanly. `docker compose config --quiet` passed throughout.
+- Zero bugs found in Tasks 1–4's application code across all three clean `test-phase7.sh` runs —
+  a positive signal on incremental task quality, not just the final gate.
+- Final whole-branch review (opus, diff `7e5ac4d..86d68d1`, 11 commits): **Changes requested**, no
+  Critical findings. The safety-critical bounding invariant (§7.4, acceptance #12) was traced
+  end-to-end — route clamp, aggregation-size clamp, parse-time clamp, and a final backstop, each
+  with a dedicated unit test plus a live authenticated assertion in the gate — and holds under
+  every path the reviewer could construct, including degenerate direct-service inputs (fails
+  closed, not open). Migration `0008`'s downgrade was confirmed genuinely lossless (adds no column
+  to any pre-existing table; drops only what it created, in FK-safe order). No auth/CSRF gaps, no
+  injection paths in the new SQL or ES queries.
+- Four Important findings, one escalated security minor, and one escalated cosmetic minor required
+  a fix round (all frontend + docs, no backend changes): a rollback runbook that named only one of
+  four services actually reading the dropped tables; a "reported by N other sources" count that
+  used the wrong subtraction whenever an article itself spans more than one of a cluster's feeds
+  (caught by the branch's own test fixture, which was internally self-contradictory); a graph
+  Source filter that the backend already supported but the frontend actively stripped from the
+  request; an active story-cluster filter with no visible clear affordance; a back-link label
+  hardcoded to "search" even from the two new non-search origins; and an ECharts tooltip formatter
+  returning unescaped NER-derived text into the library's default HTML render mode (no demonstrated
+  exploit, but the only such sink in the frontend).
+- Fix round (commit `0d5c3a1`, BASE `86d68d1`): all seven findings fixed in one commit, confirmed
+  by direct source inspection to require no backend changes. Frontend 69/69 tests, typecheck, and
+  build clean.
+- Scoped re-review of the fix commit (opus): **Acceptable**. Re-verified every fix against primary
+  sources rather than trusting the report — recomputed the corrected source-count formula against
+  `documents.py`/`engine.py` by hand, confirmed `/graph/entities` genuinely accepts `source_id`,
+  confirmed the four README-listed services are the *complete* set of DB-touching app containers,
+  and proved the corrected test fixture is a genuine regression guard (reverting only the formula
+  made the test fail, then restored). No test assertions were weakened to make them pass. Two
+  minor residuals parked, not fixed: the graph's side-panel "top articles" query still omits
+  `source_id` even though the main graph request now honors it (one-line follow-up); the new
+  "clear story filter" banner has no dedicated test despite the e2e spec already walking through
+  the state where it renders.
+
+## Code review follow-up (2026-09-16)
+Per-task reviews (opus for Tasks 1/3/final review, sonnet for Tasks 2/4/5 and all fix-round
+re-reviews) found no Critical issues at any stage. Fixed during task-level fix loops:
+- Graph API: `MAX_NODES` clamp itself had zero direct test coverage (both existing tests only
+  exercised the per-request `nodes` param) — closed with two mutation-verified tests.
+- `EntityGraph.vue`'s tooltip formatter crashed/garbled on edge hover, reading node-only fields
+  against edge data — one-line `dataType === 'node'` guard.
+- `test-phase3.sh`/`test-phase4.sh`/`test-phase5.sh` all needed the Elasticsearch-host-port fix
+  Task 5 applied to `test-phase6.sh` — but `test-phase3.sh` needed a *different* fix (Ruling R7):
+  it deliberately never starts Elasticsearch at all (pre-search era), so the fix there is
+  `--ignore=tests/test_phase7_postgres.py`, not a port export.
+
+Fixed in the final-review fix round (commit `0d5c3a1`, all listed under Evidence above): the
+rollback runbook's incomplete service list, the "other sources" count formula, the missing graph
+Source filter, the invisible story-cluster filter, the hardcoded back-link label, and the tooltip
+HTML-sink hardening.
+
+Recorded deviations and rulings (see the SDD ledger at
+`.superpowers/sdd/serialized-riding-wave/progress.md` for full rationale):
+- R1: effective-date index is a functional index on `COALESCE(published_at, first_discovered_at)`.
+- R2: OpenAPI regenerated at the end of both Step 2 and Step 3, not only Step 2 as the plan text
+  literally said.
+- R3: this doc's Evidence and Code-review-follow-up sections were written by the controller after
+  the final whole-branch review, not by Task 5 — mirroring how `2026-09-15-phase6-investigations.md`
+  was actually assembled.
+- R4: `frontend/e2e/relationships.spec.ts` was authored in Task 5, not Task 4.
+- R5, R6: see the binding rulings recorded inline in the Plan section above.
+- R7: `test-phase3.sh`'s Elasticsearch-related gap needed `--ignore`, not a port-export fix, since
+  that script deliberately predates search/ES entirely.
+
+Confirmed non-escalations, parked for a future phase rather than fixed here: `current_search_target`'s
+unordered `.limit(1)` (single-current-row is code-enforced by the rebuild transaction, not a live
+bug, though now more load-bearing since it also gates the graph); the clustering advisory lock plus
+single-threaded `nlp-worker` is a genuine archive-wide throughput ceiling, now documented in the
+README (M-3) rather than changed; catalogue-dropped graph nodes not setting `truncated` (cosmetic);
+stale `cluster_source_count` in Elasticsearch after an article deletion cascades a member away
+(only reachable via Phase 9's not-yet-built deletion workflow); two new non-concurrent index builds
+in migration `0008` (consistent with every prior migration in this codebase, not a regression).
+
+After the fix round, `frontend` (69/69 tests, typecheck, build) and `backend` (ruff/mypy) were
+re-verified clean. The Docker-based acceptance gates were not re-run after the fix round — the
+final reviewer judged, and the scoped re-reviewer confirmed, that none of the seven fixes touch
+backend/gate-relevant code paths.
