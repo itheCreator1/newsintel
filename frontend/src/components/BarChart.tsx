@@ -8,8 +8,8 @@ import { useEffect, useRef } from 'react'
 
 use([EchartsBarChart, GridComponent, TooltipComponent, CanvasRenderer])
 
-const COLOR = '#63d0c2'
-const HIGHLIGHT_COLOR = '#e08a3c'
+const COLOR = 'rgba(79, 125, 251, 0.38)'
+const HIGHLIGHT_COLOR = '#7ba0ff'
 
 export interface BarChartItem {
   id: string
@@ -51,8 +51,8 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
     const chart = chartRef.current
     if (!chart) return
     const horizontal = orientation === 'horizontal'
-    const categoryAxis = { type: 'category' as const, data: items.map(item => item.label), axisLabel: { color: '#91a7b4' }, axisLine: { lineStyle: { color: '#35505e' } } }
-    const valueAxis = { type: 'value' as const, minInterval: 1, axisLabel: { color: '#91a7b4' }, splitLine: { lineStyle: { color: '#1d313c' } } }
+    const categoryAxis = { type: 'category' as const, data: items.map(item => item.label), axisLabel: { color: '#8891ab' }, axisLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.16)' } } }
+    const valueAxis = { type: 'value' as const, minInterval: 1, axisLabel: { color: '#8891ab' }, splitLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.08)' } } }
     chart.setOption({
       animation: false,
       grid: { left: horizontal ? 130 : 44, right: 16, top: 16, bottom: horizontal ? 16 : 32, containLabel: horizontal },
@@ -61,8 +61,14 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
       yAxis: horizontal ? { ...categoryAxis, inverse: true } : valueAxis,
       series: [{
         type: 'bar',
-        data: items.map(item => ({ value: item.value, itemStyle: { color: item.highlight ? HIGHLIGHT_COLOR : COLOR } })),
+        data: items.map(item => ({
+          value: item.value,
+          itemStyle: item.highlight
+            ? { color: HIGHLIGHT_COLOR, shadowBlur: 16, shadowColor: 'rgba(123, 160, 255, 0.55)' }
+            : { color: COLOR },
+        })),
         barMaxWidth: 28,
+        itemStyle: { borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0] },
       }],
     }, true)
   }, [items, orientation, valueLabel])

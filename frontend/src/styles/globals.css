@@ -1,3 +1,22 @@
+/* Registers the "legacy" layer as lower-priority than Tailwind's theme/utilities layers below:
+   cascade layer priority follows order of first declaration, so this empty statement must come
+   first. Deliberately importing only tailwindcss/theme + tailwindcss/utilities, not the full
+   "tailwindcss" (which also pulls in Preflight's `* { margin:0; padding:0; border:0 solid }`
+   reset and shadcn's own `body`/`html` base-layer rules) — either one would silently reset
+   spacing/borders on the seven un-redesigned routes app-wide, not just the two pilot pages. */
+@layer legacy;
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Legacy hand-written sheet, still used by the seven un-redesigned routes (Sources, Articles,
+   Clusters, Graph, Saved Searches, Jobs, Settings) plus every className the e2e/unit suites key
+   off (.search-result, .result-open, .panel, .muted, .error, ...). Wrapped in the layer declared
+   above so redesigned pages can override these rules with plain Tailwind utility classes on the
+   same elements without !important. */
+@layer legacy {
+
 :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e8eef5; background: #081019; color-scheme: dark; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 20% 10%, #162b37, #081019 48%); }
@@ -31,3 +50,52 @@ nav a { display: block; color: #78d6ca; text-decoration: none; padding: 11px 0; 
 .entity-graph { width: 100%; height: 420px; margin-top: 6px; }.graph-node-list { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 14px 0 0; }.graph-node-list li { margin: 0; }.graph-node-list button[aria-pressed="true"] { background: #63d0c2; color: #05100f; }
 .story { margin-top: 24px; padding-top: 20px; border-top: 1px solid #263b47; }
 .overview-panels { display: grid; gap: 22px; margin-top: 22px; }.bar-chart { width: 100%; height: 220px; margin-top: 16px; }.panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }.panel-heading h3 { margin: 0; }.panel-heading label { min-width: 170px; }
+
+} /* @layer legacy */
+
+@theme inline { --font-heading: var(--font-display); --font-sans: var(--font-display), ui-sans-serif, system-ui, sans-serif; --font-mono: var(--font-mono-data), ui-monospace, monospace; --color-sidebar-ring: var(--sidebar-ring); --color-sidebar-border: var(--sidebar-border); --color-sidebar-accent-foreground: var(--sidebar-accent-foreground); --color-sidebar-accent: var(--sidebar-accent); --color-sidebar-primary-foreground: var(--sidebar-primary-foreground); --color-sidebar-primary: var(--sidebar-primary); --color-sidebar-foreground: var(--sidebar-foreground); --color-sidebar: var(--sidebar); --color-chart-5: var(--chart-5); --color-chart-4: var(--chart-4); --color-chart-3: var(--chart-3); --color-chart-2: var(--chart-2); --color-chart-1: var(--chart-1); --color-ring: var(--ring); --color-input: var(--input); --color-border: var(--border); --color-destructive: var(--destructive); --color-accent-foreground: var(--accent-foreground); --color-accent: var(--accent); --color-muted-foreground: var(--muted-foreground); --color-muted: var(--muted); --color-secondary-foreground: var(--secondary-foreground); --color-secondary: var(--secondary); --color-primary-foreground: var(--primary-foreground); --color-primary: var(--primary); --color-popover-foreground: var(--popover-foreground); --color-popover: var(--popover); --color-card-foreground: var(--card-foreground); --color-card: var(--card); --color-foreground: var(--foreground); --color-background: var(--background); --radius-sm: calc(var(--radius) * 0.6); --radius-md: calc(var(--radius) * 0.8); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) * 1.4); --radius-2xl: calc(var(--radius) * 1.8); --radius-3xl: calc(var(--radius) * 2.2); --radius-4xl: calc(var(--radius) * 2.6);
+
+}
+
+/* Dark-only design tokens for the pilot redesign (Overview + Search). One palette, not a
+   light/dark pair — this app never offers light mode, so there's no toggle to maintain. Electric
+   blue accent, near-black canvas, translucent glass surfaces meant to sit over backdrop-blur. */
+:root {
+  --background: #05070c;
+  --foreground: #e9edfb;
+  --card: rgb(255 255 255 / 4%);
+  --card-foreground: var(--foreground);
+  --popover: #0b0f1a;
+  --popover-foreground: var(--foreground);
+  --primary: #4f7dfb;
+  --primary-foreground: #f5f8ff;
+  --secondary: rgb(255 255 255 / 6%);
+  --secondary-foreground: var(--foreground);
+  --muted: rgb(255 255 255 / 4%);
+  --muted-foreground: #8891ab;
+  --accent: rgb(79 125 251 / 14%);
+  --accent-foreground: #cfe0ff;
+  --destructive: #ef6a6a;
+  --border: rgb(140 165 255 / 14%);
+  --input: rgb(140 165 255 / 16%);
+  --ring: #6f93fc;
+  --chart-1: #4f7dfb;
+  --chart-2: #7ba0ff;
+  --chart-3: #a7c0ff;
+  --chart-4: #35507e;
+  --chart-5: #1f3050;
+  --radius: 1rem;
+  --sidebar: #05070c;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: #4f7dfb;
+  --sidebar-primary-foreground: #f5f8ff;
+  --sidebar-accent: rgb(79 125 251 / 14%);
+  --sidebar-accent-foreground: #cfe0ff;
+  --sidebar-border: rgb(140 165 255 / 14%);
+  --sidebar-ring: #6f93fc;
+}
+
+@theme {
+  --shadow-glow-sm: 0 0 16px 2px rgb(79 125 251 / 35%);
+  --shadow-glow: 0 0 32px 6px rgb(79 125 251 / 40%);
+}

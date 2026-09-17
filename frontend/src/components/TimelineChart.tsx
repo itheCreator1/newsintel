@@ -60,10 +60,10 @@ export function TimelineChart({ buckets, interval, onSelect }: Props) {
       animation: false,
       grid: { left: 44, right: 16, top: 16, bottom: 32 },
       tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => `${value} articles` },
-      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', brushStyle: { color: 'rgba(99, 208, 194, .18)', borderColor: '#63d0c2' } },
-      xAxis: { type: 'category', data: buckets.map(bucket => label(bucket.start)), axisLabel: { color: '#91a7b4' }, axisLine: { lineStyle: { color: '#35505e' } } },
-      yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#91a7b4' }, splitLine: { lineStyle: { color: '#1d313c' } } },
-      series: [{ type: 'bar', data: buckets.map(bucket => bucket.count), itemStyle: { color: '#63d0c2' }, barMaxWidth: 28 }],
+      brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', brushStyle: { color: 'rgba(79, 125, 251, .18)', borderColor: '#7ba0ff' } },
+      xAxis: { type: 'category', data: buckets.map(bucket => label(bucket.start)), axisLabel: { color: '#8891ab' }, axisLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.16)' } } },
+      yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#8891ab' }, splitLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.08)' } } },
+      series: [{ type: 'bar', data: buckets.map(bucket => bucket.count), itemStyle: { color: 'rgba(79, 125, 251, 0.55)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 28 }],
     }, true)
     chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
   }, [buckets, interval])

@@ -7,3 +7,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => navigationHarness.pathname,
   useSearchParams: () => navigationHarness.searchParams,
 }))
+
+// next/font/google is a Next-compiler macro (SWC transform); it has no meaning outside `next build`/`next dev`.
+const mockFont = () => ({ className: '', variable: '', style: { fontFamily: 'sans-serif' } })
+vi.mock('next/font/google', () => ({ Manrope: mockFont, JetBrains_Mono: mockFont }))
