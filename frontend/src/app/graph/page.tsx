@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { EntityGraph } from '../../components/EntityGraph'
+import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
+import { PageHeader } from '../../components/PageHeader'
+import { chipClass, fieldClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
+import { cn } from '../../lib/utils'
 import { api, ApiError } from '../../lib/api'
 import { queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 
@@ -87,61 +91,75 @@ function GraphContent() {
   const selected = (event: React.ChangeEvent<HTMLSelectElement>) => Array.from(event.target.selectedOptions, option => option.value)
 
   return (
-    <>
-      <header><div><p className="eyebrow">Relationships</p><h2>Graph</h2></div></header>
-      <form className="search-filters panel" role="search" onSubmit={event => { event.preventDefault(); submit() }}>
-        <label className="wide">Query<input value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
-        <label>Source search<input value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
-        <label>Source<select multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
-        <label>Source country<input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
-        <label>Story country<input value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
-        <label>Entity type<select multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
-        <label>After<input value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
-        <label>Before<input value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
-        <label>Nodes<input value={form.nodes} onChange={e => setForm(f => ({ ...f, nodes: e.target.value }))} type="number" min={1} max={50} /></label>
-        <button type="submit">Update graph</button>
+    <div className="flex flex-col gap-6 font-sans">
+      <PageHeader eyebrow="Relationships" title="Graph" />
+      <form className={cn(glassPanelClassName, 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4')} role="search" onSubmit={event => { event.preventDefault(); submit() }}>
+        <label className={cn(labelClass, 'sm:col-span-2')}>Query<input className={cn(fieldClass, 'mt-1')} value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
+        <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
+        <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+        <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
+        <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
+        <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
+        <label className={labelClass}>After<input className={cn(fieldClass, 'mt-1')} value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
+        <label className={labelClass}>Before<input className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
+        <label className={labelClass}>Nodes<input className={cn(fieldClass, 'mt-1')} value={form.nodes} onChange={e => setForm(f => ({ ...f, nodes: e.target.value }))} type="number" min={1} max={50} /></label>
+        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1')}>Update graph</button>
       </form>
-      {/* .two-column reserves a second ~1.25fr grid track even when nothing occupies it — only apply it
-          once the entity-details aside actually renders, so the graph gets the full width otherwise. */}
-      <div className={focusNode ? 'two-column' : undefined}>
-        <section className="panel graph-panel">
-          {graph.isPending && <p className="muted">Loading the entity graph…</p>}
-          {!graph.isPending && graph.isError && <p role="alert" className="error">{upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}</p>}
-          {!graph.isPending && !graph.isError && !nodes.length && <p className="muted">No co-occurring entities for these filters.</p>}
+
+      <div className={focusNode ? 'grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]' : undefined}>
+        <GlassPanel>
+          {graph.isPending && <p className="text-sm text-muted-foreground">Loading the entity graph…</p>}
+          {!graph.isPending && graph.isError && <p role="alert" className="error text-sm text-destructive">{upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}</p>}
+          {!graph.isPending && !graph.isError && !nodes.length && <p className="text-sm text-muted-foreground">No co-occurring entities for these filters.</p>}
           {!graph.isPending && !graph.isError && nodes.length > 0 && (
             <>
               <EntityGraph nodes={nodes} edges={edges} focus={focus} onSelect={selectEntity} />
-              {graph.data?.truncated && <p className="muted">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
-              <ul className="graph-node-list" aria-label="Entities in this graph">
-                {nodes.map(node => <li key={node.id}><button type="button" className="annotation-link" aria-pressed={node.id === focus} onClick={() => selectEntity(node.id)}>{node.text} ({node.type}) · {node.article_count}</button></li>)}
+              {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
+              <ul className="mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
+                {nodes.map(node => (
+                  <li key={node.id}>
+                    <button
+                      type="button"
+                      className={cn(chipClass, node.id === focus && 'border-primary/60 bg-primary/12 text-foreground')}
+                      aria-pressed={node.id === focus}
+                      onClick={() => selectEntity(node.id)}
+                    >
+                      {node.text} ({node.type}) · {node.article_count}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </>
           )}
-        </section>
+        </GlassPanel>
         {focusNode && (
-          <aside className="panel" aria-label="Entity details">
-            <p className="eyebrow">{focusNode.type}</p>
-            <h3>{focusNode.text}</h3>
-            <p className="muted">{focusNode.article_count} articles</p>
-            <Link className="annotation-link" href={searchWithEntityHref(focusNode.id)}>Search articles with {focusNode.text}</Link>
-            <div className="annotation-group">
-              <strong>Connected entities</strong>
-              {connected.map(node => <button key={node.id} type="button" className="annotation-link" onClick={() => selectEntity(node.id)}>{node.text}</button>)}
-              {!connected.length && 'None'}
+          <aside aria-label="Entity details" className={cn(glassPanelClassName, 'flex flex-col gap-3')}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">{focusNode.type}</p>
+            <h3 className="text-lg font-semibold text-foreground">{focusNode.text}</h3>
+            <p className="text-sm text-muted-foreground">{focusNode.article_count} articles</p>
+            <Link className={cn(chipClass, 'w-fit')} href={searchWithEntityHref(focusNode.id)}>Search articles with {focusNode.text}</Link>
+            <div>
+              <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Connected entities</strong>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {connected.map(node => <button key={node.id} type="button" className={chipClass} onClick={() => selectEntity(node.id)}>{node.text}</button>)}
+                {!connected.length && <span className="text-sm text-muted-foreground">None</span>}
+              </div>
             </div>
-            <div className="annotation-group">
-              <strong>Top articles</strong>
-              {articles.isPending && <p className="muted">Loading articles…</p>}
-              {!articles.isPending && articles.isError && <p className="error">Could not load articles.</p>}
-              {!articles.isPending && !articles.isError && !articles.data?.items.length && <p className="muted">No matching articles.</p>}
-              {(articles.data?.items ?? []).map(result => (
-                <Link key={result.article_id} className="annotation-link" href={toHref('/articles', new URLSearchParams({ article: result.article_id, from: toHref('/graph', new URLSearchParams(searchParams.toString())) }))}>{result.title}</Link>
-              ))}
+            <div>
+              <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top articles</strong>
+              <div className="mt-2 flex flex-col gap-2">
+                {articles.isPending && <p className="text-sm text-muted-foreground">Loading articles…</p>}
+                {!articles.isPending && articles.isError && <p className="error text-sm text-destructive">Could not load articles.</p>}
+                {!articles.isPending && !articles.isError && !articles.data?.items.length && <p className="text-sm text-muted-foreground">No matching articles.</p>}
+                {(articles.data?.items ?? []).map(result => (
+                  <Link key={result.article_id} className="text-sm text-primary underline-offset-4 hover:underline" href={toHref('/articles', new URLSearchParams({ article: result.article_id, from: toHref('/graph', new URLSearchParams(searchParams.toString())) }))}>{result.title}</Link>
+                ))}
+              </div>
             </div>
           </aside>
         )}
       </div>
-    </>
+    </div>
   )
 }
 

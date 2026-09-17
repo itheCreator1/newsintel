@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { BarChart, type BarChartItem } from '../components/BarChart'
 import { GlassPanel } from '../components/GlassPanel'
+import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
 import { emptyInvestigation, queryFromState, refine, toHref } from '../lib/investigation'
+import { fieldClass, labelClass } from '../lib/ui-classes'
 
 const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'] as const
 
@@ -40,12 +42,7 @@ export default function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-8 font-sans">
-      <header className="flex items-center justify-between gap-5">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">System overview</p>
-          <h2 className="mt-1.5 font-sans text-[32px] font-bold tracking-tight text-foreground">Archive operations</h2>
-        </div>
-      </header>
+      <PageHeader eyebrow="System overview" title="Archive operations" />
 
       <GlassPanel className="flex w-fit min-w-[280px] items-center gap-4 px-6 py-5">
         <span className="relative mt-0.5 flex h-2.5 w-2.5 shrink-0">
@@ -80,13 +77,9 @@ export default function OverviewPage() {
           <GlassPanel>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
               <h3 className="text-sm font-semibold text-foreground">Top entities</h3>
-              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              <label className={labelClass}>
                 Entity type
-                <select
-                  value={entityType}
-                  onChange={event => setEntityType(event.target.value)}
-                  className="rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
-                >
+                <select value={entityType} onChange={event => setEntityType(event.target.value)} className={fieldClass}>
                   <option value="">All types</option>
                   {ENTITY_TYPES.map(kind => <option key={kind}>{kind}</option>)}
                 </select>

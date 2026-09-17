@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { api } from '../../lib/api'
+import { GlassPanel } from '../../components/GlassPanel'
+import { PageHeader } from '../../components/PageHeader'
+import { chipClass, ghostButtonClass } from '../../lib/ui-classes'
 import { parseHref, queryFromState, refine, stateFromQuery, toHref } from '../../lib/investigation'
 
 function ClusterContent() {
@@ -29,33 +32,35 @@ function ClusterContent() {
   function openArticleHref(articleId: string) { return toHref('/articles', new URLSearchParams({ article: articleId, from: currentHref })) }
 
   return (
-    <>
-      <header><div><p className="eyebrow">Story</p><h2>Cluster</h2></div></header>
-      <section className="panel">
-        {cluster.isPending && <p className="muted">Loading story…</p>}
-        {!cluster.isPending && cluster.isError && <p className="error">Could not load this story.</p>}
+    <div className="flex flex-col gap-6 font-sans">
+      <PageHeader eyebrow="Story" title="Cluster" />
+      <GlassPanel className="overflow-hidden p-0">
+        {cluster.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading story…</p>}
+        {!cluster.isPending && cluster.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load this story.</p>}
         {!cluster.isPending && !cluster.isError && header && (
           <>
-            <h3>{header.article_count} articles · {header.source_count} sources</h3>
-            <p className="muted">
-              {header.first_published_at && header.last_published_at
-                ? `${new Date(header.first_published_at).toLocaleString()} – ${new Date(header.last_published_at).toLocaleString()}`
-                : 'Publication dates are not available.'}
-            </p>
-            <Link className="annotation-link" href={searchWithinStoryHref}>Search within this story</Link>
+            <div className="flex flex-col gap-2 px-6 py-4">
+              <h3 className="text-sm font-semibold text-foreground">{header.article_count} articles · {header.source_count} sources</h3>
+              <p className="text-sm text-muted-foreground">
+                {header.first_published_at && header.last_published_at
+                  ? `${new Date(header.first_published_at).toLocaleString()} – ${new Date(header.last_published_at).toLocaleString()}`
+                  : 'Publication dates are not available.'}
+              </p>
+              <Link className={chipClass} href={searchWithinStoryHref}>Search within this story</Link>
+            </div>
             {members.map(member => (
-              <article key={member.article_id} className="search-result">
-                <button className="result-open" onClick={() => router.push(openArticleHref(member.article_id))}>
-                  <strong>{member.title}</strong>
-                  <span>{new Date(member.effective_date).toLocaleString()} · {member.feeds.map(feed => feed.name).join(', ')}</span>
+              <article key={member.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
+                <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(member.article_id))}>
+                  <strong className="text-[15px] font-semibold text-foreground">{member.title}</strong>
+                  <span className="text-xs text-muted-foreground">{new Date(member.effective_date).toLocaleString()} · {member.feeds.map(feed => feed.name).join(', ')}</span>
                 </button>
               </article>
             ))}
-            {cluster.hasNextPage && <button className="secondary" disabled={cluster.isFetchingNextPage} onClick={() => cluster.fetchNextPage()}>{cluster.isFetchingNextPage ? 'Loading…' : 'Load more'}</button>}
+            {cluster.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={cluster.isFetchingNextPage} onClick={() => cluster.fetchNextPage()}>{cluster.isFetchingNextPage ? 'Loading…' : 'Load more'}</button></div>}
           </>
         )}
-      </section>
-    </>
+      </GlassPanel>
+    </div>
   )
 }
 

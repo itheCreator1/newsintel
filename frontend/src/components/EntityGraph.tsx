@@ -43,7 +43,7 @@ export function EntityGraph({ nodes, edges, focus, onSelect }: Props) {
       // richText mode renders the formatter's returned string as escaped text rather than innerHTML, so
       // spaCy-extracted entity text that happens to contain HTML-like characters can't be interpreted as markup.
       tooltip: { renderMode: 'richText', formatter: (params: { dataType?: string; data?: { name?: string; value?: number } }) => params.dataType === 'node' && params.data ? `${params.data.name} · ${params.data.value} articles` : '' },
-      legend: [{ data: categories, textStyle: { color: '#91a7b4' }, top: 0 }],
+      legend: [{ data: categories, textStyle: { color: '#8891ab' }, top: 0 }],
       series: [{
         type: 'graph',
         layout: 'force',
@@ -51,15 +51,16 @@ export function EntityGraph({ nodes, edges, focus, onSelect }: Props) {
         draggable: true,
         categories: categories.map(name => ({ name })),
         force: { repulsion: 140, edgeLength: [50, 170] },
-        label: { show: true, color: '#e8eef5', position: 'right' },
-        lineStyle: { color: '#35505e', curveness: 0.1 },
+        label: { show: true, color: '#e9edfb', position: 'right' },
+        lineStyle: { color: 'rgba(140, 165, 255, 0.2)', curveness: 0.1 },
+        itemStyle: { color: '#4f7dfb' },
         data: nodes.map(node => ({
           id: node.id,
           name: node.text,
           value: node.article_count,
           symbolSize: Math.max(16, Math.min(60, 12 + node.article_count * 4)),
           category: categories.indexOf(node.type),
-          itemStyle: node.id === focus ? { borderColor: '#63d0c2', borderWidth: 3 } : undefined,
+          itemStyle: node.id === focus ? { borderColor: '#7ba0ff', borderWidth: 3, shadowBlur: 12, shadowColor: 'rgba(123, 160, 255, 0.6)' } : undefined,
         })),
         edges: edges.map(edge => ({ source: edge.source, target: edge.target, lineStyle: { width: Math.max(1, Math.min(8, edge.weight)) } })),
       }],

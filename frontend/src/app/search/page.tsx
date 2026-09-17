@@ -8,16 +8,13 @@ import { api, ApiError } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
+import { PageHeader } from '../../components/PageHeader'
 import { cn } from '../../lib/utils'
+import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
-
-const fieldClass = 'w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/40'
-const labelClass = 'flex flex-col gap-1.5 text-xs font-medium text-muted-foreground'
-const ghostButtonClass = 'rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-ring hover:text-foreground disabled:pointer-events-none disabled:opacity-50'
-const chipClass = 'annotation-link rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground no-underline transition-colors hover:border-ring hover:bg-accent hover:text-accent-foreground'
 
 function formFromState(current: Investigation) {
   return {
@@ -90,10 +87,7 @@ function SearchContent() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <header>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">Archive discovery</p>
-        <h2 className="mt-1.5 font-sans text-[32px] font-bold tracking-tight text-foreground">Search</h2>
-      </header>
+      <PageHeader eyebrow="Archive discovery" title="Search" />
 
       <details className="rounded-2xl border border-border bg-card/40 px-5 py-4 text-sm text-muted-foreground backdrop-blur-xl">
         <summary className="cursor-pointer font-medium text-foreground">Query syntax</summary>
@@ -118,7 +112,7 @@ function SearchContent() {
         <label className={labelClass}>Content<select className={cn(fieldClass, 'mt-1')} value={form.content_available} onChange={e => setForm(f => ({ ...f, content_available: e.target.value }))}><option value="">Any</option><option value="true">Available</option><option value="false">RSS only</option></select></label>
         <label className={labelClass}>Processing<select className={cn(fieldClass, 'mt-1')} value={form.processing_status} onChange={e => setForm(f => ({ ...f, processing_status: e.target.value }))}><option value="">Any</option>{['queued', 'running', 'retrying', 'succeeded', 'failed'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label className={labelClass}>Sort<select className={cn(fieldClass, 'mt-1')} value={form.sort} onChange={e => setForm(f => ({ ...f, sort: e.target.value as Investigation['sort'] }))}><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="most_sources">Most sources</option></select></label>
-        <button type="submit" className="self-end rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow-sm transition-shadow hover:shadow-glow sm:col-span-2 lg:col-span-1">Search archive</button>
+        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1')}>Search archive</button>
       </form>
 
       <GlassPanel aria-labelledby="timeline-heading">
@@ -148,7 +142,7 @@ function SearchContent() {
 
       <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>
         <label className={cn(labelClass, 'min-w-[220px] flex-1')}>Saved search name<input className={cn(fieldClass, 'mt-1')} value={saveName} onChange={e => setSaveName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
-        <button type="submit" disabled={save.isPending} className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow-sm transition-shadow hover:shadow-glow disabled:pointer-events-none disabled:opacity-50">Save search</button>
+        <button type="submit" disabled={save.isPending} className={primaryButtonClass}>Save search</button>
         {save.isError ? <p role="alert" className="error w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
           : save.isSuccess && <p className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>

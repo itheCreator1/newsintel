@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { api, ApiError } from '../../lib/api'
 import type { SavedSearch } from '../../lib/api-types'
+import { GlassPanel } from '../../components/GlassPanel'
+import { PageHeader } from '../../components/PageHeader'
+import { chipClass, fieldClass, ghostButtonClass, primaryButtonClass } from '../../lib/ui-classes'
+import { cn } from '../../lib/utils'
 import { fromSaved, queryFromState, toHref } from '../../lib/investigation'
 
 export default function SavedSearchesPage() {
@@ -23,42 +27,46 @@ export default function SavedSearchesPage() {
   function confirmDelete(item: SavedSearch) { if (window.confirm(`Delete the saved search “${item.name}”?`)) remove.mutate(item.id) }
 
   return (
-    <>
-      <header><div><p className="eyebrow">Investigations</p><h2>Saved Searches</h2></div><Link className="secondary" href="/search">New search</Link></header>
-      <section className="panel saved-searches">
-        {pages.isPending && <p className="muted">Loading saved searches…</p>}
-        {!pages.isPending && pages.isError && <p className="error">Could not load saved searches.</p>}
-        {!pages.isPending && !pages.isError && !items.length && <p className="muted">No saved searches yet. Save one from Search to reopen the full investigation later.</p>}
-        {remove.isError && <p role="alert" className="error">{message(remove.error, 'Could not delete this saved search.')}</p>}
+    <div className="flex flex-col gap-6 font-sans">
+      <PageHeader eyebrow="Investigations" title="Saved Searches">
+        <Link className={chipClass} href="/search">New search</Link>
+      </PageHeader>
+      <GlassPanel className="overflow-hidden p-0">
+        {pages.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading saved searches…</p>}
+        {!pages.isPending && pages.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load saved searches.</p>}
+        {!pages.isPending && !pages.isError && !items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No saved searches yet. Save one from Search to reopen the full investigation later.</p>}
+        {remove.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(remove.error, 'Could not delete this saved search.')}</p>}
         {items.map(item => (
-          <article key={item.id} className="saved-search-row">
-            <div>
+          <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 border-border px-6 py-4 last:border-b-0">
+            <div className="flex flex-col gap-1">
               {renamingId === item.id ? (
-                <form className="rename-form" onSubmit={event => { event.preventDefault(); submitRename(item) }}>
-                  <label>New name for {item.name}<input value={newName} onChange={e => setNewName(e.target.value)} maxLength={120} /></label>
-                  <div className="actions">
-                    <button type="submit" disabled={rename.isPending}>Save name</button>
-                    <button type="button" className="secondary" onClick={() => setRenamingId(null)}>Cancel</button>
+                <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); submitRename(item) }}>
+                  <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">New name for {item.name}
+                    <input className={cn(fieldClass, 'mt-1')} value={newName} onChange={e => setNewName(e.target.value)} maxLength={120} />
+                  </label>
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={rename.isPending} className={primaryButtonClass}>Save name</button>
+                    <button type="button" className={ghostButtonClass} onClick={() => setRenamingId(null)}>Cancel</button>
                   </div>
-                  {rename.isError && <p role="alert" className="error">{message(rename.error, 'Could not rename this saved search.')}</p>}
+                  {rename.isError && <p role="alert" className="error w-full text-sm text-destructive">{message(rename.error, 'Could not rename this saved search.')}</p>}
                 </form>
               ) : (
                 <>
-                  <strong>{item.name}</strong>
-                  <small>Updated {new Date(item.updated_at).toLocaleString()}{item.state?.q ? ` · ${item.state.q}` : ''}</small>
+                  <strong className="text-[15px] font-semibold text-foreground">{item.name}</strong>
+                  <small className="text-xs text-muted-foreground">Updated {new Date(item.updated_at).toLocaleString()}{item.state?.q ? ` · ${item.state.q}` : ''}</small>
                 </>
               )}
-              {!item.state && <p className="error">This saved search can no longer be opened: {item.problem || 'its stored state is not supported.'}</p>}
+              {!item.state && <p className="error text-sm text-destructive">This saved search can no longer be opened: {item.problem || 'its stored state is not supported.'}</p>}
             </div>
-            <div className="actions">
-              {item.state && <Link className="annotation-link" aria-label={`Open ${item.name}`} href={openHref(item)}>Open</Link>}
-              {renamingId !== item.id && <button type="button" className="secondary" aria-label={`Rename ${item.name}`} onClick={() => startRename(item)}>Rename</button>}
-              <button type="button" className="danger" aria-label={`Delete ${item.name}`} disabled={remove.isPending} onClick={() => confirmDelete(item)}>Delete</button>
+            <div className="flex items-center gap-2">
+              {item.state && <Link className={chipClass} aria-label={`Open ${item.name}`} href={openHref(item)}>Open</Link>}
+              {renamingId !== item.id && <button type="button" className={ghostButtonClass} aria-label={`Rename ${item.name}`} onClick={() => startRename(item)}>Rename</button>}
+              <button type="button" className={cn(ghostButtonClass, 'border-destructive/30 text-destructive hover:border-destructive hover:text-destructive')} aria-label={`Delete ${item.name}`} disabled={remove.isPending} onClick={() => confirmDelete(item)}>Delete</button>
             </div>
           </article>
         ))}
-        {pages.hasNextPage && <button className="secondary" disabled={pages.isFetchingNextPage} onClick={() => pages.fetchNextPage()}>{pages.isFetchingNextPage ? 'Loading…' : 'Load more saved searches'}</button>}
-      </section>
-    </>
+        {pages.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={pages.isFetchingNextPage} onClick={() => pages.fetchNextPage()}>{pages.isFetchingNextPage ? 'Loading…' : 'Load more saved searches'}</button></div>}
+      </GlassPanel>
+    </div>
   )
 }
