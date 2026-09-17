@@ -178,7 +178,7 @@ class ArticleCountryAnnotation(Base):
     country_code: Mapped[str] = mapped_column(String(2))
     role: Mapped[str] = mapped_column(String(24))
     inferred: Mapped[bool] = mapped_column(Boolean, default=False)
-    rule_version: Mapped[str] = mapped_column(String(64))
+    rule_version: Mapped[str] = mapped_column(String(128))
     occurrence_count: Mapped[int] = mapped_column(Integer)
     occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSON)
     input_fingerprint: Mapped[str] = mapped_column(String(64))

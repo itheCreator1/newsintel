@@ -8,7 +8,12 @@ from sqlalchemy import select
 from app.db.session import session_factory
 from app.feeds.models import Article, Feed, FeedArticle
 from app.nlp.execution import process_job
-from app.nlp.models import ArticleLanguageAnnotation, ArticleNlpState, NlpJob
+from app.nlp.models import (
+    ArticleCountryAnnotation,
+    ArticleLanguageAnnotation,
+    ArticleNlpState,
+    NlpJob,
+)
 from app.nlp.reprocessing import create_reprocessing_run, scan_reprocessing
 from app.nlp.service import claim_job, current_stop_words, request_article_nlp, update_stop_words
 
@@ -142,6 +147,77 @@ async def test_language_job_claim_and_publication_are_durable() -> None:
         )
     assert job is not None and job.status == "succeeded" and job.attempt_count == 1
     assert annotation is not None and annotation.language == "en"
+
+
+async def test_country_job_claim_and_publication_are_durable() -> None:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="France announces energy policy for international markets",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        feed = Feed(
+            name="NLP source",
+            url=f"https://example.test/{uuid.uuid4()}.xml",
+            tags=[],
+            enabled=True,
+            poll_interval_minutes=30,
+            fetching_mode="rss",
+        )
+        db.add_all([article, feed])
+        await db.flush()
+        db.add(
+            FeedArticle(
+                feed_id=feed.id,
+                article_id=article.id,
+                feed_title=article.title,
+                feed_url=article.original_url,
+                description="Officials in France described the policy. Germany replied.",
+                metadata_json={},
+            )
+        )
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("countries",))
+        await db.flush()
+        job = await db.scalar(select(NlpJob).where(NlpJob.article_id == article.id))
+        assert job is not None
+        job_id = job.id
+
+    async with session_factory() as db:
+        claimed = await claim_job(db, job_id, lease_seconds=60)
+    assert claimed is not None
+    _, token = claimed
+    await process_job(job_id, token)
+
+    async with session_factory() as db:
+        job = await db.get(NlpJob, job_id)
+        annotations = list(
+            (
+                await db.scalars(
+                    select(ArticleCountryAnnotation).where(
+                        ArticleCountryAnnotation.article_id == article.id,
+                        ArticleCountryAnnotation.is_current.is_(True),
+                    )
+                )
+            ).all()
+        )
+    assert job is not None and job.status == "succeeded"
+    assert {annotation.country_code for annotation in annotations} == {"FR", "DE"}
+
+    # A rule_version this long is only possible after the 0009 migration widened the
+    # column; leaving it behind would break test_phase7_postgres's downgrade-to-0007
+    # round trip, which passes through 0009's downgrade on a shared test database.
+    async with session_factory() as db, db.begin():
+        feed_article = await db.scalar(
+            select(FeedArticle).where(FeedArticle.article_id == article.id)
+        )
+        assert feed_article is not None
+        await db.delete(feed_article)
+        await db.flush()
+        stored_article = await db.get(Article, article.id)
+        assert stored_article is not None
+        await db.delete(stored_article)
 
 
 async def test_expired_worker_cannot_publish_nlp_output() -> None:

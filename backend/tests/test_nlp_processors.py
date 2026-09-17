@@ -115,6 +115,9 @@ def test_country_matching_is_explicit_and_primary_rule_requires_title_and_body()
     assert {item.country_code for item in result.mentioned} == {"FR", "DE"}
     assert result.primary is not None and result.primary.country_code == "FR"
     assert result.primary.inferred is True
+    # Must fit ArticleCountryAnnotation.rule_version (String(128), matching
+    # NlpProcessorRun.algorithm_version's precedent) or every DB insert fails.
+    assert len(result.algorithm_version) <= 128
 
 
 def test_ambiguous_country_aliases_are_excluded() -> None:
