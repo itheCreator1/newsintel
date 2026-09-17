@@ -30,3 +30,4 @@ nav a { display: block; color: #78d6ca; text-decoration: none; padding: 11px 0; 
 @media (max-width: 700px) { .save-search, .saved-search-row { grid-template-columns: 1fr; } }
 .entity-graph { width: 100%; height: 420px; margin-top: 6px; }.graph-node-list { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 14px 0 0; }.graph-node-list li { margin: 0; }.graph-node-list button[aria-pressed="true"] { background: #63d0c2; color: #05100f; }
 .story { margin-top: 24px; padding-top: 20px; border-top: 1px solid #263b47; }
+.overview-panels { display: grid; gap: 22px; margin-top: 22px; }.bar-chart { width: 100%; height: 220px; margin-top: 16px; }.panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }.panel-heading h3 { margin: 0; }.panel-heading label { min-width: 170px; }

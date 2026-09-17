@@ -1739,6 +1739,46 @@
         "title": "IndexStatus",
         "type": "object"
       },
+      "IngestionTimelineBucket": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "is_spike": {
+            "title": "Is Spike",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "count",
+          "is_spike"
+        ],
+        "title": "IngestionTimelineBucket",
+        "type": "object"
+      },
+      "IngestionTimelineResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/IngestionTimelineBucket"
+            },
+            "title": "Buckets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "buckets"
+        ],
+        "title": "IngestionTimelineResponse",
+        "type": "object"
+      },
       "InvestigationState": {
         "additionalProperties": false,
         "description": "Complete search investigation, using the /search query parameter names.",
@@ -3095,6 +3135,85 @@
         "title": "TimelineBucket",
         "type": "object"
       },
+      "TopCountriesResponse": {
+        "properties": {
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/TopCountry"
+            },
+            "title": "Countries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "countries"
+        ],
+        "title": "TopCountriesResponse",
+        "type": "object"
+      },
+      "TopCountry": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "country_code": {
+            "title": "Country Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country_code",
+          "count"
+        ],
+        "title": "TopCountry",
+        "type": "object"
+      },
+      "TopEntitiesResponse": {
+        "properties": {
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/TopEntity"
+            },
+            "title": "Entities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entities"
+        ],
+        "title": "TopEntitiesResponse",
+        "type": "object"
+      },
+      "TopEntity": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "display_text": {
+            "title": "Display Text",
+            "type": "string"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "display_text",
+          "entity_type",
+          "count"
+        ],
+        "title": "TopEntity",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "id": {
@@ -3162,6 +3281,97 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/analytics/ingestion-timeline": {
+      "get": {
+        "operationId": "ingestion_timeline_api_v1_analytics_ingestion_timeline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionTimelineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ingestion Timeline",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/top-countries": {
+      "get": {
+        "operationId": "top_countries_api_v1_analytics_top_countries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopCountriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Top Countries",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/top-entities": {
+      "get": {
+        "operationId": "top_entities_api_v1_analytics_top_entities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopEntitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Top Entities",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
     "/api/v1/articles": {
       "get": {
         "operationId": "list_articles_api_v1_articles_get",

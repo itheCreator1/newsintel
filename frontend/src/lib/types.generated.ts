@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/analytics/ingestion-timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ingestion Timeline */
+        get: operations["ingestion_timeline_api_v1_analytics_ingestion_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/top-countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top Countries */
+        get: operations["top_countries_api_v1_analytics_top_countries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/top-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top Entities */
+        get: operations["top_entities_api_v1_analytics_top_entities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/articles": {
         parameters: {
             query?: never;
@@ -1309,6 +1360,23 @@ export interface components {
              */
             running: number;
         };
+        /** IngestionTimelineBucket */
+        IngestionTimelineBucket: {
+            /** Count */
+            count: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Is Spike */
+            is_spike: boolean;
+        };
+        /** IngestionTimelineResponse */
+        IngestionTimelineResponse: {
+            /** Buckets */
+            buckets: components["schemas"]["IngestionTimelineBucket"][];
+        };
         /**
          * InvestigationState
          * @description Complete search investigation, using the /search query parameter names.
@@ -1800,6 +1868,37 @@ export interface components {
              */
             start: string;
         };
+        /** TopCountriesResponse */
+        TopCountriesResponse: {
+            /** Countries */
+            countries: components["schemas"]["TopCountry"][];
+        };
+        /** TopCountry */
+        TopCountry: {
+            /** Count */
+            count: number;
+            /** Country Code */
+            country_code: string;
+        };
+        /** TopEntitiesResponse */
+        TopEntitiesResponse: {
+            /** Entities */
+            entities: components["schemas"]["TopEntity"][];
+        };
+        /** TopEntity */
+        TopEntity: {
+            /** Count */
+            count: number;
+            /** Display Text */
+            display_text: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Entity Type */
+            entity_type: string;
+        };
         /** UserResponse */
         UserResponse: {
             /**
@@ -1832,6 +1931,77 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ingestion_timeline_api_v1_analytics_ingestion_timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionTimelineResponse"];
+                };
+            };
+        };
+    };
+    top_countries_api_v1_analytics_top_countries_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopCountriesResponse"];
+                };
+            };
+        };
+    };
+    top_entities_api_v1_analytics_top_entities_get: {
+        parameters: {
+            query?: {
+                entity_type?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopEntitiesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_articles_api_v1_articles_get: {
         parameters: {
             query?: {

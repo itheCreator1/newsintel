@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
+from app.analytics.routes import router as analytics_router
 from app.api.health import router as health_router
 from app.articles.routes import router as articles_router
 from app.auth.routes import router as auth_router
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(investigations_router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1")
     return app
 
 

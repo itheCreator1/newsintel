@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -92,6 +92,9 @@ export const api = {
   updateStopWords: (currentRevision: number, words: string[]) => mutate<StopWords>('/nlp/stop-words', 'PUT', { current_revision: currentRevision, words }),
   nlpEntities: (q = '', cursor?: string) => annotationLookup('/nlp/entities', q, cursor),
   nlpKeywords: (q = '', cursor?: string) => annotationLookup('/nlp/keywords', q, cursor),
+  ingestionTimeline: () => request<IngestionTimeline>('/analytics/ingestion-timeline'),
+  topEntities: (entityType?: string) => request<TopEntities>(`/analytics/top-entities${entityType ? `?entity_type=${encodeURIComponent(entityType)}` : ''}`),
+  topCountries: () => request<TopCountries>('/analytics/top-countries'),
 }
 
 type Filters = Record<string, string | string[] | undefined>
