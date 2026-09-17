@@ -8,7 +8,7 @@
 
 **Tech Stack:** Existing Python/FastAPI/SQLAlchemy/Alembic, Dramatiq/Redis, Trafilatura, Docker Compose, Vue/TypeScript/TanStack Query, pytest and Vitest.
 
-**Spec:** [spec.md](../../../spec.md), especially sections 2–4, 8–12.
+**Spec:** [AGENTS.md](../../../AGENTS.md), "Product specification" section (formerly spec.md), especially sections 2–4, 8–12.
 
 ## Global Constraints
 

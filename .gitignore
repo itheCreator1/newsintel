@@ -1,4 +1,5 @@
 .env
+/launch.sh
 .venv/
 __pycache__/
 .pytest_cache/
@@ -13,3 +14,5 @@ test-results/
 *.pyc
 data/
 docs/superpowers/sdd-memory/
+docs/graphify-out/
+/graphify-out/

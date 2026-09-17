@@ -14,12 +14,12 @@ NEWSINTEL_TEST_ELASTICSEARCH_PORT=$(pick_port)
 export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT NEWSINTEL_TEST_ELASTICSEARCH_PORT
 export NEWSINTEL_E2E_BASE_URL="http://127.0.0.1:$NEWSINTEL_PORT"
 export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
-compose="docker compose -p $project -f compose.yaml -f compose.e2e.yaml"
+compose="docker compose -p $project -f docker/compose.yaml -f docker/compose.e2e.yaml"
 cleanup() { status=$?; if [ "$status" -ne 0 ]; then $compose logs --no-color > "$artifacts/compose.log" 2>&1 || true; echo "Acceptance artifacts: $artifacts" >&2; fi; $compose down -v --remove-orphans >/dev/null 2>&1 || true; exit "$status"; }
 trap cleanup EXIT INT TERM
 
 cd "$root"
-docker compose -f compose.yaml -f compose.e2e.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml config --quiet
 $compose build api worker scheduler frontend
 $compose up -d --wait --wait-timeout 120 postgres redis elasticsearch fixture
 $compose exec -T postgres createdb -U newsintel newsintel_tests

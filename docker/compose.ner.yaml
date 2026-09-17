@@ -1,7 +1,7 @@
 services:
   nlp-worker:
     build:
-      context: ./backend
+      context: ../backend
       args:
         NEWSINTEL_INSTALL_SPACY: "true"
     environment:

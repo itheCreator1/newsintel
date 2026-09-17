@@ -21,4 +21,4 @@ services:
     image: python:3.13-alpine
     command: ["python", "/fixtures/server.py"]
     ports: ["127.0.0.1:${NEWSINTEL_TEST_FIXTURE_PORT:-18080}:80"]
-    volumes: ["./backend/tests/fixtures:/fixtures:ro"]
+    volumes: ["../backend/tests/fixtures:/fixtures:ro"]

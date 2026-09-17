@@ -18,7 +18,7 @@ export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
 # NER disabled), the graph endpoint needs real entities in every document, so compose.ner.yaml
 # is merged into the ONE compose stack used for the entire script, not a separate short-lived
 # stack that gets torn down after a smoke test.
-compose="docker compose -p $project -f compose.yaml -f compose.e2e.yaml -f compose.ner.yaml"
+compose="docker compose -p $project -f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.ner.yaml"
 cleanup() {
   status=$?
   if [ "$status" -ne 0 ]; then
@@ -32,8 +32,8 @@ trap cleanup EXIT INT TERM
 psql_app() { $compose exec -T postgres psql -U newsintel -d newsintel -Atc "$1"; }
 
 cd "$root"
-docker compose -f compose.yaml -f compose.e2e.yaml config --quiet
-docker compose -f compose.yaml -f compose.e2e.yaml -f compose.ner.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.ner.yaml config --quiet
 $compose build api worker nlp-worker scheduler frontend
 
 # Fail fast (in ~1 minute, not 10) if the NER-enabled image can't actually extract the two

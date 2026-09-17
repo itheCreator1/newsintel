@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import getpass
+import os
 import uuid
 from datetime import timedelta
 
@@ -29,11 +30,14 @@ from app.nlp.service import PROCESSORS
 from app.search.rebuild import create_rebuild, rebuild_status, scan_rebuild, try_cutover
 
 
-async def create_user(username: str) -> None:
+async def create_user(username: str, password: str | None = None) -> None:
     normalized = normalize_username(username)
-    password = getpass.getpass("Password (minimum 12 characters): ")
-    confirmation = getpass.getpass("Confirm password: ")
-    if len(password) < 12 or password != confirmation:
+    if password is None:
+        password = getpass.getpass("Password (minimum 12 characters): ")
+        confirmation = getpass.getpass("Confirm password: ")
+        if password != confirmation:
+            raise SystemExit("Passwords must match and contain at least 12 characters")
+    if len(password) < 12:
         raise SystemExit("Passwords must match and contain at least 12 characters")
     async with session_factory() as db:
         if await db.scalar(select(User).where(User.username == normalized)):
@@ -277,7 +281,7 @@ def main() -> None:
     if not args.username:
         parser.error("username is required")
     action = (
-        create_user(args.username)
+        create_user(args.username, password=os.environ.get("NEWSINTEL_ADMIN_PASSWORD") or None)
         if args.command == "create-user"
         else reset_password(args.username)
     )

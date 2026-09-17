@@ -14,8 +14,8 @@ NEWSINTEL_TEST_ELASTICSEARCH_PORT=${NEWSINTEL_TEST_ELASTICSEARCH_PORT:-$(pick_po
 export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT NEWSINTEL_TEST_ELASTICSEARCH_PORT
 export NEWSINTEL_E2E_BASE_URL="http://127.0.0.1:$NEWSINTEL_PORT"
 export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
-compose="docker compose -p $project -f compose.yaml -f compose.e2e.yaml"
-compose_ner="docker compose -p $project-ner -f compose.yaml -f compose.e2e.yaml -f compose.ner.yaml"
+compose="docker compose -p $project -f docker/compose.yaml -f docker/compose.e2e.yaml"
+compose_ner="docker compose -p $project-ner -f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.ner.yaml"
 cleanup() {
   status=$?
   if [ "$status" -ne 0 ]; then
@@ -29,8 +29,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$root"
-docker compose -f compose.yaml -f compose.e2e.yaml config --quiet
-docker compose -f compose.yaml -f compose.e2e.yaml -f compose.ner.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.ner.yaml config --quiet
 $compose build api worker nlp-worker scheduler frontend
 $compose run --rm --no-deps nlp-worker python -c "import importlib.util; assert importlib.util.find_spec('spacy') is None"
 $compose_ner build nlp-worker

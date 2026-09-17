@@ -18,7 +18,7 @@ export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT
 export NEWSINTEL_E2E_BASE_URL="http://127.0.0.1:$NEWSINTEL_PORT"
 export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
 
-compose="docker compose -p $project -f compose.yaml -f compose.e2e.yaml"
+compose="docker compose -p $project -f docker/compose.yaml -f docker/compose.e2e.yaml"
 
 cleanup() {
   status=$?
@@ -32,7 +32,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$root"
-docker compose -f compose.yaml -f compose.e2e.yaml config --quiet
+docker compose -f docker/compose.yaml -f docker/compose.e2e.yaml config --quiet
 $compose build api worker scheduler
 $compose up -d --wait --wait-timeout 90 postgres redis fixture
 

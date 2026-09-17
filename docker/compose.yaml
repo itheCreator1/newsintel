@@ -2,7 +2,7 @@ name: newsintel
 
 services:
   frontend:
-    build: ./frontend
+    build: ../frontend
     ports: ["127.0.0.1:${NEWSINTEL_PORT:-8080}:8080"]
     depends_on:
       api: { condition: service_healthy }
@@ -13,7 +13,7 @@ services:
       retries: 5
 
   api:
-    build: ./backend
+    build: ../backend
     environment: &backend-env
       NEWSINTEL_DATABASE_URL: postgresql+asyncpg://newsintel:${POSTGRES_PASSWORD:-newsintel}@postgres:5432/newsintel
       NEWSINTEL_REDIS_URL: redis://redis:6379/0
@@ -41,7 +41,7 @@ services:
       retries: 5
 
   worker:
-    build: ./backend
+    build: ../backend
     command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "--processes", "1", "--threads", "4"]
     environment: *backend-env
     volumes: ["article-data:/var/lib/newsintel/articles"]
@@ -50,7 +50,7 @@ services:
       postgres: { condition: service_healthy }
 
   nlp-worker:
-    build: ./backend
+    build: ../backend
     command:
       ["dramatiq", "app.jobs.nlp", "app.jobs.clustering", "--processes", "1", "--threads", "1"]
     environment: *backend-env
@@ -59,7 +59,7 @@ services:
       postgres: { condition: service_healthy }
 
   scheduler:
-    build: ./backend
+    build: ../backend
     command: ["python", "-m", "app.scheduler"]
     environment: *backend-env
     depends_on:
