@@ -1,0 +1,6329 @@
+{
+  "components": {
+    "schemas": {
+      "AnnotationLookupItem": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "kind"
+        ],
+        "title": "AnnotationLookupItem",
+        "type": "object"
+      },
+      "AnnotationLookupPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnnotationLookupItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AnnotationLookupPage",
+        "type": "object"
+      },
+      "ArticleAnnotationsResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/CountryAnnotationResponse"
+            },
+            "title": "Countries",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAnnotationResponse"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "keywords": {
+            "items": {
+              "$ref": "#/components/schemas/KeywordAnnotationResponse"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LanguageAnnotationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "processors": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessorOutcomeResponse"
+            },
+            "title": "Processors",
+            "type": "array"
+          },
+          "source_countries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Countries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "article_id",
+          "source_countries",
+          "language",
+          "keywords",
+          "entities",
+          "countries",
+          "processors",
+          "capabilities"
+        ],
+        "title": "ArticleAnnotationsResponse",
+        "type": "object"
+      },
+      "ArticleContentResponse": {
+        "properties": {
+          "change_count": {
+            "title": "Change Count",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "extracted_at": {
+            "format": "date-time",
+            "title": "Extracted At",
+            "type": "string"
+          },
+          "extractor_name": {
+            "title": "Extractor Name",
+            "type": "string"
+          },
+          "extractor_version": {
+            "title": "Extractor Version",
+            "type": "string"
+          },
+          "html_retained": {
+            "title": "Html Retained",
+            "type": "boolean"
+          },
+          "last_content_change_at": {
+            "format": "date-time",
+            "title": "Last Content Change At",
+            "type": "string"
+          },
+          "previous_content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Content Hash"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "content_hash",
+          "previous_content_hash",
+          "change_count",
+          "extractor_name",
+          "extractor_version",
+          "extracted_at",
+          "last_content_change_at",
+          "html_retained"
+        ],
+        "title": "ArticleContentResponse",
+        "type": "object"
+      },
+      "ArticleDetailResponse": {
+        "properties": {
+          "clustering_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clustering Status"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleContentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_discovered_at": {
+            "format": "date-time",
+            "title": "First Discovered At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "normalized_url": {
+            "title": "Normalized Url",
+            "type": "string"
+          },
+          "original_url": {
+            "title": "Original Url",
+            "type": "string"
+          },
+          "processing": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleJobSummary"
+            },
+            "title": "Processing",
+            "type": "array"
+          },
+          "provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleProvenance"
+            },
+            "title": "Provenance",
+            "type": "array"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedArticle"
+            },
+            "title": "Related",
+            "type": "array"
+          },
+          "story_cluster": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleStoryCluster"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "original_url",
+          "normalized_url",
+          "title",
+          "published_at",
+          "first_discovered_at",
+          "provenance",
+          "content",
+          "processing"
+        ],
+        "title": "ArticleDetailResponse",
+        "type": "object"
+      },
+      "ArticleJobSummary": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "requested_mode": {
+            "title": "Requested Mode",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "requested_mode",
+          "stage",
+          "status",
+          "error_category",
+          "error_message",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "ArticleJobSummary",
+        "type": "object"
+      },
+      "ArticlePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ArticlePage",
+        "type": "object"
+      },
+      "ArticleProvenance": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "discovered_at": {
+            "format": "date-time",
+            "title": "Discovered At",
+            "type": "string"
+          },
+          "feed_id": {
+            "format": "uuid",
+            "title": "Feed Id",
+            "type": "string"
+          },
+          "feed_name": {
+            "title": "Feed Name",
+            "type": "string"
+          },
+          "guid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guid"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feed_id",
+          "feed_name",
+          "guid",
+          "title",
+          "url",
+          "description",
+          "discovered_at"
+        ],
+        "title": "ArticleProvenance",
+        "type": "object"
+      },
+      "ArticleResponse": {
+        "properties": {
+          "first_discovered_at": {
+            "format": "date-time",
+            "title": "First Discovered At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "normalized_url": {
+            "title": "Normalized Url",
+            "type": "string"
+          },
+          "original_url": {
+            "title": "Original Url",
+            "type": "string"
+          },
+          "provenance": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleProvenance"
+            },
+            "title": "Provenance",
+            "type": "array"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "original_url",
+          "normalized_url",
+          "title",
+          "published_at",
+          "first_discovered_at",
+          "provenance"
+        ],
+        "title": "ArticleResponse",
+        "type": "object"
+      },
+      "ArticleStoryCluster": {
+        "properties": {
+          "article_count": {
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "article_count",
+          "source_count"
+        ],
+        "title": "ArticleStoryCluster",
+        "type": "object"
+      },
+      "AttemptResponse": {
+        "properties": {
+          "attempt_number": {
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stage",
+          "attempt_number",
+          "status",
+          "http_status",
+          "error_category",
+          "error_message",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "AttemptResponse",
+        "type": "object"
+      },
+      "BacklogResponse": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "title": "Queued",
+            "type": "integer"
+          },
+          "retrying": {
+            "title": "Retrying",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queued",
+          "running",
+          "retrying",
+          "failed"
+        ],
+        "title": "BacklogResponse",
+        "type": "object"
+      },
+      "CapabilityResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "CapabilityResponse",
+        "type": "object"
+      },
+      "ClusterMemberFeedRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ClusterMemberFeedRef",
+        "type": "object"
+      },
+      "ClusterMemberPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterMemberResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ClusterMemberPage",
+        "type": "object"
+      },
+      "ClusterMemberResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "effective_date": {
+            "format": "date-time",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "feeds": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterMemberFeedRef"
+            },
+            "title": "Feeds",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "title",
+          "effective_date",
+          "feeds",
+          "score"
+        ],
+        "title": "ClusterMemberResponse",
+        "type": "object"
+      },
+      "ClusteringFailurePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClusteringFailureResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ClusteringFailurePage",
+        "type": "object"
+      },
+      "ClusteringFailureResponse": {
+        "properties": {
+          "algorithm_version": {
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "algorithm_version",
+          "attempt_count",
+          "error_category",
+          "error_message",
+          "created_at"
+        ],
+        "title": "ClusteringFailureResponse",
+        "type": "object"
+      },
+      "ClusteringMutationResponse": {
+        "properties": {
+          "jobs_created": {
+            "title": "Jobs Created",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobs_created"
+        ],
+        "title": "ClusteringMutationResponse",
+        "type": "object"
+      },
+      "ClusteringStatusResponse": {
+        "properties": {
+          "algorithm_version": {
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "clustered_articles": {
+            "default": 0,
+            "title": "Clustered Articles",
+            "type": "integer"
+          },
+          "clusters": {
+            "default": 0,
+            "title": "Clusters",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "default": 0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "retrying": {
+            "default": 0,
+            "title": "Retrying",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "algorithm_version"
+        ],
+        "title": "ClusteringStatusResponse",
+        "type": "object"
+      },
+      "CountryAnnotationResponse": {
+        "properties": {
+          "country_code": {
+            "title": "Country Code",
+            "type": "string"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "inferred": {
+            "title": "Inferred",
+            "type": "boolean"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "country_code",
+          "role",
+          "inferred",
+          "rule_version",
+          "occurrence_count",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "CountryAnnotationResponse",
+        "type": "object"
+      },
+      "CsrfResponse": {
+        "properties": {
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "csrf_token"
+        ],
+        "title": "CsrfResponse",
+        "type": "object"
+      },
+      "CursorPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "CursorPage",
+        "type": "object"
+      },
+      "EntityAnnotationResponse": {
+        "properties": {
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "original_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Label"
+          },
+          "relevance": {
+            "title": "Relevance",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "entity_type",
+          "original_label",
+          "occurrence_count",
+          "relevance",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "EntityAnnotationResponse",
+        "type": "object"
+      },
+      "FeedCreate": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_language": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Language"
+          },
+          "fetching_mode": {
+            "default": "rss",
+            "enum": [
+              "rss",
+              "full_text",
+              "full_text_html"
+            ],
+            "title": "Fetching Mode",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "poll_interval_minutes": {
+            "default": 30,
+            "maximum": 10080.0,
+            "minimum": 5.0,
+            "title": "Poll Interval Minutes",
+            "type": "integer"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Tags",
+            "type": "array"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "FeedCreate",
+        "type": "object"
+      },
+      "FeedResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Language"
+          },
+          "fetching_mode": {
+            "title": "Fetching Mode",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_poll_at": {
+            "format": "date-time",
+            "title": "Next Poll At",
+            "type": "string"
+          },
+          "poll_interval_minutes": {
+            "title": "Poll Interval Minutes",
+            "type": "integer"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "source_country",
+          "expected_language",
+          "tags",
+          "enabled",
+          "poll_interval_minutes",
+          "fetching_mode",
+          "next_poll_at",
+          "last_success_at",
+          "created_at"
+        ],
+        "title": "FeedResponse",
+        "type": "object"
+      },
+      "FeedUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "expected_language": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Language"
+          },
+          "fetching_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "rss",
+                  "full_text",
+                  "full_text_html"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetching Mode"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "poll_interval_minutes": {
+            "anyOf": [
+              {
+                "maximum": 10080.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poll Interval Minutes"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "FeedUpdate",
+        "type": "object"
+      },
+      "FetchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FetchResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "FetchPage",
+        "type": "object"
+      },
+      "FetchResponse": {
+        "properties": {
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "entry_count": {
+            "title": "Entry Count",
+            "type": "integer"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "feed_id": {
+            "format": "uuid",
+            "title": "Feed Id",
+            "type": "string"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "invalid_entry_count": {
+            "title": "Invalid Entry Count",
+            "type": "integer"
+          },
+          "new_article_count": {
+            "title": "New Article Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "feed_id",
+          "status",
+          "attempt_count",
+          "http_status",
+          "duration_ms",
+          "entry_count",
+          "invalid_entry_count",
+          "new_article_count",
+          "error_category",
+          "error_message",
+          "started_at",
+          "completed_at"
+        ],
+        "title": "FetchResponse",
+        "type": "object"
+      },
+      "GraphEdge": {
+        "properties": {
+          "source": {
+            "format": "uuid",
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "format": "uuid",
+            "title": "Target",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "weight"
+        ],
+        "title": "GraphEdge",
+        "type": "object"
+      },
+      "GraphNode": {
+        "properties": {
+          "article_count": {
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "type",
+          "article_count"
+        ],
+        "title": "GraphNode",
+        "type": "object"
+      },
+      "GraphResponse": {
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "truncated"
+        ],
+        "title": "GraphResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HighlightSegment": {
+        "properties": {
+          "marked": {
+            "default": false,
+            "title": "Marked",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "HighlightSegment",
+        "type": "object"
+      },
+      "IndexFailure": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "index_name": {
+            "title": "Index Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "index_name",
+          "error_category",
+          "error_message",
+          "attempt_count",
+          "updated_at"
+        ],
+        "title": "IndexFailure",
+        "type": "object"
+      },
+      "IndexFailurePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndexFailure"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "IndexFailurePage",
+        "type": "object"
+      },
+      "IndexStatus": {
+        "properties": {
+          "active_rebuild": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Rebuild"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "default": 0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "retrying": {
+            "default": 0,
+            "title": "Retrying",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "title": "IndexStatus",
+        "type": "object"
+      },
+      "InvestigationState": {
+        "additionalProperties": false,
+        "description": "Complete search investigation, using the /search query parameter names.",
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "content_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Available"
+          },
+          "entity_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Entity Id",
+            "type": "array"
+          },
+          "entity_type": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Entity Type",
+            "type": "array"
+          },
+          "interval": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "hour",
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "title": "Interval",
+            "type": "string"
+          },
+          "keyword_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Keyword Id",
+            "type": "array"
+          },
+          "language": {
+            "items": {
+              "pattern": "^[A-Za-z][A-Za-z-]{1,15}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Language",
+            "type": "array"
+          },
+          "mentioned_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Mentioned Country",
+            "type": "array"
+          },
+          "processing_status": {
+            "items": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Processing Status",
+            "type": "array"
+          },
+          "q": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Q",
+            "type": "string"
+          },
+          "sort": {
+            "default": "relevance",
+            "enum": [
+              "relevance",
+              "newest",
+              "oldest",
+              "most_sources"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "source_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Source Country",
+            "type": "array"
+          },
+          "source_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Source Id",
+            "type": "array"
+          },
+          "story_cluster_id": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Story Cluster Id",
+            "type": "array"
+          },
+          "story_country": {
+            "items": {
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Story Country",
+            "type": "array"
+          }
+        },
+        "title": "InvestigationState",
+        "type": "object"
+      },
+      "JobPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "JobPage",
+        "type": "object"
+      },
+      "JobResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "article_title": {
+            "title": "Article Title",
+            "type": "string"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptResponse"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "next_attempt_at": {
+            "format": "date-time",
+            "title": "Next Attempt At",
+            "type": "string"
+          },
+          "requested_mode": {
+            "title": "Requested Mode",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "article_title",
+          "requested_mode",
+          "stage",
+          "status",
+          "error_category",
+          "error_message",
+          "created_at",
+          "started_at",
+          "completed_at",
+          "next_attempt_at"
+        ],
+        "title": "JobResponse",
+        "type": "object"
+      },
+      "KeywordAnnotationResponse": {
+        "properties": {
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "normalized_text": {
+            "title": "Normalized Text",
+            "type": "string"
+          },
+          "occurrence_count": {
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/OccurrenceResponse"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "raw_score": {
+            "title": "Raw Score",
+            "type": "number"
+          },
+          "relevance": {
+            "title": "Relevance",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "normalized_text",
+          "kind",
+          "occurrence_count",
+          "raw_score",
+          "relevance",
+          "occurrences",
+          "fresh"
+        ],
+        "title": "KeywordAnnotationResponse",
+        "type": "object"
+      },
+      "LanguageAnnotationResponse": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "margin": {
+            "title": "Margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "language",
+          "confidence",
+          "margin",
+          "fresh"
+        ],
+        "title": "LanguageAnnotationResponse",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "minLength": 12,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "NlpFailurePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NlpFailureResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "NlpFailurePage",
+        "type": "object"
+      },
+      "NlpFailureResponse": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "processor": {
+            "title": "Processor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "processor",
+          "attempt_count",
+          "error_category",
+          "error_message",
+          "created_at"
+        ],
+        "title": "NlpFailureResponse",
+        "type": "object"
+      },
+      "NlpMutationResponse": {
+        "properties": {
+          "jobs_created": {
+            "title": "Jobs Created",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "jobs_created"
+        ],
+        "title": "NlpMutationResponse",
+        "type": "object"
+      },
+      "NlpStatusResponse": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "queued": {
+            "default": 0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "reprocessing": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Reprocessing",
+            "type": "array"
+          },
+          "retrying": {
+            "default": 0,
+            "title": "Retrying",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "capabilities",
+          "reprocessing"
+        ],
+        "title": "NlpStatusResponse",
+        "type": "object"
+      },
+      "OccurrenceResponse": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "input_end": {
+            "title": "Input End",
+            "type": "integer"
+          },
+          "input_start": {
+            "title": "Input Start",
+            "type": "integer"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Id"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "section",
+          "reference_id",
+          "start",
+          "end",
+          "input_start",
+          "input_end"
+        ],
+        "title": "OccurrenceResponse",
+        "type": "object"
+      },
+      "PollResponse": {
+        "properties": {
+          "fetch_id": {
+            "format": "uuid",
+            "title": "Fetch Id",
+            "type": "string"
+          },
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fetch_id",
+          "status",
+          "reused"
+        ],
+        "title": "PollResponse",
+        "type": "object"
+      },
+      "ProcessRequest": {
+        "properties": {
+          "mode": {
+            "default": "full_text",
+            "enum": [
+              "full_text",
+              "full_text_html"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "ProcessRequest",
+        "type": "object"
+      },
+      "ProcessResponse": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "reused"
+        ],
+        "title": "ProcessResponse",
+        "type": "object"
+      },
+      "ProcessorOutcomeResponse": {
+        "properties": {
+          "algorithm_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithm Version"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_generation": {
+            "title": "Completed Generation",
+            "type": "integer"
+          },
+          "configuration_fingerprint": {
+            "title": "Configuration Fingerprint",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "input_fingerprint": {
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          },
+          "processor": {
+            "title": "Processor",
+            "type": "string"
+          },
+          "processor_version": {
+            "title": "Processor Version",
+            "type": "string"
+          },
+          "requested_generation": {
+            "title": "Requested Generation",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "processor",
+          "status",
+          "requested_generation",
+          "completed_generation",
+          "processor_version",
+          "configuration_fingerprint",
+          "input_fingerprint"
+        ],
+        "title": "ProcessorOutcomeResponse",
+        "type": "object"
+      },
+      "RelatedArticle": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "effective_date": {
+            "format": "date-time",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "title",
+          "effective_date",
+          "score"
+        ],
+        "title": "RelatedArticle",
+        "type": "object"
+      },
+      "ReprocessRequest": {
+        "properties": {
+          "processors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Processors",
+            "type": "array"
+          }
+        },
+        "title": "ReprocessRequest",
+        "type": "object"
+      },
+      "RetryIndexResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RetryIndexResponse",
+        "type": "object"
+      },
+      "SavedSearchCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/InvestigationState"
+          }
+        },
+        "required": [
+          "name",
+          "state"
+        ],
+        "title": "SavedSearchCreate",
+        "type": "object"
+      },
+      "SavedSearchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedSearchResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SavedSearchPage",
+        "type": "object"
+      },
+      "SavedSearchResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state_version": {
+            "title": "State Version",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state_version",
+          "state",
+          "problem",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SavedSearchResponse",
+        "type": "object"
+      },
+      "SavedSearchUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvestigationState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SavedSearchUpdate",
+        "type": "object"
+      },
+      "SearchPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SearchPage",
+        "type": "object"
+      },
+      "SearchResult": {
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "distinct_source_count": {
+            "title": "Distinct Source Count",
+            "type": "integer"
+          },
+          "effective_date": {
+            "format": "date-time",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "highlights": {
+            "items": {
+              "$ref": "#/components/schemas/HighlightSegment"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "source_refs": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultSource"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "story_cluster": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryClusterRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "story_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Story Country"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "title",
+          "effective_date",
+          "distinct_source_count",
+          "sources",
+          "source_refs",
+          "summary",
+          "highlights"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "SearchResultSource": {
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "country"
+        ],
+        "title": "SearchResultSource",
+        "type": "object"
+      },
+      "SearchSource": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "retired": {
+            "title": "Retired",
+            "type": "boolean"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source_country",
+          "retired"
+        ],
+        "title": "SearchSource",
+        "type": "object"
+      },
+      "SearchSourcePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchSource"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SearchSourcePage",
+        "type": "object"
+      },
+      "SearchTimeline": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineBucket"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "interval": {
+            "enum": [
+              "hour",
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "title": "Interval",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "interval",
+          "total",
+          "buckets"
+        ],
+        "title": "SearchTimeline",
+        "type": "object"
+      },
+      "StopWordsResponse": {
+        "properties": {
+          "configuration_fingerprint": {
+            "title": "Configuration Fingerprint",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "language",
+          "revision",
+          "words",
+          "configuration_fingerprint"
+        ],
+        "title": "StopWordsResponse",
+        "type": "object"
+      },
+      "StopWordsUpdate": {
+        "properties": {
+          "current_revision": {
+            "minimum": 1.0,
+            "title": "Current Revision",
+            "type": "integer"
+          },
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5000,
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_revision",
+          "words"
+        ],
+        "title": "StopWordsUpdate",
+        "type": "object"
+      },
+      "StoryClusterDetailResponse": {
+        "properties": {
+          "algorithm_version": {
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "article_count": {
+            "title": "Article Count",
+            "type": "integer"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "members": {
+            "$ref": "#/components/schemas/ClusterMemberPage"
+          },
+          "representative_article_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Representative Article Id"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "algorithm_version",
+          "article_count",
+          "source_count",
+          "first_published_at",
+          "last_published_at",
+          "representative_article_id",
+          "members"
+        ],
+        "title": "StoryClusterDetailResponse",
+        "type": "object"
+      },
+      "StoryClusterRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "source_count"
+        ],
+        "title": "StoryClusterRef",
+        "type": "object"
+      },
+      "TimelineBucket": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "count"
+        ],
+        "title": "TimelineBucket",
+        "type": "object"
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "NewsIntel API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/articles": {
+      "get": {
+        "operationId": "list_articles_api_v1_articles_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "feed_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Feed Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticlePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Articles",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}": {
+      "get": {
+        "operationId": "get_article_api_v1_articles__article_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Article",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}/annotations": {
+      "get": {
+        "operationId": "article_annotations_api_v1_articles__article_id__annotations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAnnotationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Article Annotations",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}/nlp/reprocess": {
+      "post": {
+        "operationId": "reprocess_article_api_v1_articles__article_id__nlp_reprocess_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReprocessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reprocess Article",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/articles/{article_id}/process": {
+      "post": {
+        "operationId": "process_article_request_api_v1_articles__article_id__process_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Process Article Request",
+        "tags": [
+          "article processing"
+        ]
+      }
+    },
+    "/api/v1/auth/csrf": {
+      "get": {
+        "operationId": "csrf_api_v1_auth_csrf_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsrfResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Csrf",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login_api_v1_auth_login_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_api_v1_auth_logout_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/clustering/failures": {
+      "get": {
+        "operationId": "clustering_failures_api_v1_clustering_failures_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusteringFailurePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clustering Failures",
+        "tags": [
+          "clustering"
+        ]
+      }
+    },
+    "/api/v1/clustering/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_clustering_job_api_v1_clustering_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusteringMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Clustering Job",
+        "tags": [
+          "clustering"
+        ]
+      }
+    },
+    "/api/v1/clustering/status": {
+      "get": {
+        "operationId": "clustering_status_api_v1_clustering_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusteringStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clustering Status",
+        "tags": [
+          "clustering"
+        ]
+      }
+    },
+    "/api/v1/clusters/{cluster_id}": {
+      "get": {
+        "operationId": "get_cluster_api_v1_clusters__cluster_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cluster_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cluster Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryClusterDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cluster",
+        "tags": [
+          "clustering"
+        ]
+      }
+    },
+    "/api/v1/feeds": {
+      "get": {
+        "operationId": "list_feeds_api_v1_feeds_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Feeds",
+        "tags": [
+          "feeds"
+        ]
+      },
+      "post": {
+        "operationId": "create_feed_api_v1_feeds_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Feed",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/feeds/{feed_id}": {
+      "delete": {
+        "operationId": "retire_feed_api_v1_feeds__feed_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feed_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feed Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Feed",
+        "tags": [
+          "feeds"
+        ]
+      },
+      "get": {
+        "operationId": "get_feed_api_v1_feeds__feed_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feed_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feed Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Feed",
+        "tags": [
+          "feeds"
+        ]
+      },
+      "patch": {
+        "operationId": "update_feed_api_v1_feeds__feed_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feed_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feed Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Feed",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/feeds/{feed_id}/fetches": {
+      "get": {
+        "operationId": "list_fetches_api_v1_feeds__feed_id__fetches_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feed_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feed Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Fetches",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/feeds/{feed_id}/poll": {
+      "post": {
+        "operationId": "poll_feed_api_v1_feeds__feed_id__poll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feed_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feed Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Poll Feed",
+        "tags": [
+          "feeds"
+        ]
+      }
+    },
+    "/api/v1/graph/entities": {
+      "get": {
+        "operationId": "entity_graph_api_v1_graph_entities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "focus_entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Focus Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nodes",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Nodes",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_edge_weight",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "minimum": 1,
+              "title": "Min Edge Weight",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Available"
+            }
+          },
+          {
+            "in": "query",
+            "name": "processing_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Processing Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "keyword_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Keyword Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mentioned_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mentioned Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_cluster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Cluster Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Graph",
+        "tags": [
+          "graph"
+        ]
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "live_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Live Api V1 Health Live Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Live",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "ready_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ready Api V1 Health Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "operationId": "list_jobs_api_v1_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "article_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Article Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(fetch|extract)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Jobs",
+        "tags": [
+          "article processing"
+        ]
+      }
+    },
+    "/api/v1/jobs/backlog": {
+      "get": {
+        "operationId": "backlog_api_v1_jobs_backlog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Backlog",
+        "tags": [
+          "article processing"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_api_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "article processing"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_job_api_v1_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Job",
+        "tags": [
+          "article processing"
+        ]
+      }
+    },
+    "/api/v1/nlp/entities": {
+      "get": {
+        "operationId": "entity_lookup_api_v1_nlp_entities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationLookupPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Lookup",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/failures": {
+      "get": {
+        "operationId": "nlp_failures_api_v1_nlp_failures_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpFailurePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Nlp Failures",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/jobs/{job_id}/retry": {
+      "post": {
+        "operationId": "retry_nlp_job_api_v1_nlp_jobs__job_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Nlp Job",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/keywords": {
+      "get": {
+        "operationId": "keyword_lookup_api_v1_nlp_keywords_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationLookupPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Keyword Lookup",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/status": {
+      "get": {
+        "operationId": "nlp_status_api_v1_nlp_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NlpStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Nlp Status",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/nlp/stop-words": {
+      "get": {
+        "operationId": "get_stop_words_api_v1_nlp_stop_words_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopWordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Stop Words",
+        "tags": [
+          "nlp"
+        ]
+      },
+      "put": {
+        "operationId": "put_stop_words_api_v1_nlp_stop_words_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopWordsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopWordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Stop Words",
+        "tags": [
+          "nlp"
+        ]
+      }
+    },
+    "/api/v1/saved-searches": {
+      "get": {
+        "operationId": "list_searches_api_v1_saved_searches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Searches",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "post": {
+        "operationId": "create_search_api_v1_saved_searches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedSearchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Search",
+        "tags": [
+          "investigations"
+        ]
+      }
+    },
+    "/api/v1/saved-searches/{saved_search_id}": {
+      "delete": {
+        "operationId": "delete_search_api_v1_saved_searches__saved_search_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Search",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "get": {
+        "operationId": "get_search_api_v1_saved_searches__saved_search_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Search",
+        "tags": [
+          "investigations"
+        ]
+      },
+      "patch": {
+        "operationId": "update_search_api_v1_saved_searches__saved_search_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "saved_search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Saved Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedSearchUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Search",
+        "tags": [
+          "investigations"
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "search_articles_api_v1_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "relevance",
+              "enum": [
+                "relevance",
+                "newest",
+                "oldest",
+                "most_sources"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Available"
+            }
+          },
+          {
+            "in": "query",
+            "name": "processing_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Processing Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "keyword_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Keyword Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mentioned_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mentioned Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_cluster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Cluster Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Articles",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/indexing/articles/{article_id}/retry": {
+      "post": {
+        "operationId": "retry_indexing_api_v1_search_indexing_articles__article_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryIndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Indexing",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/indexing/failures": {
+      "get": {
+        "operationId": "indexing_failures_api_v1_search_indexing_failures_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexFailurePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Indexing Failures",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/indexing/status": {
+      "get": {
+        "operationId": "indexing_status_api_v1_search_indexing_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Indexing Status",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/sources": {
+      "get": {
+        "operationId": "search_sources_api_v1_search_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSourcePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Sources",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/api/v1/search/timeline": {
+      "get": {
+        "operationId": "search_timeline_api_v1_search_timeline_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "interval",
+            "required": false,
+            "schema": {
+              "default": "auto",
+              "enum": [
+                "auto",
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
+              "title": "Interval",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Available"
+            }
+          },
+          {
+            "in": "query",
+            "name": "processing_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Processing Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "keyword_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Keyword Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mentioned_country",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mentioned Country"
+            }
+          },
+          {
+            "in": "query",
+            "name": "story_cluster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Story Cluster Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTimeline"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Timeline",
+        "tags": [
+          "search"
+        ]
+      }
+    }
+  }
+}

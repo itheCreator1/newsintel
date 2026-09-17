@@ -2,9 +2,9 @@
 
 ## Project orientation
 
-- NewsIntel is a self-hosted news archive with a Python backend and Vue frontend.
+- NewsIntel is a self-hosted news archive with a Python backend and React (Next.js) frontend.
 - The backend lives in `backend/` and uses FastAPI, SQLAlchemy, Alembic, Dramatiq, and Redis.
-- The frontend lives in `frontend/` and uses Vue, TypeScript, and TanStack Query.
+- The frontend lives in `frontend/` and uses React, Next.js (App Router, static export), TypeScript, and TanStack Query.
 - `docker/compose.yaml` defines the application, worker, scheduler, PostgreSQL, Redis, and Elasticsearch services.
 - `docker/compose.dev.yaml` and `docker/compose.e2e.yaml` provide development and test overrides.
 - PostgreSQL integration tests live with the backend tests and require an explicitly configured test database.
@@ -48,7 +48,7 @@ Initial deployment is single-user with local authentication. V1 excludes Kuberne
 | Search | Elasticsearch |
 | Extraction | Replaceable extractor interface; Trafilatura by default |
 | NLP | Replaceable, versioned processors; optional local spaCy NER |
-| Frontend | Vue 3, TypeScript, Pinia, TanStack Query, Tailwind CSS, headless UI components, Apache ECharts |
+| Frontend | Next.js (App Router, static export), React, TypeScript, TanStack Query, Apache ECharts |
 | Live updates | Server-Sent Events (SSE) where useful |
 | Raw HTML storage | Object-storage interface backed initially by a local filesystem/Docker volume |
 
@@ -221,7 +221,7 @@ Implement exactly three initial analytics areas:
 | Source Comparison | Compare selected outlets' topic/event coverage; potential dimensions include article volume, entities, keywords, geography, and time distribution |
 | Geographic Coverage | Analyze source locations, primary story countries, mentioned countries, and volume over time as distinct concepts |
 
-Use a registry-style frontend/backend design so modules can be added independently without rewriting the shell. Components must consume stable APIs; database logic must not live in Vue components. Permit richer source-comparison metrics later.
+Use a registry-style frontend/backend design so modules can be added independently without rewriting the shell. Components must consume stable APIs; database logic must not live in frontend components. Permit richer source-comparison metrics later.
 
 #### 7.4 Entity graph
 
@@ -235,7 +235,7 @@ Use versioned REST endpoints under `/api/v1/...`. FastAPI/OpenAPI is the contrac
 
 Implement local username/password login with strong password hashing, server-side sessions and secure session cookies, applicable CSRF protection, and secure cookie settings. HTTP Basic Auth must not be the primary login. Document initial-user creation. Keep authentication abstracted to permit future OIDC/OAuth.
 
-Use Pinia for appropriate application/client state and TanStack Query for server/cache state. Do not manually reproduce server-cache behavior in Pinia.
+Use React context/local component state for appropriate application/client state and TanStack Query for server/cache state. Do not manually reproduce server-cache behavior in client state.
 
 Use SSE for useful operational updates, including new ingestion counts, feed/job state, indexing backlog, and processing progress. Introduce WebSockets only if bidirectional realtime communication becomes necessary.
 
@@ -337,7 +337,7 @@ Routine low-level decisions may be made during implementation. Seek clarificatio
 - Keep backend code fully typed and compatible with strict mypy settings.
 - Use SQLAlchemy models and services consistently with neighboring modules.
 - Keep external I/O behind focused interfaces when a boundary is needed.
-- Follow existing Vue composition and TanStack Query patterns under `frontend/src/`.
+- Follow existing React component and TanStack Query patterns under `frontend/src/`.
 - Keep list queries bounded; never add an unbounded archive scan to a request path.
 - Use cursor pagination for growing or large collections.
 - Reset cursors when filters or sort criteria change.

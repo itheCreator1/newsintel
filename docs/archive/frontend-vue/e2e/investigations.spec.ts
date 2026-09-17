@@ -81,9 +81,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await expect(page.getByText('Saved “Wire watch”.')).toBeVisible()
   await page.getByLabel('Saved search name').fill('wire WATCH')
   await page.getByRole('button', { name: 'Save search' }).click()
-  // Next.js's App Router always renders a second, empty role="alert" node (its built-in route
-  // announcer for screen readers) alongside the app's own error banner; scope to the latter.
-  await expect(page.locator('p.error[role="alert"]')).toHaveText('A saved search with this name already exists')
+  await expect(page.getByRole('alert')).toHaveText('A saved search with this name already exists')
 
   await page.goto('/search?q=Harbor%20AND%20daily')
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
@@ -93,7 +91,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
 
   await page.getByRole('link', { name: 'Saved Searches' }).click()
   await page.getByRole('link', { name: 'Open Wire watch' }).click()
-  await expect(page).toHaveURL(/\/search\/\?/)
+  await expect(page).toHaveURL(/\/search\?/)
   expect(Object.fromEntries([...new URL(page.url()).searchParams].sort())).toEqual(Object.fromEntries([...investigation.searchParams].sort()))
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
 

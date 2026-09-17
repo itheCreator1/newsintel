@@ -7,6 +7,8 @@ __pycache__/
 .ruff_cache/
 node_modules/
 dist/
+.next/
+/frontend/out/
 playwright-report/
 test-results/
 *.tsbuildinfo
@@ -16,4 +18,7 @@ data/
 docs/superpowers/sdd-memory/
 docs/graphify-out/
 docs/reports/
+docs/scripts/
 /graphify-out/
+/.claude/
+/.playwright-mcp/

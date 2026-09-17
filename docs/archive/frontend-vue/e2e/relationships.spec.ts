@@ -63,7 +63,7 @@ test('relationships workflow links search, the cluster, article detail, and the 
   await expect(page.getByText('Relationships Daily')).toBeVisible()
 
   await memberRows.first().locator('.result-open').click()
-  await expect(page).toHaveURL(/\/articles\/\?/)
+  await expect(page).toHaveURL(/\/articles\?/)
   const relatedGroup = page.locator('.story .annotation-group')
   await expect(relatedGroup.getByText('Related articles')).toBeVisible({ timeout: 30_000 })
   await expect(relatedGroup.getByRole('link')).toHaveCount(1)
@@ -86,6 +86,6 @@ test('relationships workflow links search, the cluster, article detail, and the 
   await expect(panel.getByRole('button', { name: 'Microsoft' })).toBeVisible()
 
   await panel.getByRole('link', { name: 'Search articles with Barack Obama' }).click()
-  await expect(page).toHaveURL(/\/search\/\?/)
+  await expect(page).toHaveURL(/\/search\?/)
   await expect(page).toHaveURL(/entity_id=/)
 })
