@@ -1,4 +1,12 @@
 services:
+  api:
+    build:
+      context: ../backend
+      args:
+        NEWSINTEL_INSTALL_SPACY: "true"
+    environment:
+      NEWSINTEL_NLP_NER_ENABLED: "true"
+
   nlp-worker:
     build:
       context: ../backend
