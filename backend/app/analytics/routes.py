@@ -76,11 +76,11 @@ async def top_entities(
         .join(Article, Article.id == ArticleEntity.article_id)
         .where(ArticleEntity.is_current.is_(True), Article.first_discovered_at >= cutoff)
         .group_by(Entity.id, Entity.display_text, Entity.entity_type)
-        .order_by(article_count.desc())
+        .order_by(article_count.desc(), Entity.id)
         .limit(TOP_N)
     )
     if entity_type:
-        query = query.where(Entity.entity_type == entity_type)
+        query = query.where(Entity.entity_type == entity_type.upper())
     rows = (await db.execute(query)).all()
     return TopEntitiesResponse(
         entities=[
@@ -108,7 +108,7 @@ async def top_countries(db: Db, _auth: Auth) -> TopCountriesResponse:
             Article.first_discovered_at >= cutoff,
         )
         .group_by(ArticleCountryAnnotation.country_code)
-        .order_by(article_count.desc())
+        .order_by(article_count.desc(), ArticleCountryAnnotation.country_code)
         .limit(TOP_N)
     )
     rows = (await db.execute(query)).all()

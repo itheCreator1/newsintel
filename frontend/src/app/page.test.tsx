@@ -61,3 +61,15 @@ it('refetches top entities when the entity type filter changes', async () => {
 
   await vi.waitFor(() => expect(api.topEntities).toHaveBeenLastCalledWith('PERSON'))
 })
+
+it('shows an empty-state message instead of a chart when a panel has no data', async () => {
+  vi.mocked(api.ingestionTimeline).mockResolvedValue({ buckets: [] })
+  vi.mocked(api.topEntities).mockResolvedValue({ entities: [] })
+  vi.mocked(api.topCountries).mockResolvedValue({ countries: [] })
+  renderWithQuery(() => <OverviewPage />)
+
+  expect(await screen.findByText('No articles ingested yet.')).toBeTruthy()
+  expect(await screen.findByText('No entities found yet.')).toBeTruthy()
+  expect(await screen.findByText('No countries found yet.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Articles ingested per day/ })).toBeNull()
+})

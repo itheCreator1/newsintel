@@ -48,8 +48,10 @@ export default function OverviewPage() {
       <div className="overview-panels">
         <section className="panel timeline">
           <div className="panel-heading"><h3>Ingestion, last 30 days</h3></div>
-          {ingestion.error && <p className="error" role="alert">Could not load the ingestion timeline.</p>}
-          {ingestion.data && (
+          {ingestion.isPending && <p className="muted">Loading ingestion timeline…</p>}
+          {!ingestion.isPending && ingestion.isError && <p className="error" role="alert">Could not load the ingestion timeline.</p>}
+          {!ingestion.isPending && !ingestion.isError && !ingestionItems.length && <p className="muted">No articles ingested yet.</p>}
+          {!ingestion.isPending && !ingestion.isError && ingestionItems.length > 0 && (
             <BarChart
               items={ingestionItems}
               valueLabel="articles"
@@ -70,8 +72,10 @@ export default function OverviewPage() {
                 </select>
               </label>
             </div>
-            {entities.error && <p className="error" role="alert">Could not load top entities.</p>}
-            {entities.data && (
+            {entities.isPending && <p className="muted">Loading top entities…</p>}
+            {!entities.isPending && entities.isError && <p className="error" role="alert">Could not load top entities.</p>}
+            {!entities.isPending && !entities.isError && !entityItems.length && <p className="muted">No entities found yet.</p>}
+            {!entities.isPending && !entities.isError && entityItems.length > 0 && (
               <BarChart
                 items={entityItems}
                 orientation="horizontal"
@@ -83,8 +87,10 @@ export default function OverviewPage() {
           </div>
           <div>
             <div className="panel-heading"><h3>Top countries</h3></div>
-            {countries.error && <p className="error" role="alert">Could not load top countries.</p>}
-            {countries.data && (
+            {countries.isPending && <p className="muted">Loading top countries…</p>}
+            {!countries.isPending && countries.isError && <p className="error" role="alert">Could not load top countries.</p>}
+            {!countries.isPending && !countries.isError && !countryItems.length && <p className="muted">No countries found yet.</p>}
+            {!countries.isPending && !countries.isError && countryItems.length > 0 && (
               <BarChart
                 items={countryItems}
                 orientation="horizontal"
