@@ -64,7 +64,7 @@ export default function OverviewPage() {
             <h3 className="text-sm font-semibold text-foreground">Ingestion, last 30 days</h3>
           </div>
           {ingestion.isPending && <p className="text-sm text-muted-foreground">Loading ingestion timeline…</p>}
-          {!ingestion.isPending && ingestion.isError && <p className="text-sm text-destructive" role="alert">Could not load the ingestion timeline.</p>}
+          {!ingestion.isPending && ingestion.isError && <p className="error text-sm text-destructive" role="alert">Could not load the ingestion timeline.</p>}
           {!ingestion.isPending && !ingestion.isError && !ingestionItems.length && <p className="text-sm text-muted-foreground">No articles ingested yet.</p>}
           {!ingestion.isPending && !ingestion.isError && ingestionItems.length > 0 && (
             <BarChart
@@ -93,7 +93,7 @@ export default function OverviewPage() {
               </label>
             </div>
             {entities.isPending && <p className="text-sm text-muted-foreground">Loading top entities…</p>}
-            {!entities.isPending && entities.isError && <p className="text-sm text-destructive" role="alert">Could not load top entities.</p>}
+            {!entities.isPending && entities.isError && <p className="error text-sm text-destructive" role="alert">Could not load top entities.</p>}
             {!entities.isPending && !entities.isError && !entityItems.length && <p className="text-sm text-muted-foreground">No entities found yet.</p>}
             {!entities.isPending && !entities.isError && entityItems.length > 0 && (
               <BarChart
@@ -110,7 +110,7 @@ export default function OverviewPage() {
               <h3 className="text-sm font-semibold text-foreground">Top countries</h3>
             </div>
             {countries.isPending && <p className="text-sm text-muted-foreground">Loading top countries…</p>}
-            {!countries.isPending && countries.isError && <p className="text-sm text-destructive" role="alert">Could not load top countries.</p>}
+            {!countries.isPending && countries.isError && <p className="error text-sm text-destructive" role="alert">Could not load top countries.</p>}
             {!countries.isPending && !countries.isError && !countryItems.length && <p className="text-sm text-muted-foreground">No countries found yet.</p>}
             {!countries.isPending && !countries.isError && countryItems.length > 0 && (
               <BarChart

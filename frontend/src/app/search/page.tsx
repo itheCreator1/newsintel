@@ -136,7 +136,7 @@ function SearchContent() {
         {timeline.isPending && <p className="text-sm text-muted-foreground">Charting matches…</p>}
         {!timeline.isPending && timeline.isError && (
           <>
-            <p className="text-sm text-destructive">{timelineTooFine ? `${(timeline.error as ApiError).message}. Choose a larger interval.` : 'Could not load the timeline.'}</p>
+            <p className="error text-sm text-destructive">{timelineTooFine ? `${(timeline.error as ApiError).message}. Choose a larger interval.` : 'Could not load the timeline.'}</p>
             {timelineTooFine && <button type="button" className={cn(ghostButtonClass, 'mt-2')} onClick={() => setTimelineInterval('auto')}>Use automatic interval</button>}
           </>
         )}
@@ -149,7 +149,7 @@ function SearchContent() {
       <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>
         <label className={cn(labelClass, 'min-w-[220px] flex-1')}>Saved search name<input className={cn(fieldClass, 'mt-1')} value={saveName} onChange={e => setSaveName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
         <button type="submit" disabled={save.isPending} className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow-sm transition-shadow hover:shadow-glow disabled:pointer-events-none disabled:opacity-50">Save search</button>
-        {save.isError ? <p role="alert" className="w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
+        {save.isError ? <p role="alert" className="error w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
           : save.isSuccess && <p className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>
 
@@ -160,7 +160,7 @@ function SearchContent() {
         {search.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Searching archive…</p>}
         {!search.isPending && search.isError && (
           <div className="px-6 py-4">
-            <p role="alert" className="text-sm text-destructive">{expired ? 'This search snapshot expired. Restart the search.' : upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}</p>
+            <p role="alert" className="error text-sm text-destructive">{expired ? 'This search snapshot expired. Restart the search.' : upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}</p>
             {expired && <button className={cn(ghostButtonClass, 'mt-2')} onClick={restart}>Restart search</button>}
           </div>
         )}
