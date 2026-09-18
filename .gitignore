@@ -1,5 +1,10 @@
 .env
+.env.*
+!.env.example
 /launch.sh
+*.pem
+*.key
+credentials*.json
 .venv/
 __pycache__/
 .pytest_cache/
