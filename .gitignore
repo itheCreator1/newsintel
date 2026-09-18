@@ -20,10 +20,8 @@ test-results/
 .coverage
 *.pyc
 data/
-docs/superpowers/sdd-memory/
-docs/graphify-out/
-docs/reports/
-docs/scripts/
+/docs/
+/AGENTS.md
 /graphify-out/
 /.claude/
 /.playwright-mcp/

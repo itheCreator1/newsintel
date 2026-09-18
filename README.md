@@ -70,7 +70,7 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
-Per-phase acceptance gates live in `infra/test-phaseN.sh`. See [AGENTS.md](AGENTS.md) for feed/search/NLP/clustering conventions and deployment notes.
+Per-phase acceptance gates live in `infra/test-phaseN.sh`.
 
 ## License
 
