@@ -2395,6 +2395,390 @@
         }
       }
     },
+    "/api/v1/sources/{source_id}": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source",
+        "operationId": "get_source_api_v1_sources__source_id__get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{source_id}/coverage": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source Coverage",
+        "operationId": "get_source_coverage_api_v1_sources__source_id__coverage_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCoverage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{source_id}/timing": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source Timing",
+        "operationId": "get_source_timing_api_v1_sources__source_id__timing_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceTiming"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{source_id}/articles": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source Articles",
+        "operationId": "get_source_articles_api_v1_sources__source_id__articles_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceArticlePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{source_id}/clusters": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source Clusters",
+        "operationId": "get_source_clusters_api_v1_sources__source_id__clusters_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceClusterPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{source_id}/fetches": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Get Source Fetches",
+        "operationId": "get_source_fetches_api_v1_sources__source_id__fetches_get",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -9322,6 +9706,34 @@
         ],
         "title": "SearchTimeline"
       },
+      "SourceArticlePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SourceArticlePage"
+      },
       "SourceChange": {
         "properties": {
           "source_id": {
@@ -9353,6 +9765,568 @@
           "evidence"
         ],
         "title": "SourceChange"
+      },
+      "SourceClusterPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SourceClusterResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SourceClusterPage"
+      },
+      "SourceClusterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "representative_article": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_article_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Article Id"
+          },
+          "first": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First"
+          },
+          "minutes_behind": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes Behind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "article_count",
+          "source_count",
+          "first_published_at",
+          "last_published_at",
+          "representative_article",
+          "source_article_id",
+          "first",
+          "minutes_behind"
+        ],
+        "title": "SourceClusterResponse",
+        "description": "`first`/`minutes_behind` are null for a story only this source published."
+      },
+      "SourceCoverage": {
+        "properties": {
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedEntityResponse"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedCountryResponse"
+            },
+            "type": "array",
+            "title": "Countries"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/SourceLanguage"
+            },
+            "type": "array",
+            "title": "Languages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_days",
+          "articles",
+          "entities",
+          "countries",
+          "languages"
+        ],
+        "title": "SourceCoverage"
+      },
+      "SourceDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          },
+          "expected_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Language"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "poll_interval_minutes": {
+            "type": "integer",
+            "title": "Poll Interval Minutes"
+          },
+          "fetching_mode": {
+            "type": "string",
+            "title": "Fetching Mode"
+          },
+          "next_poll_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Next Poll At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "retired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired At"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "health": {
+            "$ref": "#/components/schemas/SourceHealth"
+          },
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "publishing": {
+            "$ref": "#/components/schemas/SourcePublishing"
+          },
+          "extraction": {
+            "$ref": "#/components/schemas/SourceExtraction"
+          },
+          "fetches": {
+            "$ref": "#/components/schemas/SourceFetches"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/SourceTimelineDay"
+            },
+            "type": "array",
+            "title": "Timeline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "url",
+          "source_country",
+          "expected_language",
+          "tags",
+          "enabled",
+          "poll_interval_minutes",
+          "fetching_mode",
+          "next_poll_at",
+          "last_success_at",
+          "created_at",
+          "retired_at",
+          "first_seen_at",
+          "last_seen_at",
+          "health",
+          "window_days",
+          "publishing",
+          "extraction",
+          "fetches",
+          "timeline"
+        ],
+        "title": "SourceDetail"
+      },
+      "SourceExtraction": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "extracted": {
+            "type": "integer",
+            "title": "Extracted"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "in_progress": {
+            "type": "integer",
+            "title": "In Progress"
+          },
+          "not_extracted": {
+            "type": "integer",
+            "title": "Not Extracted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "extracted",
+          "failed",
+          "in_progress",
+          "not_extracted"
+        ],
+        "title": "SourceExtraction",
+        "description": "Every count is out of `articles`. `not_extracted` is what is left: no content, no failed or\nactive job (an RSS-only feed never requests extraction)."
+      },
+      "SourceFetches": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "success": {
+            "type": "integer",
+            "title": "Success"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "new_articles": {
+            "type": "integer",
+            "title": "New Articles"
+          },
+          "mean_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Duration Ms"
+          },
+          "failures_by_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Failures By Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "success",
+          "failed",
+          "new_articles",
+          "mean_duration_ms",
+          "failures_by_category"
+        ],
+        "title": "SourceFetches"
+      },
+      "SourceHealth": {
+        "properties": {
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_attempt_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt Status"
+          },
+          "last_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FetchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "title": "Consecutive Failures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "last_attempt_at",
+          "last_attempt_status",
+          "last_failure",
+          "consecutive_failures"
+        ],
+        "title": "SourceHealth",
+        "description": "Derived from the feed row and its fetch history; there is no stored health score."
+      },
+      "SourceLanguage": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "article_count"
+        ],
+        "title": "SourceLanguage"
+      },
+      "SourcePublishing": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "with_published_at": {
+            "type": "integer",
+            "title": "With Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "with_published_at"
+        ],
+        "title": "SourcePublishing",
+        "description": "`with_published_at` is out of `articles`: the rest use the discovery time as their date."
+      },
+      "SourceTimelineDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "article_count"
+        ],
+        "title": "SourceTimelineDay"
+      },
+      "SourceTiming": {
+        "properties": {
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "stories": {
+            "type": "integer",
+            "title": "Stories"
+          },
+          "first": {
+            "type": "integer",
+            "title": "First"
+          },
+          "median_minutes_behind": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Minutes Behind"
+          },
+          "p90_minutes_behind": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P90 Minutes Behind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_days",
+          "stories",
+          "first",
+          "median_minutes_behind",
+          "p90_minutes_behind"
+        ],
+        "title": "SourceTiming",
+        "description": "Over stories in the window that this source and at least one other source published.\n\n`first` counts stories where this source's article is the earliest (ties: lowest article id; an\narticle that several feeds carry counts for each of them). The two minute values describe the\nremaining stories: how far behind the earliest article this source's own article was."
       },
       "StopWordsResponse": {
         "properties": {

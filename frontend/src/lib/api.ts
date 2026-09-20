@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -85,6 +85,12 @@ export const api = {
   eventClusters: (id: string, cursor?: string) => request<EventClusterPage>(`/events/${id}/clusters${query({ cursor })}`),
   eventArticles: (id: string, cursor?: string) => request<EventArticlePage>(`/events/${id}/articles${query({ cursor })}`),
   eventTimeline: (id: string, after?: string) => request<EventTimelinePage>(`/events/${id}/timeline${query({ after })}`),
+  source: (id: string, days: number) => request<SourceDetail>(`/sources/${id}${query({ days: String(days) })}`),
+  sourceCoverage: (id: string, days: number) => request<SourceCoverage>(`/sources/${id}/coverage${query({ days: String(days) })}`),
+  sourceTiming: (id: string, days: number) => request<SourceTiming>(`/sources/${id}/timing${query({ days: String(days) })}`),
+  sourceArticles: (id: string, cursor?: string) => request<SourceArticlePage>(`/sources/${id}/articles${query({ cursor })}`),
+  sourceClusters: (id: string, cursor?: string) => request<SourceClusterPage>(`/sources/${id}/clusters${query({ cursor })}`),
+  sourceFetches: (id: string, cursor?: string) => request<SourceFetchPage>(`/sources/${id}/fetches${query({ cursor })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   edgeEvidence: (filters: Filters, cursor?: string) => {
     const params = filterParams(filters)

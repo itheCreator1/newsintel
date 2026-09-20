@@ -10,7 +10,7 @@ import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
-import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../lib/investigation'
+import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
 
 const WINDOWS = [7, 30, 90, 365] as const
 const DAY_MS = 86_400_000
@@ -151,7 +151,7 @@ function EntityContent() {
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</strong>
               <ul className="mt-2 flex flex-wrap gap-2">
-                {relationships.data.feeds.map(feed => <li key={feed.id} className="text-sm text-foreground">{`${feed.name} · ${plural(feed.article_count, 'article')}`}</li>)}
+                {relationships.data.feeds.map(feed => <li key={feed.id}><Link className="text-sm text-foreground hover:underline" href={sourceHref(feed.id, currentHref)}>{`${feed.name} · ${plural(feed.article_count, 'article')}`}</Link></li>)}
                 {!relationships.data.feeds.length && <li className="text-sm text-muted-foreground">No sources.</li>}
               </ul>
             </div>

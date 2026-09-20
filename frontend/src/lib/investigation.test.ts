@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, stateFromQuery } from './investigation'
+import { brushRange, bucketEnd, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -102,5 +102,12 @@ describe('eventHref', () => {
   it('opens the dossier through a query-param route and keeps the origin', () => {
     expect(eventHref('ev-1')).toBe('/events/detail/?id=ev-1')
     expect(eventHref('ev-1', '/events/?status=active')).toBe('/events/detail/?id=ev-1&from=%2Fevents%2F%3Fstatus%3Dactive')
+  })
+})
+
+describe('sourceHref', () => {
+  it('opens the source dossier through a query-param route and keeps the origin', () => {
+    expect(sourceHref('s-1')).toBe('/sources/detail/?id=s-1')
+    expect(sourceHref('s-1', '/entities/?id=e1')).toBe('/sources/detail/?id=s-1&from=%2Fentities%2F%3Fid%3De1')
   })
 })

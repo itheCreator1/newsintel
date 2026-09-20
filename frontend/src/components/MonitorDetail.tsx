@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { Monitor, MonitorResult } from '../lib/api-types'
-import { clusterHref, fromSaved, queryFromState, toHref } from '../lib/investigation'
+import { clusterHref, fromSaved, queryFromState, sourceHref, toHref } from '../lib/investigation'
 import { countsLabel, monitorKeys, monitorStatus, refetchEvery, statusText, when } from '../lib/monitors'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../lib/ui-classes'
 import { cn, plural } from '../lib/utils'
@@ -25,7 +25,7 @@ function ResultRow({ result, currentHref }: { result: MonitorResult; currentHref
       <Link className="text-[15px] font-semibold text-foreground hover:underline" href={toHref('/articles', new URLSearchParams({ article: result.article_id, from: currentHref }))}>{result.title}</Link>
       <p className="text-xs text-muted-foreground">{when(result.effective_date)} · {plural(result.distinct_source_count, 'source')}</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {result.source_refs.map(source => <span key={source.id} className={chipClass}>{source.name}</span>)}
+        {result.source_refs.map(source => <Link key={source.id} className={chipClass} href={sourceHref(source.id, currentHref)}>{source.name}</Link>)}
         {result.story_cluster && otherSources > 0 && <Link className={chipClass} href={clusterHref(result.story_cluster.id, currentHref)}>Also reported by {plural(otherSources, 'other source')}</Link>}
       </div>
     </article>

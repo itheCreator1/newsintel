@@ -101,6 +101,13 @@ export function eventHref(id: string, from?: string): string {
   return toHref('/events/detail', query)
 }
 
+/** Source dossier link; a source is a feed, and the route is a query-param one for the same reason. */
+export function sourceHref(id: string, from?: string): string {
+  const query = new URLSearchParams({ id })
+  if (from) query.set('from', from)
+  return toHref('/sources/detail', query)
+}
+
 export function fromSaved(state: InvestigationState): Investigation {
   const restored = emptyInvestigation()
   return { ...restored, ...Object.fromEntries(Object.entries(state).filter(([key, value]) => key in restored && value !== undefined)) }

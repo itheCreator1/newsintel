@@ -654,6 +654,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source */
+        get: operations["get_source_api_v1_sources__source_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{source_id}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Coverage */
+        get: operations["get_source_coverage_api_v1_sources__source_id__coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{source_id}/timing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Timing */
+        get: operations["get_source_timing_api_v1_sources__source_id__timing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{source_id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Articles */
+        get: operations["get_source_articles_api_v1_sources__source_id__articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{source_id}/clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Clusters */
+        get: operations["get_source_clusters_api_v1_sources__source_id__clusters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sources/{source_id}/fetches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source Fetches */
+        get: operations["get_source_fetches_api_v1_sources__source_id__fetches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -2597,6 +2699,13 @@ export interface components {
             /** Buckets */
             buckets: components["schemas"]["TimelineBucket"][];
         };
+        /** SourceArticlePage */
+        SourceArticlePage: {
+            /** Items */
+            items: components["schemas"]["ArticleResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** SourceChange */
         SourceChange: {
             /**
@@ -2610,6 +2719,199 @@ export interface components {
             article_count: number;
             /** Evidence */
             evidence: components["schemas"]["ChangeEvidence"][];
+        };
+        /** SourceClusterPage */
+        SourceClusterPage: {
+            /** Items */
+            items: components["schemas"]["SourceClusterResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * SourceClusterResponse
+         * @description `first`/`minutes_behind` are null for a story only this source published.
+         */
+        SourceClusterResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** First Published At */
+            first_published_at: string | null;
+            /** Last Published At */
+            last_published_at: string | null;
+            representative_article: components["schemas"]["ArticleResponse"] | null;
+            /**
+             * Source Article Id
+             * Format: uuid
+             */
+            source_article_id: string;
+            /** First */
+            first: boolean | null;
+            /** Minutes Behind */
+            minutes_behind: number | null;
+        };
+        /** SourceCoverage */
+        SourceCoverage: {
+            /** Window Days */
+            window_days: number;
+            /** Articles */
+            articles: number;
+            /** Entities */
+            entities: components["schemas"]["RelatedEntityResponse"][];
+            /** Countries */
+            countries: components["schemas"]["RelatedCountryResponse"][];
+            /** Languages */
+            languages: components["schemas"]["SourceLanguage"][];
+        };
+        /** SourceDetail */
+        SourceDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+            /** Source Country */
+            source_country: string | null;
+            /** Expected Language */
+            expected_language: string | null;
+            /** Tags */
+            tags: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Poll Interval Minutes */
+            poll_interval_minutes: number;
+            /** Fetching Mode */
+            fetching_mode: string;
+            /**
+             * Next Poll At
+             * Format: date-time
+             */
+            next_poll_at: string;
+            /** Last Success At */
+            last_success_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Retired At */
+            retired_at: string | null;
+            /** First Seen At */
+            first_seen_at: string | null;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            health: components["schemas"]["SourceHealth"];
+            /** Window Days */
+            window_days: number;
+            publishing: components["schemas"]["SourcePublishing"];
+            extraction: components["schemas"]["SourceExtraction"];
+            fetches: components["schemas"]["SourceFetches"];
+            /** Timeline */
+            timeline: components["schemas"]["SourceTimelineDay"][];
+        };
+        /**
+         * SourceExtraction
+         * @description Every count is out of `articles`. `not_extracted` is what is left: no content, no failed or
+         *     active job (an RSS-only feed never requests extraction).
+         */
+        SourceExtraction: {
+            /** Articles */
+            articles: number;
+            /** Extracted */
+            extracted: number;
+            /** Failed */
+            failed: number;
+            /** In Progress */
+            in_progress: number;
+            /** Not Extracted */
+            not_extracted: number;
+        };
+        /** SourceFetches */
+        SourceFetches: {
+            /** Total */
+            total: number;
+            /** Success */
+            success: number;
+            /** Failed */
+            failed: number;
+            /** New Articles */
+            new_articles: number;
+            /** Mean Duration Ms */
+            mean_duration_ms: number | null;
+            /** Failures By Category */
+            failures_by_category: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * SourceHealth
+         * @description Derived from the feed row and its fetch history; there is no stored health score.
+         */
+        SourceHealth: {
+            /** Last Attempt At */
+            last_attempt_at: string | null;
+            /** Last Attempt Status */
+            last_attempt_status: string | null;
+            last_failure: components["schemas"]["FetchResponse"] | null;
+            /** Consecutive Failures */
+            consecutive_failures: number;
+        };
+        /** SourceLanguage */
+        SourceLanguage: {
+            /** Language */
+            language: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /**
+         * SourcePublishing
+         * @description `with_published_at` is out of `articles`: the rest use the discovery time as their date.
+         */
+        SourcePublishing: {
+            /** Articles */
+            articles: number;
+            /** With Published At */
+            with_published_at: number;
+        };
+        /** SourceTimelineDay */
+        SourceTimelineDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /**
+         * SourceTiming
+         * @description Over stories in the window that this source and at least one other source published.
+         *
+         *     `first` counts stories where this source's article is the earliest (ties: lowest article id; an
+         *     article that several feeds carry counts for each of them). The two minute values describe the
+         *     remaining stories: how far behind the earliest article this source's own article was.
+         */
+        SourceTiming: {
+            /** Window Days */
+            window_days: number;
+            /** Stories */
+            stories: number;
+            /** First */
+            first: number;
+            /** Median Minutes Behind */
+            median_minutes_behind: number | null;
+            /** P90 Minutes Behind */
+            p90_minutes_behind: number | null;
         };
         /** StopWordsResponse */
         StopWordsResponse: {
@@ -4054,6 +4356,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventTimelinePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_api_v1_sources__source_id__get: {
+        parameters: {
+            query?: {
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_coverage_api_v1_sources__source_id__coverage_get: {
+        parameters: {
+            query?: {
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceCoverage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_timing_api_v1_sources__source_id__timing_get: {
+        parameters: {
+            query?: {
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceTiming"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_articles_api_v1_sources__source_id__articles_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceArticlePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_clusters_api_v1_sources__source_id__clusters_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceClusterPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_fetches_api_v1_sources__source_id__fetches_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FetchPage"];
                 };
             };
             /** @description Validation Error */

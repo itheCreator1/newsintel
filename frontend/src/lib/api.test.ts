@@ -139,3 +139,23 @@ it('requests events with filters, cursors and the timeline `after` date encoded'
     '/api/v1/events/ev1/timeline?after=2026-09-02',
   ])
 })
+
+it('requests a source dossier with its window, paged evidence and encoded cursors', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+
+  await api.source('s1', 7)
+  await api.sourceCoverage('s1', 30)
+  await api.sourceTiming('s1', 90)
+  await api.sourceArticles('s1')
+  await api.sourceClusters('s1', 'c+1')
+  await api.sourceFetches('s1', 'a b')
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/sources/s1?days=7',
+    '/api/v1/sources/s1/coverage?days=30',
+    '/api/v1/sources/s1/timing?days=90',
+    '/api/v1/sources/s1/articles',
+    '/api/v1/sources/s1/clusters?cursor=c%2B1',
+    '/api/v1/sources/s1/fetches?cursor=a+b',
+  ])
+})

@@ -158,6 +158,7 @@ it('shows the counters, what they cover and the unseen articles, linking back to
   expect(screen.getByRole('link', { name: 'Open in search' })).toHaveAttribute('href', '/search/?q=harbor')
   expect(await screen.findByRole('link', { name: 'Harbor strike widens' })).toHaveAttribute('href', '/articles/?article=a1&from=%2Fmonitors%2F%3Fid%3Dm1')
   expect(api.monitorResults).toHaveBeenCalledWith('m1', 'unseen', undefined)
+  expect(screen.getAllByRole('link', { name: 'Wire' })[0].getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=s1&from=%2Fmonitors%2F/)
 })
 
 it('reports a monitor that does not exist', async () => {
