@@ -8,12 +8,12 @@ import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../lib/investigation'
 
 const WINDOWS = [7, 30, 90, 365] as const
 const DAY_MS = 86_400_000
-const plural = (count: number, noun: string, many = `${noun}s`) => `${count} ${count === 1 ? noun : many}`
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const nextDay = (day: string) => new Date(Date.parse(day) + DAY_MS).toISOString().slice(0, 10)
 

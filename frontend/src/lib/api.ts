@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -81,6 +81,11 @@ export const api = {
   entityClusters: (id: string, cursor?: string) => request<EntityClusterPage>(`/entities/${id}/clusters${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   entityRelationships: (id: string, days: number) => request<EntityRelationships>(`/entities/${id}/relationships?days=${days}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
+  edgeEvidence: (filters: Filters, cursor?: string) => {
+    const params = filterParams(filters)
+    if (cursor) params.set('cursor', cursor)
+    return request<EdgeEvidence>(`/graph/edges/evidence?${params}`)
+  },
   savedSearches: (cursor?: string) => request<SavedSearchPage>(`/saved-searches${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`),
   createSavedSearch: (name: string, state: InvestigationState) => mutate<SavedSearch>('/saved-searches', 'POST', { name, state }),
   updateSavedSearch: (id: string, payload: { name?: string; state?: InvestigationState }) => mutate<SavedSearch>(`/saved-searches/${id}`, 'PATCH', payload),

@@ -14,20 +14,24 @@ interface Props {
   edges: GraphEdge[]
   focus?: string
   onSelect(id: string): void
+  onSelectEdge(source: string, target: string): void
 }
 
-export function EntityGraph({ nodes, edges, focus, onSelect }: Props) {
+export function EntityGraph({ nodes, edges, focus, onSelect, onSelectEdge }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  const onSelectEdgeRef = useRef(onSelectEdge)
+  onSelectEdgeRef.current = onSelectEdge
 
   useEffect(() => {
     const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
     chartRef.current = chart
     chart.on('click', (event: unknown) => {
-      const params = event as { dataType?: string; data?: { id?: string } }
+      const params = event as { dataType?: string; data?: { id?: string; source?: string; target?: string } }
       if (params.dataType === 'node' && params.data?.id) onSelectRef.current(params.data.id)
+      if (params.dataType === 'edge' && params.data?.source && params.data.target) onSelectEdgeRef.current(params.data.source, params.data.target)
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(elementRef.current!)
@@ -67,5 +71,5 @@ export function EntityGraph({ nodes, edges, focus, onSelect }: Props) {
     }, true)
   }, [nodes, edges, focus])
 
-  return <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity list below to select one.`} />
+  return <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity and connection lists below to select one.`} />
 }
