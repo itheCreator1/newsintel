@@ -93,6 +93,10 @@ class EventCluster(Base):
         JSONB, default=dict, server_default=text("'{}'::jsonb")
     )
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # The cluster's `updated_at` this decision was based on; a newer one makes it dirty again.
+    cluster_updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class EventEntity(Base):
