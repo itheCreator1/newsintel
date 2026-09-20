@@ -6,11 +6,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Session state
 
-- Current phase: Phase 11A — Monitor data model (branch `phase/11a-monitor-data-model`)
+- Current phase: Phase 11B — Monitor evaluation and scheduler (branch `phase/11b-monitor-evaluation`)
 - Current status: `COMPLETE`
-- Next action: Review and integrate `phase/11a-monitor-data-model`; Phase 11B must begin from the integration branch after that.
-- Deferred work: Every phase after 11A remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
-- Verification state: Phases 10A (`2841cdc`), 10B (`0fd4126`) and 10C (`dacd349`) are merged into local `main` (unpushed). Phase 11A `infra/test-phase11a.sh` (0010 migration round trip, monitor unit and PostgreSQL tests, Ruff, mypy, OpenAPI/type drift check, typecheck) passed on 2026-09-20.
+- Next action: Review and integrate `phase/11b-monitor-evaluation`; Phase 11C must begin from the integration branch after that. 11C's viewed-state operation must set `viewed = eval cursor`, both counters to 0 and clear `claim_token` in one transaction (see the decision log).
+- Deferred work: Every phase after 11B remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
+- Verification state: Phases 10A (`2841cdc`), 10B (`0fd4126`), 10C (`dacd349`) and 11A (`957b8aa`) are merged into local `main` (unpushed). Phase 11B `infra/test-phase11b.sh` (71 backend tests against real PostgreSQL and Elasticsearch, head still `0010`, Ruff, mypy, OpenAPI/type drift check, typecheck) passed on 2026-09-20.
 
 ## Current architecture
 
@@ -22,12 +22,12 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - **Story clusters:** `backend/app/clustering/models.py` stores derived clusters and one membership row per clustered article. Clusters cache article/source counts, publication bounds, representative article, and algorithm version. `GET /api/v1/clusters/{id}` exposes keyset-paginated members and feed references.
 - **Search:** PostgreSQL stores delivery/rebuild coordination; Elasticsearch holds versioned, rebuildable article indices. Typed criteria support query text, sources/countries, dates, processing/language, entities/types, keywords, story/mentioned countries, and story clusters. Search and timeline share these criteria.
 - **Graph:** `backend/app/graph` builds a bounded entity co-occurrence graph from Elasticsearch nested aggregations (`MAX_NODES = 50`, `MAX_EDGES = 150`) and resolves labels from PostgreSQL. Edges expose article co-occurrence weight; `GET /graph/edges/evidence` resolves one edge (same filters and focus) to its articles and stories. Entity dossiers live under `/entities`.
-- **Investigations:** saved searches are user-owned PostgreSQL JSONB records containing a strictly validated, versioned `InvestigationState`. Listing uses keyset pagination and service queries enforce ownership. Monitors (`backend/app/monitors`, table `monitors`) embed a per-kind-validated `InvestigationState` snapshot plus compact evaluation cursors, unseen counters and lease fields; only the model, validation and repository primitives exist so far (no routes, worker or UI).
+- **Investigations:** saved searches are user-owned PostgreSQL JSONB records containing a strictly validated, versioned `InvestigationState`. Listing uses keyset pagination and service queries enforce ownership. Monitors (`backend/app/monitors`, table `monitors`) embed a per-kind-validated `InvestigationState` snapshot plus compact evaluation cursors, unseen counters and lease fields; the scheduler claims due monitors and a Dramatiq actor (`app.jobs.monitors`, queue `monitors`) evaluates them incrementally through `app.monitors.evaluation`; there are no routes or UI yet.
 - **Analytics:** current SQL-backed analytics provide a 30-day ingestion timeline with deterministic spike detection, top entities, and primary story countries. Top aggregations are bounded to ten items.
-- **Jobs and scheduling:** durable feed, extraction, indexing, NLP, and clustering jobs use status/due/lease fields. `backend/app/scheduler.py` claims bounded batches and dispatches Dramatiq actors via Redis. Separate NLP, clustering, and search queues exist, and status/failure routes feed the Jobs UI.
+- **Jobs and scheduling:** durable feed, extraction, indexing, NLP, and clustering jobs use status/due/lease fields. `backend/app/scheduler.py` claims bounded batches (feeds, articles, NLP, clustering, search, monitors) and dispatches Dramatiq actors via Redis. Separate NLP, clustering, and search queues exist, and status/failure routes feed the Jobs UI.
 - **Database and migrations:** Alembic revisions `0001`–`0010` cover auth, ingestion, processing, search, NLP, saved searches, clusters, country-rule version widening, and monitors. PostgreSQL JSONB is already used for durable structured state.
 - **Frontend:** Next.js App Router has overview, search, articles, sources, clusters, entities (dossier), graph (with edge evidence), jobs, saved searches, and settings routes. `frontend/src/lib/api.ts` consumes types generated from checked-in `frontend/openapi.json`; aliases live in `api-types.ts`. TanStack Query, URL-backed investigation state, `GlassPanel`, `PageHeader`, charts, and explicit loading/error/empty states are established patterns.
-- **Tests and acceptance:** pytest includes unit/API tests and PostgreSQL integration modules gated by `NEWSINTEL_RUN_POSTGRES_TESTS=1`. Vitest/Testing Library covers frontend routes; Playwright covers search, NLP, processing, investigations, and relationships. Every implementation phase has a checked-in acceptance script at `infra/test-phase<id>.sh`; scripts exist for phases 3–7, 10A, 10B, 10C and 11A.
+- **Tests and acceptance:** pytest includes unit/API tests and PostgreSQL integration modules gated by `NEWSINTEL_RUN_POSTGRES_TESTS=1`. Vitest/Testing Library covers frontend routes; Playwright covers search, NLP, processing, investigations, and relationships. Every implementation phase has a checked-in acceptance script at `infra/test-phase<id>.sh`; scripts exist for phases 3–7, 10A, 10B, 10C, 11A and 11B.
 - **Deployment:** Compose defines frontend, API, general worker, NLP worker, scheduler, PostgreSQL, Redis, and Elasticsearch, with development, E2E, and NER overlays. PostgreSQL is canonical and Elasticsearch is rebuildable.
 
 ## Target architecture
@@ -65,7 +65,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - [x] Phase 10B — Entity dossier frontend (`COMPLETE`)
 - [x] Phase 10C — Evidence-backed graph relationships (`COMPLETE`)
 - [x] Phase 11A — Monitor data model (`COMPLETE`)
-- [ ] Phase 11B — Monitor evaluation and scheduler (`NOT STARTED`)
+- [x] Phase 11B — Monitor evaluation and scheduler (`COMPLETE`)
 - [ ] Phase 11C — Monitor API/backend (`NOT STARTED`)
 - [ ] Phase 11D — Monitor frontend (`NOT STARTED`)
 - [ ] Phase 11E — What Changed (`NOT STARTED`)
@@ -146,7 +146,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ### Phase 11B — Monitor evaluation and scheduler
 
-- **Status:** `NOT STARTED`
+- **Status:** `COMPLETE`
 - **Objective:** Deterministically and incrementally evaluate enabled monitors through existing worker/scheduler infrastructure.
 - **Existing components to reuse:** Search/database query execution, Dramatiq actors, scheduler, retries, and Jobs observability.
 - **Backend changes:** Replaceable evaluators per monitor type, durable high-water marks, idempotent result accounting, scheduled batching, retry/failure reporting.
@@ -357,6 +357,16 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Changing a monitor's kind/state resets cursors, counters, latest match, lease and error; rename/toggle keep history; re-enable schedules an evaluation now | Old cursors describe a different query. Resending an identical state is a no-op. |
 | Evaluation lease/outcome fields live on the `monitors` row; no run/match table yet | Mirrors the job-row shape (`next_evaluation_at`, `claim_token`, `claim_expires_at`, error fields). 11B may add run tables only if idempotency needs them. |
 | No relational `target_id` column on monitors | The target lives in the JSONB state; a duplicate column can drift. Add it, with an index, when "monitors watching this entity" is needed. |
+| Monitors evaluate through one search-backed evaluator behind a per-kind registry (`EVALUATORS`) | Kinds differ only in target validation (11A), not in query language, so all five call the same evaluator today; a kind that needs its own query swaps its registry entry. |
+| Monitor evaluation counts by time window and never fetches pages | Window is `first_discovered_at` in `(eval_cursor_at, horizon]`, one bounded Elasticsearch request (size 0/1 plus a cardinality aggregation), so cost never scales with match count or archive size. |
+| Unseen counters are derived from cursors, not accumulated | An empty delta only advances `eval_cursor_at`; otherwise `unseen_article_count`, `unseen_cluster_count` (distinct `story_cluster_id`) and `latest_match_*` are *set* from the `(viewed_cursor_at, horizon]` window. Reruns and retries therefore give identical numbers, and distinct stories are counted once. No run/match table and no migration; a per-article ledger is deferred to 11E. |
+| Evaluation commits atomically under `FOR UPDATE` and is discarded if the lease, target or viewed boundary changed | Cursor, counters, latest match, timestamps, cleared claim/error and `next_evaluation_at` publish together only when `claim_token` matches, the lease is live (wall clock) and `viewed_cursor_at` is unchanged. **11C invariant:** the viewed-state operation must set `viewed = eval cursor`, counters 0 and clear `claim_token` in one transaction. |
+| A new (or reset) monitor baselines on its first evaluation | `eval = viewed = horizon`, nothing counted (the existing archive is not "unseen"), newest existing match recorded as `latest_match_*`. |
+| `monitor_settle_seconds` (120) holds the horizon back from "now" | Gives indexing, NLP and clustering time to finish and absorbs commit-order skew (PostgreSQL `now()` is transaction start). It is the documented completeness ceiling for annotation-dependent kinds. |
+| Monitor failures live on the row and in logs, with a fixed retry delay | Categories `search_unavailable`, `search_upgrade_required`, `invalid_state`, `evaluation_error`; message ≤1000 chars; retry after `monitor_retry_seconds`. There is no attempt counter to back off with, and no route to expose it until 11C. Success clears the error. |
+| Fixed monitor interval and no lease heartbeat | `monitor_interval_seconds` (300) for every monitor; an evaluation is at most two Elasticsearch round trips, inside `monitor_lease_seconds` (120). Per-monitor intervals and a heartbeat are deferrals. |
+| `eval_cursor_article_id` / `viewed_cursor_article_id` stay unused in 11B | Both sides of every window use the same Elasticsearch millisecond precision, so no article can fall in two windows and no tie-break is needed. 11E must not assume they are populated. |
+| `latest_match_article_id` is set only if PostgreSQL still has the article | The index is rebuildable and can name a deleted article; the foreign key would otherwise fail the whole commit. |
 | Use one branch per phase | Keeps each vertical slice independently reviewable and prevents later work from obscuring a phase's acceptance state. Each branch starts from the integration branch containing all accepted predecessors. |
 
 ## Discoveries
@@ -378,10 +388,17 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - Graph specs need the schema-3 search index; acceptance scripts must run `rebuild-search`/`resume-search-rebuild` (as Phase 7 does) after seeding. `infra/test-phase10b.sh` does not, so it cannot run the graph or search workflow specs.
 - Monitor due-batching uses the partial index `ix_monitors_due (next_evaluation_at, id) WHERE enabled`; a PostgreSQL test confirms the planner picks it for the due query (with sequential scans disabled, since the test table is tiny). `ix_monitors_user_activity` exists for 11C's activity ordering and is not yet exercised by a query.
 - Monitors need no new API/OpenAPI surface in 11A; the drift check confirms `openapi.json` and generated types are unchanged.
+- `search_criteria` is a plain async function whose parameter names equal `InvestigationState` fields, so a monitor state maps to `SearchCriteria` with `state.model_dump(exclude={"sort", "interval"})` and no second parser.
+- The search index has `first_discovered_at` but no `indexed_at`, and articles are re-indexed as NLP and clustering annotate them, so annotation-dependent monitors can match after first discovery; the settle lag is the mitigation until an `indexed_at` field exists.
+- The first 11B acceptance run failed on my own tests: they passed a future evaluation time while the lease check used the wall clock, and the Elasticsearch test re-selected already delivered rows. The lease check now always uses the real clock (`now` only supplies the horizon and scheduling times); no design change.
 - Existing entity-search chips on the article page are kept; the dossier is a separate "Dossier" link so search refinement is unchanged.
 
 ## Outstanding risks
 
+- Monitor completeness ceiling: an entity, country or cluster match whose annotations land later than `monitor_settle_seconds` after discovery is not counted. Upgrade path: an `indexed_at` field (search schema v4) or a re-scan overlap.
+- `unseen_cluster_count` counts distinct `story_cluster_id` values among the unseen matches, so articles that are not clustered yet contribute articles but no stories ("3 new articles, 0 new stories" is valid). The cardinality aggregation is approximate above its `precision_threshold` of 3000 distinct stories; article counts are exact. 11D/11E should word the UI accordingly.
+- Monitors retry at a fixed delay because the row has no attempt counter; a persistently failing monitor is retried every `monitor_retry_seconds`. Add a counter column if backoff is wanted.
+- Unseen counts are recomputed over the whole `(viewed_cursor_at, horizon]` window when there is news; a monitor that is never viewed has a growing window (still one aggregation request).
 - Surface aliases remain unavailable until a future canonical surface-text model exists; Phase 10A must not derive them from offsets or normalized names.
 - Cluster totals and co-occurrence require distinct joins across annotations, membership, and provenance; careless joins can multiply mention and source counts.
 - Existing geographic fields may not reliably distinguish source, mention, story, and event roles.
@@ -398,6 +415,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Phase 10B | `infra/test-phase10b.sh`: Vitest (82 tests), typecheck, static-export build, Playwright `relationships seed` and `entity dossier workflow` against the NER-enabled stack | PASS | Backend untouched, so no backend suites were rerun; the script cleaned up its Compose stack. |
 | Phase 10C | `infra/test-phase10c.sh`: 41 backend tests (evidence body/parse/route + graph suite + PostgreSQL hydration), Ruff, mypy, OpenAPI/type drift check, Vitest (92), typecheck, static-export build, Playwright `relationships seed`, `relationships workflow`, `graph edge evidence workflow` | PASS | Full backend suite also run outside the script: 177 passed, 48 skipped (PostgreSQL/Elasticsearch-gated). After the script, a small panel refinement (archive gaps summed across pages, top-stories note) was re-verified with Vitest (93 tests), typecheck, Ruff, mypy and the evidence unit tests, not a second full acceptance run. The e2e asserts the evidence total equals the drawn edge weight. `EntityGraph` edge click is not unit-tested (needs canvas); covered through the accessible connection list and page tests. |
 | Phase 11A | `infra/test-phase11a.sh`: `alembic upgrade head` / `downgrade 0009` / `upgrade head` with table-presence checks, monitor unit tests, saved-search regression, PostgreSQL monitor tests (defaults, constraints, ownership, keyset paging, update semantics, cascades, due-index plan, migration round trip) with Elasticsearch unreachable, Ruff, mypy, OpenAPI/type drift check, frontend typecheck | PASS | Script run: 51 backend tests passed. Full backend suite also run outside the script: 203 passed, 58 skipped (PostgreSQL/Elasticsearch-gated; the 10 gated 11A tests are the ones the script runs). The first script run failed on two of my own tests (expired ORM attributes read after a rollback); fixed in the tests, no model change. |
+| Phase 11B | `infra/test-phase11b.sh`: `alembic upgrade head` (head still `0010`), 71 backend tests (monitor and evaluator units, saved-search regression, PostgreSQL claim/scheduler/idempotency/stale-claim/failure tests, real-Elasticsearch tests for `search`, `source` and `cluster` monitors), Ruff, mypy, OpenAPI/type drift check, frontend typecheck | PASS | Script run: 71 passed, none skipped. Full backend suite outside the script without the PostgreSQL/Elasticsearch gates: 210 passed, 71 skipped (gated). The first script runs failed on my own tests (see Discoveries) and one script bug (`docker compose run` output needed `\r` stripped); fixed in the tests and script, no design change. |
 
 ## Change log
 
@@ -412,3 +430,4 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - 2026-09-20: Phase 10C implemented on `phase/10c-graph-edge-evidence`: `GET /graph/edges/evidence` (ES-resolved evidence hydrated from PostgreSQL), edge inspector with bookmarkable `edge=` param and accessible connection list, regenerated OpenAPI/types, and `infra/test-phase10c.sh`. Passed and marked `COMPLETE`, ready for review without merge or publication authorization.
 - 2026-09-20: Phase 10C merged into local `main` (`dacd349`). Phase 11A implemented on `phase/11a-monitor-data-model`: `monitors` table (migration `0010`), per-kind validated monitor schemas, owner-scoped repository primitives, PostgreSQL and unit tests, and `infra/test-phase11a.sh`. Marked `COMPLETE`, ready for review without merge or publication authorization.
 - 2026-09-20: Refreshed `README.md` (entity dossiers, edge evidence, `entities`/`monitors` modules, ten UI routes, roadmap pointer) and the roadmap's frontend architecture line; no code changes.
+- 2026-09-20: Phase 11A merged into local `main` (`957b8aa`). Phase 11B implemented on `phase/11b-monitor-evaluation`: `app.monitors.evaluation` (windowed, idempotent evaluator with guarded atomic publish and per-row failure state), `app.jobs.monitors` actor, `schedule_due_monitors`, monitor settings, worker module registration, PostgreSQL and real-Elasticsearch tests, and `infra/test-phase11b.sh`. No migration or API change. Marked `COMPLETE`, ready for review without merge or publication authorization.
