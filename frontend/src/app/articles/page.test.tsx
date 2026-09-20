@@ -127,6 +127,8 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
   expect(screen.getByText(/keywords · stale · queued/)).toBeTruthy()
   expect(screen.getByText((_, node) => node?.textContent === 'entities · disabled · NER is disabled')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'climate policy' })).toHaveAttribute('href', '/search/?q=energy&country=US&keyword_id=keyword-one')
+  expect(screen.getByRole('link', { name: 'Acme (ORG)' })).toHaveAttribute('href', '/search/?q=energy&country=US&entity_id=entity-one')
+  expect(screen.getByRole('link', { name: 'Open dossier for Acme' })).toHaveAttribute('href', '/entities/?id=entity-one')
 })
 
 it('shows the not-part-of-a-story empty state when an article has no cluster', async () => {

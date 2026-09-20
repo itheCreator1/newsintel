@@ -6,11 +6,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Session state
 
-- Current phase: Phase 10A — Entity dossier backend
+- Current phase: Phase 10B — Entity dossier frontend (branch `phase/10b-entity-dossier-frontend`)
 - Current status: `COMPLETE`
-- Next action: Review and integrate `phase/10a-entity-dossier-backend`; Phase 10B remains pending and must begin from the integration branch after this phase is accepted.
-- Deferred work: Every phase after 10A remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
-- Verification state: Phase 10A backend, PostgreSQL, OpenAPI generation, frontend tests/typecheck/build, and relevant existing Elasticsearch integration checks passed on 2026-09-20.
+- Next action: Review and integrate `phase/10b-entity-dossier-frontend`; Phase 10C must begin from the integration branch after that.
+- Deferred work: Every phase after 10B remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
+- Verification state: Phase 10A was accepted and merged into local `main` (`2841cdc`, unpushed). Phase 10B `infra/test-phase10b.sh` (Vitest, typecheck, static-export build, and Playwright seed plus dossier workflow) passed on 2026-09-20.
 
 ## Current architecture
 
@@ -62,7 +62,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 ## Phase checklist
 
 - [x] Phase 10A — Entity dossier backend (`COMPLETE`)
-- [ ] Phase 10B — Entity dossier frontend (`NOT STARTED`)
+- [x] Phase 10B — Entity dossier frontend (`COMPLETE`)
 - [ ] Phase 10C — Evidence-backed graph relationships (`NOT STARTED`)
 - [ ] Phase 11A — Monitor data model (`NOT STARTED`)
 - [ ] Phase 11B — Monitor evaluation and scheduler (`NOT STARTED`)
@@ -98,8 +98,8 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ### Phase 10B — Entity dossier frontend
 
-- **Status:** `NOT STARTED`
-- **Objective:** Add `/entities/[id]` as a dense analyst dossier and link high-value entity references to it.
+- **Status:** `COMPLETE`
+- **Objective:** Add `/entities?id=<uuid>` (the static export has no dynamic routes; see Decision log) as a dense analyst dossier and link high-value entity references to it.
 - **Existing components to reuse:** App Router layout, generated API types, TanStack Query hooks/query keys, `GlassPanel`, `PageHeader`, chart primitives, loading/error/empty states, article/cluster cards, and existing entity renderers.
 - **Backend changes:** Only contract corrections discovered by frontend integration.
 - **Frontend changes:** Route, typed query hooks, dossier panels, mention timeline, bounded related lists, and selective entity links in article annotations, cluster detail, graph, analytics, and search results where useful.
@@ -348,6 +348,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Keep event association deterministic and versioned | Results must be explainable and replaceable without introducing embeddings or opaque inference. |
 | Split monitor delivery into schema, evaluation, API, UI, and changes | Each slice can be tested and leave the repository healthy. |
 | Write the roadmap before the repository reality check | Explicit user instruction on 2026-09-20; provisional statements are labeled and will be replaced with code-backed findings next. |
+| Dossier route is `/entities?id=<uuid>`, not `/entities/[id]` | `next.config.ts` uses `output: 'export'` and existing detail pages (`/clusters?id=`, `/articles?article=`) use query params; arbitrary entity ids are unknown at build time. |
 | Use one branch per phase | Keeps each vertical slice independently reviewable and prevents later work from obscuring a phase's acceptance state. Each branch starts from the integration branch containing all accepted predecessors. |
 
 ## Discoveries
@@ -363,6 +364,8 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - OpenAPI generation is two-step: refresh checked-in `frontend/openapi.json` from `create_app().openapi()`, then run `npm run generate:api`. No repository command currently combines both steps.
 - The graph and analytics views already render entity names and are high-value locations for selective dossier links in Phase 10B.
 - Acceptance scripts currently stop at Phase 7. The roadmap now requires one for every implementation phase; Phase 10A must add `infra/test-phase10a.sh` before it is marked complete.
+- Phase 10B keeps the window selector in component state (not the URL); only the entity `id` is bookmarkable. Article rows and cluster rows carry `from=` return links so the articles page shows "Back to entity".
+- Existing entity-search chips on the article page are kept; the dossier is a separate "Dossier" link so search refinement is unchanged.
 
 ## Outstanding risks
 
@@ -379,6 +382,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Roadmap initialization | `git check-ignore -v`, repository structure/model/route/service/test/config inspection | PASS | `docs/` is ignored, so the roadmap was moved to tracked repository root. No application behavior changed. |
 | Phase 10A | `infra/test-phase10a.sh`: isolated PostgreSQL migration, dossier tests without Elasticsearch, Ruff, mypy, OpenAPI/type generation, frontend Vitest/typecheck/webpack build | PASS | The script cleaned up its disposable Compose stack; dossier tests ran with Elasticsearch deliberately unreachable. |
 | Existing Phase 7 Elasticsearch integration | Full backend suite: 204 passed with Elasticsearch-dependent checks unavailable in the PostgreSQL-only stack; then both affected tests rerun with the isolated Elasticsearch fixture | PASS | The two reruns passed. |
+| Phase 10B | `infra/test-phase10b.sh`: Vitest (82 tests), typecheck, static-export build, Playwright `relationships seed` and `entity dossier workflow` against the NER-enabled stack | PASS | Backend untouched, so no backend suites were rerun; the script cleaned up its Compose stack. |
 
 ## Change log
 
@@ -388,3 +392,5 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - 2026-09-20: Established a required checked-in acceptance script for every implementation phase. Phase 10A is returned to `IN PROGRESS` until `infra/test-phase10a.sh` passes.
 - 2026-09-20: Added and passed `infra/test-phase10a.sh`; Phase 10A is `COMPLETE` again and ready for review without merge or publication authorization.
 - 2026-09-20: Corrected the stale Phase 10A detail-block status from `IN PROGRESS` to `COMPLETE`.
+- 2026-09-20: Phase 10A merged into local `main` (`2841cdc`). Began Phase 10B on `phase/10b-entity-dossier-frontend`: dossier route, typed API client methods, selective entity links from article annotations and the graph panel, Vitest and Playwright coverage, and `infra/test-phase10b.sh`.
+- 2026-09-20: Phase 10B passed `infra/test-phase10b.sh` and is `COMPLETE`, ready for review without merge or publication authorization.
