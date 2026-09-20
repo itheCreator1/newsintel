@@ -11,6 +11,7 @@ from app.entities.routes import router as entities_router
 from app.feeds.routes import router as feeds_router
 from app.graph.routes import router as graph_router
 from app.investigations.routes import router as investigations_router
+from app.monitors.routes import router as monitors_router
 from app.nlp.routes import router as nlp_router
 from app.search.routes import router as search_router
 
@@ -29,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(investigations_router, prefix="/api/v1")
+    app.include_router(monitors_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
     return app
 

@@ -2,9 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, model_validator
+from pydantic import AwareDatetime, BaseModel, model_validator
 
 from app.investigations.schemas import InvestigationState, Name
+from app.search.schemas import SearchResult
 
 MonitorKind = Literal["search", "entity", "source", "country", "cluster"]
 
@@ -63,6 +64,8 @@ class MonitorResponse(BaseModel):
     problem: str | None
     unseen_article_count: int
     unseen_cluster_count: int
+    evaluated_through: datetime | None
+    viewed_through: datetime | None
     latest_match_at: datetime | None
     latest_match_article_id: uuid.UUID | None
     last_evaluated_at: datetime | None
@@ -71,3 +74,19 @@ class MonitorResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class MonitorPage(BaseModel):
+    items: list[MonitorResponse]
+    next_cursor: str | None
+
+
+class MonitorViewed(BaseModel):
+    through: AwareDatetime
+
+
+class MonitorResultPage(BaseModel):
+    items: list[SearchResult]
+    next_cursor: str | None
+    window_start: datetime | None
+    window_end: datetime | None

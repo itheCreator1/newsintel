@@ -53,13 +53,25 @@ Criteria = Annotated[SearchCriteria, Depends(search_criteria)]
 Sort = Literal["relevance", "newest", "oldest", "most_sources"]
 
 
-def _sign_cursor(payload: dict[str, Any], secret: str) -> str:
+RESULT_FIELDS = [
+    "article_id",
+    "title",
+    "effective_date",
+    "distinct_source_count",
+    "provenance",
+    "primary_story_country",
+    "story_cluster_id",
+    "cluster_source_count",
+]
+
+
+def sign_cursor(payload: dict[str, Any], secret: str) -> str:
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     signature = hmac.new(secret.encode(), raw, hashlib.sha256).digest()
     return base64.urlsafe_b64encode(raw + signature).decode()
 
 
-def _read_cursor(value: str, secret: str) -> dict[str, Any]:
+def read_cursor(value: str, secret: str) -> dict[str, Any]:
     try:
         decoded = base64.urlsafe_b64decode(value.encode())
         raw, signature = decoded[:-32], decoded[-32:]
@@ -89,6 +101,38 @@ def _segments(values: list[str]) -> list[HighlightSegment]:
             output.append(HighlightSegment(text=part, marked=marked))
         marked = True
     return output
+
+
+def search_result(hit: dict[str, Any]) -> SearchResult:
+    """One Elasticsearch article hit as a result; highlights appear only if the hit has them."""
+    source = hit["_source"]
+    highlight_values = [value for values in hit.get("highlight", {}).values() for value in values]
+    segments = _segments(highlight_values)
+    refs = {
+        item["source_id"]: SearchResultSource(
+            id=item["source_id"], name=item["source_name"], country=item.get("source_country")
+        )
+        for item in source["provenance"]
+    }
+    return SearchResult(
+        article_id=source["article_id"],
+        title=source["title"],
+        effective_date=source["effective_date"],
+        distinct_source_count=source["distinct_source_count"],
+        sources=sorted({item["source_name"] for item in source["provenance"]}),
+        source_refs=sorted(refs.values(), key=lambda ref: (ref.name.lower(), str(ref.id))),
+        story_country=source.get("primary_story_country"),
+        story_cluster=(
+            StoryClusterRef(
+                id=source["story_cluster_id"],
+                source_count=source["cluster_source_count"],
+            )
+            if source.get("story_cluster_id")
+            else None
+        ),
+        summary="".join(segment.text for segment in segments)[:500] or None,
+        highlights=segments,
+    )
 
 
 @router.get("/search/sources", response_model=SearchSourcePage)
@@ -144,7 +188,7 @@ async def search_articles(
     search_after: list[Any] | None = None
     try:
         if cursor:
-            cursor_data = _read_cursor(cursor, settings.secret_key)
+            cursor_data = read_cursor(cursor, settings.secret_key)
             if (
                 cursor_data.get("session") != str(session.id)
                 or cursor_data.get("criteria") != criteria_hash
@@ -171,16 +215,7 @@ async def search_articles(
             "pit": {"id": pit_id, "keep_alive": "5m"},
             "query": build_query(criteria, schema_version),
             "sort": sort_clause,
-            "_source": [
-                "article_id",
-                "title",
-                "effective_date",
-                "distinct_source_count",
-                "provenance",
-                "primary_story_country",
-                "story_cluster_id",
-                "cluster_source_count",
-            ],
+            "_source": RESULT_FIELDS,
             "highlight": {
                 "fields": {
                     "title": {},
@@ -205,40 +240,7 @@ async def search_articles(
             ) from exc
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
     hits = response.get("hits", {}).get("hits", [])
-    items: list[SearchResult] = []
-    for hit in hits:
-        source = hit["_source"]
-        highlight_values = [
-            value for values in hit.get("highlight", {}).values() for value in values
-        ]
-        segments = _segments(highlight_values)
-        refs = {
-            item["source_id"]: SearchResultSource(
-                id=item["source_id"], name=item["source_name"], country=item.get("source_country")
-            )
-            for item in source["provenance"]
-        }
-        items.append(
-            SearchResult(
-                article_id=source["article_id"],
-                title=source["title"],
-                effective_date=source["effective_date"],
-                distinct_source_count=source["distinct_source_count"],
-                sources=sorted({item["source_name"] for item in source["provenance"]}),
-                source_refs=sorted(refs.values(), key=lambda ref: (ref.name.lower(), str(ref.id))),
-                story_country=source.get("primary_story_country"),
-                story_cluster=(
-                    StoryClusterRef(
-                        id=source["story_cluster_id"],
-                        source_count=source["cluster_source_count"],
-                    )
-                    if source.get("story_cluster_id")
-                    else None
-                ),
-                summary="".join(segment.text for segment in segments)[:500] or None,
-                highlights=segments,
-            )
-        )
+    items = [search_result(hit) for hit in hits]
     next_cursor = None
     if len(hits) == limit:
         payload = {
@@ -249,7 +251,7 @@ async def search_articles(
             "expires": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
             "schema": schema_version,
         }
-        next_cursor = _sign_cursor(payload, settings.secret_key)
+        next_cursor = sign_cursor(payload, settings.secret_key)
     return SearchPage(items=items, next_cursor=next_cursor)
 
 
