@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -133,7 +134,15 @@ class Keyword(Base):
 
 class ArticleEntity(Base):
     __tablename__ = "article_nlp_entities"
-    __table_args__ = (Index("ix_article_nlp_entities_current", "article_id", "is_current"),)
+    __table_args__ = (
+        Index("ix_article_nlp_entities_current", "article_id", "is_current"),
+        Index(
+            "ix_article_nlp_entities_entity_article",
+            "entity_id",
+            "article_id",
+            postgresql_where=text("is_current"),
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))

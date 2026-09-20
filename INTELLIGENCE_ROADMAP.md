@@ -6,11 +6,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Session state
 
-- Current phase: Phase 10A — Entity dossier backend (planning/reality-check complete; implementation not started)
-- Current status: `IN PROGRESS`
-- Next action: Create `phase/10a-entity-dossier-backend` from the integration branch, add failing PostgreSQL-backed dossier tests, then implement the smallest complete Phase 10A API slice.
+- Current phase: Phase 10A — Entity dossier backend
+- Current status: `COMPLETE`
+- Next action: Review and integrate `phase/10a-entity-dossier-backend`; Phase 10B remains pending and must begin from the integration branch after this phase is accepted.
 - Deferred work: Every phase after 10A remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
-- Verification state: No implementation phase has yet been verified in this session.
+- Verification state: Phase 10A backend, PostgreSQL, OpenAPI generation, frontend tests/typecheck/build, and relevant existing Elasticsearch integration checks passed on 2026-09-20.
 
 ## Current architecture
 
@@ -60,7 +60,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Phase checklist
 
-- [ ] Phase 10A — Entity dossier backend (`IN PROGRESS`)
+- [x] Phase 10A — Entity dossier backend (`COMPLETE`)
 - [ ] Phase 10B — Entity dossier frontend (`NOT STARTED`)
 - [ ] Phase 10C — Evidence-backed graph relationships (`NOT STARTED`)
 - [ ] Phase 11A — Monitor data model (`NOT STARTED`)
@@ -352,8 +352,8 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 ## Discoveries
 
 - `docs/` and root `AGENTS.md` are intentionally ignored as of commit `7e3d99e`; this tracked roadmap therefore lives at repository root, as allowed by the master instruction.
-- Entity aliases are not normalized in a dedicated table. `Entity.display_text` is canonical, while observed surface evidence is stored inside `ArticleEntity.occurrences` JSON. Phase 10A must define bounded alias extraction from the actual occurrence shape instead of adding parallel identity storage.
-- `ArticleEntity` has an index on `(article_id, is_current)` but no index beginning with `entity_id`. Dossier queries likely need an entity-first index; the exact migration must be supported by PostgreSQL query-plan measurements.
+- Entity aliases are not normalized in a dedicated table. `Entity.display_text` is canonical, while `ArticleEntity.occurrences` stores offsets rather than reliable surface text. Phase 10A therefore returns `aliases: []` with `aliases_status: "unavailable"`.
+- Migration `0008` already provides the needed partial entity-first index: `(entity_id, article_id) WHERE is_current`. `EXPLAIN (ANALYZE, BUFFERS)` for a dossier lookup used an Index Only Scan (six shared-buffer hits), so no Phase 10A migration was warranted. ORM metadata now declares that existing index.
 - Country annotations distinguish `role` and `inferred`, while search separates `story_country` from `mentioned_country`. The later map must preserve these meanings.
 - `StoryClusterMember.article_id` is the primary key, so an article belongs to at most one current story cluster.
 - Graph weights currently come from Elasticsearch article co-occurrence. Phase 10C needs PostgreSQL-backed evidence queries, or a carefully reconciled hybrid, so each edge traces to canonical articles and clusters.
@@ -365,8 +365,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Outstanding risks
 
-- Alias extraction depends on processor-specific `occurrences` JSON; malformed or legacy entries need deterministic handling.
-- Current annotation indexes are article-first, so entity aggregation may be expensive until a measured entity-first index is added.
+- Surface aliases remain unavailable until a future canonical surface-text model exists; Phase 10A must not derive them from offsets or normalized names.
 - Cluster totals and co-occurrence require distinct joins across annotations, membership, and provenance; careless joins can multiply mention and source counts.
 - Existing geographic fields may not reliably distinguish source, mention, story, and event roles.
 - Checked-in OpenAPI JSON can drift from backend schemas because generation is not one atomic repository command.
@@ -377,8 +376,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Phase | Tests/checks run | Result | Notes |
 | --- | --- | --- | --- |
 | Roadmap initialization | `git check-ignore -v`, repository structure/model/route/service/test/config inspection | PASS | `docs/` is ignored, so the roadmap was moved to tracked repository root. No application behavior changed. |
+| Phase 10A | PostgreSQL dossier integration test, route/OpenAPI contract test, Ruff, mypy, OpenAPI/type generation, frontend Vitest/typecheck/webpack build | PASS | Dossier tests run against the isolated PostgreSQL fixture; the entity API has no Elasticsearch dependency. |
+| Existing Phase 7 Elasticsearch integration | Full backend suite: 204 passed with Elasticsearch-dependent checks unavailable in the PostgreSQL-only stack; then both affected tests rerun with the isolated Elasticsearch fixture | PASS | The two reruns passed. |
 
 ## Change log
 
 - 2026-09-20: Initialized the persistent roadmap from the approved master requirements. Marked Phase 10A `IN PROGRESS`; all repository-specific architecture statements remain explicitly pending code audit.
 - 2026-09-20: Completed the initial code reality check, replaced provisional architecture notes with verified module/schema/workflow details, recorded Phase 10A index and alias risks, and added the required branch-per-phase workflow.
+- 2026-09-20: Completed Phase 10A on `phase/10a-entity-dossier-backend`. Added PostgreSQL-backed dossier detail, evidence pages, and bounded relationships; regenerated OpenAPI/types; confirmed the existing entity-first partial index; and recorded passing verification.
