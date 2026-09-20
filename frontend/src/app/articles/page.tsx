@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { clusterHref, entityHref, parseHref, queryFromState, refine, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
+import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
@@ -43,7 +43,7 @@ function ArticlesContent() {
 
   // `from` can point back to a search, a story cluster, an event, or the entity graph; label the return link for
   // whichever origin it actually is instead of always saying "search".
-  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : from.startsWith('/entities') ? 'Back to entity' : from.startsWith('/events') ? 'Back to event' : 'Back to search'
+  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : from.startsWith('/entities') ? 'Back to entity' : from.startsWith('/events') ? 'Back to event' : from.startsWith('/sources/detail') ? 'Back to source' : 'Back to search'
 
   function refinedSearchHref(field: ListField, value: string) {
     const origin = stateFromQuery(from.startsWith('/search') ? parseHref(from) : new URLSearchParams())
@@ -186,7 +186,10 @@ function ArticlesContent() {
               </dl>
               {detail.data.provenance.map(source => (
                 <article key={source.feed_id} className="provenance flex flex-col gap-1 border-t border-border pt-4">
-                  <Link className={cn(chipClass, 'w-fit')} aria-label={`Filter by source ${source.feed_name}`} href={refinedSearchHref('source_id', source.feed_id)}><strong>{source.feed_name}</strong></Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link className={cn(chipClass, 'w-fit')} aria-label={`Filter by source ${source.feed_name}`} href={refinedSearchHref('source_id', source.feed_id)}><strong>{source.feed_name}</strong></Link>
+                    <Link className="text-xs text-muted-foreground hover:underline" aria-label={`Dossier for source ${source.feed_name}`} href={sourceHref(source.feed_id, currentHref)}>Dossier</Link>
+                  </div>
                   <p className="text-sm text-muted-foreground">{source.description || 'No RSS description.'}</p>
                 </article>
               ))}

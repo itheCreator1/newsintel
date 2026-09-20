@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import type { Feed } from '../../lib/api-types'
@@ -8,6 +9,7 @@ import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
+import { sourceHref } from '../../lib/investigation'
 import { cn } from '../../lib/utils'
 
 export default function SourcesPage() {
@@ -94,6 +96,7 @@ export default function SourcesPage() {
                     <option value="full_text_html">Full text + HTML</option>
                   </select>
                   <button type="button" className={ghostButtonClass} onClick={event => { event.stopPropagation(); update.mutate({ feed, changes: { enabled: !feed.enabled } }) }}>{feed.enabled ? 'Disable' : 'Enable'}</button>
+                  <Link className={ghostButtonClass} aria-label={`Dossier for ${feed.name}`} href={sourceHref(feed.id)} onClick={event => event.stopPropagation()}>Dossier</Link>
                   <button type="button" className={ghostButtonClass} onClick={event => { event.stopPropagation(); poll.mutate(feed.id) }}>Poll now</button>
                   <button type="button" className={cn(ghostButtonClass, 'border-destructive/30 text-destructive hover:border-destructive hover:text-destructive')} onClick={event => { event.stopPropagation(); confirmRetire(feed) }}>Retire</button>
                 </div>
