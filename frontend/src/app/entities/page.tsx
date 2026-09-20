@@ -10,7 +10,7 @@ import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
-import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
+import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
 
 const WINDOWS = [7, 30, 90, 365] as const
 const DAY_MS = 86_400_000
@@ -83,6 +83,7 @@ function EntityContent() {
             <div className="flex flex-wrap gap-2">
               <Link className={chipClass} href={searchHref}>Search articles with this entity</Link>
               <Link className={chipClass} href={toHref('/events', new URLSearchParams({ entity_id: id }))}>Events with this entity</Link>
+              <Link className={chipClass} href={compareHref({ kind: 'entity', a: id })}>Compare with another entity</Link>
             </div>
           </div>
         )}

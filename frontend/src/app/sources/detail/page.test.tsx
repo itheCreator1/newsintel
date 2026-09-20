@@ -188,3 +188,11 @@ it('loads more of each list by cursor and stops at the end', async () => {
   expect(api.sourceFetches).toHaveBeenLastCalledWith('s-1', 'fc')
   expect(screen.queryByRole('button', { name: /Load more/ })).toBeNull()
 })
+
+it('starts a comparison from the dossier and labels the way back from one', async () => {
+  resetNavigationHarness({ pathname: '/sources/detail/', search: 'id=s-1&from=%2Fcompare%2F%3Fkind%3Dsource%26a%3Ds-1%26b%3Ds-2' })
+  renderWithQuery(() => <SourceDetailPage />)
+
+  expect(await screen.findByRole('link', { name: 'Compare with another source' })).toHaveAttribute('href', '/compare/?kind=source&a=s-1')
+  expect(screen.getByRole('link', { name: 'Back to comparison' }).getAttribute('href')).toBe('/compare/?kind=source&a=s-1&b=s-2')
+})

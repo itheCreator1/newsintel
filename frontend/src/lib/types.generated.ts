@@ -756,6 +756,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare */
+        get: operations["compare_api_v1_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compare/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Articles */
+        get: operations["compare_articles_api_v1_compare_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compare/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Stories */
+        get: operations["compare_stories_api_v1_compare_stories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -1434,6 +1485,109 @@ export interface components {
              * @default 0
              */
             clustered_articles: number;
+        };
+        /** CompareArticlePage */
+        CompareArticlePage: {
+            /** Items */
+            items: components["schemas"]["ArticleResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** CompareClusterPage */
+        CompareClusterPage: {
+            /** Items */
+            items: components["schemas"]["CompareClusterResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * CompareClusterResponse
+         * @description Subject articles in the window that the story holds.
+         */
+        CompareClusterResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** First Published At */
+            first_published_at: string | null;
+            /** Last Published At */
+            last_published_at: string | null;
+            representative_article: components["schemas"]["ArticleResponse"] | null;
+            /** A Articles */
+            a_articles: number;
+            /** B Articles */
+            b_articles: number;
+        };
+        /** CompareDay */
+        CompareDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /**
+         * CompareOverlap
+         * @description Articles are distinct articles; stories are clusters holding an article of the subject; a
+         *     story is `both` when it holds one of each. `sources` (distinct feeds) is null for sources.
+         */
+        CompareOverlap: {
+            articles: components["schemas"]["Overlap"];
+            stories: components["schemas"]["Overlap"];
+            sources: components["schemas"]["Overlap"] | null;
+        };
+        /**
+         * CompareRelated
+         * @description Top items over the union of both article sets, ranked by `a_articles + b_articles`. Zero
+         *     means absent from that side. The compared subjects are left out.
+         */
+        CompareRelated: {
+            /** Entities */
+            entities: components["schemas"]["RelatedItem"][];
+            /** Countries */
+            countries: components["schemas"]["RelatedCountry"][];
+            /** Sources */
+            sources: components["schemas"]["RelatedItem"][] | null;
+        };
+        /** CompareResponse */
+        CompareResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "source" | "country";
+            /** Role */
+            role: ("story" | "mentioned" | "source") | null;
+            /** Window Days */
+            window_days: number;
+            a: components["schemas"]["CompareSide"];
+            b: components["schemas"]["CompareSide"];
+            overlap: components["schemas"]["CompareOverlap"];
+            related: components["schemas"]["CompareRelated"];
+        };
+        /**
+         * CompareSide
+         * @description Counts are over the subject's articles dated in the window. `sources` is null when the
+         *     subject is itself a source.
+         */
+        CompareSide: {
+            subject: components["schemas"]["Subject"];
+            /** Articles */
+            articles: number;
+            /** Stories */
+            stories: number;
+            /** Sources */
+            sources: number | null;
+            /** Timeline */
+            timeline: components["schemas"]["CompareDay"][];
         };
         /** CountryAnnotationResponse */
         CountryAnnotationResponse: {
@@ -2451,6 +2605,22 @@ export interface components {
             /** Input End */
             input_end: number;
         };
+        /**
+         * Overlap
+         * @description Two sets, A and B. `jaccard` is `both / union` and null when the union is empty.
+         */
+        Overlap: {
+            /** Only A */
+            only_a: number;
+            /** Both */
+            both: number;
+            /** Only B */
+            only_b: number;
+            /** Union */
+            union: number;
+            /** Jaccard */
+            jaccard: number | null;
+        };
         /** PollResponse */
         PollResponse: {
             /**
@@ -2526,6 +2696,17 @@ export interface components {
             /** Score */
             score: number;
         };
+        /** RelatedCountry */
+        RelatedCountry: {
+            /** Country Code */
+            country_code: string;
+            /** Role */
+            role: string;
+            /** A Articles */
+            a_articles: number;
+            /** B Articles */
+            b_articles: number;
+        };
         /** RelatedCountryResponse */
         RelatedCountryResponse: {
             /** Country Code */
@@ -2564,6 +2745,20 @@ export interface components {
             name: string;
             /** Article Count */
             article_count: number;
+        };
+        /** RelatedItem */
+        RelatedItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** A Articles */
+            a_articles: number;
+            /** B Articles */
+            b_articles: number;
         };
         /** ReprocessRequest */
         ReprocessRequest: {
@@ -2984,6 +3179,22 @@ export interface components {
             id: string;
             /** Source Count */
             source_count: number;
+        };
+        /** Subject */
+        Subject: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "source" | "country";
+            /** Ref */
+            ref: string;
+            /** Label */
+            label: string;
+            /** Role */
+            role: ("story" | "mentioned" | "source") | null;
+            /** Retired */
+            retired: boolean;
         };
         /** TimelineBucket */
         TimelineBucket: {
@@ -4560,6 +4771,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FetchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_api_v1_compare_get: {
+        parameters: {
+            query: {
+                kind: "entity" | "source" | "country";
+                a: string;
+                b: string;
+                /** @description Required for countries (which country meaning), rejected otherwise. */
+                role?: ("story" | "mentioned" | "source") | null;
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_articles_api_v1_compare_articles_get: {
+        parameters: {
+            query: {
+                part: "a" | "both" | "b";
+                cursor?: string | null;
+                limit?: number;
+                kind: "entity" | "source" | "country";
+                a: string;
+                b: string;
+                /** @description Required for countries (which country meaning), rejected otherwise. */
+                role?: ("story" | "mentioned" | "source") | null;
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareArticlePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_stories_api_v1_compare_stories_get: {
+        parameters: {
+            query: {
+                part: "a" | "both" | "b";
+                cursor?: string | null;
+                limit?: number;
+                kind: "entity" | "source" | "country";
+                a: string;
+                b: string;
+                /** @description Required for countries (which country meaning), rejected otherwise. */
+                role?: ("story" | "mentioned" | "source") | null;
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareClusterPage"];
                 };
             };
             /** @description Validation Error */

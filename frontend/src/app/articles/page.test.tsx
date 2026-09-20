@@ -159,6 +159,15 @@ it('labels the way back to a source dossier and links each provenance source to 
   expect(screen.getByRole('link', { name: 'Dossier for source Wire' }).getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=feed-wire&from=%2Farticles%2F/)
 })
 
+it('labels the way back to a comparison', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one&from=%2Fcompare%2F%3Fkind%3Dentity%26a%3De1%26b%3De2' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), provenance: [], content: null, processing: [] })
+  renderWithQuery(() => <ArticlesPage />)
+
+  expect(await screen.findByRole('link', { name: 'Back to comparison' })).toHaveAttribute('href', '/compare/?kind=entity&a=e1&b=e2')
+})
+
 it('shows the story section with related articles and links to the full cluster and a story filter', async () => {
   const search = 'article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS'
   resetNavigationHarness({ pathname: '/articles/', search })

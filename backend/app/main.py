@@ -6,6 +6,7 @@ from app.api.health import router as health_router
 from app.articles.routes import router as articles_router
 from app.auth.routes import router as auth_router
 from app.clustering.routes import router as clustering_router
+from app.compare.routes import router as compare_router
 from app.core.config import Settings, get_settings
 from app.entities.routes import router as entities_router
 from app.events.routes import router as events_router
@@ -31,6 +32,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(clustering_router, prefix="/api/v1")
     app.include_router(events_router, prefix="/api/v1")
     app.include_router(sources_router, prefix="/api/v1")
+    app.include_router(compare_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(investigations_router, prefix="/api/v1")

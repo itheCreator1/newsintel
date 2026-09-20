@@ -2779,6 +2779,408 @@
         }
       }
     },
+    "/api/v1/compare": {
+      "get": {
+        "tags": [
+          "compare"
+        ],
+        "summary": "Compare",
+        "operationId": "compare_api_v1_compare_get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "entity",
+                "source",
+                "country"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "A"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "B"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "story",
+                    "mentioned",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for countries (which country meaning), rejected otherwise.",
+              "title": "Role"
+            },
+            "description": "Required for countries (which country meaning), rejected otherwise."
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compare/articles": {
+      "get": {
+        "tags": [
+          "compare"
+        ],
+        "summary": "Compare Articles",
+        "operationId": "compare_articles_api_v1_compare_articles_get",
+        "parameters": [
+          {
+            "name": "part",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "a",
+                "both",
+                "b"
+              ],
+              "type": "string",
+              "title": "Part"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "entity",
+                "source",
+                "country"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "A"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "B"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "story",
+                    "mentioned",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for countries (which country meaning), rejected otherwise.",
+              "title": "Role"
+            },
+            "description": "Required for countries (which country meaning), rejected otherwise."
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareArticlePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compare/stories": {
+      "get": {
+        "tags": [
+          "compare"
+        ],
+        "summary": "Compare Stories",
+        "operationId": "compare_stories_api_v1_compare_stories_get",
+        "parameters": [
+          {
+            "name": "part",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "a",
+                "both",
+                "b"
+              ],
+              "type": "string",
+              "title": "Part"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "entity",
+                "source",
+                "country"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "A"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "B"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "story",
+                    "mentioned",
+                    "source"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required for countries (which country meaning), rejected otherwise.",
+              "title": "Role"
+            },
+            "description": "Required for countries (which country meaning), rejected otherwise."
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareClusterPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -6107,6 +6509,320 @@
         ],
         "title": "ClusteringStatusResponse"
       },
+      "CompareArticlePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "CompareArticlePage"
+      },
+      "CompareClusterPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CompareClusterResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "CompareClusterPage"
+      },
+      "CompareClusterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count"
+          },
+          "first_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Published At"
+          },
+          "last_published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Published At"
+          },
+          "representative_article": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "a_articles": {
+            "type": "integer",
+            "title": "A Articles"
+          },
+          "b_articles": {
+            "type": "integer",
+            "title": "B Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "article_count",
+          "source_count",
+          "first_published_at",
+          "last_published_at",
+          "representative_article",
+          "a_articles",
+          "b_articles"
+        ],
+        "title": "CompareClusterResponse",
+        "description": "Subject articles in the window that the story holds."
+      },
+      "CompareDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "article_count"
+        ],
+        "title": "CompareDay"
+      },
+      "CompareOverlap": {
+        "properties": {
+          "articles": {
+            "$ref": "#/components/schemas/Overlap"
+          },
+          "stories": {
+            "$ref": "#/components/schemas/Overlap"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Overlap"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "stories",
+          "sources"
+        ],
+        "title": "CompareOverlap",
+        "description": "Articles are distinct articles; stories are clusters holding an article of the subject; a\nstory is `both` when it holds one of each. `sources` (distinct feeds) is null for sources."
+      },
+      "CompareRelated": {
+        "properties": {
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedItem"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedCountry"
+            },
+            "type": "array",
+            "title": "Countries"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RelatedItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entities",
+          "countries",
+          "sources"
+        ],
+        "title": "CompareRelated",
+        "description": "Top items over the union of both article sets, ranked by `a_articles + b_articles`. Zero\nmeans absent from that side. The compared subjects are left out."
+      },
+      "CompareResponse": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "source",
+              "country"
+            ],
+            "title": "Kind"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "story",
+                  "mentioned",
+                  "source"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "a": {
+            "$ref": "#/components/schemas/CompareSide"
+          },
+          "b": {
+            "$ref": "#/components/schemas/CompareSide"
+          },
+          "overlap": {
+            "$ref": "#/components/schemas/CompareOverlap"
+          },
+          "related": {
+            "$ref": "#/components/schemas/CompareRelated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "role",
+          "window_days",
+          "a",
+          "b",
+          "overlap",
+          "related"
+        ],
+        "title": "CompareResponse"
+      },
+      "CompareSide": {
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "stories": {
+            "type": "integer",
+            "title": "Stories"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/CompareDay"
+            },
+            "type": "array",
+            "title": "Timeline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject",
+          "articles",
+          "stories",
+          "sources",
+          "timeline"
+        ],
+        "title": "CompareSide",
+        "description": "Counts are over the subject's articles dated in the window. `sources` is null when the\nsubject is itself a source."
+      },
       "CountryAnnotationResponse": {
         "properties": {
           "country_code": {
@@ -9033,6 +9749,47 @@
         ],
         "title": "OccurrenceResponse"
       },
+      "Overlap": {
+        "properties": {
+          "only_a": {
+            "type": "integer",
+            "title": "Only A"
+          },
+          "both": {
+            "type": "integer",
+            "title": "Both"
+          },
+          "only_b": {
+            "type": "integer",
+            "title": "Only B"
+          },
+          "union": {
+            "type": "integer",
+            "title": "Union"
+          },
+          "jaccard": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jaccard"
+          }
+        },
+        "type": "object",
+        "required": [
+          "only_a",
+          "both",
+          "only_b",
+          "union",
+          "jaccard"
+        ],
+        "title": "Overlap",
+        "description": "Two sets, A and B. `jaccard` is `both / union` and null when the union is empty."
+      },
       "PollResponse": {
         "properties": {
           "fetch_id": {
@@ -9214,6 +9971,34 @@
         ],
         "title": "RelatedArticle"
       },
+      "RelatedCountry": {
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "title": "Country Code"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "a_articles": {
+            "type": "integer",
+            "title": "A Articles"
+          },
+          "b_articles": {
+            "type": "integer",
+            "title": "B Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "country_code",
+          "role",
+          "a_articles",
+          "b_articles"
+        ],
+        "title": "RelatedCountry"
+      },
       "RelatedCountryResponse": {
         "properties": {
           "country_code": {
@@ -9299,6 +10084,35 @@
           "article_count"
         ],
         "title": "RelatedFeedResponse"
+      },
+      "RelatedItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "a_articles": {
+            "type": "integer",
+            "title": "A Articles"
+          },
+          "b_articles": {
+            "type": "integer",
+            "title": "B Articles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "a_articles",
+          "b_articles"
+        ],
+        "title": "RelatedItem"
       },
       "ReprocessRequest": {
         "properties": {
@@ -10530,6 +11344,56 @@
           "source_count"
         ],
         "title": "StoryClusterRef"
+      },
+      "Subject": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "source",
+              "country"
+            ],
+            "title": "Kind"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "story",
+                  "mentioned",
+                  "source"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "retired": {
+            "type": "boolean",
+            "title": "Retired"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "ref",
+          "label",
+          "role",
+          "retired"
+        ],
+        "title": "Subject"
       },
       "TimelineBucket": {
         "properties": {

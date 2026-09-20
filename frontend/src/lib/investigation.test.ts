@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
+import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -109,5 +109,14 @@ describe('sourceHref', () => {
   it('opens the source dossier through a query-param route and keeps the origin', () => {
     expect(sourceHref('s-1')).toBe('/sources/detail/?id=s-1')
     expect(sourceHref('s-1', '/entities/?id=e1')).toBe('/sources/detail/?id=s-1&from=%2Fentities%2F%3Fid%3De1')
+  })
+})
+
+describe('compareHref', () => {
+  it('holds the comparison in the URL and leaves out what is unset or default', () => {
+    expect(compareHref({ kind: 'entity' })).toBe('/compare/?kind=entity')
+    expect(compareHref({ kind: 'source', a: 's-1' })).toBe('/compare/?kind=source&a=s-1')
+    expect(compareHref({ kind: 'entity', a: 'e1', b: 'e2', days: 30 })).toBe('/compare/?kind=entity&a=e1&b=e2')
+    expect(compareHref({ kind: 'country', a: 'GR', b: 'FR', role: 'mentioned', days: 90 })).toBe('/compare/?kind=country&a=GR&b=FR&role=mentioned&days=90')
   })
 })

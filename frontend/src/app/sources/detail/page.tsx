@@ -11,7 +11,7 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { plural } from '../../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../../lib/ui-classes'
-import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
+import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
 
 const WINDOWS = [7, 30, 90]
 const DAY_MS = 86_400_000
@@ -19,7 +19,7 @@ const nextDay = (day: string) => new Date(Date.parse(day) + DAY_MS).toISOString(
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const minutes = (value: number) => `${Math.round(value)} min`
 // `from` is only followed back to pages that link here, never to an arbitrary path.
-const ORIGINS: [string, string][] = [['/sources/', 'Back to sources'], ['/entities/', 'Back to entity'], ['/articles/', 'Back to article'], ['/monitors', 'Back to monitor']]
+const ORIGINS: [string, string][] = [['/sources/', 'Back to sources'], ['/entities/', 'Back to entity'], ['/articles/', 'Back to article'], ['/monitors', 'Back to monitor'], ['/compare/', 'Back to comparison']]
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
   queryFn: ({ pageParam }: { pageParam: string | undefined }) => load(pageParam),
@@ -77,6 +77,7 @@ function SourceContent() {
             {WINDOWS.map(option => <option key={option} value={option}>Last {option} days</option>)}
           </select>
         </label>
+        <Link className={chipClass} href={compareHref({ kind: 'source', a: id })}>Compare with another source</Link>
         <Link className={chipClass} href={back ? from : '/sources/'}>{back ? back[1] : 'Back to sources'}</Link>
       </PageHeader>
 
