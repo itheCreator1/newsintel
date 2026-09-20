@@ -82,3 +82,37 @@ it('explains validation errors returned as a list of field problems', async () =
     "state: Value error, after must be earlier than before; state.source_country.0: String should match pattern '^[A-Za-z]{2}$'",
   )
 })
+
+it('reads monitors with order, cursor and scope, and mutates them with CSRF', async () => {
+  const csrf = () => new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 })
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
+  const fetchMock = vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(json({ items: [], next_cursor: null }))
+    .mockResolvedValueOnce(json({ items: [], next_cursor: null }))
+    .mockResolvedValueOnce(json({ id: 'm1' }))
+    .mockResolvedValueOnce(json({ items: [], next_cursor: null, window_start: null, window_end: null }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(json({ id: 'm1' }, 201))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(json({ id: 'm1' }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(json({ id: 'm1' }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+  await api.monitors('activity')
+  await api.monitors('name', 'next page')
+  await api.monitor('m1')
+  await api.monitorResults('m1', 'recent', 'c 1')
+  await api.createMonitor('Grid', { q: 'grid', sort: 'relevance', interval: 'auto' })
+  await api.updateMonitor('m1', { enabled: false })
+  await api.markMonitorViewed('m1', '2026-09-20T12:00:00Z')
+  await api.deleteMonitor('m1')
+
+  const calls = fetchMock.mock.calls
+  expect(calls[0][0]).toBe('/api/v1/monitors?order=activity')
+  expect(calls[1][0]).toBe('/api/v1/monitors?order=name&cursor=next+page')
+  expect(calls[2][0]).toBe('/api/v1/monitors/m1')
+  expect(calls[3][0]).toBe('/api/v1/monitors/m1/results?scope=recent&cursor=c+1')
+  const sent = (index: number) => ({ url: calls[index][0], method: calls[index][1]?.method, csrf: new Headers(calls[index][1]?.headers).get('X-CSRF-Token'), body: calls[index][1]?.body })
+  expect(sent(5)).toEqual({ url: '/api/v1/monitors', method: 'POST', csrf: 'token', body: JSON.stringify({ name: 'Grid', kind: 'search', state: { q: 'grid', sort: 'relevance', interval: 'auto' } }) })
+  expect(sent(7)).toMatchObject({ url: '/api/v1/monitors/m1', method: 'PATCH', csrf: 'token', body: JSON.stringify({ enabled: false }) })
+  expect(sent(9)).toMatchObject({ url: '/api/v1/monitors/m1/viewed', method: 'POST', body: JSON.stringify({ through: '2026-09-20T12:00:00Z' }) })
+  expect(sent(11)).toMatchObject({ url: '/api/v1/monitors/m1', method: 'DELETE' })
+})

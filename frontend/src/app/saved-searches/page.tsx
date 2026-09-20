@@ -10,6 +10,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { chipClass, fieldClass, ghostButtonClass, primaryButtonClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 import { fromSaved, queryFromState, toHref } from '../../lib/investigation'
+import { monitorKeys } from '../../lib/monitors'
 
 export default function SavedSearchesPage() {
   const client = useQueryClient()
@@ -20,6 +21,7 @@ export default function SavedSearchesPage() {
   const refresh = () => client.invalidateQueries({ queryKey: ['saved-searches'] })
   const rename = useMutation({ mutationFn: ({ id, name }: { id: string; name: string }) => api.updateSavedSearch(id, { name }), onSuccess: () => { setRenamingId(null); refresh() } })
   const remove = useMutation({ mutationFn: (id: string) => api.deleteSavedSearch(id), onSuccess: refresh })
+  const watch = useMutation({ mutationFn: (item: SavedSearch) => api.createMonitor(item.name, item.state!), onSuccess: () => client.invalidateQueries({ queryKey: monitorKeys.all }) })
   const message = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
   function openHref(item: SavedSearch) { return item.state ? toHref('/search', queryFromState(fromSaved(item.state))) : '' }
   function startRename(item: SavedSearch) { rename.reset(); setRenamingId(item.id); setNewName(item.name) }
@@ -36,6 +38,8 @@ export default function SavedSearchesPage() {
         {!pages.isPending && pages.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load saved searches.</p>}
         {!pages.isPending && !pages.isError && !items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No saved searches yet. Save one from Search to reopen the full investigation later.</p>}
         {remove.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(remove.error, 'Could not delete this saved search.')}</p>}
+        {watch.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(watch.error, 'Could not watch this saved search.')}</p>}
+        {watch.isSuccess && <p className="px-6 py-4 text-sm text-primary">Watching “{watch.variables.name}”. <Link className={chipClass} href="/monitors/">Open watchlist</Link></p>}
         {items.map(item => (
           <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 border-border px-6 py-4 last:border-b-0">
             <div className="flex flex-col gap-1">
@@ -60,6 +64,7 @@ export default function SavedSearchesPage() {
             </div>
             <div className="flex items-center gap-2">
               {item.state && <Link className={chipClass} aria-label={`Open ${item.name}`} href={openHref(item)}>Open</Link>}
+              {item.state && <button type="button" className={ghostButtonClass} aria-label={`Watch ${item.name}`} disabled={watch.isPending} onClick={() => watch.mutate(item)}>Watch</button>}
               {renamingId !== item.id && <button type="button" className={ghostButtonClass} aria-label={`Rename ${item.name}`} onClick={() => startRename(item)}>Rename</button>}
               <button type="button" className={cn(ghostButtonClass, 'border-destructive/30 text-destructive hover:border-destructive hover:text-destructive')} aria-label={`Delete ${item.name}`} disabled={remove.isPending} onClick={() => confirmDelete(item)}>Delete</button>
             </div>
