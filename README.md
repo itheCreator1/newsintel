@@ -13,11 +13,11 @@ NewsIntel continuously collects news, deduplicates it, extracts entities and key
 
 - **PostgreSQL is the single source of truth; Elasticsearch is disposable.** Every write lands in Postgres first and is committed before an indexing job is enqueued — the search index can be wiped and rebuilt from scratch at any time, and ingestion keeps working even if Elasticsearch is down.
 - **Story clustering, not just deduplication.** Independently published articles about the same event stay distinct records, but the UI surfaces "also reported by N other sources" by clustering on title/text similarity, entity overlap, and timing — behind a swappable interface.
-- **An entity relationship graph**, built from versioned NLP annotations (spaCy NER), lets you explore who and what keeps showing up together across the archive.
-- **Domain-driven backend**, not a god-object API: `feeds`, `articles`, `ingestion`, `extraction`, `nlp`, `search`, `clustering`, `analytics`, `graph`, `investigations`, and `jobs` are separate modules under `backend/app`, each owning its models, service layer, and routes.
+- **An entity relationship graph**, built from versioned NLP annotations (spaCy NER), lets you explore who and what keeps showing up together across the archive. Every edge is explainable co-occurrence: open one to see the exact articles and stories behind it, under the same filters as the graph. Entity dossiers show an entity's articles, stories and closest neighbours.
+- **Domain-driven backend**, not a god-object API: `feeds`, `articles`, `ingestion`, `extraction`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, and `jobs` are separate modules under `backend/app`, each owning its models, service layer, and routes.
 - **Async background processing** via Dramatiq + Redis, with a dedicated scheduler and NLP worker so feed polling, extraction, and entity/keyword tagging never block a request.
-- **Saved investigations** — bookmark searches and clusters and come back to them as a running case file.
-- **A dark glassmorphism UI** across all nine routes (overview, search, articles, sources, clusters, graph, jobs, saved searches, settings) built with Next.js App Router, TanStack Query, and Apache ECharts.
+- **Saved investigations** — bookmark searches and clusters and come back to them as a running case file. The storage for durable *monitors* (watches over a search, entity, source, country or story cluster) is in place; evaluation, API and UI are still to come.
+- **A dark glassmorphism UI** across all ten routes (overview, search, articles, sources, clusters, entities, graph, jobs, saved searches, settings) built with Next.js App Router, TanStack Query, and Apache ECharts.
 - **Typed and tested end to end** — SQLAlchemy 2 + Pydantic on the backend, TypeScript + generated API types on the frontend, 30+ backend test modules, `ruff`/`mypy` on Python, and per-phase acceptance gates in `infra/test-phaseN.sh`.
 
 ## Architecture at a glance
@@ -70,7 +70,7 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
-Per-phase acceptance gates live in `infra/test-phaseN.sh`.
+Per-phase acceptance gates live in `infra/test-phaseN.sh` (each provisions its own disposable Compose stack and cleans up). Implementation status and design decisions are tracked in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md).
 
 ## License
 
