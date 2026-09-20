@@ -3,7 +3,7 @@ import binascii
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import ValidationError
 from sqlalchemy import and_, or_, select
@@ -44,6 +44,14 @@ class InvalidMonitorCursor(ValueError):
     pass
 
 
+class NotYetEvaluated(Exception):
+    pass
+
+
+class ViewedBeyondEvaluation(ValueError):
+    pass
+
+
 def _encode_cursor(item: Monitor) -> str:
     return base64.urlsafe_b64encode(json.dumps([item.name, str(item.id)]).encode()).decode()
 
@@ -52,6 +60,19 @@ def _decode_cursor(value: str) -> tuple[str, uuid.UUID]:
     try:
         name, item_id = json.loads(base64.urlsafe_b64decode(value.encode()))
         return str(name), uuid.UUID(item_id)
+    except (binascii.Error, ValueError, TypeError) as exc:
+        raise InvalidMonitorCursor("Invalid monitor cursor") from exc
+
+
+def _encode_activity_cursor(item: Monitor) -> str:
+    latest = item.latest_match_at.isoformat() if item.latest_match_at else None
+    return base64.urlsafe_b64encode(json.dumps([latest, str(item.id)]).encode()).decode()
+
+
+def _decode_activity_cursor(value: str) -> tuple[datetime | None, uuid.UUID]:
+    try:
+        latest, item_id = json.loads(base64.urlsafe_b64decode(value.encode()))
+        return (datetime.fromisoformat(latest) if latest else None), uuid.UUID(item_id)
     except (binascii.Error, ValueError, TypeError) as exc:
         raise InvalidMonitorCursor("Invalid monitor cursor") from exc
 
@@ -82,6 +103,8 @@ def monitor_response(item: Monitor) -> MonitorResponse:
         problem=problem,
         unseen_article_count=item.unseen_article_count,
         unseen_cluster_count=item.unseen_cluster_count,
+        evaluated_through=item.eval_cursor_at,
+        viewed_through=item.viewed_cursor_at,
         latest_match_at=item.latest_match_at,
         latest_match_article_id=item.latest_match_article_id,
         last_evaluated_at=item.last_evaluated_at,
@@ -94,25 +117,46 @@ def monitor_response(item: Monitor) -> MonitorResponse:
 
 
 async def list_monitors(
-    db: AsyncSession, user_id: uuid.UUID, cursor: str | None, limit: int
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    cursor: str | None,
+    limit: int,
+    order: Literal["name", "activity"] = "name",
 ) -> tuple[list[Monitor], str | None]:
-    query = select(Monitor).where(Monitor.user_id == user_id).order_by(Monitor.name, Monitor.id)
-    if cursor:
-        name, item_id = _decode_cursor(cursor)
-        query = query.where(
-            or_(Monitor.name > name, and_(Monitor.name == name, Monitor.id > item_id))
-        )
+    query = select(Monitor).where(Monitor.user_id == user_id)
+    if order == "name":
+        query = query.order_by(Monitor.name, Monitor.id)
+        if cursor:
+            name, item_id = _decode_cursor(cursor)
+            query = query.where(
+                or_(Monitor.name > name, and_(Monitor.name == name, Monitor.id > item_id))
+            )
+        encode = _encode_cursor
+    else:
+        query = query.order_by(Monitor.latest_match_at.desc().nulls_last(), Monitor.id)
+        if cursor:
+            latest, item_id = _decode_activity_cursor(cursor)
+            if latest is None:
+                query = query.where(Monitor.latest_match_at.is_(None), Monitor.id > item_id)
+            else:
+                query = query.where(
+                    or_(
+                        Monitor.latest_match_at < latest,
+                        and_(Monitor.latest_match_at == latest, Monitor.id > item_id),
+                        Monitor.latest_match_at.is_(None),
+                    )
+                )
+        encode = _encode_activity_cursor
     rows = list((await db.scalars(query.limit(limit + 1))).all())
-    next_cursor = _encode_cursor(rows[limit - 1]) if len(rows) > limit else None
+    next_cursor = encode(rows[limit - 1]) if len(rows) > limit else None
     return rows[:limit], next_cursor
 
 
 async def get_monitor(
-    db: AsyncSession, user_id: uuid.UUID, monitor_id: uuid.UUID
+    db: AsyncSession, user_id: uuid.UUID, monitor_id: uuid.UUID, *, lock: bool = False
 ) -> Monitor | None:
-    item: Monitor | None = await db.scalar(
-        select(Monitor).where(Monitor.id == monitor_id, Monitor.user_id == user_id)
-    )
+    query = select(Monitor).where(Monitor.id == monitor_id, Monitor.user_id == user_id)
+    item: Monitor | None = await db.scalar(query.with_for_update() if lock else query)
     return item
 
 
@@ -153,4 +197,26 @@ async def update_monitor(db: AsyncSession, item: Monitor, payload: MonitorUpdate
                 setattr(item, field, None)
             item.unseen_article_count = item.unseen_cluster_count = 0
             item.next_evaluation_at = datetime.now(UTC)
+    return await _commit(db, item)
+
+
+async def mark_viewed(db: AsyncSession, item: Monitor, through: datetime) -> Monitor:
+    """Record that the analyst saw everything up to `through`; `item` must be loaded `lock=True`.
+
+    A boundary behind the evaluation cursor rewinds that cursor to it: evaluation is derived from
+    the cursors, so the next run recounts what lies after `through` instead of losing it.
+    """
+    if item.eval_cursor_at is None:
+        raise NotYetEvaluated("This monitor has not been evaluated yet")
+    if through > item.eval_cursor_at:
+        raise ViewedBeyondEvaluation("through is later than the last evaluation")
+    if item.viewed_cursor_at is not None and through <= item.viewed_cursor_at:
+        return item
+    if through < item.eval_cursor_at:
+        item.eval_cursor_at = through
+        item.next_evaluation_at = datetime.now(UTC)
+    item.viewed_cursor_at = through
+    item.unseen_article_count = item.unseen_cluster_count = 0
+    # An evaluation still running was counted against the old boundary; it must not publish.
+    item.claim_token = item.claim_expires_at = None
     return await _commit(db, item)

@@ -62,6 +62,13 @@ def criteria_params(state: InvestigationState) -> dict[str, Any]:
     return state.model_dump(exclude={"sort", "interval"})
 
 
+def window_filter(query: dict[str, Any], after: datetime | None, upto: datetime) -> dict[str, Any]:
+    bounds = {"lte": upto.isoformat()}
+    if after is not None:
+        bounds["gt"] = after.isoformat()
+    return {"bool": {"filter": [query, {"range": {"first_discovered_at": bounds}}]}}
+
+
 def window_body(
     query: dict[str, Any],
     after: datetime | None,
@@ -71,13 +78,10 @@ def window_body(
     size: int = 1,
 ) -> dict[str, Any]:
     """Count (and at most one hit) for matches first discovered in `(after, upto]`."""
-    bounds = {"lte": upto.isoformat()}
-    if after is not None:
-        bounds["gt"] = after.isoformat()
     body: dict[str, Any] = {
         "size": size,
         "track_total_hits": True,
-        "query": {"bool": {"filter": [query, {"range": {"first_discovered_at": bounds}}]}},
+        "query": window_filter(query, after, upto),
         "sort": [{"first_discovered_at": "desc"}, {"article_id": "desc"}],
         "_source": ["article_id", "first_discovered_at"],
     }
