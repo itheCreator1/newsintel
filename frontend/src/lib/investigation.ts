@@ -1,4 +1,4 @@
-import type { InvestigationState } from './api-types'
+import type { CompareKind, CompareRole, InvestigationState } from './api-types'
 
 export const SORTS = ['relevance', 'newest', 'oldest', 'most_sources'] as const
 export const INTERVALS = ['auto', 'hour', 'day', 'week', 'month', 'year'] as const
@@ -106,6 +106,16 @@ export function sourceHref(id: string, from?: string): string {
   const query = new URLSearchParams({ id })
   if (from) query.set('from', from)
   return toHref('/sources/detail', query)
+}
+
+/** Comparison link; every choice is in the URL so a comparison can be bookmarked and reopened. */
+export function compareHref({ kind, a, b, role, days }: { kind: CompareKind; a?: string; b?: string; role?: CompareRole; days?: number }): string {
+  const query = new URLSearchParams({ kind })
+  if (a) query.set('a', a)
+  if (b) query.set('b', b)
+  if (role) query.set('role', role)
+  if (days && days !== 30) query.set('days', String(days))
+  return toHref('/compare', query)
 }
 
 export function fromSaved(state: InvestigationState): Investigation {

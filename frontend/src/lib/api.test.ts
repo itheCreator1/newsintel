@@ -159,3 +159,20 @@ it('requests a source dossier with its window, paged evidence and encoded cursor
     '/api/v1/sources/s1/fetches?cursor=a+b',
   ])
 })
+
+it('requests a comparison and its evidence with the same subjects, an encoded cursor and the chosen part', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+  const spec = { kind: 'entity' as const, a: 'e1', b: 'e2', days: 7 }
+
+  await api.compare(spec)
+  await api.compare({ kind: 'country', a: 'GR', b: 'FR', role: 'story', days: 30 })
+  await api.compareArticles(spec, 'both')
+  await api.compareStories(spec, 'a', 'c+1')
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/compare?kind=entity&a=e1&b=e2&days=7',
+    '/api/v1/compare?kind=country&a=GR&b=FR&role=story&days=30',
+    '/api/v1/compare/articles?kind=entity&a=e1&b=e2&days=7&part=both',
+    '/api/v1/compare/stories?kind=entity&a=e1&b=e2&days=7&part=a&cursor=c%2B1',
+  ])
+})

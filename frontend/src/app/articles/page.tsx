@@ -43,7 +43,7 @@ function ArticlesContent() {
 
   // `from` can point back to a search, a story cluster, an event, or the entity graph; label the return link for
   // whichever origin it actually is instead of always saying "search".
-  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : from.startsWith('/entities') ? 'Back to entity' : from.startsWith('/events') ? 'Back to event' : from.startsWith('/sources/detail') ? 'Back to source' : 'Back to search'
+  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : from.startsWith('/entities') ? 'Back to entity' : from.startsWith('/events') ? 'Back to event' : from.startsWith('/sources/detail') ? 'Back to source' : from.startsWith('/compare') ? 'Back to comparison' : 'Back to search'
 
   function refinedSearchHref(field: ListField, value: string) {
     const origin = stateFromQuery(from.startsWith('/search') ? parseHref(from) : new URLSearchParams())

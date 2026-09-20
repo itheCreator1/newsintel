@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -91,6 +91,9 @@ export const api = {
   sourceArticles: (id: string, cursor?: string) => request<SourceArticlePage>(`/sources/${id}/articles${query({ cursor })}`),
   sourceClusters: (id: string, cursor?: string) => request<SourceClusterPage>(`/sources/${id}/clusters${query({ cursor })}`),
   sourceFetches: (id: string, cursor?: string) => request<SourceFetchPage>(`/sources/${id}/fetches${query({ cursor })}`),
+  compare: (spec: CompareSpec) => request<CompareResponse>(`/compare${query(compareParams(spec))}`),
+  compareArticles: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareArticlePage>(`/compare/articles${query({ ...compareParams(spec), part, cursor })}`),
+  compareStories: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareClusterPage>(`/compare/stories${query({ ...compareParams(spec), part, cursor })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   edgeEvidence: (filters: Filters, cursor?: string) => {
     const params = filterParams(filters)
@@ -127,6 +130,12 @@ export const api = {
 
 type Filters = Record<string, string | string[] | undefined>
 export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string }
+
+export interface CompareSpec { kind: CompareKind; a: string; b: string; role?: CompareRole; days: number }
+
+function compareParams({ kind, a, b, role, days }: CompareSpec): Record<string, string | undefined> {
+  return { kind, a, b, role, days: String(days) }
+}
 
 function query(params: Record<string, string | undefined>): string {
   const search = filterParams(params)

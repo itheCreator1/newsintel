@@ -54,4 +54,10 @@ export type SourceTiming = components['schemas']['SourceTiming']
 export type SourceArticlePage = components['schemas']['SourceArticlePage']
 export type SourceClusterPage = components['schemas']['SourceClusterPage']
 export type SourceFetchPage = components['schemas']['FetchPage']
+export type CompareResponse = components['schemas']['CompareResponse']
+export type CompareArticlePage = components['schemas']['CompareArticlePage']
+export type CompareClusterPage = components['schemas']['CompareClusterPage']
+export type CompareKind = CompareResponse['kind']
+export type CompareRole = NonNullable<CompareResponse['role']>
+export type ComparePart = 'a' | 'both' | 'b'
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

@@ -31,6 +31,7 @@ describe('application shell', () => {
     expect(screen.getByRole('link', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Graph' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Events' })).toHaveAttribute('href', '/events/')
+    expect(screen.getByRole('link', { name: 'Compare' })).toHaveAttribute('href', '/compare/')
     expect(screen.getByRole('link', { name: 'Saved Searches' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Watchlist' })).toHaveAttribute('href', '/monitors/')
     expect(screen.getByRole('link', { name: 'Jobs' })).toBeTruthy()
