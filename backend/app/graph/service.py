@@ -1,16 +1,36 @@
+import base64
+import json
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.graph.schemas import GraphEdge, GraphNode, GraphResponse
+from app.clustering.models import StoryCluster
+from app.feeds.models import Article, FeedArticle
+from app.feeds.service import article_response
+from app.graph.schemas import (
+    EdgeCluster,
+    EdgeEntity,
+    EdgeEvidenceResponse,
+    GraphEdge,
+    GraphNode,
+    GraphResponse,
+)
 from app.nlp.models import Entity
 from app.search.elasticsearch import ElasticsearchAdapter
 
 MAX_NODES = 50
 MAX_EDGES = 150
+MAX_EVIDENCE = 50
+EVIDENCE_CLUSTERS = 10
+MEANING = (
+    "Both entities are mentioned in the same article. "
+    "This is co-occurrence, not a stated relationship."
+)
 
 
 @dataclass(frozen=True)
@@ -207,4 +227,162 @@ async def entity_graph(
             for edge in edges
         ],
         truncated=truncated,
+    )
+
+
+@dataclass(frozen=True)
+class EvidenceHits:
+    total: int
+    first_at: datetime | None
+    last_at: datetime | None
+    cluster_count: int
+    article_ids: list[uuid.UUID]
+    cluster_counts: list[tuple[uuid.UUID, int]]
+    next_after: list[Any] | None
+
+
+def evidence_body(
+    query: dict[str, Any],
+    source: uuid.UUID,
+    target: uuid.UUID,
+    *,
+    limit: int,
+    after: list[Any] | None,
+) -> dict[str, Any]:
+    """The graph's own query plus both entities, so hits equal the drawn edge weight."""
+    body: dict[str, Any] = {
+        "size": min(limit, MAX_EVIDENCE) + 1,  # the extra hit reveals whether a page follows
+        "track_total_hits": True,
+        "query": {
+            "bool": {"filter": [query, _holds_entity(str(source)), _holds_entity(str(target))]}
+        },
+        # ponytail: no PIT, pages can shift if the index is rebuilt mid-scroll; open one if needed
+        "sort": [{"effective_date": "desc"}, {"article_id": "asc"}],
+        "_source": ["article_id"],
+        "aggs": {
+            "first": {"min": {"field": "effective_date"}},
+            "last": {"max": {"field": "effective_date"}},
+            "cluster_count": {"cardinality": {"field": "story_cluster_id"}},
+            "clusters": {"terms": {"field": "story_cluster_id", "size": EVIDENCE_CLUSTERS}},
+        },
+    }
+    if after:
+        body["search_after"] = after
+    return body
+
+
+def _date(aggregation: dict[str, Any]) -> datetime | None:
+    value = aggregation.get("value_as_string")
+    return datetime.fromisoformat(value) if value else None
+
+
+def parse_evidence(response: dict[str, Any], *, limit: int) -> EvidenceHits:
+    limit = min(limit, MAX_EVIDENCE)
+    hits = response.get("hits", {})
+    found = hits.get("hits", [])
+    aggregations = response.get("aggregations", {})
+    return EvidenceHits(
+        total=int(hits.get("total", {}).get("value", 0)),
+        first_at=_date(aggregations.get("first", {})),
+        last_at=_date(aggregations.get("last", {})),
+        cluster_count=int(aggregations.get("cluster_count", {}).get("value", 0)),
+        article_ids=[uuid.UUID(hit["_source"]["article_id"]) for hit in found[:limit]],
+        cluster_counts=[
+            (uuid.UUID(bucket["key"]), int(bucket["doc_count"]))
+            for bucket in aggregations.get("clusters", {}).get("buckets", [])
+        ],
+        next_after=found[limit - 1]["sort"] if len(found) > limit else None,
+    )
+
+
+def encode_after(after: list[Any]) -> str:
+    return base64.urlsafe_b64encode(json.dumps(after).encode()).decode()
+
+
+def decode_after(cursor: str) -> list[Any]:
+    try:
+        after = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid cursor") from exc
+    if not isinstance(after, list) or len(after) != 2:
+        raise ValueError("Invalid cursor")
+    return after
+
+
+async def articles_by_id(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Article]:
+    if not ids:
+        return {}
+    rows = await db.scalars(
+        select(Article)
+        .where(Article.id.in_(ids))
+        .options(selectinload(Article.discoveries).selectinload(FeedArticle.feed))
+    )
+    return {row.id: row for row in rows.all()}
+
+
+async def clusters_by_id(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, StoryCluster]:
+    if not ids:
+        return {}
+    rows = await db.scalars(select(StoryCluster).where(StoryCluster.id.in_(ids)))
+    return {row.id: row for row in rows.all()}
+
+
+def _edge_entity(entity: Entity) -> EdgeEntity:
+    return EdgeEntity(id=entity.id, text=entity.display_text, type=entity.entity_type)
+
+
+def _edge_cluster(
+    story: StoryCluster, edge_article_count: int, found: dict[uuid.UUID, Article]
+) -> EdgeCluster:
+    representative = (
+        found.get(story.representative_article_id) if story.representative_article_id else None
+    )
+    return EdgeCluster(
+        id=story.id,
+        edge_article_count=edge_article_count,
+        article_count=story.article_count,
+        source_count=story.source_count,
+        representative_article=article_response(representative) if representative else None,
+    )
+
+
+async def edge_evidence(
+    db: AsyncSession,
+    adapter: ElasticsearchAdapter,
+    index_name: str,
+    *,
+    query: dict[str, Any],
+    source: Entity,
+    target: Entity,
+    limit: int,
+    after: list[Any] | None,
+) -> EdgeEvidenceResponse:
+    response = await adapter.search_index(
+        index_name, evidence_body(query, source.id, target.id, limit=limit, after=after)
+    )
+    hits = parse_evidence(response, limit=limit)
+    stories = await clusters_by_id(db, [cluster_id for cluster_id, _ in hits.cluster_counts])
+    representatives = [
+        story.representative_article_id
+        for story in stories.values()
+        if story.representative_article_id is not None
+    ]
+    found = await articles_by_id(db, [*hits.article_ids, *representatives])
+    page = [found[article_id] for article_id in hits.article_ids if article_id in found]
+    return EdgeEvidenceResponse(
+        source=_edge_entity(source),
+        target=_edge_entity(target),
+        meaning=MEANING,
+        article_count=hits.total,
+        cluster_count=hits.cluster_count,
+        first_at=hits.first_at,
+        last_at=hits.last_at,
+        articles=[article_response(article) for article in page],
+        next_cursor=encode_after(hits.next_after) if hits.next_after else None,
+        clusters=[
+            _edge_cluster(stories[cluster_id], count, found)
+            for cluster_id, count in hits.cluster_counts
+            if cluster_id in stories
+        ],
+        missing_from_archive=len(hits.article_ids) - len(page),
     )

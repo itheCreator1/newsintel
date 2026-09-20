@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
+import { EdgeEvidencePanel } from '../../components/EdgeEvidencePanel'
 import { EntityGraph } from '../../components/EntityGraph'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
@@ -14,6 +15,7 @@ import { entityHref, queryFromState, refine, stateFromQuery, toHref, type Invest
 
 const MAX_NODES = 50
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
+const edgeKey = (a: string, b: string) => [a, b].sort().join(':')
 
 function formFromState(current: Investigation, nodeCount: number) {
   return {
@@ -27,6 +29,10 @@ function GraphContent() {
   const searchParams = useSearchParams()
   const state = stateFromQuery(searchParams)
   const focus = searchParams.get('focus') ?? ''
+  const edge = (() => {
+    const [source, target, ...rest] = (searchParams.get('edge') ?? '').split(':')
+    return source && target && !rest.length && source !== target ? [source, target] as const : null
+  })()
   const nodeCount = (() => {
     const raw = Number(searchParams.get('nodes'))
     // A hand-edited URL or bookmark can carry any value; the backend rejects anything over MAX_NODES with a 422.
@@ -43,21 +49,24 @@ function GraphContent() {
   // Only the fields the graph filter form exposes are sent: the graph endpoint accepts more (entity_id,
   // keyword_id, story_cluster_id, ...) via the shared search criteria, but leaking whatever happens to be
   // in the URL from another view would silently change results the user never asked to filter by.
-  const graphFilters: Record<string, string | string[] | undefined> = {}
-  if (state.q) graphFilters.q = state.q
-  if (state.source_id.length) graphFilters.source_id = state.source_id
-  if (state.source_country.length) graphFilters.source_country = state.source_country
-  if (state.story_country.length) graphFilters.story_country = state.story_country
-  if (state.entity_type.length) graphFilters.entity_type = state.entity_type
-  if (state.after) graphFilters.after = state.after
-  if (state.before) graphFilters.before = state.before
-  graphFilters.nodes = String(nodeCount)
-  if (focus) graphFilters.focus_entity_id = focus
+  const evidenceFilters: Record<string, string | string[] | undefined> = {}
+  if (state.q) evidenceFilters.q = state.q
+  if (state.source_id.length) evidenceFilters.source_id = state.source_id
+  if (state.source_country.length) evidenceFilters.source_country = state.source_country
+  if (state.story_country.length) evidenceFilters.story_country = state.story_country
+  if (state.entity_type.length) evidenceFilters.entity_type = state.entity_type
+  if (state.after) evidenceFilters.after = state.after
+  if (state.before) evidenceFilters.before = state.before
+  if (focus) evidenceFilters.focus_entity_id = focus
+  // Edge evidence takes every graph filter except the node count, so its totals equal the drawn edge weight.
+  const graphFilters = { ...evidenceFilters, nodes: String(nodeCount) }
 
   const graph = useQuery({ queryKey: ['entity-graph', graphFilters], queryFn: () => api.entityGraph(graphFilters), retry: false })
   const nodes = graph.data?.nodes ?? []
   const edges = graph.data?.edges ?? []
   const focusNode = nodes.find(node => node.id === focus) ?? null
+  const nodeById = new Map(nodes.map(node => [node.id, node]))
+  const selectedEdge = edge ? edgeKey(...edge) : ''
   const connected = focusNode
     ? nodes.filter(node => new Set(edges.filter(edge => edge.source === focusNode.id || edge.target === focusNode.id).map(edge => edge.source === focusNode.id ? edge.target : edge.source)).has(node.id))
     : []
@@ -71,11 +80,12 @@ function GraphContent() {
   const graphError = graph.error instanceof ApiError ? graph.error : null
   const upgradeRequired = graphError?.status === 409 && errorCode(graphError) === 'search_upgrade_required'
 
-  function navigate(next: Investigation, extra: { focus?: string; nodes?: number } = {}) {
+  function navigate(next: Investigation, extra: { focus?: string; nodes?: number; edge?: string } = {}) {
     const query = queryFromState(next)
     const nextFocus = extra.focus !== undefined ? extra.focus : focus
     const nextNodes = Math.min(extra.nodes !== undefined ? extra.nodes : nodeCount, MAX_NODES)
     if (nextFocus) query.set('focus', nextFocus)
+    if (extra.edge) query.set('edge', extra.edge)
     if (nextNodes !== 30) query.set('nodes', String(nextNodes))
     router.push(toHref('/graph', query))
   }
@@ -87,6 +97,7 @@ function GraphContent() {
     }, { nodes: Number(form.nodes) || 30 })
   }
   function selectEntity(entityId: string) { navigate(state, { focus: entityId }) }
+  function selectEdge(source: string, target: string) { navigate(state, { edge: edgeKey(source, target) }) }
   function searchWithEntityHref(entityId: string) { return toHref('/search', queryFromState(refine(state, 'entity_id', entityId))) }
   const selected = (event: React.ChangeEvent<HTMLSelectElement>) => Array.from(event.target.selectedOptions, option => option.value)
 
@@ -106,14 +117,14 @@ function GraphContent() {
         <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1')}>Update graph</button>
       </form>
 
-      <div className={focusNode ? 'grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]' : undefined}>
+      <div className={focusNode || edge ? 'grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]' : undefined}>
         <GlassPanel>
           {graph.isPending && <p className="text-sm text-muted-foreground">Loading the entity graph…</p>}
           {!graph.isPending && graph.isError && <p role="alert" className="error text-sm text-destructive">{upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}</p>}
           {!graph.isPending && !graph.isError && !nodes.length && <p className="text-sm text-muted-foreground">No co-occurring entities for these filters.</p>}
           {!graph.isPending && !graph.isError && nodes.length > 0 && (
             <>
-              <EntityGraph nodes={nodes} edges={edges} focus={focus} onSelect={selectEntity} />
+              <EntityGraph nodes={nodes} edges={edges} focus={focus} onSelect={selectEntity} onSelectEdge={selectEdge} />
               {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
               <ul className="mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
                 {nodes.map(node => (
@@ -129,9 +140,28 @@ function GraphContent() {
                   </li>
                 ))}
               </ul>
+              {edges.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-2" aria-label="Connections in this graph">
+                  {edges.map(link => {
+                    const from = nodeById.get(link.source)
+                    const to = nodeById.get(link.target)
+                    if (!from || !to) return null
+                    const key = edgeKey(link.source, link.target)
+                    return (
+                      <li key={key}>
+                        <button type="button" className={cn(chipClass, key === selectedEdge && 'border-primary/60 bg-primary/12 text-foreground')} aria-pressed={key === selectedEdge} onClick={() => selectEdge(link.source, link.target)}>
+                          {from.text} — {to.text} · {link.weight}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </>
           )}
         </GlassPanel>
+        {(focusNode || edge) && <div className="flex flex-col gap-6">
+        {edge && <EdgeEvidencePanel source={edge[0]} target={edge[1]} filters={evidenceFilters} returnHref={toHref('/graph', new URLSearchParams(searchParams.toString()))} />}
         {focusNode && (
           <aside aria-label="Entity details" className={cn(glassPanelClassName, 'flex flex-col gap-3')}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">{focusNode.type}</p>
@@ -159,6 +189,7 @@ function GraphContent() {
             </div>
           </aside>
         )}
+        </div>}
       </div>
     </div>
   )

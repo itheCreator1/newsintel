@@ -5,11 +5,14 @@ import { navigationHarness, resetNavigationHarness } from '../../test/navigation
 import { renderWithQuery } from '../../test/render'
 import GraphPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { entityGraph: vi.fn(), search: vi.fn(), searchSources: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { entityGraph: vi.fn(), edgeEvidence: vi.fn(), search: vi.fn(), searchSources: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the clicked node id.
 vi.mock('../../components/EntityGraph', () => ({
-  EntityGraph: (props: { nodes?: unknown[]; onSelect: (id: string) => void }) =>
-    <button type="button" onClick={() => props.onSelect('entity-two')}>{`Chart with ${props.nodes?.length} nodes`}</button>,
+  EntityGraph: (props: { nodes?: unknown[]; onSelect: (id: string) => void; onSelectEdge: (source: string, target: string) => void }) =>
+    <>
+      <button type="button" onClick={() => props.onSelect('entity-two')}>{`Chart with ${props.nodes?.length} nodes`}</button>
+      <button type="button" onClick={() => props.onSelectEdge('entity-two', 'entity-one')}>Chart edge</button>
+    </>,
 }))
 
 const nodes = [
@@ -22,6 +25,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   resetNavigationHarness({ pathname: '/graph/' })
   vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges, truncated: false })
+  vi.mocked(api.edgeEvidence).mockResolvedValue({
+    source: { id: 'entity-one', text: 'Acme', type: 'ORG' }, target: { id: 'entity-two', text: 'Jane Doe', type: 'PERSON' },
+    meaning: 'Both entities are mentioned in the same article. This is co-occurrence, not a stated relationship.',
+    article_count: 3, cluster_count: 1, first_at: null, last_at: null, articles: [], next_cursor: null, clusters: [], missing_from_archive: 0,
+  })
   vi.mocked(api.search).mockResolvedValue({ items: [{ article_id: 'a1', title: 'Acme partners with Jane Doe', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 1, sources: ['Wire'], source_refs: [], highlights: [], summary: null }], next_cursor: null })
   vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: false }], next_cursor: null })
 })
@@ -109,4 +117,51 @@ it('shows an upgrade message when the search index needs a rebuild', async () =>
   renderWithQuery(() => <GraphPage />)
 
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to use the entity graph.')).toBeTruthy()
+})
+
+it('lists each connection as a button and opens its evidence with a canonical edge param', async () => {
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Acme — Jane Doe · 3' }))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.get('edge')).toBe('entity-one:entity-two')
+  expect(await screen.findByRole('complementary', { name: 'Relationship evidence' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: 'Acme and Jane Doe' })).toBeTruthy()
+})
+
+it('canonicalises an edge chosen from the chart in either direction', async () => {
+  renderWithQuery(() => <GraphPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Chart edge' }))
+
+  expect(navigationHarness.searchParams.get('edge')).toBe('entity-one:entity-two')
+})
+
+it('requests evidence with the graph filters and focus but not the node count', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'q=grid&country=US&nodes=40&focus=entity-one&edge=entity-one%3Aentity-two' })
+  renderWithQuery(() => <GraphPage />)
+
+  await screen.findByRole('heading', { name: 'Acme and Jane Doe' })
+  expect(api.edgeEvidence).toHaveBeenLastCalledWith({ q: 'grid', source_country: ['US'], focus_entity_id: 'entity-one', source: 'entity-one', target: 'entity-two' }, undefined)
+})
+
+it('closes the evidence when another entity is selected and ignores a malformed edge param', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'edge=entity-one%3Aentity-two' })
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByRole('heading', { name: 'Acme and Jane Doe' })
+
+  fireEvent.click(screen.getByRole('button', { name: /Jane Doe \(PERSON\)/ }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.get('edge')).toBeNull()
+  expect(navigationHarness.searchParams.get('focus')).toBe('entity-two')
+  cleanup()
+
+  vi.mocked(api.edgeEvidence).mockClear()
+  resetNavigationHarness({ pathname: '/graph/', search: 'edge=bogus' })
+  renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+  expect(screen.queryByRole('complementary', { name: 'Relationship evidence' })).toBeNull()
+  expect(api.edgeEvidence).not.toHaveBeenCalled()
 })

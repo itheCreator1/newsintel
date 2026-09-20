@@ -688,6 +688,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/graph/edges/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Edge Evidence
+         * @description The articles and stories behind one graph edge, under the same filters as the graph.
+         */
+        get: operations["edge_evidence_api_v1_graph_edges_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/saved-searches": {
         parameters: {
             query?: never;
@@ -1158,6 +1178,56 @@ export interface components {
             items: components["schemas"]["FeedResponse"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** EdgeCluster */
+        EdgeCluster: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Edge Article Count */
+            edge_article_count: number;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            representative_article: components["schemas"]["ArticleResponse"] | null;
+        };
+        /** EdgeEntity */
+        EdgeEntity: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Text */
+            text: string;
+            /** Type */
+            type: string;
+        };
+        /** EdgeEvidenceResponse */
+        EdgeEvidenceResponse: {
+            source: components["schemas"]["EdgeEntity"];
+            target: components["schemas"]["EdgeEntity"];
+            /** Meaning */
+            meaning: string;
+            /** Article Count */
+            article_count: number;
+            /** Cluster Count */
+            cluster_count: number;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+            /** Articles */
+            articles: components["schemas"]["ArticleResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Clusters */
+            clusters: components["schemas"]["EdgeCluster"][];
+            /** Missing From Archive */
+            missing_from_archive: number;
         };
         /** EntityAnnotationResponse */
         EntityAnnotationResponse: {
@@ -3500,6 +3570,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edge_evidence_api_v1_graph_edges_evidence_get: {
+        parameters: {
+            query: {
+                source: string;
+                target: string;
+                focus_entity_id?: string | null;
+                limit?: number;
+                cursor?: string | null;
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EdgeEvidenceResponse"];
                 };
             };
             /** @description Validation Error */
