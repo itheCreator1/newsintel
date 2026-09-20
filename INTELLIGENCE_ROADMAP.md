@@ -82,7 +82,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ### Phase 10A — Entity dossier backend
 
-- **Status:** `IN PROGRESS`
+- **Status:** `COMPLETE`
 - **Objective:** Provide a typed, paginated, database-backed entity dossier with identity, explicitly unavailable aliases, mention/article/cluster totals, first/last seen timestamps, a bounded mention timeline, recent articles and clusters, co-occurring entities, countries, and sources.
 - **Existing components to reuse:** `Entity`, `ArticleEntity`, `ArticleCountryAnnotation`, `Article`, `FeedArticle`, `Feed`, `StoryClusterMember`, and `StoryCluster`; keyset cursor patterns from feed/clustering routes; `current_session` authorization; Pydantic response schemas; and the checked-in OpenAPI generation workflow.
 - **Backend changes:** Add focused entity dossier queries and route handlers. Keep aggregation in SQL, avoid N+1 access, and define explicit bounds for timeline and top-N results.
@@ -387,3 +387,4 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - 2026-09-20: Completed Phase 10A on `phase/10a-entity-dossier-backend`. Added PostgreSQL-backed dossier detail, evidence pages, and bounded relationships; regenerated OpenAPI/types; confirmed the existing entity-first partial index; and recorded passing verification.
 - 2026-09-20: Established a required checked-in acceptance script for every implementation phase. Phase 10A is returned to `IN PROGRESS` until `infra/test-phase10a.sh` passes.
 - 2026-09-20: Added and passed `infra/test-phase10a.sh`; Phase 10A is `COMPLETE` again and ready for review without merge or publication authorization.
+- 2026-09-20: Corrected the stale Phase 10A detail-block status from `IN PROGRESS` to `COMPLETE`.
