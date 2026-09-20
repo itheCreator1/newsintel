@@ -304,8 +304,15 @@ def decode_after(cursor: str) -> list[Any]:
         after = json.loads(base64.urlsafe_b64decode(cursor.encode()))
     except (ValueError, UnicodeDecodeError) as exc:
         raise ValueError("Invalid cursor") from exc
-    if not isinstance(after, list) or len(after) != 2:
+    # The cursor is the last hit's sort key: (effective_date as epoch millis, article_id).
+    if not (
+        isinstance(after, list)
+        and len(after) == 2
+        and type(after[0]) is int
+        and isinstance(after[1], str)
+    ):
         raise ValueError("Invalid cursor")
+    uuid.UUID(after[1])  # ValueError for anything that is not an article id
     return after
 
 
