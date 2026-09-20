@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
+import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, mapHref, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -118,5 +118,14 @@ describe('compareHref', () => {
     expect(compareHref({ kind: 'source', a: 's-1' })).toBe('/compare/?kind=source&a=s-1')
     expect(compareHref({ kind: 'entity', a: 'e1', b: 'e2', days: 30 })).toBe('/compare/?kind=entity&a=e1&b=e2')
     expect(compareHref({ kind: 'country', a: 'GR', b: 'FR', role: 'mentioned', days: 90 })).toBe('/compare/?kind=country&a=GR&b=FR&role=mentioned&days=90')
+  })
+})
+
+describe('mapHref', () => {
+  it('holds the role, window and selected country in the URL and leaves out the defaults', () => {
+    expect(mapHref({})).toBe('/map/')
+    expect(mapHref({ role: 'story', days: 30 })).toBe('/map/')
+    expect(mapHref({ role: 'mentioned', days: 90, country: 'gr' })).toBe('/map/?role=mentioned&days=90&country=GR')
+    expect(mapHref({ country: 'FR' })).toBe('/map/?country=FR')
   })
 })

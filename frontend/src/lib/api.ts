@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -93,6 +93,8 @@ export const api = {
   sourceFetches: (id: string, cursor?: string) => request<SourceFetchPage>(`/sources/${id}/fetches${query({ cursor })}`),
   compare: (spec: CompareSpec) => request<CompareResponse>(`/compare${query(compareParams(spec))}`),
   compareArticles: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareArticlePage>(`/compare/articles${query({ ...compareParams(spec), part, cursor })}`),
+  geoCountries: (role: GeoRole, days: number) => request<GeoCountriesResponse>(`/geo/countries${query({ role, days: String(days) })}`),
+  geoArticles: (role: GeoArticleRole, code: string, days: number, cursor?: string) => request<GeoArticlePage>(`/geo/articles${query({ role, code, days: String(days), cursor })}`),
   compareStories: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareClusterPage>(`/compare/stories${query({ ...compareParams(spec), part, cursor })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   edgeEvidence: (filters: Filters, cursor?: string) => {

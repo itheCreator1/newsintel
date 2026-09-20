@@ -1,4 +1,4 @@
-import type { CompareKind, CompareRole, InvestigationState } from './api-types'
+import type { CompareKind, CompareRole, GeoRole, InvestigationState } from './api-types'
 
 export const SORTS = ['relevance', 'newest', 'oldest', 'most_sources'] as const
 export const INTERVALS = ['auto', 'hour', 'day', 'week', 'month', 'year'] as const
@@ -116,6 +116,15 @@ export function compareHref({ kind, a, b, role, days }: { kind: CompareKind; a?:
   if (role) query.set('role', role)
   if (days && days !== 30) query.set('days', String(days))
   return toHref('/compare', query)
+}
+
+/** Map link; the role, window and selected country are all in the URL so a view can be bookmarked. */
+export function mapHref({ role, days, country }: { role?: GeoRole; days?: number; country?: string }): string {
+  const query = new URLSearchParams()
+  if (role && role !== 'story') query.set('role', role)
+  if (days && days !== 30) query.set('days', String(days))
+  if (country) query.set('country', country.toUpperCase())
+  return toHref('/map', query)
 }
 
 export function fromSaved(state: InvestigationState): Investigation {

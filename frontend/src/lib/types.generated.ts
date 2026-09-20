@@ -807,6 +807,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Geo Countries */
+        get: operations["geo_countries_api_v1_geo_countries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Geo Articles */
+        get: operations["geo_articles_api_v1_geo_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -2115,6 +2149,65 @@ export interface components {
             started_at: string;
             /** Completed At */
             completed_at: string | null;
+        };
+        /** GeoArticlePage */
+        GeoArticlePage: {
+            /** Items */
+            items: components["schemas"]["ArticleResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** GeoCountriesResponse */
+        GeoCountriesResponse: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "story" | "mentioned" | "source" | "event";
+            /** Days */
+            days: number;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            coverage: components["schemas"]["GeoCoverage"];
+            /** Items */
+            items: components["schemas"]["GeoCountry"][];
+        };
+        /**
+         * GeoCountry
+         * @description Counts for one country in one role. An article with several countries counts once in each.
+         *     `articles` and `stories` are null for the `event` role, `events` is null for every other role,
+         *     and `sources` (distinct feeds) is only set for the `source` role.
+         */
+        GeoCountry: {
+            /** Country Code */
+            country_code: string;
+            /** Articles */
+            articles: number | null;
+            /** Stories */
+            stories: number | null;
+            /** Sources */
+            sources: number | null;
+            /** Events */
+            events: number | null;
+        };
+        /**
+         * GeoCoverage
+         * @description The base of every count: `window_total` items (articles, or events) in the window, of which
+         *     `located` have a country in this role.
+         */
+        GeoCoverage: {
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "articles" | "events";
+            /** Window Total */
+            window_total: number;
+            /** Located */
+            located: number;
         };
         /** GraphEdge */
         GraphEdge: {
@@ -4888,6 +4981,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompareClusterPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    geo_countries_api_v1_geo_countries_get: {
+        parameters: {
+            query: {
+                role: "story" | "mentioned" | "source" | "event";
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoCountriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    geo_articles_api_v1_geo_articles_get: {
+        parameters: {
+            query: {
+                role: "story" | "mentioned" | "source";
+                code: string;
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoArticlePage"];
                 };
             };
             /** @description Validation Error */
