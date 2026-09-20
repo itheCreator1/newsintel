@@ -3,13 +3,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import type { MonitorResult, MonitorResultPage } from '../../lib/api-types'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
-import { monitor } from '../../test/monitors'
+import { changes, monitor } from '../../test/monitors'
 import { renderWithQuery } from '../../test/render'
 import MonitorsPage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { monitors: vi.fn(), monitor: vi.fn(), monitorResults: vi.fn(), updateMonitor: vi.fn(), markMonitorViewed: vi.fn(), deleteMonitor: vi.fn() },
+  api: { monitors: vi.fn(), monitor: vi.fn(), monitorResults: vi.fn(), monitorChanges: vi.fn(), updateMonitor: vi.fn(), markMonitorViewed: vi.fn(), deleteMonitor: vi.fn() },
 }))
 
 const NOW = Date.parse('2026-09-20T12:00:00Z')
@@ -145,6 +145,7 @@ const arrange = (item = monitor({ id: 'm1', name: 'Harbor watch', ...unseen }), 
   openDetail()
   vi.mocked(api.monitor).mockResolvedValue(item)
   vi.mocked(api.monitorResults).mockImplementation(async (_id, scope) => scope === 'unseen' ? unseenPage : page([result('a0', 'Older harbor story')]))
+  vi.mocked(api.monitorChanges).mockResolvedValue(changes())
 }
 
 it('shows the counters, what they cover and the unseen articles, linking back to this view', async () => {
@@ -153,7 +154,7 @@ it('shows the counters, what they cover and the unseen articles, linking back to
 
   expect(await screen.findByRole('heading', { level: 3, name: 'Harbor watch' })).toBeTruthy()
   expect(screen.getByText('2 new articles · 1 new story')).toBeTruthy()
-  expect(screen.getByText(/Counted through/)).toBeTruthy()
+  expect(screen.getAllByText(/Counted through/).length).toBeGreaterThan(0) // the header, and the changes panel once it loads
   expect(screen.getByRole('link', { name: 'Open in search' })).toHaveAttribute('href', '/search/?q=harbor')
   expect(await screen.findByRole('link', { name: 'Harbor strike widens' })).toHaveAttribute('href', '/articles/?article=a1&from=%2Fmonitors%2F%3Fid%3Dm1')
   expect(api.monitorResults).toHaveBeenCalledWith('m1', 'unseen', undefined)
@@ -261,4 +262,65 @@ it('pauses from the detail and goes back to the watchlist after a confirmed dele
 
   await vi.waitFor(() => expect(navigationHarness.push).toHaveBeenLastCalledWith('/monitors/'))
   expect(api.deleteMonitor).toHaveBeenCalledWith('m1')
+})
+
+// ---- what changed ----
+
+const evidence = [{ article_id: 'a1', title: 'Harbor strike widens' }]
+const populated = changes({
+  article_count: 2,
+  sources: [{ source_id: 's9', name: 'Harbor Wire', article_count: 2, evidence }],
+  entities: [{ entity_id: 'e1', name: 'Acme', entity_type: 'ORG', article_count: 1, evidence }],
+  stories: [{ cluster_id: 'c1', title: 'Port strike', status: 'grew', article_count: 1, source_count: 5, sources_added: 2, evidence }],
+})
+
+it('lists what changed with a link to the subject and to the evidence articles', async () => {
+  arrange()
+  vi.mocked(api.monitorChanges).mockResolvedValue(populated)
+  renderWithQuery(() => <MonitorsPage />)
+
+  const panel = await screen.findByRole('region', { name: 'What changed' })
+  expect(await within(panel).findByRole('link', { name: 'New source: Harbor Wire (2 articles)' })).toHaveAttribute('href', '/search/?q=harbor&source_id=s9')
+  expect(within(panel).getByText('2 new articles')).toBeTruthy()
+  expect(within(panel).getByRole('link', { name: 'New entity: Acme (ORG) — 1 article' })).toHaveAttribute('href', '/entities/?id=e1')
+  expect(within(panel).getByRole('link', { name: 'Story grew: Port strike — 3 → 5 sources (+2)' })).toHaveAttribute('href', '/clusters/?id=c1&from=%2Fmonitors%2F%3Fid%3Dm1')
+  expect(within(panel).getAllByRole('link', { name: 'Harbor strike widens' })[0]).toHaveAttribute('href', '/articles/?article=a1&from=%2Fmonitors%2F%3Fid%3Dm1')
+  expect(api.monitorChanges).toHaveBeenCalledWith('m1')
+})
+
+it('is not shown for the recent scope, which has no boundary to compare with', async () => {
+  arrange()
+  openDetail('id=m1&scope=recent')
+  renderWithQuery(() => <MonitorsPage />)
+
+  await screen.findByRole('link', { name: 'Older harbor story' })
+  expect(screen.queryByRole('region', { name: 'What changed' })).toBeNull()
+})
+
+it('says so when nothing changed, but never during a recount', async () => {
+  arrange()
+  const view = renderWithQuery(() => <MonitorsPage />)
+  expect(await screen.findByText('No changes since you last looked.')).toBeTruthy()
+  view.unmount()
+
+  arrange(monitor({ id: 'm1', name: 'Harbor watch', next_evaluation_at: '2026-09-20T11:59:59Z' }))
+  renderWithQuery(() => <MonitorsPage />)
+  expect(await screen.findByText('The changes are being refreshed.')).toBeTruthy()
+  expect(screen.queryByText('No changes since you last looked.')).toBeNull()
+})
+
+it('reports a failed load and refetches once the counters move', async () => {
+  arrange()
+  vi.mocked(api.monitorChanges).mockRejectedValueOnce(new ApiError('boom', 500)).mockResolvedValue(populated)
+  vi.mocked(api.markMonitorViewed).mockImplementation(async () => {
+    vi.mocked(api.monitor).mockResolvedValue(monitor({ id: 'm1', name: 'Harbor watch' }))
+    vi.mocked(api.monitorChanges).mockResolvedValue(changes())
+    return monitor({ id: 'm1', name: 'Harbor watch' })
+  })
+  renderWithQuery(() => <MonitorsPage />)
+  expect(await screen.findByText('Could not load the changes.')).toBeTruthy()
+
+  await fireEvent.click(await markButton())
+
+  expect(await screen.findByText('No changes since you last looked.')).toBeTruthy()
 })

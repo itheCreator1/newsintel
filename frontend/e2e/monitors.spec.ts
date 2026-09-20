@@ -46,7 +46,14 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await expect(page.getByRole('heading', { level: 3, name: 'Harbor watch' })).toBeVisible()
   await expect(page.locator('main article')).toHaveCount(6)
 
+  // Both feeds are new to this monitor; entities and stories need NER and clustering, which this stack does not run.
+  const changes = page.getByRole('region', { name: 'What changed' })
+  await expect(changes.getByText('6 new articles')).toBeVisible()
+  await expect(changes.getByRole('link', { name: /^New source: Harbor (Wire|Daily) \(\d+ articles?\)$/ })).toHaveCount(2)
+  await expect(changes.locator('a[href^="/articles/"]').first()).toBeVisible()
+
   await page.getByRole('button', { name: 'Mark as seen (6)' }).click()
+  await expect(changes.getByText('No changes since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Recent matches' }).click()
