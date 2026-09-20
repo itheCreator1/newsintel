@@ -58,6 +58,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <NavLink href="/articles">Articles</NavLink>
           <NavLink href="/search">Search</NavLink>
           <NavLink href="/graph">Graph</NavLink>
+          <NavLink href="/events">Events</NavLink>
           <NavLink href="/saved-searches">Saved Searches</NavLink>
           <NavLink href="/monitors">Watchlist</NavLink>
           <NavLink href="/jobs">Jobs</NavLink>

@@ -140,6 +140,15 @@ it('shows the not-part-of-a-story empty state when an article has no cluster', a
   expect(await screen.findByText('Not part of a detected story.')).toBeTruthy()
 })
 
+it('labels the way back to an event dossier', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one&from=%2Fevents%2Fdetail%2F%3Fid%3Dev-1' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  renderWithQuery(() => <ArticlesPage />)
+
+  expect(await screen.findByRole('link', { name: 'Back to event' })).toHaveAttribute('href', '/events/detail/?id=ev-1')
+})
+
 it('shows the story section with related articles and links to the full cluster and a story filter', async () => {
   const search = 'article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS'
   resetNavigationHarness({ pathname: '/articles/', search })

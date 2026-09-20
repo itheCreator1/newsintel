@@ -41,6 +41,12 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+it('links to the events this entity characterises', async () => {
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByRole('link', { name: 'Events with this entity' })).toHaveAttribute('href', '/events/?entity_id=ent-1')
+})
+
 it('shows identity, totals, explicit unavailable aliases, and first/last seen', async () => {
   renderWithQuery(() => <EntitiesPage />)
 
