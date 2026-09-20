@@ -7,8 +7,8 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 ## Session state
 
 - Current phase: Phase 10A — Entity dossier backend
-- Current status: `IN PROGRESS`
-- Next action: Add and pass `infra/test-phase10a.sh`, then review and integrate `phase/10a-entity-dossier-backend`; Phase 10B remains pending and must begin from the integration branch after this phase is accepted.
+- Current status: `COMPLETE`
+- Next action: Review and integrate `phase/10a-entity-dossier-backend`; Phase 10B remains pending and must begin from the integration branch after this phase is accepted.
 - Deferred work: Every phase after 10A remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
 - Verification state: Phase 10A backend, PostgreSQL, OpenAPI generation, frontend tests/typecheck/build, and relevant existing Elasticsearch integration checks passed on 2026-09-20.
 
@@ -61,7 +61,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Phase checklist
 
-- [ ] Phase 10A — Entity dossier backend (`IN PROGRESS`)
+- [x] Phase 10A — Entity dossier backend (`COMPLETE`)
 - [ ] Phase 10B — Entity dossier frontend (`NOT STARTED`)
 - [ ] Phase 10C — Evidence-backed graph relationships (`NOT STARTED`)
 - [ ] Phase 11A — Monitor data model (`NOT STARTED`)
@@ -377,7 +377,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Phase | Tests/checks run | Result | Notes |
 | --- | --- | --- | --- |
 | Roadmap initialization | `git check-ignore -v`, repository structure/model/route/service/test/config inspection | PASS | `docs/` is ignored, so the roadmap was moved to tracked repository root. No application behavior changed. |
-| Phase 10A | PostgreSQL dossier integration test, route/OpenAPI contract test, Ruff, mypy, OpenAPI/type generation, frontend Vitest/typecheck/webpack build | PASS, acceptance script pending | Dossier tests run against the isolated PostgreSQL fixture; the entity API has no Elasticsearch dependency. |
+| Phase 10A | `infra/test-phase10a.sh`: isolated PostgreSQL migration, dossier tests without Elasticsearch, Ruff, mypy, OpenAPI/type generation, frontend Vitest/typecheck/webpack build | PASS | The script cleaned up its disposable Compose stack; dossier tests ran with Elasticsearch deliberately unreachable. |
 | Existing Phase 7 Elasticsearch integration | Full backend suite: 204 passed with Elasticsearch-dependent checks unavailable in the PostgreSQL-only stack; then both affected tests rerun with the isolated Elasticsearch fixture | PASS | The two reruns passed. |
 
 ## Change log
@@ -386,3 +386,4 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - 2026-09-20: Completed the initial code reality check, replaced provisional architecture notes with verified module/schema/workflow details, recorded Phase 10A index and alias risks, and added the required branch-per-phase workflow.
 - 2026-09-20: Completed Phase 10A on `phase/10a-entity-dossier-backend`. Added PostgreSQL-backed dossier detail, evidence pages, and bounded relationships; regenerated OpenAPI/types; confirmed the existing entity-first partial index; and recorded passing verification.
 - 2026-09-20: Established a required checked-in acceptance script for every implementation phase. Phase 10A is returned to `IN PROGRESS` until `infra/test-phase10a.sh` passes.
+- 2026-09-20: Added and passed `infra/test-phase10a.sh`; Phase 10A is `COMPLETE` again and ready for review without merge or publication authorization.
