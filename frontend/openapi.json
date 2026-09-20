@@ -3181,6 +3181,168 @@
         }
       }
     },
+    "/api/v1/geo/countries": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Geo Countries",
+        "operationId": "geo_countries_api_v1_geo_countries_get",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "story",
+                "mentioned",
+                "source",
+                "event"
+              ],
+              "type": "string",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoCountriesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/geo/articles": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Geo Articles",
+        "operationId": "geo_articles_api_v1_geo_articles_get",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "story",
+                "mentioned",
+                "source"
+              ],
+              "type": "string",
+              "title": "Role"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2,
+              "title": "Code"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 366,
+              "minimum": 1,
+              "description": "Window length in UTC days, ending today.",
+              "default": 30,
+              "title": "Days"
+            },
+            "description": "Window length in UTC days, ending today."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoArticlePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -8399,6 +8561,166 @@
           "completed_at"
         ],
         "title": "FetchResponse"
+      },
+      "GeoArticlePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "GeoArticlePage"
+      },
+      "GeoCountriesResponse": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "story",
+              "mentioned",
+              "source",
+              "event"
+            ],
+            "title": "Role"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/GeoCoverage"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GeoCountry"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "days",
+          "window_start",
+          "coverage",
+          "items"
+        ],
+        "title": "GeoCountriesResponse"
+      },
+      "GeoCountry": {
+        "properties": {
+          "country_code": {
+            "type": "string",
+            "title": "Country Code"
+          },
+          "articles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Articles"
+          },
+          "stories": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stories"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "country_code",
+          "articles",
+          "stories",
+          "sources",
+          "events"
+        ],
+        "title": "GeoCountry",
+        "description": "Counts for one country in one role. An article with several countries counts once in each.\n`articles` and `stories` are null for the `event` role, `events` is null for every other role,\nand `sources` (distinct feeds) is only set for the `source` role."
+      },
+      "GeoCoverage": {
+        "properties": {
+          "unit": {
+            "type": "string",
+            "enum": [
+              "articles",
+              "events"
+            ],
+            "title": "Unit"
+          },
+          "window_total": {
+            "type": "integer",
+            "title": "Window Total"
+          },
+          "located": {
+            "type": "integer",
+            "title": "Located"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit",
+          "window_total",
+          "located"
+        ],
+        "title": "GeoCoverage",
+        "description": "The base of every count: `window_total` items (articles, or events) in the window, of which\n`located` have a country in this role."
       },
       "GraphEdge": {
         "properties": {

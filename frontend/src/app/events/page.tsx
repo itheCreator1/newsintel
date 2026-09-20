@@ -10,7 +10,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
-import { entityHref, eventHref, toHref } from '../../lib/investigation'
+import { entityHref, eventHref, mapHref, toHref } from '../../lib/investigation'
 
 const STATUSES = ['active', 'closed', 'superseded'] as const
 // Fixed order keeps a filtered list's URL stable and bookmarkable.
@@ -67,6 +67,7 @@ function EventsContent() {
           <label className={labelClass}>Country
             <input className={fieldClass} value={value('country')} maxLength={2} placeholder="GR" onChange={event => setFilter('country', event.target.value.toUpperCase())} />
           </label>
+          {value('country').length === 2 && <Link className={ghostButtonClass} href={mapHref({ role: 'event', country: value('country') })}>View on map</Link>}
           <label className={labelClass}>From
             <input className={fieldClass} type="date" value={value('from')} onChange={event => setFilter('from', event.target.value)} />
           </label>

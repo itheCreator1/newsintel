@@ -60,4 +60,8 @@ export type CompareClusterPage = components['schemas']['CompareClusterPage']
 export type CompareKind = CompareResponse['kind']
 export type CompareRole = NonNullable<CompareResponse['role']>
 export type ComparePart = 'a' | 'both' | 'b'
+export type GeoCountriesResponse = components['schemas']['GeoCountriesResponse']
+export type GeoArticlePage = components['schemas']['GeoArticlePage']
+export type GeoRole = GeoCountriesResponse['role']
+export type GeoArticleRole = Exclude<GeoRole, 'event'>
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

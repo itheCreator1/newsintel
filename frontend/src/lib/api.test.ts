@@ -176,3 +176,17 @@ it('requests a comparison and its evidence with the same subjects, an encoded cu
     '/api/v1/compare/stories?kind=entity&a=e1&b=e2&days=7&part=a&cursor=c%2B1',
   ])
 })
+
+it('requests the country map for one role and its evidence with an encoded cursor', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+
+  await api.geoCountries('event', 7)
+  await api.geoArticles('mentioned', 'GR', 30)
+  await api.geoArticles('source', 'FR', 90, 'c+1')
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/geo/countries?role=event&days=7',
+    '/api/v1/geo/articles?role=mentioned&code=GR&days=30',
+    '/api/v1/geo/articles?role=source&code=FR&days=90&cursor=c%2B1',
+  ])
+})

@@ -77,6 +77,19 @@ it('writes changed filters back to the URL and drops emptied ones', async () => 
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/')
 })
 
+it('links a country filter to the map of event countries and offers nothing without one', async () => {
+  resetNavigationHarness({ pathname: '/events/', search: 'country=gr&days=1' })
+  const { unmount } = renderWithQuery(() => <EventsPage />)
+  await screen.findByRole('link', { name: 'Headline ev-1' })
+  expect(screen.getByRole('link', { name: 'View on map' }).getAttribute('href')).toBe('/map/?role=event&country=GR')
+  unmount()
+
+  resetNavigationHarness({ pathname: '/events/' })
+  renderWithQuery(() => <EventsPage />)
+  await screen.findByRole('link', { name: 'Headline ev-1' })
+  expect(screen.queryByRole('link', { name: 'View on map' })).toBeNull()
+})
+
 it('shows and clears an entity filter', async () => {
   resetNavigationHarness({ pathname: '/events/', search: 'entity_id=ent-1&status=active' })
   renderWithQuery(() => <EventsPage />)
