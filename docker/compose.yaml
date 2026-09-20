@@ -44,7 +44,7 @@ services:
 
   worker:
     build: ../backend
-    command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "--processes", "1", "--threads", "4"]
+    command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "app.jobs.monitors", "--processes", "1", "--threads", "4"]
     environment: *backend-env
     volumes: ["article-data:/var/lib/newsintel/articles"]
     depends_on:

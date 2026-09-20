@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     nlp_ner_model: str = "en_core_web_sm"
     nlp_lease_seconds: int = 300
     clustering_lease_seconds: int = 300
+    monitor_interval_seconds: int = 300
+    monitor_retry_seconds: int = 300
+    monitor_lease_seconds: int = 120
+    monitor_settle_seconds: int = 120
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":

@@ -56,19 +56,22 @@ def _decode_cursor(value: str) -> tuple[str, uuid.UUID]:
         raise InvalidMonitorCursor("Invalid monitor cursor") from exc
 
 
-def monitor_response(item: Monitor) -> MonitorResponse:
-    state: InvestigationState | None = None
-    problem: str | None = None
+def parse_state(item: Monitor) -> tuple[InvestigationState | None, str | None]:
+    """The stored state, or the reason it can no longer be used."""
     if item.state_version != STATE_VERSION:
-        problem = f"Monitor format version {item.state_version} is not supported"
-    else:
-        try:
-            state = InvestigationState.model_validate(item.state)
-            validate_target(cast(MonitorKind, item.kind), state)
-        except ValidationError as exc:
-            state, problem = None, "; ".join(error["msg"] for error in exc.errors())
-        except ValueError as exc:
-            state, problem = None, str(exc)
+        return None, f"Monitor format version {item.state_version} is not supported"
+    try:
+        state = InvestigationState.model_validate(item.state)
+        validate_target(cast(MonitorKind, item.kind), state)
+    except ValidationError as exc:
+        return None, "; ".join(error["msg"] for error in exc.errors())
+    except ValueError as exc:
+        return None, str(exc)
+    return state, None
+
+
+def monitor_response(item: Monitor) -> MonitorResponse:
+    state, problem = parse_state(item)
     return MonitorResponse(
         id=item.id,
         name=item.name,

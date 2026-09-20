@@ -15,8 +15,11 @@ from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.clustering import process_clustering
 from app.jobs.ingestion import ingest_feed
+from app.jobs.monitors import evaluate_monitor
 from app.jobs.nlp import process_nlp
 from app.jobs.search import index_article
+from app.monitors.evaluation import claim_monitor, monitor_due
+from app.monitors.models import Monitor
 from app.nlp.models import NlpJob
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import job_due as nlp_job_due
@@ -199,6 +202,34 @@ async def schedule_due_clustering(batch_size: int = 50) -> int:
     return queued
 
 
+async def schedule_due_monitors(batch_size: int = 50) -> int:
+    now = datetime.now(UTC)
+    async with session_factory() as db:
+        ids = list(
+            (
+                await db.scalars(
+                    select(Monitor.id)
+                    .where(monitor_due(now))
+                    .order_by(Monitor.next_evaluation_at, Monitor.id)
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+    queued = 0
+    for monitor_id in ids:
+        async with session_factory() as db:
+            token = await claim_monitor(db, monitor_id, get_settings().monitor_lease_seconds)
+        if token is None:
+            continue
+        try:
+            evaluate_monitor.send(str(monitor_id), token)
+            queued += 1
+        except Exception:
+            log.exception("monitor_queue_failed", monitor_id=str(monitor_id))
+    return queued
+
+
 async def schedule_source_refreshes(batch_size: int = 10) -> int:
     async with session_factory() as db:
         ids = list(
@@ -224,6 +255,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             await schedule_due_nlp()
             await schedule_due_clustering()
             await schedule_due_search()
+            await schedule_due_monitors()
             await schedule_source_refreshes()
         except Exception:
             log.exception("scheduler_cycle_failed")
