@@ -6,7 +6,7 @@ import { resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import SavedSearchesPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { savedSearches: vi.fn(), updateSavedSearch: vi.fn(), deleteSavedSearch: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { savedSearches: vi.fn(), updateSavedSearch: vi.fn(), deleteSavedSearch: vi.fn(), createMonitor: vi.fn() } }))
 
 const saved = (id: string, name: string, overrides: Partial<SavedSearch> = {}): SavedSearch => ({
   id, name, state_version: 1, problem: null, created_at: '2026-09-15T08:00:00Z', updated_at: '2026-09-15T09:00:00Z',
@@ -70,4 +70,20 @@ it('deletes a saved search only after confirmation', async () => {
 
   await vi.waitFor(() => expect(api.deleteSavedSearch).toHaveBeenCalledWith('two'))
   expect(confirm).toHaveBeenLastCalledWith('Delete the saved search “Shipping”?')
+})
+
+it('watches a saved search with a copy of its state, hiding the button when it cannot be opened', async () => {
+  vi.mocked(api.createMonitor).mockRejectedValueOnce(new ApiError('A monitor with this name already exists', 409)).mockResolvedValueOnce({} as never)
+  renderWithQuery(() => <SavedSearchesPage />)
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Watch Greek grid' }))
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'A monitor with this name already exists')
+  await fireEvent.click(screen.getByRole('button', { name: 'Watch Greek grid' }))
+
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenLastCalledWith('Greek grid', saved('one', 'Greek grid').state))
+  expect(await screen.findByText('Watching “Greek grid”.')).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
+  await fireEvent.click(screen.getByRole('button', { name: 'Load more saved searches' }))
+  await screen.findByText('Retired filters')
+  expect(screen.queryByRole('button', { name: 'Watch Retired filters' })).toBeNull()
 })

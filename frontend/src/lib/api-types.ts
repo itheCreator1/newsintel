@@ -36,4 +36,8 @@ export type EntityDossier = components['schemas']['EntityDossierResponse']
 export type EntityArticlePage = components['schemas']['EntityArticlePage']
 export type EntityClusterPage = components['schemas']['EntityClusterPage']
 export type EntityRelationships = components['schemas']['EntityRelationshipsResponse']
+export type Monitor = components['schemas']['MonitorResponse']
+export type MonitorPage = components['schemas']['MonitorPage']
+export type MonitorResultPage = components['schemas']['MonitorResultPage']
+export type MonitorResult = MonitorResultPage['items'][number]
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

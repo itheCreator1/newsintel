@@ -5,7 +5,7 @@ import { navigationHarness, resetNavigationHarness } from '../../test/navigation
 import { renderWithQuery } from '../../test/render'
 import SearchPageRoute from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), createSavedSearch: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the brushed bucket span.
 vi.mock('../../components/TimelineChart', () => ({
   TimelineChart: (props: { buckets?: unknown[]; interval?: string; onSelect: (range: { start: string; end: string }) => void }) =>
@@ -197,4 +197,19 @@ it('never widens an active end date when brushing the last bucket', async () => 
 
   expect(navigationHarness.searchParams.get('after')).toBe('2026-01-05')
   expect(navigationHarness.searchParams.get('before')).toBe('2026-01-15')
+})
+
+it('watches the complete investigation state by name and reports a duplicate', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never).mockRejectedValueOnce(new ApiError('A monitor with this name already exists', 409))
+  renderSearch('q=grid&country=GR&sort=newest')
+  await screen.findByText('Safe <script> title')
+
+  fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Greek grid' } })
+  await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
+
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Greek grid', expect.objectContaining({ q: 'grid', source_country: ['GR'], sort: 'newest' })))
+  expect(await screen.findByText('Watching “Greek grid”.')).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
+  await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'A monitor with this name already exists')
 })

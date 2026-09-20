@@ -17,7 +17,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.auth.models import User  # noqa: F401
 from app.db.base import Base
+from app.feeds.models import Article  # noqa: F401
+
+# The imports above register `users` and `articles` for this table's foreign keys, so the model also
+# resolves in processes (scheduler, worker) that never load the API's auth or feed routes.
 
 
 class Monitor(Base):

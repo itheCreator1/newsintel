@@ -9,6 +9,7 @@ import type { SearchPage } from '../../lib/api-types'
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { WatchSearchForm } from '../../components/WatchSearchForm'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toHref, type Investigation, type ListField } from '../../lib/investigation'
@@ -146,6 +147,8 @@ function SearchContent() {
         {save.isError ? <p role="alert" className="error w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
           : save.isSuccess && <p className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>
+
+      <WatchSearchForm state={state} />
 
       <GlassPanel className="overflow-hidden p-0">
         {state.story_cluster_id.length > 0 && (

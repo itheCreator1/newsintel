@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import uuid
 from datetime import UTC, date, datetime
 
@@ -148,3 +150,18 @@ def test_cursor_round_trips_and_rejects_malformed_values() -> None:
     for value in ["a", "W10=", "WyJ4IiwgIm5vcGUiXQ=="]:
         with pytest.raises(InvalidMonitorCursor):
             _decode_cursor(value)
+
+
+@pytest.mark.parametrize(
+    "entry_point", ["app.monitors.models", "app.scheduler", "app.jobs.monitors"]
+)
+def test_monitor_foreign_keys_resolve_in_processes_that_never_import_auth(entry_point: str) -> None:
+    # The scheduler and worker load monitors without the API's auth imports; a fresh interpreter is
+    # the only way to see that (this pytest process has already imported every model).
+    code = (
+        f"import {entry_point}\n"
+        "from app.monitors.models import Monitor\n"
+        "for key in Monitor.__table__.foreign_keys: key.column\n"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-800:]

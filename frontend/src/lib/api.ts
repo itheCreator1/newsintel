@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -90,6 +90,13 @@ export const api = {
   createSavedSearch: (name: string, state: InvestigationState) => mutate<SavedSearch>('/saved-searches', 'POST', { name, state }),
   updateSavedSearch: (id: string, payload: { name?: string; state?: InvestigationState }) => mutate<SavedSearch>(`/saved-searches/${id}`, 'PATCH', payload),
   deleteSavedSearch: (id: string) => mutate<void>(`/saved-searches/${id}`, 'DELETE'),
+  monitors: (order: 'name' | 'activity', cursor?: string) => request<MonitorPage>(`/monitors?${new URLSearchParams({ order, ...(cursor ? { cursor } : {}) })}`),
+  monitor: (id: string) => request<Monitor>(`/monitors/${id}`),
+  monitorResults: (id: string, scope: 'unseen' | 'recent', cursor?: string) => request<MonitorResultPage>(`/monitors/${id}/results?${new URLSearchParams({ scope, ...(cursor ? { cursor } : {}) })}`),
+  createMonitor: (name: string, state: InvestigationState) => mutate<Monitor>('/monitors', 'POST', { name, kind: 'search', state }),
+  updateMonitor: (id: string, payload: { name?: string; enabled?: boolean }) => mutate<Monitor>(`/monitors/${id}`, 'PATCH', payload),
+  markMonitorViewed: (id: string, through: string) => mutate<Monitor>(`/monitors/${id}/viewed`, 'POST', { through }),
+  deleteMonitor: (id: string) => mutate<void>(`/monitors/${id}`, 'DELETE'),
   searchSources: (q = '', cursor?: string) => request<SearchSourcePage>(`/search/sources?${new URLSearchParams({ ...(q ? { q } : {}), ...(cursor ? { cursor } : {}) })}`),
   indexingStatus: () => request<IndexStatus>('/search/indexing/status'),
   indexingFailures: (cursor?: string) => request<IndexFailurePage>(`/search/indexing/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),

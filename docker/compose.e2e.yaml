@@ -6,6 +6,9 @@ services:
     environment:
       NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["fixture"]'
       NEWSINTEL_ARTICLE_HOST_MIN_INTERVAL_SECONDS: 0
+      # Monitor tests need a few evaluation ticks in minutes, not hours; settle stays above indexing latency.
+      NEWSINTEL_MONITOR_INTERVAL_SECONDS: 5
+      NEWSINTEL_MONITOR_SETTLE_SECONDS: 10
   scheduler:
     command: ["python", "-c", "import asyncio; from app.scheduler import run_scheduler; asyncio.run(run_scheduler(0.5))"]
     environment:
