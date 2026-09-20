@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, cast, exists, func, literal_column, or_, select
@@ -33,7 +34,7 @@ async def get_entity(db: AsyncSession, entity_id: uuid.UUID) -> Entity | None:
     return await db.get(Entity, entity_id)
 
 
-def _effective_date() -> ColumnElement[datetime]:
+def effective_date() -> ColumnElement[datetime]:
     return func.coalesce(Article.published_at, Article.first_discovered_at)
 
 
@@ -55,7 +56,7 @@ async def dossier(db: AsyncSession, entity: Entity, days: int) -> EntityDossierR
         await db.execute(aggregate)
     ).one()
     start = window_start(days)
-    effective = _effective_date()
+    effective = effective_date()
     utc_effective = func.timezone(literal_column("'UTC'"), effective)
     timeline_day = cast(func.date_trunc(literal_column("'day'"), utc_effective), Date)
     timeline_rows = (
@@ -101,7 +102,7 @@ async def dossier(db: AsyncSession, entity: Entity, days: int) -> EntityDossierR
 async def articles(
     db: AsyncSession, entity_id: uuid.UUID, limit: int, cursor: tuple[datetime, uuid.UUID] | None
 ) -> EntityArticlePage:
-    effective = _effective_date()
+    effective = effective_date()
     query = (
         select(Article, effective.label("effective_date"))
         .where(
@@ -132,6 +133,20 @@ async def articles(
     )
 
 
+async def load_representatives(
+    db: AsyncSession, article_ids: Sequence[uuid.UUID | None]
+) -> dict[uuid.UUID, Article]:
+    wanted = [item for item in article_ids if item]
+    if not wanted:
+        return {}
+    rows = await db.scalars(
+        select(Article)
+        .where(Article.id.in_(wanted))
+        .options(selectinload(Article.discoveries).selectinload(FeedArticle.feed))
+    )
+    return {article.id: article for article in rows}
+
+
 async def clusters(
     db: AsyncSession, entity_id: uuid.UUID, limit: int, cursor: tuple[datetime, uuid.UUID] | None
 ) -> EntityClusterPage:
@@ -150,19 +165,9 @@ async def clusters(
             or_(recency < timestamp, and_(recency == timestamp, StoryCluster.id < item_id))
         )
     rows = (await db.execute(query.limit(limit + 1))).all()
-    cluster_ids = [
-        row.StoryCluster.representative_article_id
-        for row in rows[:limit]
-        if row.StoryCluster.representative_article_id
-    ]
-    representatives: dict[uuid.UUID, Article] = {}
-    if cluster_ids:
-        representative_rows = await db.scalars(
-            select(Article)
-            .where(Article.id.in_(cluster_ids))
-            .options(selectinload(Article.discoveries).selectinload(FeedArticle.feed))
-        )
-        representatives = {article.id: article for article in representative_rows}
+    representatives = await load_representatives(
+        db, [row.StoryCluster.representative_article_id for row in rows[:limit]]
+    )
     next_cursor = (
         encode_cursor(rows[limit - 1].recency, rows[limit - 1].StoryCluster.id)
         if len(rows) > limit
@@ -192,7 +197,7 @@ async def relationships(
     db: AsyncSession, entity_id: uuid.UUID, days: int
 ) -> EntityRelationshipsResponse:
     start = window_start(days)
-    effective = _effective_date()
+    effective = effective_date()
     scoped_articles = (
         select(ArticleEntity.article_id)
         .join(Article, Article.id == ArticleEntity.article_id)

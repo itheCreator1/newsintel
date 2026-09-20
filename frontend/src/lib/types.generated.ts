@@ -569,6 +569,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Events */
+        get: operations["list_events_api_v1_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Event */
+        get: operations["get_event_api_v1_events__event_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}/clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Event Clusters */
+        get: operations["get_event_clusters_api_v1_events__event_id__clusters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Event Articles */
+        get: operations["get_event_articles_api_v1_events__event_id__articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Event Timeline */
+        get: operations["get_event_timeline_api_v1_events__event_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -1446,6 +1531,202 @@ export interface components {
             countries: components["schemas"]["RelatedCountryResponse"][];
             /** Feeds */
             feeds: components["schemas"]["RelatedFeedResponse"][];
+        };
+        /** EventArticlePage */
+        EventArticlePage: {
+            /** Items */
+            items: components["schemas"]["EventArticleResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** EventArticleResponse */
+        EventArticleResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Original Url */
+            original_url: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Title */
+            title: string;
+            /** Published At */
+            published_at: string | null;
+            /**
+             * First Discovered At
+             * Format: date-time
+             */
+            first_discovered_at: string;
+            /** Provenance */
+            provenance: components["schemas"]["ArticleProvenance"][];
+            /**
+             * Cluster Id
+             * Format: uuid
+             */
+            cluster_id: string;
+        };
+        /** EventClusterPage */
+        EventClusterPage: {
+            /** Items */
+            items: components["schemas"]["EventClusterResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * EventClusterResponse
+         * @description A member cluster with the stored reason it joined the event.
+         */
+        EventClusterResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** First Published At */
+            first_published_at: string | null;
+            /** Last Published At */
+            last_published_at: string | null;
+            representative_article: components["schemas"]["ArticleResponse"] | null;
+            /** Score */
+            score: number;
+            /** Signals */
+            signals?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+        };
+        /** EventDetail */
+        EventDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Primary Country */
+            primary_country: string | null;
+            /** Cluster Count */
+            cluster_count: number;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** Headline */
+            headline: string | null;
+            /** Headline Article Id */
+            headline_article_id: string | null;
+            /** Entities */
+            entities: components["schemas"]["EventEntityResponse"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** EventEntityResponse */
+        EventEntityResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /** EventPage */
+        EventPage: {
+            /** Items */
+            items: components["schemas"]["EventSummary"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * EventSummary
+         * @description `cluster_count`, `article_count` and `source_count` are aggregated when asked, never stored.
+         *
+         *     An event has no title of its own: `headline` is the title of the representative article of its
+         *     largest member cluster (ties: earliest first publication, then cluster id).
+         */
+        EventSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** Primary Country */
+            primary_country: string | null;
+            /** Cluster Count */
+            cluster_count: number;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** Headline */
+            headline: string | null;
+            /** Headline Article Id */
+            headline_article_id: string | null;
+            /** Entities */
+            entities: components["schemas"]["EventEntityResponse"][];
+        };
+        /**
+         * EventTimelineDay
+         * @description One UTC day of the event's articles; `evidence` is the day's earliest articles (up to 3).
+         */
+        EventTimelineDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** Clusters Started */
+            clusters_started: number;
+            /** Evidence */
+            evidence: components["schemas"]["TimelineEvidence"][];
+        };
+        /** EventTimelinePage */
+        EventTimelinePage: {
+            /** Items */
+            items: components["schemas"]["EventTimelineDay"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** FeedCreate */
         FeedCreate: {
@@ -2411,6 +2692,16 @@ export interface components {
             start: string;
             /** Count */
             count: number;
+        };
+        /** TimelineEvidence */
+        TimelineEvidence: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Title */
+            title: string;
         };
         /** TopCountriesResponse */
         TopCountriesResponse: {
@@ -3590,6 +3881,179 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClusteringMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_v1_events_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to the current algorithm version, so versions never mix. */
+                algorithm_version?: string | null;
+                status?: ("active" | "closed" | "superseded") | null;
+                country?: string | null;
+                entity_id?: string | null;
+                from?: string | null;
+                to?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_event_api_v1_events__event_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_event_clusters_api_v1_events__event_id__clusters_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventClusterPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_event_articles_api_v1_events__event_id__articles_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventArticlePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_event_timeline_api_v1_events__event_id__timeline_get: {
+        parameters: {
+            query?: {
+                /** @description Return only days after this UTC date. */
+                after?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTimelinePage"];
                 };
             };
             /** @description Validation Error */
