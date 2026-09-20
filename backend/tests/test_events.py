@@ -57,6 +57,8 @@ def test_models_resolve_in_a_fresh_interpreter() -> None:
     # The scheduler and worker will load events without the API's imports; this pytest process has
     # already imported every model, so only a fresh interpreter can see a missing one.
     code = (
+        "import app.jobs.events  # the worker entrypoint\n"
+        "from sqlalchemy.orm import configure_mappers; configure_mappers()\n"
         "from app.events.models import Event, EventCluster, EventEntity\n"
         "for t in (Event, EventCluster, EventEntity):\n"
         "    for key in t.__table__.foreign_keys: key.column\n"

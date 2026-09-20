@@ -54,7 +54,7 @@ services:
   nlp-worker:
     build: ../backend
     command:
-      ["dramatiq", "app.jobs.nlp", "app.jobs.clustering", "--processes", "1", "--threads", "1"]
+      ["dramatiq", "app.jobs.nlp", "app.jobs.clustering", "app.jobs.events", "--processes", "1", "--threads", "1"]
     environment: *backend-env
     depends_on:
       redis: { condition: service_healthy }
@@ -76,7 +76,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-newsintel}
     volumes: ["postgres-data:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newsintel -d newsintel"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U newsintel -d newsintel"]
       interval: 5s
       timeout: 3s
       retries: 10

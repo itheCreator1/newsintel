@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import UTC, datetime
 
 import structlog
@@ -14,6 +15,7 @@ from app.feeds.models import ArticleProcessingJob, Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.clustering import process_clustering
+from app.jobs.events import associate_events
 from app.jobs.ingestion import ingest_feed
 from app.jobs.monitors import evaluate_monitor
 from app.jobs.nlp import process_nlp
@@ -230,6 +232,30 @@ async def schedule_due_monitors(batch_size: int = 50) -> int:
     return queued
 
 
+EVENT_INTERVAL_SECONDS = 30
+EVENT_SWEEP_SECONDS = 300
+_event_runs = {"run": float("-inf"), "sweep": float("-inf")}
+
+
+async def schedule_due_events() -> bool:
+    """Queue one association run per interval; changed clusters are found in PostgreSQL, so a
+    lost or failed run costs only latency. The throttle is per scheduler process.
+    """
+    now = time.monotonic()
+    if now - _event_runs["run"] < EVENT_INTERVAL_SECONDS:
+        return False
+    sweep = now - _event_runs["sweep"] >= EVENT_SWEEP_SECONDS
+    try:
+        associate_events.send(sweep)
+    except Exception:
+        log.exception("event_queue_failed")
+        return False
+    _event_runs["run"] = now
+    if sweep:
+        _event_runs["sweep"] = now
+    return True
+
+
 async def schedule_source_refreshes(batch_size: int = 10) -> int:
     async with session_factory() as db:
         ids = list(
@@ -256,6 +282,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             await schedule_due_clustering()
             await schedule_due_search()
             await schedule_due_monitors()
+            await schedule_due_events()
             await schedule_source_refreshes()
         except Exception:
             log.exception("scheduler_cycle_failed")
