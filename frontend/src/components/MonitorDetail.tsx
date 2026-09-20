@@ -11,6 +11,7 @@ import { countsLabel, monitorKeys, monitorStatus, refetchEvery, statusText, when
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../lib/ui-classes'
 import { cn, plural } from '../lib/utils'
 import { GlassPanel } from './GlassPanel'
+import { MonitorChanges } from './MonitorChanges'
 import { PageHeader } from './PageHeader'
 
 const message = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
@@ -48,11 +49,14 @@ export function MonitorDetail({ id }: { id: string }) {
     queryKey: monitorKeys.results(id, scope), initialPageParam: undefined as string | undefined, enabled: readable, retry: false,
     queryFn: ({ pageParam }) => api.monitorResults(id, scope, pageParam), getNextPageParam: page => page.next_cursor ?? undefined,
   })
-  // A refetch chains fresh cursors from the first page, so the list follows the counters without mixing windows.
+  // A refetch chains fresh cursors from the first page, so the list (and the change summary over the same window) follows the counters without mixing windows.
   const marker = item ? `${item.evaluated_through}|${item.viewed_through}|${item.unseen_article_count}` : ''
   const seenMarker = useRef(marker)
   useEffect(() => {
-    if (marker && seenMarker.current && seenMarker.current !== marker) client.invalidateQueries({ queryKey: ['monitors', 'results', id] })
+    if (marker && seenMarker.current && seenMarker.current !== marker) {
+      client.invalidateQueries({ queryKey: ['monitors', 'results', id] })
+      client.invalidateQueries({ queryKey: monitorKeys.changes(id) })
+    }
     seenMarker.current = marker
   }, [marker, id, client])
 
@@ -101,6 +105,8 @@ export function MonitorDetail({ id }: { id: string }) {
           </>
         )}
       </GlassPanel>
+
+      {readable && item && scope === 'unseen' && <MonitorChanges id={id} item={item} currentHref={currentHref} />}
 
       {readable && (
         <GlassPanel className="overflow-hidden p-0">

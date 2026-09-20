@@ -1,4 +1,4 @@
-import type { Monitor } from './api-types'
+import type { Monitor, MonitorChanges } from './api-types'
 import { plural } from './utils'
 
 export type MonitorStatus = 'invalid' | 'paused' | 'error' | 'waiting' | 'pending' | 'active'
@@ -8,6 +8,7 @@ export const monitorKeys = {
   list: (order: string) => ['monitors', 'list', order] as const,
   detail: (id: string) => ['monitors', 'detail', id] as const,
   results: (id: string, scope: string) => ['monitors', 'results', id, scope] as const,
+  changes: (id: string) => ['monitors', 'changes', id] as const,
 }
 
 /** `pending` means an evaluation is due now, so the counters may be about to change (or be recounted after a view). */
@@ -37,3 +38,22 @@ export function statusText(item: Monitor, now = Date.now()): string | null {
 
 // Polling, not pushing: a due evaluation (including the recount after a view) should show up within seconds.
 export const refetchEvery = (items: Monitor[] | undefined) => items?.some(item => monitorStatus(item) === 'pending') ? 5_000 : 30_000
+
+export type ChangeEvidence = MonitorChanges['sources'][number]['evidence'][number]
+export type ChangeLine = { key: string; text: string; subject: { kind: 'articles' } | { kind: 'source' | 'entity' | 'story'; id: string } | null; evidence: ChangeEvidence[] }
+
+/** Wording is a function of the typed fields only, in a fixed order, so the same window always reads the same. */
+export function describeChanges(changes: MonitorChanges): ChangeLine[] {
+  const lines: ChangeLine[] = []
+  if (changes.article_count > 0) lines.push({ key: 'articles', text: plural(changes.article_count, 'new article'), subject: { kind: 'articles' }, evidence: [] })
+  for (const item of changes.sources) lines.push({ key: `source-${item.source_id}`, text: `New source: ${item.name} (${plural(item.article_count, 'article')})`, subject: { kind: 'source', id: item.source_id }, evidence: item.evidence })
+  for (const item of changes.entities) lines.push({ key: `entity-${item.entity_id}`, text: `New entity: ${item.name} (${item.entity_type}) — ${plural(item.article_count, 'article')}`, subject: { kind: 'entity', id: item.entity_id }, evidence: item.evidence })
+  for (const item of changes.stories) {
+    const title = item.title ?? 'Untitled story'
+    const text = item.status === 'new' ? `New story: ${title} — ${plural(item.source_count, 'source')}` : `Story grew: ${title} — ${item.source_count - item.sources_added} → ${item.source_count} sources (+${item.sources_added})`
+    lines.push({ key: `story-${item.cluster_id}`, text, subject: { kind: 'story', id: item.cluster_id }, evidence: item.evidence })
+  }
+  const more = [[changes.more_sources, 'sources'], [changes.more_entities, 'entities'], [changes.more_stories, 'stories']] as const
+  for (const [flag, noun] of more) if (flag) lines.push({ key: `more-${noun}`, text: `More ${noun} matched in this window than are listed.`, subject: null, evidence: [] })
+  return lines
+}

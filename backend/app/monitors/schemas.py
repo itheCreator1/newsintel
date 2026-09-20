@@ -90,3 +90,47 @@ class MonitorResultPage(BaseModel):
     next_cursor: str | None
     window_start: datetime | None
     window_end: datetime | None
+
+
+class ChangeEvidence(BaseModel):
+    article_id: uuid.UUID
+    title: str
+
+
+class SourceChange(BaseModel):
+    source_id: uuid.UUID
+    name: str
+    article_count: int
+    evidence: list[ChangeEvidence]
+
+
+class EntityChange(BaseModel):
+    entity_id: uuid.UUID
+    name: str
+    entity_type: str
+    article_count: int
+    evidence: list[ChangeEvidence]
+
+
+class StoryChange(BaseModel):
+    cluster_id: uuid.UUID
+    title: str | None
+    status: Literal["new", "grew"]
+    article_count: int
+    source_count: int
+    sources_added: int
+    evidence: list[ChangeEvidence]
+
+
+class MonitorChanges(BaseModel):
+    """What `(window_start, window_end]` brought that the monitor had not matched before."""
+
+    window_start: datetime | None
+    window_end: datetime | None
+    article_count: int
+    sources: list[SourceChange]
+    entities: list[EntityChange]
+    stories: list[StoryChange]
+    more_sources: bool
+    more_entities: bool
+    more_stories: bool

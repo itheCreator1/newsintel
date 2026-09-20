@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -93,6 +93,7 @@ export const api = {
   monitors: (order: 'name' | 'activity', cursor?: string) => request<MonitorPage>(`/monitors?${new URLSearchParams({ order, ...(cursor ? { cursor } : {}) })}`),
   monitor: (id: string) => request<Monitor>(`/monitors/${id}`),
   monitorResults: (id: string, scope: 'unseen' | 'recent', cursor?: string) => request<MonitorResultPage>(`/monitors/${id}/results?${new URLSearchParams({ scope, ...(cursor ? { cursor } : {}) })}`),
+  monitorChanges: (id: string) => request<MonitorChanges>(`/monitors/${id}/changes`),
   createMonitor: (name: string, state: InvestigationState) => mutate<Monitor>('/monitors', 'POST', { name, kind: 'search', state }),
   updateMonitor: (id: string, payload: { name?: string; enabled?: boolean }) => mutate<Monitor>(`/monitors/${id}`, 'PATCH', payload),
   markMonitorViewed: (id: string, through: string) => mutate<Monitor>(`/monitors/${id}/viewed`, 'POST', { through }),

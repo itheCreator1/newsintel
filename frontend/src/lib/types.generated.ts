@@ -799,6 +799,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/monitors/{monitor_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Changes */
+        get: operations["changes_api_v1_monitors__monitor_id__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/monitors/{monitor_id}/viewed": {
         parameters: {
             query?: never;
@@ -1110,6 +1127,16 @@ export interface components {
             /** Detail */
             detail?: string | null;
         };
+        /** ChangeEvidence */
+        ChangeEvidence: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Title */
+            title: string;
+        };
         /** ClusterMemberFeedRef */
         ClusterMemberFeedRef: {
             /**
@@ -1330,6 +1357,22 @@ export interface components {
             items: components["schemas"]["ArticleResponse"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** EntityChange */
+        EntityChange: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Article Count */
+            article_count: number;
+            /** Evidence */
+            evidence: components["schemas"]["ChangeEvidence"][];
         };
         /** EntityClusterPage */
         EntityClusterPage: {
@@ -1815,6 +1858,30 @@ export interface components {
             /** Mentions */
             mentions: number;
         };
+        /**
+         * MonitorChanges
+         * @description What `(window_start, window_end]` brought that the monitor had not matched before.
+         */
+        MonitorChanges: {
+            /** Window Start */
+            window_start: string | null;
+            /** Window End */
+            window_end: string | null;
+            /** Article Count */
+            article_count: number;
+            /** Sources */
+            sources: components["schemas"]["SourceChange"][];
+            /** Entities */
+            entities: components["schemas"]["EntityChange"][];
+            /** Stories */
+            stories: components["schemas"]["StoryChange"][];
+            /** More Sources */
+            more_sources: boolean;
+            /** More Entities */
+            more_entities: boolean;
+            /** More Stories */
+            more_stories: boolean;
+        };
         /** MonitorCreate */
         MonitorCreate: {
             /** Name */
@@ -2249,6 +2316,20 @@ export interface components {
             /** Buckets */
             buckets: components["schemas"]["TimelineBucket"][];
         };
+        /** SourceChange */
+        SourceChange: {
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Article Count */
+            article_count: number;
+            /** Evidence */
+            evidence: components["schemas"]["ChangeEvidence"][];
+        };
         /** StopWordsResponse */
         StopWordsResponse: {
             /** Language */
@@ -2266,6 +2347,29 @@ export interface components {
             current_revision: number;
             /** Words */
             words: string[];
+        };
+        /** StoryChange */
+        StoryChange: {
+            /**
+             * Cluster Id
+             * Format: uuid
+             */
+            cluster_id: string;
+            /** Title */
+            title: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "grew";
+            /** Article Count */
+            article_count: number;
+            /** Source Count */
+            source_count: number;
+            /** Sources Added */
+            sources_added: number;
+            /** Evidence */
+            evidence: components["schemas"]["ChangeEvidence"][];
         };
         /** StoryClusterDetailResponse */
         StoryClusterDetailResponse: {
@@ -4160,6 +4264,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonitorResultPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    changes_api_v1_monitors__monitor_id__changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                monitor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorChanges"];
                 };
             };
             /** @description Validation Error */

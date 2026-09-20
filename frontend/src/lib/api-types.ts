@@ -40,4 +40,5 @@ export type Monitor = components['schemas']['MonitorResponse']
 export type MonitorPage = components['schemas']['MonitorPage']
 export type MonitorResultPage = components['schemas']['MonitorResultPage']
 export type MonitorResult = MonitorResultPage['items'][number]
+export type MonitorChanges = components['schemas']['MonitorChanges']
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

@@ -4150,6 +4150,49 @@
         }
       }
     },
+    "/api/v1/monitors/{monitor_id}/changes": {
+      "get": {
+        "tags": [
+          "monitors"
+        ],
+        "summary": "Changes",
+        "operationId": "changes_api_v1_monitors__monitor_id__changes_get",
+        "parameters": [
+          {
+            "name": "monitor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Monitor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorChanges"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/monitors/{monitor_id}/viewed": {
       "post": {
         "tags": [
@@ -4999,6 +5042,25 @@
         ],
         "title": "CapabilityResponse"
       },
+      "ChangeEvidence": {
+        "properties": {
+          "article_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Article Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_id",
+          "title"
+        ],
+        "title": "ChangeEvidence"
+      },
       "ClusterMemberFeedRef": {
         "properties": {
           "id": {
@@ -5565,6 +5627,43 @@
           "next_cursor"
         ],
         "title": "EntityArticlePage"
+      },
+      "EntityChange": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_id",
+          "name",
+          "entity_type",
+          "article_count",
+          "evidence"
+        ],
+        "title": "EntityChange"
       },
       "EntityClusterPage": {
         "properties": {
@@ -6928,6 +7027,85 @@
         ],
         "title": "MentionTimelineDay"
       },
+      "MonitorChanges": {
+        "properties": {
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
+          },
+          "window_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window End"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceChange"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityChange"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "stories": {
+            "items": {
+              "$ref": "#/components/schemas/StoryChange"
+            },
+            "type": "array",
+            "title": "Stories"
+          },
+          "more_sources": {
+            "type": "boolean",
+            "title": "More Sources"
+          },
+          "more_entities": {
+            "type": "boolean",
+            "title": "More Entities"
+          },
+          "more_stories": {
+            "type": "boolean",
+            "title": "More Stories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_start",
+          "window_end",
+          "article_count",
+          "sources",
+          "entities",
+          "stories",
+          "more_sources",
+          "more_entities",
+          "more_stories"
+        ],
+        "title": "MonitorChanges",
+        "description": "What `(window_start, window_end]` brought that the monitor had not matched before."
+      },
       "MonitorCreate": {
         "properties": {
           "name": {
@@ -8163,6 +8341,38 @@
         ],
         "title": "SearchTimeline"
       },
+      "SourceChange": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "name",
+          "article_count",
+          "evidence"
+        ],
+        "title": "SourceChange"
+      },
       "StopWordsResponse": {
         "properties": {
           "language": {
@@ -8216,6 +8426,64 @@
           "words"
         ],
         "title": "StopWordsUpdate"
+      },
+      "StoryChange": {
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Cluster Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "grew"
+            ],
+            "title": "Status"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
+          "source_count": {
+            "type": "integer",
+            "title": "Source Count"
+          },
+          "sources_added": {
+            "type": "integer",
+            "title": "Sources Added"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cluster_id",
+          "title",
+          "status",
+          "article_count",
+          "source_count",
+          "sources_added",
+          "evidence"
+        ],
+        "title": "StoryChange"
       },
       "StoryClusterDetailResponse": {
         "properties": {
