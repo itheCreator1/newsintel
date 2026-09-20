@@ -14,6 +14,7 @@ from app.clustering.models import (  # noqa: F401
 )
 from app.core.config import get_settings
 from app.db.base import Base
+from app.events.models import Event, EventCluster, EventEntity  # noqa: F401
 from app.feeds.models import (  # noqa: F401
     Article,
     ArticleContent,
