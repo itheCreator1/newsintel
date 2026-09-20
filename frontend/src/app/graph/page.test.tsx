@@ -94,6 +94,7 @@ it('links from the side panel to search with this entity', async () => {
   await screen.findByRole('heading', { name: 'Acme' })
 
   expect(screen.getByRole('link', { name: 'Search articles with Acme' })).toHaveAttribute('href', '/search/?entity_id=entity-one')
+  expect(screen.getByRole('link', { name: 'Open dossier for Acme' })).toHaveAttribute('href', '/entities/?id=entity-one')
 })
 
 it('shows the empty state when there are no co-occurring entities', async () => {

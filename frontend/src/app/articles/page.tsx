@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { clusterHref, parseHref, queryFromState, refine, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
+import { clusterHref, entityHref, parseHref, queryFromState, refine, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
@@ -43,7 +43,7 @@ function ArticlesContent() {
 
   // `from` can point back to a search, a story cluster, or the entity graph; label the return link for
   // whichever origin it actually is instead of always saying "search".
-  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : 'Back to search'
+  const backLabel = from.startsWith('/clusters/') ? 'Back to story' : from.startsWith('/graph') ? 'Back to graph' : from.startsWith('/entities') ? 'Back to entity' : 'Back to search'
 
   function refinedSearchHref(field: ListField, value: string) {
     const origin = stateFromQuery(from.startsWith('/search') ? parseHref(from) : new URLSearchParams())
@@ -140,7 +140,10 @@ function ArticlesContent() {
                     )}
                     {annotations.data.entities.length > 0 && (
                       <div className="annotation-group flex flex-wrap items-center gap-2"><strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Entities</strong>{annotations.data.entities.map(entity => (
-                        <Link key={entity.id} className={chipClass} href={refinedSearchHref('entity_id', entity.id)}>{entity.text} ({entity.entity_type})</Link>
+                        <span key={entity.id} className="inline-flex items-center gap-1">
+                          <Link className={chipClass} href={refinedSearchHref('entity_id', entity.id)}>{entity.text} ({entity.entity_type})</Link>
+                          <Link className={chipClass} href={entityHref(entity.id)} aria-label={`Open dossier for ${entity.text}`}>Dossier</Link>
+                        </span>
                       ))}</div>
                     )}
                     <div className="flex flex-col gap-1">

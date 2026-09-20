@@ -10,7 +10,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { chipClass, fieldClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 import { api, ApiError } from '../../lib/api'
-import { queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
+import { entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 
 const MAX_NODES = 50
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -138,6 +138,7 @@ function GraphContent() {
             <h3 className="text-lg font-semibold text-foreground">{focusNode.text}</h3>
             <p className="text-sm text-muted-foreground">{focusNode.article_count} articles</p>
             <Link className={cn(chipClass, 'w-fit')} href={searchWithEntityHref(focusNode.id)}>Search articles with {focusNode.text}</Link>
+            <Link className={cn(chipClass, 'w-fit')} href={entityHref(focusNode.id)}>Open dossier for {focusNode.text}</Link>
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Connected entities</strong>
               <div className="mt-2 flex flex-wrap gap-2">

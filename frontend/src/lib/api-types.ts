@@ -31,4 +31,8 @@ export type TopEntities = components['schemas']['TopEntitiesResponse']
 export type TopEntity = components['schemas']['TopEntity']
 export type TopCountries = components['schemas']['TopCountriesResponse']
 export type TopCountry = components['schemas']['TopCountry']
+export type EntityDossier = components['schemas']['EntityDossierResponse']
+export type EntityArticlePage = components['schemas']['EntityArticlePage']
+export type EntityClusterPage = components['schemas']['EntityClusterPage']
+export type EntityRelationships = components['schemas']['EntityRelationshipsResponse']
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }
