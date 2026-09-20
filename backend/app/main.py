@@ -8,6 +8,7 @@ from app.auth.routes import router as auth_router
 from app.clustering.routes import router as clustering_router
 from app.core.config import Settings, get_settings
 from app.entities.routes import router as entities_router
+from app.events.routes import router as events_router
 from app.feeds.routes import router as feeds_router
 from app.graph.routes import router as graph_router
 from app.investigations.routes import router as investigations_router
@@ -27,6 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(nlp_router, prefix="/api/v1")
     app.include_router(entities_router, prefix="/api/v1")
     app.include_router(clustering_router, prefix="/api/v1")
+    app.include_router(events_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(investigations_router, prefix="/api/v1")
