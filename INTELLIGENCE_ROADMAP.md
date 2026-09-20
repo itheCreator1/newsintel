@@ -6,11 +6,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ## Session state
 
-- Current phase: Phase 10C — Evidence-backed graph relationships (branch `phase/10c-graph-edge-evidence`)
+- Current phase: Phase 11A — Monitor data model (branch `phase/11a-monitor-data-model`)
 - Current status: `COMPLETE`
-- Next action: Review and integrate `phase/10c-graph-edge-evidence`; Phase 11A must begin from the integration branch after that.
-- Deferred work: Every phase after 10C remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
-- Verification state: Phases 10A (`2841cdc`) and 10B (`0fd4126`) are merged into local `main` (unpushed); `infra/test-phase10b.sh` passed on 2026-09-20. Phase 10C `infra/test-phase10c.sh` (backend graph suites incl. PostgreSQL hydration, Ruff, mypy, OpenAPI drift check, Vitest, typecheck, build, and Playwright seed, relationships workflow and edge-evidence workflow) passed on 2026-09-20.
+- Next action: Review and integrate `phase/11a-monitor-data-model`; Phase 11B must begin from the integration branch after that.
+- Deferred work: Every phase after 11A remains `NOT STARTED` until the preceding phase meets its acceptance criteria.
+- Verification state: Phases 10A (`2841cdc`), 10B (`0fd4126`) and 10C (`dacd349`) are merged into local `main` (unpushed). Phase 11A `infra/test-phase11a.sh` (0010 migration round trip, monitor unit and PostgreSQL tests, Ruff, mypy, OpenAPI/type drift check, typecheck) passed on 2026-09-20.
 
 ## Current architecture
 
@@ -22,12 +22,12 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - **Story clusters:** `backend/app/clustering/models.py` stores derived clusters and one membership row per clustered article. Clusters cache article/source counts, publication bounds, representative article, and algorithm version. `GET /api/v1/clusters/{id}` exposes keyset-paginated members and feed references.
 - **Search:** PostgreSQL stores delivery/rebuild coordination; Elasticsearch holds versioned, rebuildable article indices. Typed criteria support query text, sources/countries, dates, processing/language, entities/types, keywords, story/mentioned countries, and story clusters. Search and timeline share these criteria.
 - **Graph:** `backend/app/graph` builds a bounded entity co-occurrence graph from Elasticsearch nested aggregations (`MAX_NODES = 50`, `MAX_EDGES = 150`) and resolves labels from PostgreSQL. Edges expose article co-occurrence weight; `GET /graph/edges/evidence` resolves one edge (same filters and focus) to its articles and stories. Entity dossiers live under `/entities`.
-- **Investigations:** saved searches are user-owned PostgreSQL JSONB records containing a strictly validated, versioned `InvestigationState`. Listing uses keyset pagination and service queries enforce ownership. This is the concrete foundation for monitors.
+- **Investigations:** saved searches are user-owned PostgreSQL JSONB records containing a strictly validated, versioned `InvestigationState`. Listing uses keyset pagination and service queries enforce ownership. Monitors (`backend/app/monitors`, table `monitors`) embed a per-kind-validated `InvestigationState` snapshot plus compact evaluation cursors, unseen counters and lease fields; only the model, validation and repository primitives exist so far (no routes, worker or UI).
 - **Analytics:** current SQL-backed analytics provide a 30-day ingestion timeline with deterministic spike detection, top entities, and primary story countries. Top aggregations are bounded to ten items.
 - **Jobs and scheduling:** durable feed, extraction, indexing, NLP, and clustering jobs use status/due/lease fields. `backend/app/scheduler.py` claims bounded batches and dispatches Dramatiq actors via Redis. Separate NLP, clustering, and search queues exist, and status/failure routes feed the Jobs UI.
-- **Database and migrations:** Alembic revisions `0001`–`0009` cover auth, ingestion, processing, search, NLP, saved searches, clusters, and country-rule version widening. PostgreSQL JSONB is already used for durable structured state.
-- **Frontend:** Next.js App Router has overview, search, articles, sources, clusters, graph, jobs, saved searches, and settings routes. `frontend/src/lib/api.ts` consumes types generated from checked-in `frontend/openapi.json`; aliases live in `api-types.ts`. TanStack Query, URL-backed investigation state, `GlassPanel`, `PageHeader`, charts, and explicit loading/error/empty states are established patterns.
-- **Tests and acceptance:** pytest includes unit/API tests and PostgreSQL integration modules gated by `NEWSINTEL_RUN_POSTGRES_TESTS=1`. Vitest/Testing Library covers frontend routes; Playwright covers search, NLP, processing, investigations, and relationships. Every implementation phase has a checked-in acceptance script at `infra/test-phase<id>.sh`; existing scripts cover phases 3–7 and Phase 10A must add `infra/test-phase10a.sh`.
+- **Database and migrations:** Alembic revisions `0001`–`0010` cover auth, ingestion, processing, search, NLP, saved searches, clusters, country-rule version widening, and monitors. PostgreSQL JSONB is already used for durable structured state.
+- **Frontend:** Next.js App Router has overview, search, articles, sources, clusters, entities (dossier), graph (with edge evidence), jobs, saved searches, and settings routes. `frontend/src/lib/api.ts` consumes types generated from checked-in `frontend/openapi.json`; aliases live in `api-types.ts`. TanStack Query, URL-backed investigation state, `GlassPanel`, `PageHeader`, charts, and explicit loading/error/empty states are established patterns.
+- **Tests and acceptance:** pytest includes unit/API tests and PostgreSQL integration modules gated by `NEWSINTEL_RUN_POSTGRES_TESTS=1`. Vitest/Testing Library covers frontend routes; Playwright covers search, NLP, processing, investigations, and relationships. Every implementation phase has a checked-in acceptance script at `infra/test-phase<id>.sh`; scripts exist for phases 3–7, 10A, 10B, 10C and 11A.
 - **Deployment:** Compose defines frontend, API, general worker, NLP worker, scheduler, PostgreSQL, Redis, and Elasticsearch, with development, E2E, and NER overlays. PostgreSQL is canonical and Elasticsearch is rebuildable.
 
 ## Target architecture
@@ -64,7 +64,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - [x] Phase 10A — Entity dossier backend (`COMPLETE`)
 - [x] Phase 10B — Entity dossier frontend (`COMPLETE`)
 - [x] Phase 10C — Evidence-backed graph relationships (`COMPLETE`)
-- [ ] Phase 11A — Monitor data model (`NOT STARTED`)
+- [x] Phase 11A — Monitor data model (`COMPLETE`)
 - [ ] Phase 11B — Monitor evaluation and scheduler (`NOT STARTED`)
 - [ ] Phase 11C — Monitor API/backend (`NOT STARTED`)
 - [ ] Phase 11D — Monitor frontend (`NOT STARTED`)
@@ -130,7 +130,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 
 ### Phase 11A — Monitor data model
 
-- **Status:** `NOT STARTED`
+- **Status:** `COMPLETE`
 - **Objective:** Persist durable monitors that reuse saved investigation/search state and support search, entity, source, country, and suitable evolving-cluster targets.
 - **Existing components to reuse:** Saved searches/investigations, users/authorization, timestamps, JSON configuration conventions, and job state.
 - **Backend changes:** Domain model and repository primitives with typed monitor configuration validation.
@@ -352,6 +352,11 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Edge evidence is resolved in Elasticsearch with the graph's own query, then hydrated from PostgreSQL | The edge weight is filtered co-occurrence (text, source, date, entity-type filters, plus the focus entity), which SQL cannot reproduce; running `build_query` + `focus_query` + both entities makes the evidence total equal the drawn weight (asserted in e2e). Records shown are canonical PostgreSQL rows; ids the index holds but the archive lacks are dropped and reported as `missing_from_archive`. Deviation from "aggregate in SQL". |
 | Snippets omitted from edge evidence | `ArticleEntity.occurrences` are offsets, not reliable surface text; the roadmap allowed omission. |
 | Selected edge is the `edge=<idA>:<idB>` graph URL param | Keeps the inspector bookmarkable and the article "Back to graph" link returning to it; ids are sorted so the param is canonical. |
+| Monitors embed a versioned `InvestigationState` snapshot; no FK to `saved_searches` | Saved searches are editable, and a silent edit would invalidate a monitor's cursors and counters. Still one query representation, no second language. 11D can offer "create monitor from saved search" by copying. |
+| Monitor `kind` (`search`/`entity`/`source`/`country`/`cluster`) is a validated discriminator over the same state | Each kind must actually point at its target (entity ids, source ids, a country filter, exactly one `story_cluster_id`; search needs a query or any filter). A CHECK constrains the stored kind. |
+| Changing a monitor's kind/state resets cursors, counters, latest match, lease and error; rename/toggle keep history; re-enable schedules an evaluation now | Old cursors describe a different query. Resending an identical state is a no-op. |
+| Evaluation lease/outcome fields live on the `monitors` row; no run/match table yet | Mirrors the job-row shape (`next_evaluation_at`, `claim_token`, `claim_expires_at`, error fields). 11B may add run tables only if idempotency needs them. |
+| No relational `target_id` column on monitors | The target lives in the JSONB state; a duplicate column can drift. Add it, with an index, when "monitors watching this entity" is needed. |
 | Use one branch per phase | Keeps each vertical slice independently reviewable and prevents later work from obscuring a phase's acceptance state. Each branch starts from the integration branch containing all accepted predecessors. |
 
 ## Discoveries
@@ -371,6 +376,8 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - Search `entity_id` filters are OR, so an edge's articles cannot be listed by searching both entities; evidence is paginated by the endpoint itself (ES `search_after`, no PIT — pages can shift if the index is rebuilt mid-scroll).
 - With `focus=A`, edge weights between other nodes count only articles that also contain A, so the evidence endpoint takes `focus_entity_id` too.
 - Graph specs need the schema-3 search index; acceptance scripts must run `rebuild-search`/`resume-search-rebuild` (as Phase 7 does) after seeding. `infra/test-phase10b.sh` does not, so it cannot run the graph or search workflow specs.
+- Monitor due-batching uses the partial index `ix_monitors_due (next_evaluation_at, id) WHERE enabled`; a PostgreSQL test confirms the planner picks it for the due query (with sequential scans disabled, since the test table is tiny). `ix_monitors_user_activity` exists for 11C's activity ordering and is not yet exercised by a query.
+- Monitors need no new API/OpenAPI surface in 11A; the drift check confirms `openapi.json` and generated types are unchanged.
 - Existing entity-search chips on the article page are kept; the dossier is a separate "Dossier" link so search refinement is unchanged.
 
 ## Outstanding risks
@@ -390,6 +397,7 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 | Existing Phase 7 Elasticsearch integration | Full backend suite: 204 passed with Elasticsearch-dependent checks unavailable in the PostgreSQL-only stack; then both affected tests rerun with the isolated Elasticsearch fixture | PASS | The two reruns passed. |
 | Phase 10B | `infra/test-phase10b.sh`: Vitest (82 tests), typecheck, static-export build, Playwright `relationships seed` and `entity dossier workflow` against the NER-enabled stack | PASS | Backend untouched, so no backend suites were rerun; the script cleaned up its Compose stack. |
 | Phase 10C | `infra/test-phase10c.sh`: 41 backend tests (evidence body/parse/route + graph suite + PostgreSQL hydration), Ruff, mypy, OpenAPI/type drift check, Vitest (92), typecheck, static-export build, Playwright `relationships seed`, `relationships workflow`, `graph edge evidence workflow` | PASS | Full backend suite also run outside the script: 177 passed, 48 skipped (PostgreSQL/Elasticsearch-gated). After the script, a small panel refinement (archive gaps summed across pages, top-stories note) was re-verified with Vitest (93 tests), typecheck, Ruff, mypy and the evidence unit tests, not a second full acceptance run. The e2e asserts the evidence total equals the drawn edge weight. `EntityGraph` edge click is not unit-tested (needs canvas); covered through the accessible connection list and page tests. |
+| Phase 11A | `infra/test-phase11a.sh`: `alembic upgrade head` / `downgrade 0009` / `upgrade head` with table-presence checks, monitor unit tests, saved-search regression, PostgreSQL monitor tests (defaults, constraints, ownership, keyset paging, update semantics, cascades, due-index plan, migration round trip) with Elasticsearch unreachable, Ruff, mypy, OpenAPI/type drift check, frontend typecheck | PASS | Script run: 51 backend tests passed. Full backend suite also run outside the script: 203 passed, 58 skipped (PostgreSQL/Elasticsearch-gated; the 10 gated 11A tests are the ones the script runs). The first script run failed on two of my own tests (expired ORM attributes read after a rollback); fixed in the tests, no model change. |
 
 ## Change log
 
@@ -402,3 +410,5 @@ This document is the persistent implementation state for NewsIntel's intelligenc
 - 2026-09-20: Phase 10A merged into local `main` (`2841cdc`). Began Phase 10B on `phase/10b-entity-dossier-frontend`: dossier route, typed API client methods, selective entity links from article annotations and the graph panel, Vitest and Playwright coverage, and `infra/test-phase10b.sh`.
 - 2026-09-20: Phase 10B passed `infra/test-phase10b.sh` and is `COMPLETE`, ready for review without merge or publication authorization.
 - 2026-09-20: Phase 10C implemented on `phase/10c-graph-edge-evidence`: `GET /graph/edges/evidence` (ES-resolved evidence hydrated from PostgreSQL), edge inspector with bookmarkable `edge=` param and accessible connection list, regenerated OpenAPI/types, and `infra/test-phase10c.sh`. Passed and marked `COMPLETE`, ready for review without merge or publication authorization.
+- 2026-09-20: Phase 10C merged into local `main` (`dacd349`). Phase 11A implemented on `phase/11a-monitor-data-model`: `monitors` table (migration `0010`), per-kind validated monitor schemas, owner-scoped repository primitives, PostgreSQL and unit tests, and `infra/test-phase11a.sh`. Marked `COMPLETE`, ready for review without merge or publication authorization.
+- 2026-09-20: Refreshed `README.md` (entity dossiers, edge evidence, `entities`/`monitors` modules, ten UI routes, roadmap pointer) and the roadmap's frontend architecture line; no code changes.
