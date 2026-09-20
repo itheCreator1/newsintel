@@ -94,6 +94,13 @@ export function entityHref(id: string): string {
   return toHref('/entities', new URLSearchParams({ id }))
 }
 
+/** Event dossier link; query-param route for the same static-export reason as `clusterHref`. */
+export function eventHref(id: string, from?: string): string {
+  const query = new URLSearchParams({ id })
+  if (from) query.set('from', from)
+  return toHref('/events/detail', query)
+}
+
 export function fromSaved(state: InvestigationState): Investigation {
   const restored = emptyInvestigation()
   return { ...restored, ...Object.fromEntries(Object.entries(state).filter(([key, value]) => key in restored && value !== undefined)) }

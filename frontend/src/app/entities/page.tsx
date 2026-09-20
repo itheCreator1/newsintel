@@ -82,6 +82,7 @@ function EntityContent() {
             <p className="text-sm text-muted-foreground">First seen {when(entity.first_seen_at)} · Last seen {when(entity.last_seen_at)}</p>
             <div className="flex flex-wrap gap-2">
               <Link className={chipClass} href={searchHref}>Search articles with this entity</Link>
+              <Link className={chipClass} href={toHref('/events', new URLSearchParams({ entity_id: id }))}>Events with this entity</Link>
             </div>
           </div>
         )}

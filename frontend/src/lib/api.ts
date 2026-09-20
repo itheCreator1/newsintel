@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchPage, SearchSourcePage, SearchTimeline, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -80,6 +80,11 @@ export const api = {
   entityArticles: (id: string, cursor?: string) => request<EntityArticlePage>(`/entities/${id}/articles${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   entityClusters: (id: string, cursor?: string) => request<EntityClusterPage>(`/entities/${id}/clusters${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   entityRelationships: (id: string, days: number) => request<EntityRelationships>(`/entities/${id}/relationships?days=${days}`),
+  events: (filters: EventFilters, cursor?: string) => request<EventPage>(`/events${query({ ...filters, cursor })}`),
+  event: (id: string) => request<EventDetail>(`/events/${id}`),
+  eventClusters: (id: string, cursor?: string) => request<EventClusterPage>(`/events/${id}/clusters${query({ cursor })}`),
+  eventArticles: (id: string, cursor?: string) => request<EventArticlePage>(`/events/${id}/articles${query({ cursor })}`),
+  eventTimeline: (id: string, after?: string) => request<EventTimelinePage>(`/events/${id}/timeline${query({ after })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   edgeEvidence: (filters: Filters, cursor?: string) => {
     const params = filterParams(filters)
@@ -115,6 +120,12 @@ export const api = {
 }
 
 type Filters = Record<string, string | string[] | undefined>
+export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string }
+
+function query(params: Record<string, string | undefined>): string {
+  const search = filterParams(params)
+  return search.size ? `?${search}` : ''
+}
 
 function filterParams(filters: Filters): URLSearchParams {
   const params = new URLSearchParams()

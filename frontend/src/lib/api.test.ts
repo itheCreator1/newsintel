@@ -119,3 +119,23 @@ it('reads monitors with order, cursor and scope, and mutates them with CSRF', as
   expect(sent(10)).toMatchObject({ url: '/api/v1/monitors/m1/viewed', method: 'POST', body: JSON.stringify({ through: '2026-09-20T12:00:00Z' }) })
   expect(sent(12)).toMatchObject({ url: '/api/v1/monitors/m1', method: 'DELETE' })
 })
+
+it('requests events with filters, cursors and the timeline `after` date encoded', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+
+  await api.events({})
+  await api.events({ status: 'active', country: 'GR', entity_id: 'e1', from: '2026-09-01', to: '2026-09-30' }, 'a b')
+  await api.event('ev1')
+  await api.eventClusters('ev1', 'c+1')
+  await api.eventArticles('ev1')
+  await api.eventTimeline('ev1', '2026-09-02')
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/events',
+    '/api/v1/events?status=active&country=GR&entity_id=e1&from=2026-09-01&to=2026-09-30&cursor=a+b',
+    '/api/v1/events/ev1',
+    '/api/v1/events/ev1/clusters?cursor=c%2B1',
+    '/api/v1/events/ev1/articles',
+    '/api/v1/events/ev1/timeline?after=2026-09-02',
+  ])
+})

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, emptyInvestigation, fromSaved, queryFromState, refine, searchParams, stateFromQuery } from './investigation'
+import { brushRange, bucketEnd, emptyInvestigation, eventHref, fromSaved, queryFromState, refine, searchParams, stateFromQuery } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -95,5 +95,12 @@ describe('timeline brushing', () => {
   it('widens hour selections to cover their days so after stays before before', () => {
     expect(brushRange('2026-01-05T08:00:00Z', '2026-01-05T11:00:00Z')).toEqual({ after: '2026-01-05', before: '2026-01-06' })
     expect(brushRange('2026-01-05T22:00:00Z', '2026-01-06T00:00:00Z')).toEqual({ after: '2026-01-05', before: '2026-01-06' })
+  })
+})
+
+describe('eventHref', () => {
+  it('opens the dossier through a query-param route and keeps the origin', () => {
+    expect(eventHref('ev-1')).toBe('/events/detail/?id=ev-1')
+    expect(eventHref('ev-1', '/events/?status=active')).toBe('/events/detail/?id=ev-1&from=%2Fevents%2F%3Fstatus%3Dactive')
   })
 })
