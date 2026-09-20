@@ -119,3 +119,15 @@ def test_search_result_maps_a_hit_without_highlights() -> None:
     assert result.source_refs[0].country == "GR"
     assert result.story_cluster is not None and result.story_cluster.source_count == 3
     assert result.summary is None and result.highlights == []
+
+
+@pytest.mark.asyncio
+async def test_viewed_cannot_rewind_before_what_was_already_viewed() -> None:
+    from app.monitors.service import mark_viewed
+
+    item = _monitor(None)
+    item.viewed_cursor_at, item.eval_cursor_at = AFTER, UPTO
+    # Both cursors are set together by the first evaluation, so viewed is the floor of any rewind.
+    for through in (AFTER, AFTER - timedelta(days=365)):
+        assert await mark_viewed(None, item, through) is item  # type: ignore[arg-type]
+        assert (item.viewed_cursor_at, item.eval_cursor_at) == (AFTER, UPTO)

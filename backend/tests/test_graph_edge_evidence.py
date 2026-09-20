@@ -155,8 +155,16 @@ def test_parse_evidence_without_any_co_occurrence_is_empty_not_an_error() -> Non
 
 
 def test_cursor_round_trips_and_rejects_garbage() -> None:
-    assert decode_after(encode_after([1789041600000, "abc"])) == [1789041600000, "abc"]
-    for bad in ["not base64!", encode_after([1])[:-2], "e30=", "W10="]:
+    article = "7f0c1a52-5d0e-4c1b-9d55-2f6f5b6a9c11"
+    assert decode_after(encode_after([1789041600000, article])) == [1789041600000, article]
+    wrong_shapes = [[1], ["x", article], [True, article], [1, "abc"], [1, 2], [{"a": 1}, article]]
+    for bad in [
+        "not base64!",
+        encode_after([1])[:-2],
+        "e30=",
+        "W10=",
+        *[encode_after(shape) for shape in wrong_shapes],
+    ]:
         with pytest.raises(ValueError):
             decode_after(bad)
 
@@ -350,9 +358,14 @@ async def test_evidence_pages_with_an_opaque_cursor(
     }
     adapter.responses = [
         _response(
-            [_hit(ids[0], [3, "a"]), _hit(ids[1], [2, "b"]), _hit(ids[2], [1, "c"])], total=3
+            [
+                _hit(ids[0], [3, str(ids[0])]),
+                _hit(ids[1], [2, str(ids[1])]),
+                _hit(ids[2], [1, str(ids[2])]),
+            ],
+            total=3,
         ),
-        _response([_hit(ids[2], [1, "c"])], total=3),
+        _response([_hit(ids[2], [1, str(ids[2])])], total=3),
     ]
 
     page = await _evidence(_database(), limit=2)
@@ -360,7 +373,7 @@ async def test_evidence_pages_with_an_opaque_cursor(
     assert [article.id for article in page.articles] == ids[:2]
     follow = await _evidence(_database(), limit=2, cursor=page.next_cursor)
 
-    assert adapter.bodies[1][1]["search_after"] == [2, "b"]
+    assert adapter.bodies[1][1]["search_after"] == [2, str(ids[1])]
     assert [article.id for article in follow.articles] == [ids[2]]
     assert follow.next_cursor is None
 
