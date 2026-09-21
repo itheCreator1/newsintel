@@ -462,7 +462,8 @@ async def storage(db: AsyncSession, now: datetime | None = None) -> StorageRespo
         article_files_measured=False,
         article_files_note=(
             "Retained article HTML lives on the worker's volume, which the API cannot read, so "
-            "only the number of stored objects is shown, not their size."
+            "only the number of stored objects is shown. To size it, run on the host: docker "
+            "compose exec worker du -sh /var/lib/newsintel/articles"
         ),
         elasticsearch=None, elasticsearch_error=None,
     )  # fmt: skip
