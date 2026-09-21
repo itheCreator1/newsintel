@@ -137,6 +137,8 @@ The remaining routes follow the same design language:
 
 ## 6. Operations
 
+**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show.
+
 The Operations page (`/operations/`) shows dependency health, pipeline backlogs, feed health and storage. Two things it does not show:
 
 - **Article file size.** Retained article HTML lives on the worker's `article-data` volume, which only the worker mounts. Measure it from the host: `docker compose --env-file .env -f docker/compose.yaml exec worker du -sh /var/lib/newsintel/articles`.

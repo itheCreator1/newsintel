@@ -81,6 +81,8 @@ async def _aggregate(
     return aggregations
 
 
+# ponytail: counts indexed articles, so they lag delivery and skip documents that never indexed;
+# read PostgreSQL again if ingestion monitoring needs read-after-write counts.
 @router.get("/analytics/ingestion-timeline", response_model=IngestionTimelineResponse)
 async def ingestion_timeline(
     db: Db, _auth: Auth, settings: Config, criteria: Criteria
@@ -100,7 +102,7 @@ async def ingestion_timeline(
                 "first_discovered_at", "day", cutoff, datetime.combine(today, time.min, UTC)
             )
         },
-        minimum=1,
+        minimum=2,
         since=cutoff,
     )
     counts_by_day = {

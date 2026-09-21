@@ -63,8 +63,9 @@ async def test_ingestion_buckets_utc_discovery_days_over_the_37_day_input(
         }
     ]
 
-    # A V1 index is enough: first_discovered_at predates annotations.
-    body = await ingestion_timeline(_Database(1), object(), Settings(), _criteria())  # type: ignore[arg-type]
+    # Floor is schema 2: a fresh install with no target gives a rebuild prompt instead of
+    # querying a missing alias.
+    body = await ingestion_timeline(_Database(2), object(), Settings(), _criteria())  # type: ignore[arg-type]
 
     request = adapter.bodies[0][1]
     assert request["size"] == 0
@@ -75,6 +76,17 @@ async def test_ingestion_buckets_utc_discovery_days_over_the_37_day_input(
     assert [bucket.date for bucket in body.buckets] == days[7:]
     assert body.buckets[-1].count == 9 and body.buckets[-1].is_spike
     assert not any(bucket.is_spike for bucket in body.buckets[:-1])
+
+
+@pytest.mark.asyncio
+async def test_ingestion_requires_a_schema_two_index(adapter: type[_Adapter]) -> None:
+    # Also covers a fresh install: no target falls back to schema 1, so ingestion now gives the
+    # same actionable 409 as the top views instead of a 503 with a Retry that can never succeed.
+    with pytest.raises(HTTPException) as exc:
+        await ingestion_timeline(_Database(1), object(), Settings(), _criteria())  # type: ignore[arg-type]
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "search_upgrade_required"
+    assert adapter.bodies == []
 
 
 @pytest.mark.asyncio
