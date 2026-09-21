@@ -39,10 +39,10 @@ $compose run --rm api alembic upgrade head
 $compose exec -T postgres createdb -U newsintel newsintel_tests
 $compose run --rm -e NEWSINTEL_DATABASE_URL="postgresql+asyncpg://newsintel:newsintel@postgres:5432/newsintel_tests" api alembic upgrade head
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
-backend_tests="tests/test_graph_edge_evidence.py tests/test_graph_entities.py tests/test_phase10c_postgres.py"
+backend_tests="tests/test_graph_edge_evidence.py tests/test_graph_entities.py tests/test_graph_edge_evidence_postgres.py"
 (cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q $backend_tests) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
-(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_graph_edge_evidence.py tests/test_phase10c_postgres.py)
+(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_graph_edge_evidence.py tests/test_graph_edge_evidence_postgres.py)
 (cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m mypy app)
 
 # The checked-in contract must match the API; regenerate into scratch files and compare.

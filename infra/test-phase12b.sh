@@ -45,9 +45,9 @@ migrate upgrade head
 
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
 # Event association is PostgreSQL-only, so point Elasticsearch at an unreachable port to prove it.
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_events.py tests/test_event_engine.py tests/test_phase12a_postgres.py tests/test_phase12b_postgres.py) > "$artifacts/pytest.log"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_events.py tests/test_event_engine.py tests/test_event_model_postgres.py tests/test_event_engine_postgres.py) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
-(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_events.py tests/test_event_engine.py tests/test_phase12a_postgres.py tests/test_phase12b_postgres.py migrations)
+(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_events.py tests/test_event_engine.py tests/test_event_model_postgres.py tests/test_event_engine_postgres.py migrations)
 (cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m mypy app)
 
 # No routes yet (12C adds them), so the API contract and generated frontend types must not change.

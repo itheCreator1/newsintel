@@ -50,9 +50,9 @@ migrate upgrade head
 
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
 # The operations API must answer with Elasticsearch unreachable (its probe reports Down), so point it at a closed port.
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_operations_api.py tests/test_phase13d_postgres.py tests/test_event_engine.py tests/test_events.py tests/test_event_api.py tests/test_phase12a_postgres.py tests/test_phase12b_postgres.py tests/test_phase12c_postgres.py tests/test_geo_api.py tests/test_phase13c_postgres.py tests/test_phase13b_postgres.py) > "$artifacts/pytest.log"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_operations_api.py tests/test_operations_postgres.py tests/test_event_engine.py tests/test_events.py tests/test_event_api.py tests/test_event_model_postgres.py tests/test_event_engine_postgres.py tests/test_event_api_postgres.py tests/test_geo_api.py tests/test_geo_postgres.py tests/test_compare_postgres.py) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
-(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_operations_api.py tests/test_phase13d_postgres.py tests/event_fixtures.py migrations)
+(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_operations_api.py tests/test_operations_postgres.py tests/event_fixtures.py migrations)
 (cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m mypy app)
 
 # The operations routes change the API contract, so regenerate it and the frontend types, then prove the

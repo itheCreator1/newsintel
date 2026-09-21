@@ -67,7 +67,7 @@ $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade
 
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
 # Phase 3's stack deliberately never provisions Elasticsearch (see the assertion below that it
-# never starts) — Phase 3 predates search/clustering entirely. tests/test_phase7_postgres.py
+# never starts) — Phase 3 predates search/clustering entirely. tests/test_clustering_postgres.py
 # constructs a real ElasticsearchAdapter, so it's excluded here rather than given an unusable host
 # URL; its coverage (clustering, search v3, the entity graph) is exercised by
 # test-phase4.sh/test-phase5.sh/test-phase6.sh/test-phase7.sh, which do provision Elasticsearch.
@@ -77,7 +77,7 @@ host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTE
   NEWSINTEL_DATABASE_URL="$host_test_database" \
   NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' \
   UV_CACHE_DIR="$root/backend/.uv-cache" \
-    uv run --frozen pytest -q -rs --ignore=tests/test_phase7_postgres.py tests
+    uv run --frozen pytest -q -rs --ignore=tests/test_clustering_postgres.py tests
 ) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
 if grep -Eq '(^|[^0-9])[1-9][0-9]* skipped|^SKIPPED ' "$artifacts/pytest.log"; then

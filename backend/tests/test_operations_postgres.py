@@ -9,7 +9,7 @@ from event_fixtures import DIGEST, feed
 from sqlalchemy import delete, func, select
 from sqlalchemy import event as sa_event
 from sqlalchemy.engine import Engine
-from test_phase13b_postgres import _article, _get, _status
+from test_compare_postgres import _article, _get, _status
 
 from app.auth.models import User
 from app.clustering.models import ArticleClusterState, ClusterJob
@@ -177,7 +177,7 @@ async def test_the_window_edge_is_inclusive_and_a_narrower_window_excludes() -> 
 
 
 async def test_events_report_the_dirty_backlog_the_engine_would_process() -> None:
-    from test_phase13b_postgres import _cluster
+    from test_compare_postgres import _cluster
 
     async with session_factory() as db:
         engine_dirty = (await db.execute(_DIRTY)).scalar_one()
@@ -628,7 +628,7 @@ async def test_health_reports_unreachable_dependencies_as_data_within_the_bound(
 
 
 async def test_the_pipelines_route_has_a_fixed_statement_count() -> None:
-    from test_phase13b_postgres import _statements
+    from test_compare_postgres import _statements
 
     first = await _statements("/operations/pipelines", hours=1)
     assert first == await _statements("/operations/pipelines", hours=168)

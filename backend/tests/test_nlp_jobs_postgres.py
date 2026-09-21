@@ -206,7 +206,7 @@ async def test_country_job_claim_and_publication_are_durable() -> None:
     assert {annotation.country_code for annotation in annotations} == {"FR", "DE"}
 
     # A rule_version this long is only possible after the 0009 migration widened the
-    # column; leaving it behind would break test_phase7_postgres's downgrade-to-0007
+    # column; leaving it behind would break test_clustering_postgres's downgrade-to-0007
     # round trip, which passes through 0009's downgrade on a shared test database.
     async with session_factory() as db, db.begin():
         feed_article = await db.scalar(
