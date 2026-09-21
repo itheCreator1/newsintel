@@ -6446,7 +6446,22 @@ export interface operations {
     };
     ingestion_timeline_api_v1_analytics_ingestion_timeline_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6462,12 +6477,35 @@ export interface operations {
                     "application/json": components["schemas"]["IngestionTimelineResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     top_entities_api_v1_analytics_top_entities_get: {
         parameters: {
             query?: {
-                entity_type?: string | null;
+                scope?: "recent" | "investigation";
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -6497,7 +6535,23 @@ export interface operations {
     };
     top_countries_api_v1_analytics_top_countries_get: {
         parameters: {
-            query?: never;
+            query?: {
+                scope?: "recent" | "investigation";
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6511,6 +6565,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopCountriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

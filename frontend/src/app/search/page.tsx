@@ -15,7 +15,7 @@ import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
-import { advancedCount, clearCriteria, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
+import { advancedCount, clearCriteria, errorCode, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
 import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
@@ -66,7 +66,6 @@ function SearchContent() {
   const search = useInfiniteQuery({ queryKey: ['search', criteria], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.search(criteria, pageParam), getNextPageParam: page => page.next_cursor ?? undefined, retry: false })
   const timeline = useQuery({ queryKey: ['search-timeline', timelineCriteria], queryFn: () => api.timeline(timelineCriteria), retry: false })
   const results = search.data?.pages.flatMap(page => page.items) ?? []
-  const errorCode = (reason: unknown) => reason instanceof ApiError && reason.detail && typeof reason.detail === 'object' && 'code' in reason.detail ? String(reason.detail.code) : ''
   const searchError = search.error instanceof ApiError ? search.error : null
   const expired = searchError?.status === 409 && errorCode(searchError) === 'restart_search'
   const upgradeRequired = searchError?.status === 409 && errorCode(searchError) === 'search_upgrade_required'

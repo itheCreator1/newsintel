@@ -8,8 +8,8 @@ import { BarChart, type BarChartItem } from '../components/BarChart'
 import { EmptyState, ErrorNotice, LoadingState } from '../components/Feedback'
 import { GlassPanel } from '../components/GlassPanel'
 import { PageHeader } from '../components/PageHeader'
-import { api } from '../lib/api'
-import { isTransient } from '../lib/filter-ui'
+import { api, ApiError } from '../lib/api'
+import { errorCode, isTransient } from '../lib/filter-ui'
 import { emptyInvestigation, queryFromState, refine, toHref } from '../lib/investigation'
 import { chipClass, fieldClass, labelClass } from '../lib/ui-classes'
 
@@ -21,12 +21,19 @@ function nextDay(day: string): string {
   return date.toISOString().slice(0, 10)
 }
 
+/** Upgrade and outage belong to search as a whole, so say so instead of blaming the panel. */
+function panelError(error: unknown, fallback: string): string {
+  if (errorCode(error) === 'search_upgrade_required') return 'Search upgrade required. Rebuild the search index to see analytics.'
+  if (error instanceof ApiError && error.status === 503) return 'Analytics are temporarily unavailable.'
+  return fallback
+}
+
 /** Skeleton only before the first answer; a failed refetch keeps the chart it already has and adds a notice. */
 function PanelBody({ query, loading, error, empty, hasItems, children }: { query: UseQueryResult; loading: string; error: string; empty: ReactNode; hasItems: boolean; children: ReactNode }) {
   if (query.isPending) return <LoadingState label={loading} variant="chart" />
   return (
     <>
-      {query.isError && <ErrorNotice message={error} onRetry={isTransient(query.error) ? () => void query.refetch() : undefined} retrying={query.isFetching} />}
+      {query.isError && <ErrorNotice message={panelError(query.error, error)} onRetry={isTransient(query.error) ? () => void query.refetch() : undefined} retrying={query.isFetching} />}
       {hasItems ? children : !query.isError && empty}
     </>
   )

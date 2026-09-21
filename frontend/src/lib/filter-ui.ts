@@ -53,3 +53,8 @@ export function clearCriteria(state: Investigation): Investigation {
 export function isTransient(error: unknown): boolean {
   return !(error instanceof ApiError) || error.status >= 500
 }
+
+/** The structured `detail.code` of an API error (`search_upgrade_required`, `restart_search`), or ''. */
+export function errorCode(error: unknown): string {
+  return error instanceof ApiError && error.detail && typeof error.detail === 'object' && 'code' in error.detail ? String(error.detail.code) : ''
+}
