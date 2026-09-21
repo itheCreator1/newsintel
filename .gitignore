@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 /launch.sh
+/import-sources.sh
 *.pem
 *.key
 credentials*.json
