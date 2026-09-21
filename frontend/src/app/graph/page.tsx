@@ -11,7 +11,7 @@ import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
-import { advancedCount, filterChips, GRAPH_ADVANCED, GRAPH_CHIP_FIELDS, isTransient, removeFilter } from '../../lib/filter-ui'
+import { advancedCount, errorCode, filterChips, GRAPH_ADVANCED, GRAPH_CHIP_FIELDS, isTransient, removeFilter } from '../../lib/filter-ui'
 import { cn } from '../../lib/utils'
 import { api, ApiError } from '../../lib/api'
 import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
@@ -85,7 +85,6 @@ function GraphContent() {
     before: state.before ?? undefined, entity_id: [focusNode.id],
   } : null
   const articles = useQuery({ queryKey: ['entity-graph-articles', articleCriteria], queryFn: () => api.search(articleCriteria!), enabled: Boolean(articleCriteria), retry: false })
-  const errorCode = (reason: unknown) => reason instanceof ApiError && reason.detail && typeof reason.detail === 'object' && 'code' in reason.detail ? String(reason.detail.code) : ''
   const graphError = graph.error instanceof ApiError ? graph.error : null
   const upgradeRequired = graphError?.status === 409 && errorCode(graphError) === 'search_upgrade_required'
 

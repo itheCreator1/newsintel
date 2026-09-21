@@ -1,7 +1,6 @@
 """Bounded facet counts for one investigation; every count is matching root articles."""
 
 import uuid
-from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import Select, select
@@ -10,12 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.clustering.models import StoryCluster
 from app.feeds.models import Article, Feed
 from app.nlp.models import Entity, Keyword
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.aggregations import Counted, ensure_complete, read_terms, terms
+from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.schemas import FacetBucket, FacetGroup, SearchFacets
 
 MAX_FACET_BUCKETS = 25
-ORDER = [{"_count": "desc"}, {"_key": "asc"}]
-ROOT_ORDER = [{"articles": "desc"}, {"_key": "asc"}]
 # Response field -> (nested path, or None for an article-level field; indexed field).
 GROUPS: dict[str, tuple[str | None, str]] = {
     "sources": ("provenance", "provenance.source_id"),
@@ -30,62 +28,19 @@ GROUPS: dict[str, tuple[str | None, str]] = {
 }
 
 
-class PartialResponse(ElasticsearchUnavailable):
-    """A 200 that timed out or lost shards: its counts would be silently low."""
-
-
 def facets_body(query: dict[str, Any], limit: int) -> dict[str, Any]:
     size = min(limit, MAX_FACET_BUCKETS)
-    aggs: dict[str, Any] = {}
-    for name, (path, field) in GROUPS.items():
-        if path is None:
-            aggs[name] = {"terms": {"field": field, "size": size, "order": ORDER}}
-            continue
-        # An article can hold several records per value (two ORG entities, two feeds in one
-        # country), so count and rank by the root articles above them, not the records.
-        aggs[name] = {
-            "nested": {"path": path},
-            "aggs": {
-                "top": {
-                    "terms": {"field": field, "size": size, "order": ROOT_ORDER},
-                    "aggs": {"articles": {"reverse_nested": {}}},
-                }
-            },
-        }
+    aggs = {name: terms(path, field, size) for name, (path, field) in GROUPS.items()}
     return {"size": 0, "track_total_hits": True, "query": query, "aggs": aggs}
-
-
-def ensure_complete(response: dict[str, Any]) -> None:
-    # ponytail: only facets check this; graph, timeline and monitors read aggregations
-    # unguarded, move it into ElasticsearchAdapter.search_index once another view
-    # promises exact counts.
-    if response.get("timed_out") or response.get("_shards", {}).get("failed", 0):
-        raise PartialResponse("Elasticsearch returned partial results")
-
-
-@dataclass(frozen=True)
-class Counted:
-    buckets: list[tuple[str, int]]
-    truncated: bool
 
 
 def parse_facets(response: dict[str, Any]) -> tuple[int, dict[str, Counted]]:
     ensure_complete(response)
     aggregations = response.get("aggregations", {})
-    groups: dict[str, Counted] = {}
-    for name, (path, _field) in GROUPS.items():
-        agg = aggregations.get(name, {})
-        top = agg.get("top", {}) if path else agg
-        groups[name] = Counted(
-            buckets=[
-                (
-                    str(bucket["key"]),
-                    int((bucket["articles"] if path else bucket)["doc_count"]),
-                )
-                for bucket in top.get("buckets", [])
-            ],
-            truncated=int(top.get("sum_other_doc_count", 0)) > 0,
-        )
+    groups = {
+        name: read_terms(aggregations.get(name, {}), nested=path is not None)
+        for name, (path, _field) in GROUPS.items()
+    }
     return int(response["hits"]["total"]["value"]), groups
 
 

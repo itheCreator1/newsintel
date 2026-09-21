@@ -1,7 +1,7 @@
 import { focusManager } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { navigationHarness, resetNavigationHarness } from '../test/navigation-harness'
 import { renderWithQuery } from '../test/render'
 import OverviewPage from './page'
@@ -111,4 +111,21 @@ it('says core services are unavailable when the status check fails, not that it 
 
   expect(await screen.findByText('Unavailable')).toBeTruthy()
   expect(screen.queryByText('Checking')).toBeNull()
+})
+
+it('says search needs an upgrade, without a retry, when analytics need a newer index', async () => {
+  vi.mocked(api.topEntities).mockRejectedValue(new ApiError('Rebuild search', 409, { code: 'search_upgrade_required', message: 'Rebuild search' }))
+  renderWithQuery(() => <OverviewPage />)
+
+  expect(await screen.findByText('Search upgrade required. Rebuild the search index to see analytics.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+})
+
+it('offers a retry when analytics are temporarily unavailable', async () => {
+  vi.mocked(api.topCountries).mockRejectedValueOnce(new ApiError('Analytics are unavailable', 503))
+  renderWithQuery(() => <OverviewPage />)
+
+  expect(await screen.findByText('Analytics are temporarily unavailable.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByRole('button', { name: /Top primary story countries/ })).toBeTruthy()
 })

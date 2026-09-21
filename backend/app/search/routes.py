@@ -18,6 +18,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.feeds.service import decode_cursor, encode_cursor
+from app.search.aggregations import date_histogram
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 from app.search.facets import MAX_FACET_BUCKETS, search_facets
@@ -311,20 +312,7 @@ async def search_timeline(
                 "size": 0,
                 "track_total_hits": False,
                 "query": query,
-                "aggs": {
-                    "timeline": {
-                        "date_histogram": {
-                            "field": "effective_date",
-                            "calendar_interval": chosen,
-                            "time_zone": "UTC",
-                            "min_doc_count": 0,
-                            "extended_bounds": {
-                                "min": int(first.timestamp() * 1000),
-                                "max": int(last.timestamp() * 1000),
-                            },
-                        }
-                    }
-                },
+                "aggs": {"timeline": date_histogram("effective_date", chosen, first, last)},
             },
         )
     except ElasticsearchUnavailable as exc:
