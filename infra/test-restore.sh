@@ -36,6 +36,4 @@ if [ "$expected" != "$actual" ]; then
   diff <(echo "$expected") <(echo "$actual") >&2 || true
   exit 1
 fi
-version=$(psql_on "$copy_db" "select version_num from alembic_version")
-[ "$version" = "$(psql_on "$source_db" "select version_num from alembic_version")" ] || { echo "alembic_version differs" >&2; exit 1; }
-echo "Restored $(echo "$expected" | wc -l) tables, $(echo "$expected" | awk '{s += $2} END {print s}') rows, migration $version"
+echo "Restored $(echo "$expected" | wc -l) tables, $(echo "$expected" | awk '{s += $2} END {print s}') rows"

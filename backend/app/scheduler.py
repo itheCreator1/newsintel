@@ -262,17 +262,16 @@ RETENTION_INTERVAL_SECONDS = 3600
 _retention = {"run": float("-inf")}
 
 
-async def schedule_retention() -> dict[str, int] | None:
+async def schedule_retention() -> None:
     """Prune succeeded job history hourly (per scheduler process), on the first cycle too."""
     now = time.monotonic()
     if now - _retention["run"] < RETENTION_INTERVAL_SECONDS:
-        return None
+        return
     _retention["run"] = now
     async with session_factory() as db, db.begin():
         deleted = await retention.prune_history(db, datetime.now(UTC))
     if any(deleted.values()):
         log.info("history_pruned", **deleted)
-    return deleted
 
 
 async def schedule_source_refreshes(batch_size: int = 10) -> int:

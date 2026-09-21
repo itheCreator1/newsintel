@@ -13,15 +13,11 @@ BEAT_SECONDS = 15
 logger = logging.getLogger(__name__)
 
 
-def beat_queues(client: Any, queues: list[str]) -> None:
-    for queue in queues:
-        heartbeat.beat_sync(client, f"queue:{queue}")
-
-
 def _beat_forever(client: Any, queues: list[str]) -> None:
     while True:
         try:
-            beat_queues(client, queues)
+            for queue in queues:
+                heartbeat.beat_sync(client, f"queue:{queue}")
         except Exception:
             logger.warning("Worker heartbeat failed", exc_info=True)
         time.sleep(BEAT_SECONDS)
