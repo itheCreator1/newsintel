@@ -103,6 +103,8 @@ echo "$rebuild_output" | grep -q "status=completed" || { echo "Search rebuild di
 (cd frontend && npm run e2e -- --grep "source dossier workflow")
 (cd frontend && npm run e2e -- --grep "event workflow")
 (cd frontend && npm run e2e -- --grep "entity dossier workflow")
+# The grouped navigation, feedback states and filter chips (UI polish), while search still has Elasticsearch.
+(cd frontend && npm run e2e -- --grep "ui polish workflow")
 # Last: stop Elasticsearch, which the page must report as Down while every other panel still renders.
 $compose stop elasticsearch
 (cd frontend && npm run e2e -- --grep "stopped Elasticsearch")

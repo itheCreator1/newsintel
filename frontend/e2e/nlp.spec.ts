@@ -19,13 +19,15 @@ test('annotations refine search and stop words use revisioned settings', async (
   await expect(page).toHaveURL(/keyword_id=/)
   await expect(page.getByText('Fixture story', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
 
-  await page.getByLabel('Detected language').fill('en')
-  await page.getByLabel('Story country').fill('DE')
+  // The keyword filter is an advanced criterion, so Advanced filters opens by itself; clicking it would close it.
+  await expect(page.locator('summary').filter({ hasText: 'Advanced filters' })).toHaveText('Advanced filters (1)')
+  await page.getByLabel('Detected language', { exact: true }).fill('en')
+  await page.getByLabel('Story country', { exact: true }).fill('DE')
   await page.getByRole('button', { name: 'Search archive' }).click()
   await expect(page).toHaveURL(/language=en/)
   await expect(page).toHaveURL(/story_country=DE/)
-  await page.getByLabel('Detected language').fill('')
-  await page.getByLabel('Story country').fill('')
+  await page.getByLabel('Detected language', { exact: true }).fill('')
+  await page.getByLabel('Story country', { exact: true }).fill('')
   await page.getByRole('button', { name: 'Search archive' }).click()
   await expect(page).not.toHaveURL(/story_country=/)
 
