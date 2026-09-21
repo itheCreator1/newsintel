@@ -6,9 +6,11 @@ import { useState } from 'react'
 import { api } from '../../lib/api'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
-import { StatusBadge } from '../../components/StatusBadge'
+import { StatusBadge, type BadgeTone } from '../../components/StatusBadge'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+
+const JOB_TONES: Record<string, BadgeTone> = { succeeded: 'healthy', failed: 'error', retrying: 'degraded' }
 
 function BacklogStrip({ data }: { data: { queued?: number; running?: number; retrying?: number; failed?: number } | undefined }) {
   return (
@@ -68,7 +70,7 @@ export default function JobsPage() {
                 <strong className="text-[15px] font-semibold text-foreground">{job.article_title}</strong>
                 <small className="text-xs text-muted-foreground">{job.stage} · {job.requested_mode.split('_').join(' ')}</small>
               </div>
-              <StatusBadge tone={job.status === 'succeeded' ? 'healthy' : 'pending'}>{job.status}</StatusBadge>
+              <StatusBadge tone={JOB_TONES[job.status] ?? 'pending'}>{job.status}</StatusBadge>
             </div>
             {job.error_message && <p className="error text-sm text-destructive">{job.error_category}: {job.error_message}</p>}
             {(job.attempts || []).length > 0 && (
