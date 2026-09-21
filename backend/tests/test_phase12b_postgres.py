@@ -218,6 +218,60 @@ async def test_a_cluster_that_no_longer_fits_moves_and_its_old_event_is_refreshe
         assert old_entities == {e.id for e in ents[:3]}
 
 
+async def test_a_cluster_is_not_kept_in_its_event_by_its_own_evidence() -> None:
+    item = associator()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 6)
+        stays = await story(db, ents[:3], country="GR")
+        leaves = await story(db, ents[:3], title="ferry strike port", country="GR")
+        stays_id, leaves_id = stays.id, leaves.id
+    await run(item)
+    async with session_factory() as db, db.begin():
+        assert (await event_of(db, stays_id, item.version)).id == (  # type: ignore[union-attr]
+            await event_of(db, leaves_id, item.version)
+        ).id  # type: ignore[union-attr]
+        cluster = await db.get(StoryCluster, leaves_id)
+        assert cluster is not None
+        members = list(
+            await db.scalars(
+                select(StoryClusterMember.article_id).where(
+                    StoryClusterMember.cluster_id == leaves_id
+                )
+            )
+        )
+        await db.execute(delete(ArticleEntity).where(ArticleEntity.article_id.in_(members)))
+        for article_id in members:
+            await annotate(db, article_id, ents[3:])
+        cluster.article_count += 1
+    # Against the other member alone: same time and country (0.40), nothing else shared. Its own
+    # headline would add 0.20 and keep it at the 0.50 threshold.
+    result = await run(item)
+    assert (result.evaluated, result.created) == (1, 1)
+    async with session_factory() as db:
+        assert (await event_of(db, stays_id, item.version)).id != (  # type: ignore[union-attr]
+            await event_of(db, leaves_id, item.version)
+        ).id  # type: ignore[union-attr]
+
+
+async def test_a_single_cluster_event_keeps_its_id_when_the_cluster_changes() -> None:
+    item = associator()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 4)
+        cluster_id = (await story(db, ents[:3])).id
+    await run(item)
+    async with session_factory() as db, db.begin():
+        before = await event_of(db, cluster_id, item.version)
+        assert before is not None
+        cluster = await db.get(StoryCluster, cluster_id)
+        assert cluster is not None
+        cluster.article_count += 1
+    result = await run(item)
+    assert (result.evaluated, result.created, result.deleted) == (1, 0, 0)
+    async with session_factory() as db:
+        assert (await event_of(db, cluster_id, item.version)).id == before.id  # type: ignore[union-attr]
+    assert (await run(item)).evaluated == 0  # decided, so no longer dirty
+
+
 async def test_merged_or_dissolved_clusters_refresh_and_finally_delete_their_event() -> None:
     item = associator()
     async with session_factory() as db, db.begin():
