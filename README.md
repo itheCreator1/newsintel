@@ -73,6 +73,29 @@ The Operations page (`/operations/`) shows dependency health, pipeline backlogs,
 - **Article file size.** Retained article HTML lives on the worker's `article-data` volume, which only the worker mounts. Measure it from the host: `docker compose --env-file .env -f docker/compose.yaml exec worker du -sh /var/lib/newsintel/articles`.
 - **History retention.** The scheduler deletes, every hour, succeeded job rows older than 30 days that a newer row replaces, plus sessions that expired or were revoked more than 30 days ago. Failed rows are kept for diagnosis.
 
+### Backup and restore
+
+PostgreSQL holds everything that matters. Elasticsearch is rebuilt from it, so it needs no backup. Retained article HTML, on the worker's `article-data` volume, is optional. CI rehearses the dump and restore on every push (`infra/test-restore.sh`).
+
+Back up:
+
+```sh
+alias dc='docker compose --env-file .env -f docker/compose.yaml'
+dc exec -T postgres pg_dump -U newsintel -Fc newsintel > newsintel-$(date +%F).dump
+dc run --rm --no-deps -T worker tar czf - -C /var/lib/newsintel articles > articles-$(date +%F).tgz  # optional
+```
+
+Restore:
+
+```sh
+dc stop api worker nlp-worker scheduler
+dc exec -T postgres pg_restore -U newsintel -d newsintel --clean --if-exists --no-owner --exit-on-error < newsintel-DATE.dump
+dc run --rm --no-deps -T worker tar xzf - -C /var/lib/newsintel < articles-DATE.tgz  # if backed up
+dc run --rm api alembic upgrade head    # a dump from an older release needs the newer migrations
+dc up -d
+dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows
+```
+
 ## Development checks
 
 Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv run mypy app`
