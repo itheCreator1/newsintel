@@ -75,13 +75,20 @@ def positions(
     """Per story, this source's earliest article and how far behind the story's earliest it was.
 
     Stories are limited to those with an article of this source in the window (`start`) or to
-    `cluster_ids`. The story's earliest article is by `(effective date, article id)`.
+    `cluster_ids`; either way, positions are over all their history, so they match story detail.
+    The story's earliest article is by `(effective date, article id)`.
     """
     effective = effective_date()
     member = StoryClusterMember
     conditions = [FeedArticle.feed_id == source_id]
     if start is not None:
-        conditions.append(effective >= start)
+        in_window = (
+            select(member.cluster_id)
+            .join(Article, Article.id == member.article_id)
+            .join(FeedArticle, FeedArticle.article_id == Article.id)
+            .where(FeedArticle.feed_id == source_id, effective >= start)
+        )
+        conditions.append(member.cluster_id.in_(in_window))
     if cluster_ids is not None:
         conditions.append(member.cluster_id.in_(cluster_ids))
     mine = (

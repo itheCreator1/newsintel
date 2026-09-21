@@ -396,6 +396,25 @@ async def test_timing_counts_only_shared_stories_in_the_window_and_breaks_ties_b
     assert wide["stories"] == 7  # the 40-day-old story enters a wider window
 
 
+async def test_a_source_that_led_before_the_window_stays_first_when_it_updates_inside_it() -> None:
+    async with session_factory() as db, db.begin():
+        a, b = await feed(db), await feed(db)
+        old = NOW - timedelta(days=40)
+        await _cluster(
+            db,
+            [
+                await _article(db, a, old),
+                await _article(db, b, old + timedelta(minutes=30)),
+                await _article(db, a, NOW - timedelta(days=1)),
+            ],
+            2,
+        )
+    timing = await _get(f"/sources/{a.id}/timing", days=7)
+    assert timing["stories"] == 1 and timing["first"] == 1
+    [story] = await _walk(f"/sources/{a.id}/clusters", 10)
+    assert story["first"] is True  # the same answer as the story list
+
+
 async def test_clusters_carry_this_sources_position_and_page_consistently() -> None:
     source_id = await _timing_fixture()
     full = await _walk(f"/sources/{source_id}/clusters", 100)
