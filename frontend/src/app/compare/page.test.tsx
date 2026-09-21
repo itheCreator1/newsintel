@@ -192,9 +192,18 @@ it('keeps the whole comparison in the URL', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=FR&b=GR&role=mentioned&days=90')
   fireEvent.change(screen.getByLabelText('Country meaning'), { target: { value: 'source' } })
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=GR&b=FR&role=source&days=90')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=FR&b=GR&role=source&days=90')
   fireEvent.change(screen.getByLabelText('Window'), { target: { value: '7' } })
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=GR&b=FR&role=mentioned&days=7')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=FR&b=GR&role=mentioned&days=7')
+})
+
+it('shows the swapped countries in their inputs', async () => {
+  resetNavigationHarness({ pathname: '/compare/', search: 'kind=country&a=GR&b=FR' })
+  const { rerenderSame } = renderWithQuery(() => <ComparePage />)
+  fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
+  rerenderSame()
+  expect((screen.getByLabelText('Country A') as HTMLInputElement).value).toBe('FR')
+  expect((screen.getByLabelText('Country B') as HTMLInputElement).value).toBe('GR')
 })
 
 it('clears both subjects when the type changes', async () => {
