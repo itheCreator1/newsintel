@@ -1,14 +1,16 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../lib/auth-context'
+import { monitor } from '../test/monitors'
 import { navigationHarness, resetNavigationHarness } from '../test/navigation-harness'
+import { renderWithQuery } from '../test/render'
 import { Shell } from './Shell'
 
 describe('application shell', () => {
   beforeEach(() => { vi.restoreAllMocks(); resetNavigationHarness() })
 
   it('shows the product identity and sign-in form', () => {
-    render(<AuthProvider><Shell>content</Shell></AuthProvider>)
+    renderWithQuery(() => <AuthProvider><Shell>content</Shell></AuthProvider>)
 
     expect(screen.getByRole('heading', { name: 'NewsIntel' })).toBeTruthy()
     expect(screen.getByLabelText('Username')).toBeTruthy()
@@ -25,7 +27,7 @@ describe('application shell', () => {
       if (path.includes('/articles')) return new Response(JSON.stringify({ items: [], next_cursor: null }))
       return new Response('{}')
     }))
-    render(<AuthProvider><Shell>content</Shell></AuthProvider>)
+    renderWithQuery(() => <AuthProvider><Shell>content</Shell></AuthProvider>)
     expect(await screen.findByRole('link', { name: 'Sources' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Articles' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Search' })).toBeTruthy()
@@ -42,7 +44,7 @@ describe('application shell', () => {
   function signedIn() {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith('/auth/me') ? new Response(JSON.stringify({ id: '1', username: 'analyst' })) : new Response('{}')))
-    return render(<AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+    return renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
   }
 
   it('groups every destination and marks only the exact current one', async () => {
@@ -73,7 +75,7 @@ describe('application shell', () => {
   })
 
   it('opens the menu inline and closes it on Escape, on a destination, and on navigation', async () => {
-    const { rerender } = signedIn()
+    const { rerenderSame } = signedIn()
     const menu = await screen.findByRole('button', { name: 'Menu' })
     const panel = document.getElementById(menu.getAttribute('aria-controls')!)!
     expect(menu).toHaveAttribute('aria-expanded', 'false')
@@ -92,7 +94,39 @@ describe('application shell', () => {
 
     fireEvent.click(menu)
     navigationHarness.pathname = '/graph/'
-    rerender(<AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+    rerenderSame()
     expect(menu).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  function withMonitors(response: () => Response) {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/auth/me')) return new Response(JSON.stringify({ id: '1', username: 'analyst' }))
+      if (path.includes('/monitors?')) return response()
+      return new Response('{}')
+    }))
+    return renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+  }
+
+  it('counts the monitors with new results on the Watchlist link', async () => {
+    withMonitors(() => new Response(JSON.stringify({ items: [monitor({ id: 'a', unseen_article_count: 2 }), monitor({ id: 'b', unseen_article_count: 1 }), monitor({ id: 'c' })], next_cursor: null })))
+    const link = await screen.findByRole('link', { name: 'Watchlist, 2 with new results' })
+    expect(link).toHaveAttribute('href', '/monitors/')
+    expect(within(link).getByText('2')).toBeTruthy()
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?order=activity&limit=100'))).toBe(true)
+  })
+
+  it('shows no badge when nothing is new or the monitors cannot be loaded', async () => {
+    withMonitors(() => new Response(JSON.stringify({ items: [monitor({ id: 'c' })], next_cursor: null })))
+    expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
+    await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
+    expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
+  })
+
+  it('keeps the plain Watchlist link when the monitors request fails', async () => {
+    withMonitors(() => new Response(JSON.stringify({ detail: 'boom' }), { status: 500 }))
+    expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
+    await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
+    expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
   })
 })

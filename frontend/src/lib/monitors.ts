@@ -9,6 +9,8 @@ export const monitorKeys = {
   detail: (id: string) => ['monitors', 'detail', id] as const,
   results: (id: string, scope: string) => ['monitors', 'results', id, scope] as const,
   changes: (id: string) => ['monitors', 'changes', id] as const,
+  // Under the list prefix, so every change that refreshes the lists refreshes the badge too.
+  badge: ['monitors', 'list', 'badge'] as const,
 }
 
 /** `pending` means an evaluation is due now, so the counters may be about to change (or be recounted after a view). */
@@ -21,6 +23,9 @@ export function monitorStatus(item: Monitor, now = Date.now()): MonitorStatus {
 }
 
 export const countsLabel = (item: Monitor) => `${plural(item.unseen_article_count, 'new article')} · ${plural(item.unseen_cluster_count, 'new story', 'new stories')}`
+
+/** Monitors with something new to look at; paused ones keep old counts, so they do not call for attention. */
+export const unseenMonitors = (items: Monitor[] | undefined) => items?.filter(item => item.enabled && item.unseen_article_count > 0).length ?? 0
 
 export const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 

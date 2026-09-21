@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../lib/auth-context'
 import { displayFont, monoFont } from '../lib/fonts'
 import { NavLink } from './NavLink'
+import { WatchlistLink } from './WatchlistLink'
 
 const fontVars = `${displayFont.variable} ${monoFont.variable}`
 
@@ -96,7 +97,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {NAV_GROUPS.map(([group, links]) => (
               <div key={group} className="flex flex-col gap-1">
                 <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{group}</p>
-                {links.map(([href, label]) => <NavLink key={href} href={href}>{label}</NavLink>)}
+                {links.map(([href, label]) => href === '/monitors' ? <WatchlistLink key={href} href={href} label={label} /> : <NavLink key={href} href={href}>{label}</NavLink>)}
               </div>
             ))}
           </nav>

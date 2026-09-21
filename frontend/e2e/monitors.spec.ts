@@ -38,6 +38,8 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await expect.poll(async () => (await monitors(page))[0]?.unseen_article_count, { timeout: 150_000, intervals: [2_000] }).toBe(6)
 
   await page.goto('/monitors')
+  const nav = page.getByRole('navigation', { name: 'Main navigation' })
+  await expect(nav.getByRole('link', { name: 'Watchlist, 1 with new results', exact: true })).toBeVisible({ timeout: 30_000 })
   const row = page.getByRole('article', { name: 'Harbor watch' })
   await expect(row).toHaveAttribute('data-unseen', 'true')
   await expect(row.getByText(/^6 new articles/)).toBeVisible()
@@ -56,6 +58,7 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await expect(changes.getByText('No changes since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new', { exact: true })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Watchlist', exact: true })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: 'Recent matches' }).click()
   await expect(page).toHaveURL(/scope=recent/)
   await expect(page.locator('main article')).toHaveCount(6)
