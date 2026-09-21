@@ -38,7 +38,7 @@ $compose build api worker nlp-worker scheduler frontend
 
 # Fail fast (in ~1 minute, not 10) if the NER-enabled image can't actually extract the two
 # entity kinds every fixture and assertion in this script depends on. This mirrors the positive
-# half of test-phase5.sh's smoke assertion; unlike Phase 5, there is no negative "NER absent in
+# half of test-phase5-versioned-nlp.sh's smoke assertion; unlike Phase 5, there is no negative "NER absent in
 # the default image" half here, because this script never builds a non-NER nlp-worker.
 $compose run --rm --no-deps nlp-worker python -c "
 import spacy
@@ -58,8 +58,8 @@ host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTE
 # tests/test_clustering_postgres.py's real-Elasticsearch tests run in the host-side pytest process
 # against a real adapter (see the Task 3 carried-forward note in the brief), so
 # NEWSINTEL_ELASTICSEARCH_URL needs a host-reachable override, the same way the host database URL
-# already overrides NEWSINTEL_DATABASE_URL above. test-phase6.sh gets the identical three lines
-# below since the same shared test file is collected there too; test-phase3/4/5.sh do not and are
+# already overrides NEWSINTEL_DATABASE_URL above. test-phase6-investigations.sh gets the identical three lines
+# below since the same shared test file is collected there too; the Phase 3, 4 and 5 scripts do not and are
 # reported as a follow-up in this task's report instead.
 host_elasticsearch_url="http://127.0.0.1:$NEWSINTEL_TEST_ELASTICSEARCH_PORT"
 (cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL="$host_elasticsearch_url" NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen pytest -q -rs tests) > "$artifacts/pytest.log"

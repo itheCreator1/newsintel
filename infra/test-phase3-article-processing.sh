@@ -70,7 +70,7 @@ host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTE
 # never starts) — Phase 3 predates search/clustering entirely. tests/test_clustering_postgres.py
 # constructs a real ElasticsearchAdapter, so it's excluded here rather than given an unusable host
 # URL; its coverage (clustering, search v3, the entity graph) is exercised by
-# test-phase4.sh/test-phase5.sh/test-phase6.sh/test-phase7.sh, which do provision Elasticsearch.
+# test-phase4-search.sh/test-phase5-versioned-nlp.sh/test-phase6-investigations.sh/test-phase7-clustering-and-relationships.sh, which do provision Elasticsearch.
 (
   cd backend
   NEWSINTEL_RUN_POSTGRES_TESTS=1 \
