@@ -8,6 +8,7 @@ import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { WatchForm } from '../../components/WatchForm'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
@@ -85,6 +86,7 @@ function EntityContent() {
               <Link className={chipClass} href={toHref('/events', new URLSearchParams({ entity_id: id }))}>Events with this entity</Link>
               <Link className={chipClass} href={compareHref({ kind: 'entity', a: id })}>Compare with another entity</Link>
             </div>
+            <WatchForm key={id} className="" kind="entity" state={searchState} defaultName={entity.display_name} label="Watch entity" />
           </div>
         )}
       </GlassPanel>

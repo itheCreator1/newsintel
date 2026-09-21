@@ -11,7 +11,7 @@ import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
-import { WatchSearchForm } from '../../components/WatchSearchForm'
+import { WatchForm } from '../../components/WatchForm'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { advancedCount, clearCriteria, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
@@ -180,7 +180,7 @@ function SearchContent() {
           : save.isSuccess && <p role="status" className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>
 
-      <WatchSearchForm state={state} />
+      <WatchForm state={state} />
 
       <GlassPanel className="overflow-hidden p-0">
         {state.story_cluster_id.length > 0 && (

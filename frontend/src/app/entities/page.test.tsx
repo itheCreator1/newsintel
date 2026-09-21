@@ -7,7 +7,7 @@ import EntitiesPage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn() },
+  api: { entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn() },
 }))
 vi.mock('../../components/BarChart', () => ({
   BarChart: ({ items, onSelect }: { items: { id: string; label: string }[]; onSelect(item: { id: string }): void }) => (
@@ -129,4 +129,13 @@ it('prompts for an entity when no id is given', async () => {
 
   expect(await screen.findByText('Choose an entity from an article, the graph, or search to open its dossier.')).toBeTruthy()
   expect(api.entityDossier).not.toHaveBeenCalled()
+})
+
+it('watches this entity under its name', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch entity' }))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Barack Obama', expect.objectContaining({ entity_id: ['ent-1'], source_id: [] }), 'entity'))
+  expect(await screen.findByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
 })
