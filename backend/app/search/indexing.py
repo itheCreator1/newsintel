@@ -159,14 +159,14 @@ async def _acknowledge(
         delivery = await db.scalar(
             select(SearchDelivery).where(SearchDelivery.id == delivery_id).with_for_update()
         )
-        if (
-            delivery is None
-            or delivery.claim_token != token
-            or delivery.requested_revision != revision
-        ):
+        if delivery is None or delivery.claim_token != token:
             return
         delivery.claim_token = None
         delivery.claim_expires_at = None
+        # A newer revision was requested while this one ran; request_indexing already queued it,
+        # and releasing the claim makes it due now instead of when this lease expires.
+        if delivery.requested_revision != revision:
+            return
         if outcome in ("success", "duplicate"):
             delivery.indexed_revision = revision
             delivery.status = "succeeded"
