@@ -66,6 +66,13 @@ Six Compose services (`frontend`, `api`, `worker`, `nlp-worker`, `scheduler`, pl
 
 Stop services with `docker compose --env-file .env -f docker/compose.yaml down`. Named volumes retain data; `docker compose --env-file .env -f docker/compose.yaml down -v` intentionally destroys local data.
 
+## Operations
+
+The Operations page (`/operations/`) shows dependency health, pipeline backlogs, feed health and storage. Two things it does not show:
+
+- **Article file size.** Retained article HTML lives on the worker's `article-data` volume, which only the worker mounts. Measure it from the host: `docker compose --env-file .env -f docker/compose.yaml exec worker du -sh /var/lib/newsintel/articles`.
+- **History retention.** The scheduler deletes, every hour, succeeded job rows older than 30 days that a newer row replaces, plus sessions that expired or were revoked more than 30 days ago. Failed rows are kept for diagnosis.
+
 ## Development checks
 
 Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv run mypy app`
