@@ -6,12 +6,12 @@ from test_search_timeline import _Adapter, _criteria, _Database
 
 from app.core.config import Settings
 from app.main import create_app
+from app.search.aggregations import PartialResponse
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.facets import (
     GROUPS,
     MAX_FACET_BUCKETS,
-    PartialResponse,
     facets_body,
     parse_facets,
 )
