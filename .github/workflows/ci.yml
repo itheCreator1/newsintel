@@ -122,8 +122,8 @@ jobs:
       - run: uv sync --frozen
       - run: python3 tests/fixtures/server.py 18080 > fixture-server.log 2>&1 &
       - run: uv run --frozen python -m alembic upgrade head
-      - name: Migration head is 0014
-        run: uv run --frozen python -m alembic heads | grep -q '^0014 (head)'
+      - name: Migrations have a single head
+        run: test "$(uv run --frozen python -m alembic heads | grep -c '(head)')" = 1
       - name: Gated suite runs with nothing skipped
         run: |
           uv run --frozen python -m pytest -q -rs tests | tee pytest.log

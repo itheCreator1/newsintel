@@ -59,7 +59,7 @@ rebuild_search() {
 
 $compose up -d --wait --wait-timeout 180 postgres redis elasticsearch fixture
 $compose run --rm api alembic upgrade head
-$compose run --rm api alembic heads | tr -d '\r' | grep -q '^0014 (head)' || { echo "The migration head must be 0014" >&2; exit 1; }
+[ "$($compose run --rm api alembic heads | grep -c '(head)')" = 1 ] || { echo "Migrations must have a single head" >&2; exit 1; }
 case $group in
   search) users phase3 phase4 phase5 ;;
   investigations) users phase6 ;;
