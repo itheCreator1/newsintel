@@ -26,7 +26,7 @@ from app.monitors.models import Monitor
 from app.nlp.models import NlpJob
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import job_due as nlp_job_due
-from app.operations import heartbeat
+from app.operations import heartbeat, retention
 from app.search.models import SearchDelivery, SourceSearchRefresh
 from app.search.service import (
     claim_delivery,
@@ -258,6 +258,23 @@ async def schedule_due_events() -> bool:
     return True
 
 
+RETENTION_INTERVAL_SECONDS = 3600
+_retention = {"run": float("-inf")}
+
+
+async def schedule_retention() -> dict[str, int] | None:
+    """Prune succeeded job history hourly (per scheduler process), on the first cycle too."""
+    now = time.monotonic()
+    if now - _retention["run"] < RETENTION_INTERVAL_SECONDS:
+        return None
+    _retention["run"] = now
+    async with session_factory() as db, db.begin():
+        deleted = await retention.prune_history(db, datetime.now(UTC))
+    if any(deleted.values()):
+        log.info("history_pruned", **deleted)
+    return deleted
+
+
 async def schedule_source_refreshes(batch_size: int = 10) -> int:
     async with session_factory() as db:
         ids = list(
@@ -287,6 +304,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             await schedule_due_monitors()
             await schedule_due_events()
             await schedule_source_refreshes()
+            await schedule_retention()
         except Exception:
             log.exception("scheduler_cycle_failed")
         try:  # a failing cycle still means the process is alive; a Redis blip only logs
