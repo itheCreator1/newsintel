@@ -45,6 +45,8 @@ class EdgeEvidenceResponse(BaseModel):
     meaning: str
     article_count: int
     cluster_count: int
+    # Elasticsearch cardinality: near-exact below 3000 distinct stories, never guaranteed exact.
+    cluster_count_estimated: bool
     first_at: datetime | None
     last_at: datetime | None
     articles: list[ArticleResponse]

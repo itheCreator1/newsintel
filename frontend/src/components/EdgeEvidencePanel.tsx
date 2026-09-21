@@ -40,7 +40,7 @@ export function EdgeEvidencePanel({ source, target, filters, returnHref }: { sou
         <>
           <h3 className="text-lg font-semibold text-foreground">{head.source.text} and {head.target.text}</h3>
           <p className="text-sm text-muted-foreground">{head.meaning}</p>
-          <p className="text-sm text-foreground">{`${plural(head.article_count, 'article')} · ${plural(head.cluster_count, 'story', 'stories')}`}</p>
+          <p className="text-sm text-foreground">{`${plural(head.article_count, 'article')} · ${head.cluster_count_estimated ? 'about ' : ''}${plural(head.cluster_count, 'story', 'stories')}${head.cluster_count_estimated ? ' (estimated)' : ''}`}</p>
           <p className="text-sm text-muted-foreground">First seen {when(head.first_at)} · Latest {when(head.last_at)}</p>
           <div className="flex flex-wrap gap-2">
             {[head.source, head.target].map(entity => <Link key={entity.id} className={chipClass} href={entityHref(entity.id)}>Open dossier for {entity.text}</Link>)}
