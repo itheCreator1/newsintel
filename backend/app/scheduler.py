@@ -3,6 +3,7 @@ import time
 from datetime import UTC, datetime
 
 import structlog
+from redis.asyncio import Redis
 from sqlalchemy import or_, select
 
 from app.articles.service import claim_due_job, due_filter
@@ -25,6 +26,7 @@ from app.monitors.models import Monitor
 from app.nlp.models import NlpJob
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import job_due as nlp_job_due
+from app.operations import heartbeat
 from app.search.models import SearchDelivery, SourceSearchRefresh
 from app.search.service import (
     claim_delivery,
@@ -274,6 +276,7 @@ async def schedule_source_refreshes(batch_size: int = 10) -> int:
 
 
 async def run_scheduler(interval_seconds: float = 10) -> None:
+    redis = Redis.from_url(get_settings().redis_url)
     while True:
         try:
             await schedule_due_feeds()
@@ -286,6 +289,10 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             await schedule_source_refreshes()
         except Exception:
             log.exception("scheduler_cycle_failed")
+        try:  # a failing cycle still means the process is alive; a Redis blip only logs
+            await heartbeat.beat(redis, "scheduler")
+        except Exception:
+            log.exception("scheduler_heartbeat_failed")
         await asyncio.sleep(interval_seconds)
 
 

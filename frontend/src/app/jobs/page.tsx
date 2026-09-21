@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { GlassPanel } from '../../components/GlassPanel'
@@ -40,7 +41,9 @@ export default function JobsPage() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <PageHeader eyebrow="Article processing" title="Jobs" />
+      <PageHeader eyebrow="Article processing" title="Jobs">
+        <Link className={ghostButtonClass} href="/operations/">Operational metrics</Link>
+      </PageHeader>
 
       {backlog.isPending && <p className="text-sm text-muted-foreground">Loading backlog…</p>}
       {!backlog.isPending && backlog.isError && <p className="error text-sm text-destructive">Could not load backlog.</p>}

@@ -72,6 +72,7 @@ class ClusterJob(Base):
     __table_args__ = (
         UniqueConstraint("article_id", "generation", name="uq_cluster_job_generation"),
         Index("ix_cluster_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
+        Index("ix_cluster_jobs_completed", "completed_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     state_id: Mapped[uuid.UUID] = mapped_column(

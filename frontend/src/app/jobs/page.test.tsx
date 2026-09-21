@@ -98,3 +98,8 @@ it('shows NLP backlog, capabilities, reprocessing progress, and retries failures
   expect(api.retryNlpJob).toHaveBeenCalledWith('nlp-failure')
   expect(await screen.findByText('NLP retry scheduled.')).toBeTruthy()
 })
+
+it('links to the operational metrics', async () => {
+  renderWithQuery(() => <JobsPage />)
+  expect((await screen.findByRole('link', { name: 'Operational metrics' })).getAttribute('href')).toBe('/operations/')
+})
