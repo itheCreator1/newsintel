@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fixtureDate } from './fixture-dates'
 
 async function login(page: Page) {
   await page.goto('/')
@@ -37,7 +38,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await expect(page.getByLabel('Timeline interval')).toHaveValue('auto')
   await expect(page.getByRole('option', { name: 'Automatic (day)' })).toBeAttached()
 
-  // Twelve daily buckets span 1–12 September; brushing buckets 0 through 4 keeps 1–5 September.
+  // Twelve daily buckets span the fixtures' 1–12 September (shifted by the fixture server); brushing buckets 0 through 4 keeps 1–5 September.
   // The pixel math mirrors TimelineChart's grid (left 44, right 16) and the fixture feed dates; update both together.
   const chart = page.locator('.timeline-chart canvas').first()
   await expect(chart).toBeVisible()
@@ -48,8 +49,8 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await page.mouse.down()
   await page.mouse.move(plotLeft + bucketWidth * 4.5, y, { steps: 12 })
   await page.mouse.up()
-  await expect(page).toHaveURL(/after=2026-09-01/)
-  await expect(page).toHaveURL(/before=2026-09-06/)
+  await expect(page).toHaveURL(new RegExp(`after=${fixtureDate('2026-09-01')}`))
+  await expect(page).toHaveURL(new RegExp(`before=${fixtureDate('2026-09-06')}`))
   await expect(heading(page)).toHaveText('4 matching articles over time')
   await expect(page.locator('.search-result')).toHaveCount(4)
 

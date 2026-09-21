@@ -10,8 +10,8 @@ async function login(page: Page) {
 
 // Runs after `relationships seed`: "Relationships Wire" is a Greek feed with three articles and
 // "Relationships Daily" a US one with two. Nothing in the fixtures names a country, so only the source
-// role has data, which also shows the empty story role. The fixture articles are dated 7-11 September
-// 2026, so the widest window keeps them in range for longest.
+// role has data, which also shows the empty story role. The fixture server shifts the articles to end
+// yesterday; the widest window also covers runs against a stale Compose stack.
 test('map workflow separates the location roles and refines a search from a selected country', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

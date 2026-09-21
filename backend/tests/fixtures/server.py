@@ -1,8 +1,26 @@
+import re
+from datetime import UTC, date, datetime, timedelta
+from email.utils import format_datetime, parsedate_to_datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).parent
 RECOVERY_FAILURES = 3
+# The day after the newest fixture pubDate; frontend/e2e/fixture-dates.ts mirrors it.
+ANCHOR = date(2026, 9, 14)
+PUB_DATE = re.compile(r"<pubDate>(.*?)</pubDate>")
+
+
+def shift_pub_dates(xml: str, today: date) -> str:
+    """Move every pubDate forward by whole days so the newest lands on `today - 1`."""
+    offset = timedelta(days=max(0, (today - ANCHOR).days))
+
+    def shift(match: re.Match[str]) -> str:
+        moved = parsedate_to_datetime(match.group(1)) + offset
+        return f"<pubDate>{format_datetime(moved, usegmt=True)}</pubDate>"
+
+    return PUB_DATE.sub(shift, xml)
 
 
 class FixtureHandler(SimpleHTTPRequestHandler):
@@ -26,5 +44,14 @@ class FixtureHandler(SimpleHTTPRequestHandler):
             self.path = "/article-changed.html"
         super().do_GET()
 
+    def copyfile(self, source: Any, outputfile: Any) -> None:
+        # Shifted GMT dates keep their length, so Content-Length and 304 handling still hold.
+        if not self.path.endswith(".xml"):
+            super().copyfile(source, outputfile)
+            return
+        # ponytail: offset computed per request, freeze a test clock if midnight-crossing runs flake
+        outputfile.write(shift_pub_dates(source.read().decode(), datetime.now(UTC).date()).encode())
 
-ThreadingHTTPServer(("0.0.0.0", 80), FixtureHandler).serve_forever()
+
+if __name__ == "__main__":
+    ThreadingHTTPServer(("0.0.0.0", 80), FixtureHandler).serve_forever()

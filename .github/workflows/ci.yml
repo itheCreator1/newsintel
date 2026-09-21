@@ -10,10 +10,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   backend:
     name: Backend (ruff, mypy, pytest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -31,7 +35,7 @@ jobs:
 
   frontend:
     name: Frontend (vitest, tsc, build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -45,3 +49,25 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+
+  contract:
+    name: API contract (OpenAPI and generated types)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: "0.12.9"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: uv python install 3.13
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run --frozen python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > ../frontend/openapi.json
+        working-directory: backend
+      - run: npm ci && npm run generate:api
+        working-directory: frontend
+      - name: Fail if the checked-in contract is stale
+        run: git diff --exit-code frontend/openapi.json frontend/src/lib/types.generated.ts
