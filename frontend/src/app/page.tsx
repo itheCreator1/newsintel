@@ -1,14 +1,17 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { BarChart, type BarChartItem } from '../components/BarChart'
+import { EmptyState, ErrorNotice, LoadingState } from '../components/Feedback'
 import { GlassPanel } from '../components/GlassPanel'
 import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
+import { isTransient } from '../lib/filter-ui'
 import { emptyInvestigation, queryFromState, refine, toHref } from '../lib/investigation'
-import { fieldClass, labelClass } from '../lib/ui-classes'
+import { chipClass, fieldClass, labelClass } from '../lib/ui-classes'
 
 const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'] as const
 
@@ -16,6 +19,17 @@ function nextDay(day: string): string {
   const date = new Date(`${day}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() + 1)
   return date.toISOString().slice(0, 10)
+}
+
+/** Skeleton only before the first answer; a failed refetch keeps the chart it already has and adds a notice. */
+function PanelBody({ query, loading, error, empty, hasItems, children }: { query: UseQueryResult; loading: string; error: string; empty: ReactNode; hasItems: boolean; children: ReactNode }) {
+  if (query.isPending) return <LoadingState label={loading} variant="chart" />
+  return (
+    <>
+      {query.isError && <ErrorNotice message={error} onRetry={isTransient(query.error) ? () => void query.refetch() : undefined} retrying={query.isFetching} />}
+      {hasItems ? children : !query.isError && empty}
+    </>
+  )
 }
 
 export default function OverviewPage() {
@@ -42,7 +56,7 @@ export default function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-8 font-sans">
-      <PageHeader eyebrow="System overview" title="Archive operations" />
+      <PageHeader eyebrow="System overview" title="Archive operations" description="See recent collection activity and explore the archive." />
 
       <GlassPanel className="flex w-fit min-w-[280px] items-center gap-4 px-6 py-5">
         <span className="relative mt-0.5 flex h-2.5 w-2.5 shrink-0">
@@ -60,17 +74,17 @@ export default function OverviewPage() {
           <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
             <h3 className="text-sm font-semibold text-foreground">Ingestion, last 30 days</h3>
           </div>
-          {ingestion.isPending && <p className="text-sm text-muted-foreground">Loading ingestion timeline…</p>}
-          {!ingestion.isPending && ingestion.isError && <p className="error text-sm text-destructive" role="alert">Could not load the ingestion timeline.</p>}
-          {!ingestion.isPending && !ingestion.isError && !ingestionItems.length && <p className="text-sm text-muted-foreground">No articles ingested yet.</p>}
-          {!ingestion.isPending && !ingestion.isError && ingestionItems.length > 0 && (
+          <PanelBody
+            query={ingestion} loading="Loading ingestion timeline…" error="Could not load the ingestion timeline." hasItems={ingestionItems.length > 0}
+            empty={<EmptyState title="No articles ingested yet." description="Articles appear here once a source has been collected." action={<Link className={chipClass} href="/sources/">Manage sources</Link>} />}
+          >
             <BarChart
               items={ingestionItems}
               valueLabel="articles"
               ariaLabel={`Articles ingested per day over the last ${ingestionItems.length} days. Flagged bars are spikes. Click a bar to open that day's articles.`}
               onSelect={item => openSearch({ ...emptyInvestigation(), after: item.id, before: nextDay(item.id) })}
             />
-          )}
+          </PanelBody>
         </GlassPanel>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -85,10 +99,7 @@ export default function OverviewPage() {
                 </select>
               </label>
             </div>
-            {entities.isPending && <p className="text-sm text-muted-foreground">Loading top entities…</p>}
-            {!entities.isPending && entities.isError && <p className="error text-sm text-destructive" role="alert">Could not load top entities.</p>}
-            {!entities.isPending && !entities.isError && !entityItems.length && <p className="text-sm text-muted-foreground">No entities found yet.</p>}
-            {!entities.isPending && !entities.isError && entityItems.length > 0 && (
+            <PanelBody query={entities} loading="Loading top entities…" error="Could not load top entities." hasItems={entityItems.length > 0} empty={<EmptyState title="No entities found yet." />}>
               <BarChart
                 items={entityItems}
                 orientation="horizontal"
@@ -96,16 +107,13 @@ export default function OverviewPage() {
                 ariaLabel="Top named entities over the last 30 days. Click a bar to search articles mentioning that entity."
                 onSelect={item => openSearch(refine(emptyInvestigation(), 'entity_id', item.id))}
               />
-            )}
+            </PanelBody>
           </GlassPanel>
           <GlassPanel>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
               <h3 className="text-sm font-semibold text-foreground">Top countries</h3>
             </div>
-            {countries.isPending && <p className="text-sm text-muted-foreground">Loading top countries…</p>}
-            {!countries.isPending && countries.isError && <p className="error text-sm text-destructive" role="alert">Could not load top countries.</p>}
-            {!countries.isPending && !countries.isError && !countryItems.length && <p className="text-sm text-muted-foreground">No countries found yet.</p>}
-            {!countries.isPending && !countries.isError && countryItems.length > 0 && (
+            <PanelBody query={countries} loading="Loading top countries…" error="Could not load top countries." hasItems={countryItems.length > 0} empty={<EmptyState title="No countries found yet." />}>
               <BarChart
                 items={countryItems}
                 orientation="horizontal"
@@ -113,7 +121,7 @@ export default function OverviewPage() {
                 ariaLabel="Top primary story countries over the last 30 days. Click a bar to search articles from that country."
                 onSelect={item => openSearch(refine(emptyInvestigation(), 'story_country', item.id))}
               />
-            )}
+            </PanelBody>
           </GlassPanel>
         </div>
       </div>

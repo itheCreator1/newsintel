@@ -1,16 +1,29 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../lib/auth-context'
 import { displayFont, monoFont } from '../lib/fonts'
 import { NavLink } from './NavLink'
 
 const fontVars = `${displayFont.variable} ${monoFont.variable}`
 
+const NAV_GROUPS: [string, [string, string][]][] = [
+  ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
+  ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles']]],
+  ['Investigations', [['/saved-searches', 'Saved Searches'], ['/monitors', 'Watchlist']]],
+  ['System', [['/jobs', 'Jobs'], ['/operations', 'Operations'], ['/settings', 'Settings']]],
+]
+
 export function Shell({ children }: { children: ReactNode }) {
   const { user, error, signIn, signOut } = useAuth()
+  const pathname = usePathname()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => { setMenuOpen(false) }, [pathname])
 
   if (!user) {
     return (
@@ -45,36 +58,61 @@ export function Shell({ children }: { children: ReactNode }) {
     setPassword('')
   }
 
+  function closeMenu({ restoreFocus }: { restoreFocus: boolean }) {
+    setMenuOpen(false)
+    if (restoreFocus) menuButton.current?.focus()
+  }
+
   return (
     /* fontVars only defines --font-display/--font-mono-data as CSS custom properties here (inherited
-       by .dashboard's children too, for Overview/Search to opt into); it does not itself set
-       font-family, so the seven un-redesigned routes keep inheriting the legacy Inter body font. */
-    <div className={`${fontVars} shell`}>
-      <aside className="border-r border-border bg-background/80 font-sans backdrop-blur-xl">
-        <h1 className="font-sans text-[22px] font-extrabold tracking-tight text-foreground">NewsIntel</h1>
-        <nav aria-label="Main navigation" className="flex flex-col gap-1">
-          <NavLink href="/">Overview</NavLink>
-          <NavLink href="/sources">Sources</NavLink>
-          <NavLink href="/articles">Articles</NavLink>
-          <NavLink href="/search">Search</NavLink>
-          <NavLink href="/graph">Graph</NavLink>
-          <NavLink href="/events">Events</NavLink>
-          <NavLink href="/map">Map</NavLink>
-          <NavLink href="/compare">Compare</NavLink>
-          <NavLink href="/saved-searches">Saved Searches</NavLink>
-          <NavLink href="/monitors">Watchlist</NavLink>
-          <NavLink href="/jobs">Jobs</NavLink>
-          <NavLink href="/operations">Operations</NavLink>
-          <NavLink href="/settings">Settings</NavLink>
-        </nav>
-        <button
-          className="secondary signout rounded-lg border border-border bg-transparent font-sans text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
-          onClick={handleSignOut}
-        >
-          Sign out
-        </button>
+       by main's children too, for Overview/Search to opt into); it does not itself set
+       font-family, so the un-redesigned routes keep inheriting the legacy Inter body font. */
+    <div className={`${fontVars} min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]`}>
+      <a href="#main" className="sr-only rounded-lg bg-primary px-4 py-2 font-sans text-sm font-semibold text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">Skip to content</a>
+      <aside
+        className="flex flex-col gap-4 border-b border-border bg-background/80 p-4 font-sans backdrop-blur-xl lg:sticky lg:top-0 lg:max-h-dvh lg:overflow-y-auto lg:border-r lg:border-b-0 lg:p-6"
+        onKeyDown={event => { if (event.key === 'Escape' && menuOpen) closeMenu({ restoreFocus: true }) }}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="font-sans text-[22px] font-extrabold tracking-tight text-foreground">NewsIntel</h1>
+          <button
+            ref={menuButton}
+            type="button"
+            className="w-auto rounded-lg border border-border bg-transparent px-3 py-1.5 font-sans text-sm font-medium text-muted-foreground hover:border-ring hover:text-foreground lg:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="main-navigation"
+            onClick={() => setMenuOpen(open => !open)}
+          >
+            Menu
+          </button>
+        </div>
+        {/* Closed on narrow screens means display:none, which also takes the links out of the tab order. */}
+        <div id="main-navigation" className={`${menuOpen ? 'flex' : 'hidden'} flex-col gap-4 lg:flex`}>
+          <nav
+            aria-label="Main navigation"
+            className="flex flex-col gap-4"
+            onClick={event => { if ((event.target as HTMLElement).closest('a')) closeMenu({ restoreFocus: false }) }}
+          >
+            {NAV_GROUPS.map(([group, links]) => (
+              <div key={group} className="flex flex-col gap-1">
+                <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{group}</p>
+                {links.map(([href, label]) => <NavLink key={href} href={href}>{label}</NavLink>)}
+              </div>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+            <span className="truncate text-sm text-muted-foreground" title={user.username}>{user.username}</span>
+            <button
+              type="button"
+              className="w-auto rounded-lg border border-border bg-transparent px-3 py-1.5 font-sans text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+              onClick={handleSignOut}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
       </aside>
-      <main className="dashboard">{children}</main>
+      <main id="main" tabIndex={-1} className="min-w-0 p-4 outline-none sm:p-6 lg:p-8">{children}</main>
     </div>
   )
 }

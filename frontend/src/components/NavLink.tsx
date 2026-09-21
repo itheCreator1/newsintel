@@ -14,6 +14,7 @@ export function NavLink({ href, className, children, ...rest }: ComponentProps<t
   return (
     <Link
       href={href}
+      aria-current={isActive ? 'page' : undefined}
       className={cn(
         isActive ? 'router-link-active' : undefined,
         'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
