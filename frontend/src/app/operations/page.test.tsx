@@ -20,6 +20,7 @@ const health = (over = {}) => ({
     probe('elasticsearch', 'down', { latency_ms: null, detail: 'ConnectError' }),
     probe('nlp', 'ok', { detail: 'entities disabled by configuration' }),
     probe('scheduler', 'ok', { detail: 'Last cycle 4 s ago' }),
+    probe('workers', 'down', { detail: 'No live worker on nlp (312 s ago)' }),
   ],
   queues: [{ queue: 'events', ready: 2, delayed: 1, dead: 0 }, { queue: 'nlp', ready: 40, delayed: 0, dead: 3 }],
   ...over,
@@ -102,8 +103,8 @@ it('shows every dependency with its state, and an outage does not hide the other
     expect.stringMatching(/Elasticsearch.*Down.*ConnectError/),
     expect.stringMatching(/NLP processors.*OK.*entities disabled by configuration/),
     expect.stringMatching(/Scheduler.*OK.*Last cycle 4 s ago/),
+    expect.stringMatching(/Workers.*Down.*No live worker on nlp/),
   ])
-  expect(within(panel).getByText(/Workers have no heartbeat/)).toBeTruthy()
   const queues = within(panel).getByRole('table', { name: 'Queues' })
   expect(within(queues).getByRole('row', { name: /nlp 40 0 3/ })).toBeTruthy()
   expect(screen.getAllByText(/As of/).length).toBeGreaterThan(0)

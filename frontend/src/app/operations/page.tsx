@@ -14,7 +14,7 @@ import { AREAS, DEFAULT_HOURS, FEED_FILTERS, HOURS, bytes, feedTone, operationsH
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { plural } from '../../lib/utils'
 
-const PROBES: Record<string, string> = { postgres: 'PostgreSQL', redis: 'Redis', elasticsearch: 'Elasticsearch', nlp: 'NLP processors', scheduler: 'Scheduler' }
+const PROBES: Record<string, string> = { postgres: 'PostgreSQL', redis: 'Redis', elasticsearch: 'Elasticsearch', nlp: 'NLP processors', scheduler: 'Scheduler', workers: 'Workers' }
 const PROBE_STATES = { ok: 'OK', degraded: 'Degraded', down: 'Down', unknown: 'Unknown' } as const
 const FEED_STATES = { ok: 'OK', overdue: 'Overdue', failing: 'Failing', awaiting: 'Awaiting first fetch', disabled: 'Disabled' } as const
 const JOBS_LINK = new Set(['article', 'search', 'nlp'])
@@ -70,7 +70,7 @@ function Pipelines({ data, onFailures }: { data: OpsPipelines; onFailures: (area
           <AsOf at={data.generated_at} />
         </div>
         <p className="px-6 text-xs text-muted-foreground">
-          Queued, running, retrying and failed are the current state. Oldest wait is the age of the oldest queued or retrying item that is due. A lease expired means a worker took an item and stopped renewing it, so it is probably dead. Workers have no heartbeat of their own; a growing wait or lease count is the sign.
+          Queued, running, retrying and failed are the current state. Oldest wait is the age of the oldest queued or retrying item that is due. A lease expired means a worker took an item and stopped renewing it, so it is probably dead. Workers is Down when a queue has no live worker; a live but stuck worker shows as a growing wait or lease count.
         </p>
         <div className="overflow-x-auto">
           <table aria-label="Job pipelines" className="w-full text-left text-sm">
@@ -170,7 +170,7 @@ function OperationsContent() {
         {health.isError && <Note error>Could not check dependencies.</Note>}
         {health.data && (
           <>
-            <p className="px-6 text-xs text-muted-foreground">Each check has a 2 second limit; an unreachable service is shown as Down here instead of an error. Workers have no heartbeat of their own; see each pipeline’s oldest wait and expired leases.</p>
+            <p className="px-6 text-xs text-muted-foreground">Each check has a 2 second limit; an unreachable service is shown as Down here instead of an error. Workers checks that each queue has a live worker process; whether it keeps up shows in each pipeline’s oldest wait and expired leases.</p>
             <ul className="flex flex-col">
               {health.data.probes.map(probe => (
                 <li key={probe.name} className="flex flex-wrap items-center gap-3 border-t border-border px-6 py-3">

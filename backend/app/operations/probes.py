@@ -90,6 +90,14 @@ def scheduler_check(redis: Any) -> Check:
     return check
 
 
+def workers_check(redis: Any) -> Check:
+    async def check() -> tuple[State, str | None]:
+        ages = {queue: await heartbeat.age_seconds(redis, f"queue:{queue}") for queue in QUEUES}
+        return heartbeat.workers_state(ages)
+
+    return check
+
+
 async def queue_depths(redis: Any) -> list[QueueDepth]:
     """Ready, delayed and dead-lettered message counts per Dramatiq queue (Redis keys documented
     in dramatiq's dispatch.lua: a list, a `.DQ` list and a `.XQ` sorted set)."""

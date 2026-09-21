@@ -49,6 +49,7 @@ async def operations_health(db: Db, _auth: Auth, settings: Config) -> HealthResp
                 ("elasticsearch", probes.elasticsearch_check(adapter)),
                 ("nlp", probes.nlp_check(settings)),
                 ("scheduler", probes.scheduler_check(redis)),
+                ("workers", probes.workers_check(redis)),
             ]
         )
         try:
