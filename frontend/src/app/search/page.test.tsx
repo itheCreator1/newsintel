@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
@@ -212,4 +212,117 @@ it('watches the complete investigation state by name and reports a duplicate', a
   expect(screen.getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
   await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
   expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'A monitor with this name already exists')
+})
+
+const advancedDisclosure = () => screen.getByText(/^Advanced filters/).closest('details') as HTMLDetailsElement
+
+it('starts Advanced filters closed without criteria and keeps draft edits when it is collapsed', async () => {
+  renderSearch()
+  await screen.findByText('Safe <script> title')
+  expect(advancedDisclosure().open).toBe(false)
+  expect(screen.getByText('Advanced filters').textContent).toBe('Advanced filters')
+
+  fireEvent.click(screen.getByText('Advanced filters'))
+  fireEvent.change(screen.getByLabelText('Story country'), { target: { value: 'fr' } })
+  fireEvent.click(screen.getByText('Advanced filters'))
+  expect(advancedDisclosure().open).toBe(false)
+  expect(screen.getByLabelText('Story country')).toHaveValue('fr')
+  expect(screen.getByText('Advanced filters').textContent).toBe('Advanced filters')
+})
+
+it('opens Advanced filters for applied criteria and counts each applied value once', async () => {
+  renderSearch('q=grid&after=2026-09-01&country=GR&country=GR&entity_id=e9&content_available=false&sort=newest')
+  await screen.findByText('Safe <script> title')
+  expect(advancedDisclosure().open).toBe(true)
+  expect(screen.getByText(/^Advanced filters/).textContent).toBe('Advanced filters (3)')
+})
+
+it('shows applied criteria as chips and removes one without touching the rest', async () => {
+  const { rerenderSame } = renderSearch('q=grid&country=GR&country=GR&entity_id=entity-one&entity_id=e9&sort=newest&interval=week')
+  const bar = await screen.findByRole('region', { name: 'Applied filters' })
+  await vi.waitFor(() => expect(within(bar).getByRole('button', { name: 'Remove Entity: Acme' })).toBeTruthy())
+  expect(within(bar).getByRole('button', { name: 'Remove Entity: e9' })).toBeTruthy()
+  expect(within(bar).getAllByRole('button', { name: 'Remove Source country: GR' })).toHaveLength(1)
+
+  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Source country: GR' }))
+  rerenderSame()
+  expect(navigationHarness.pathname).toBe('/search/')
+  expect(navigationHarness.searchParams.toString()).toBe('q=grid&entity_id=entity-one&entity_id=e9&sort=newest&interval=week')
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'grid', entity_id: ['entity-one', 'e9'], sort: 'newest' }, undefined))
+
+  navigationHarness.back()
+  rerenderSame()
+  expect(await screen.findByRole('button', { name: 'Remove Source country: GR' })).toBeTruthy()
+})
+
+it('clears every criterion and lookup text but keeps sort and interval', async () => {
+  const { rerenderSame } = renderSearch('q=grid&story_country=DE&sort=oldest&interval=month')
+  await screen.findByRole('region', { name: 'Applied filters' })
+  fireEvent.change(screen.getByLabelText('Entity search'), { target: { value: 'acm' } })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.toString()).toBe('sort=oldest&interval=month')
+  expect(screen.getByLabelText('Entity search')).toHaveValue('')
+  expect(screen.queryByRole('region', { name: 'Applied filters' })).toBeNull()
+})
+
+it('warns that chip actions discard unapplied edits, then syncs the form to the new URL', async () => {
+  const { rerenderSame } = renderSearch('q=grid&story_country=DE')
+  await screen.findByRole('region', { name: 'Applied filters' })
+  expect(screen.queryByText(/unapplied changes/)).toBeNull()
+
+  fireEvent.change(screen.getByLabelText('Query'), { target: { value: 'draft only' } })
+  expect(screen.getByText('You have unapplied changes. Filter-chip actions discard them.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Remove Query: grid' })).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Story country: DE' }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.toString()).toBe('q=grid')
+  await vi.waitFor(() => expect(screen.getByLabelText('Query')).toHaveValue('grid'))
+  expect(screen.queryByText(/unapplied changes/)).toBeNull()
+})
+
+it('offers Retry for an unavailable search but not for a required index upgrade', async () => {
+  vi.mocked(api.search).mockRejectedValueOnce(new ApiError('Search unavailable', 503))
+  renderSearch('q=grid')
+  expect(await screen.findByText('Search is temporarily unavailable.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByText('Safe <script> title')).toBeTruthy()
+  cleanup()
+
+  vi.mocked(api.search).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  renderSearch('entity_id=entity-one')
+  expect(await screen.findByText(/Search upgrade required/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+})
+
+it('offers to clear filters only when an empty result has applied criteria', async () => {
+  vi.mocked(api.search).mockResolvedValue({ items: [], next_cursor: null })
+  renderSearch()
+  expect(await screen.findByText('Matches appear once sources have been collected and indexed.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Clear all filters' })).toBeNull()
+  cleanup()
+
+  renderSearch('story_country=DE')
+  expect(await screen.findByText('Try removing a filter or widening the dates.')).toBeTruthy()
+  expect(screen.getAllByRole('button', { name: 'Clear all filters' })).toHaveLength(2)
+})
+
+it('shows pending and announced success while saving and watching', async () => {
+  let finishSave!: (value: never) => void
+  vi.mocked(api.createSavedSearch).mockReturnValueOnce(new Promise(resolve => { finishSave = resolve }))
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  renderSearch('q=grid')
+  await screen.findByText('Safe <script> title')
+
+  fireEvent.change(screen.getByLabelText('Saved search name'), { target: { value: 'Grid' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save search' }))
+  expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled()
+  finishSave({} as never)
+  expect((await screen.findByText('Saved “Grid”.')).getAttribute('role')).toBe('status')
+
+  fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Grid watch' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
+  expect((await screen.findByText(/Watching “Grid watch”/)).getAttribute('role')).toBe('status')
 })

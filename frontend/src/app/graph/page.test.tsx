@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
@@ -107,9 +107,16 @@ it('links from the side panel to search with this entity', async () => {
 
 it('shows the empty state when there are no co-occurring entities', async () => {
   vi.mocked(api.entityGraph).mockResolvedValue({ nodes: [], edges: [], truncated: false })
-  renderWithQuery(() => <GraphPage />)
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
 
+  expect(await screen.findByText('No co-occurring entities yet.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Clear all filters' })).toBeNull()
+
+  navigationHarness.push('/graph/?story_country=DE&nodes=40')
+  rerenderSame()
   expect(await screen.findByText('No co-occurring entities for these filters.')).toBeTruthy()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Clear all filters' })[0])
+  expect(navigationHarness.pathname + '?' + navigationHarness.searchParams).toBe('/graph/?nodes=40')
 })
 
 it('shows an upgrade message when the search index needs a rebuild', async () => {
@@ -164,4 +171,45 @@ it('closes the evidence when another entity is selected and ignores a malformed 
   await screen.findByText('Chart with 2 nodes')
   expect(screen.queryByRole('complementary', { name: 'Relationship evidence' })).toBeNull()
   expect(api.edgeEvidence).not.toHaveBeenCalled()
+})
+
+it('chips only the criteria the graph sends, and removing one drops the selected edge but keeps focus and nodes', async () => {
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  navigationHarness.push('/graph/?q=grid&source_id=s1&story_country=DE&entity_id=elsewhere&focus=entity-one&edge=entity-one:entity-two&nodes=40')
+  rerenderSame()
+  const bar = await screen.findByRole('region', { name: 'Applied filters' })
+  await vi.waitFor(() => expect(within(bar).getByRole('button', { name: 'Remove Source: Wire' })).toBeTruthy())
+  expect(await within(bar).findByRole('button', { name: 'Remove Focused entity: Acme' })).toBeTruthy()
+  expect(within(bar).queryByRole('button', { name: /elsewhere/ })).toBeNull()
+  expect((screen.getByText(/^Advanced filters/).closest('details') as HTMLDetailsElement).open).toBe(true)
+
+  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Story country: DE' }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.get('edge')).toBeNull()
+  expect(navigationHarness.searchParams.get('focus')).toBe('entity-one')
+  expect(navigationHarness.searchParams.get('nodes')).toBe('40')
+  expect(navigationHarness.searchParams.getAll('source_id')).toEqual(['s1'])
+  expect(navigationHarness.searchParams.get('story_country')).toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: /^Remove Focused entity: / }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.get('focus')).toBeNull()
+  expect(navigationHarness.searchParams.get('q')).toBe('grid')
+})
+
+it('counts a changed node count as an unapplied edit', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'q=grid' })
+  renderWithQuery(() => <GraphPage />)
+  expect(screen.queryByText(/unapplied changes/)).toBeNull()
+  await screen.findByRole('region', { name: 'Applied filters' })
+  fireEvent.change(screen.getByLabelText('Nodes'), { target: { value: '12' } })
+  expect(screen.getByText('You have unapplied changes. Filter-chip actions discard them.')).toBeTruthy()
+})
+
+it('offers Retry when the graph is temporarily unavailable', async () => {
+  vi.mocked(api.entityGraph).mockRejectedValueOnce(new ApiError('down', 503))
+  renderWithQuery(() => <GraphPage />)
+  expect(await screen.findByText('The entity graph is temporarily unavailable.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  expect(await screen.findByRole('button', { name: 'Chart with 2 nodes' })).toBeTruthy()
 })

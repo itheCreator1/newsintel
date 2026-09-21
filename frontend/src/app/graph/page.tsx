@@ -5,13 +5,16 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { EdgeEvidencePanel } from '../../components/EdgeEvidencePanel'
+import { ActiveFilterBar } from '../../components/ActiveFilterBar'
 import { EntityGraph } from '../../components/EntityGraph'
+import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
-import { chipClass, fieldClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
+import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
+import { advancedCount, filterChips, GRAPH_ADVANCED, GRAPH_CHIP_FIELDS, isTransient, removeFilter } from '../../lib/filter-ui'
 import { cn } from '../../lib/utils'
 import { api, ApiError } from '../../lib/api'
-import { entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
+import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 
 const MAX_NODES = 50
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -40,8 +43,14 @@ function GraphContent() {
   })()
   const [form, setForm] = useState(() => formFromState(state, nodeCount))
   const [sourceTerm, setSourceTerm] = useState('')
+  const advanced = advancedCount(state, GRAPH_ADVANCED)
+  const [advancedOpen, setAdvancedOpen] = useState(advanced > 0)
 
-  useEffect(() => { setForm(formFromState(state, nodeCount)) /* eslint-disable-line react-hooks/exhaustive-deps */ }, [searchParams.toString()])
+  // Every URL change resyncs the form, and reopens Advanced when it holds criteria.
+  useEffect(() => {
+    setForm(formFromState(state, nodeCount))
+    if (advanced > 0) setAdvancedOpen(true)
+  }, [searchParams.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sourcePages = useInfiniteQuery({ queryKey: ['graph-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const sources = sourcePages.data?.pages.flatMap(page => page.items) ?? []
@@ -89,13 +98,23 @@ function GraphContent() {
     if (nextNodes !== 30) query.set('nodes', String(nextNodes))
     router.push(toHref('/graph', query))
   }
-  function submit() {
-    navigate({
-      ...state, q: form.q.trim(), source_id: form.source_id, source_country: split(form.country).map(code => code.toUpperCase()),
-      story_country: split(form.story_country).map(code => code.toUpperCase()), entity_type: form.entity_type,
-      after: form.after || null, before: form.before || null,
-    }, { nodes: Number(form.nodes) || 30 })
+  function draftState(draft = form): Investigation {
+    return {
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: split(draft.country).map(code => code.toUpperCase()),
+      story_country: split(draft.story_country).map(code => code.toUpperCase()), entity_type: draft.entity_type,
+      after: draft.after || null, before: draft.before || null,
+    }
   }
+  function submit() { navigate(draftState(), { nodes: Number(form.nodes) || 30 }) }
+  const draftKey = (draft: typeof form) => `${queryFromState(draftState(draft))}|${Number(draft.nodes) || 30}`
+  const draftDiffers = draftKey(form) !== draftKey(formFromState(state, nodeCount))
+  const chips = [
+    ...filterChips(state, GRAPH_CHIP_FIELDS, { source_id: new Map(sources.map(source => [source.id, source.name])) }),
+    ...(focus ? [{ key: 'focus', label: `Focused entity: ${focusNode?.text ?? focus}` }] : []),
+  ]
+  // Any criterion change drops the selected edge (navigate never carries it); only the focus chip drops focus.
+  function removeChip(key: string) { navigate(key === 'focus' ? state : removeFilter(state, key), key === 'focus' ? { focus: '' } : {}) }
+  function clearAll() { setSourceTerm(''); navigate(emptyInvestigation(), { focus: '' }) }
   function selectEntity(entityId: string) { navigate(state, { focus: entityId }) }
   function selectEdge(source: string, target: string) { navigate(state, { edge: edgeKey(source, target) }) }
   function searchWithEntityHref(entityId: string) { return toHref('/search', queryFromState(refine(state, 'entity_id', entityId))) }
@@ -103,26 +122,44 @@ function GraphContent() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <PageHeader eyebrow="Relationships" title="Graph" />
+      <PageHeader eyebrow="Relationships" title="Graph" description="Explore entities mentioned together and inspect the supporting articles." />
       <form className={cn(glassPanelClassName, 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4')} role="search" onSubmit={event => { event.preventDefault(); submit() }}>
         <label className={cn(labelClass, 'sm:col-span-2')}>Query<input className={cn(fieldClass, 'mt-1')} value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
-        <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
-        <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
-        <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
-        <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
-        <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
         <label className={labelClass}>After<input className={cn(fieldClass, 'mt-1')} value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
-        <label className={labelClass}>Before<input className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Before<input aria-describedby="graph-before-help" className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
+          <p id="graph-before-help" className="text-[11px] text-muted-foreground">Exclusive: up to the start of this day.</p>
+        </div>
         <label className={labelClass}>Nodes<input className={cn(fieldClass, 'mt-1')} value={form.nodes} onChange={e => setForm(f => ({ ...f, nodes: e.target.value }))} type="number" min={1} max={50} /></label>
-        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1')}>Update graph</button>
+        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1 lg:col-start-4')}>Update graph</button>
+        {/* Collapsing hides the fields but keeps them mounted, so draft edits survive. */}
+        <details className="sm:col-span-2 lg:col-span-4" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
+          <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced filters{advanced > 0 ? ` (${advanced})` : ''}</summary>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
+            <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+            <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
+            <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
+            <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
+          </div>
+        </details>
       </form>
+
+      <ActiveFilterBar items={chips} onRemove={removeChip} onClear={clearAll} draftDiffers={draftDiffers} />
 
       <div className={focusNode || edge ? 'grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]' : undefined}>
         <GlassPanel>
-          {graph.isPending && <p className="text-sm text-muted-foreground">Loading the entity graph…</p>}
-          {!graph.isPending && graph.isError && <p role="alert" className="error text-sm text-destructive">{upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}</p>}
-          {!graph.isPending && !graph.isError && !nodes.length && <p className="text-sm text-muted-foreground">No co-occurring entities for these filters.</p>}
-          {!graph.isPending && !graph.isError && nodes.length > 0 && (
+          {graph.isPending && <LoadingState label="Loading the entity graph…" variant="chart" />}
+          {graph.isError && (
+            <ErrorNotice
+              message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}
+              onRetry={!upgradeRequired && isTransient(graph.error) ? () => void graph.refetch() : undefined} retrying={graph.isFetching}
+            />
+          )}
+          {graph.isSuccess && !nodes.length && (chips.length
+            ? <EmptyState title="No co-occurring entities for these filters." description="Try removing a filter or widening the dates." action={<button type="button" className={cn(ghostButtonClass, 'w-auto')} onClick={clearAll}>Clear all filters</button>} />
+            : <EmptyState title="No co-occurring entities yet." description="Entities appear once articles have been processed." />)}
+          {nodes.length > 0 && (
             <>
               <EntityGraph nodes={nodes} edges={edges} focus={focus} onSelect={selectEntity} onSelectEdge={selectEdge} />
               {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}

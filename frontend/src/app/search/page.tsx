@@ -6,12 +6,15 @@ import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { api, ApiError } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
+import { ActiveFilterBar } from '../../components/ActiveFilterBar'
+import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback'
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchSearchForm } from '../../components/WatchSearchForm'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
+import { advancedCount, clearCriteria, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
 import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
@@ -40,8 +43,14 @@ function SearchContent() {
   const [entityTerm, setEntityTerm] = useState('')
   const [keywordTerm, setKeywordTerm] = useState('')
   const [saveName, setSaveName] = useState('')
+  const advanced = advancedCount(state, SEARCH_ADVANCED, { content: true })
+  const [advancedOpen, setAdvancedOpen] = useState(advanced > 0)
 
-  useEffect(() => { setForm(formFromState(state)) /* eslint-disable-line react-hooks/exhaustive-deps */ }, [urlParams.toString()])
+  // Every URL change (submit, chip, cross-filter, Back) resyncs the form, and reopens Advanced when it holds criteria.
+  useEffect(() => {
+    setForm(formFromState(state))
+    if (advanced > 0) setAdvancedOpen(true)
+  }, [urlParams.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sourcePages = useInfiniteQuery({ queryKey: ['search-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const entityPages = useInfiniteQuery({ queryKey: ['nlp-entities', entityTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.nlpEntities(entityTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
@@ -62,13 +71,25 @@ function SearchContent() {
   const save = useMutation({ mutationFn: (name: string) => api.createSavedSearch(name, state), onSuccess: () => client.invalidateQueries({ queryKey: ['saved-searches'] }) })
 
   function navigate(next: Investigation) { router.push(toHref('/search', queryFromState(next))) }
-  function submit() {
-    navigate({
-      ...state, q: form.q.trim(), source_id: form.source_id, source_country: split(form.country).map(code => code.toUpperCase()), after: form.after || null, before: form.before || null,
-      content_available: form.content_available === '' ? null : form.content_available === 'true', processing_status: form.processing_status ? [form.processing_status] : [],
-      sort: form.sort, language: split(form.language), entity_id: form.entity_id, entity_type: form.entity_type, keyword_id: form.keyword_id,
-      story_country: split(form.story_country).map(code => code.toUpperCase()), mentioned_country: split(form.mentioned_country).map(code => code.toUpperCase()),
-    })
+  function draftState(draft = form): Investigation {
+    return {
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: split(draft.country).map(code => code.toUpperCase()), after: draft.after || null, before: draft.before || null,
+      content_available: draft.content_available === '' ? null : draft.content_available === 'true', processing_status: draft.processing_status ? [draft.processing_status] : [],
+      sort: draft.sort, language: split(draft.language), entity_id: draft.entity_id, entity_type: draft.entity_type, keyword_id: draft.keyword_id,
+      story_country: split(draft.story_country).map(code => code.toUpperCase()), mentioned_country: split(draft.mentioned_country).map(code => code.toUpperCase()),
+    }
+  }
+  function submit() { navigate(draftState()) }
+  // Compared through the same form round trip, so a URL the form cannot represent exactly never reads as an edit.
+  const draftDiffers = queryFromState(draftState()).toString() !== queryFromState(draftState(formFromState(state))).toString()
+  const chips = filterChips(state, SEARCH_CHIP_FIELDS, {
+    source_id: new Map(sources.map(source => [source.id, source.name])),
+    entity_id: new Map(entities.map(entity => [entity.id, entity.text])),
+    keyword_id: new Map(keywords.map(keyword => [keyword.id, keyword.text])),
+  }, { content: true })
+  function clearAll() {
+    setSourceTerm(''); setEntityTerm(''); setKeywordTerm('')
+    navigate(clearCriteria(state))
   }
   function crossFilter(field: ListField, value: string) { navigate(refine(state, field, value)) }
   function selectRange(range: { start: string; end: string }) {
@@ -88,7 +109,7 @@ function SearchContent() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <PageHeader eyebrow="Archive discovery" title="Search" />
+      <PageHeader eyebrow="Archive discovery" title="Search" description="Find articles and narrow your investigation with filters." />
 
       <details className="rounded-2xl border border-border bg-card/40 px-5 py-4 text-sm text-muted-foreground backdrop-blur-xl">
         <summary className="cursor-pointer font-medium text-foreground">Query syntax</summary>
@@ -97,24 +118,35 @@ function SearchContent() {
 
       <form className={cn(glassPanelClassName, 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4')} role="search" onSubmit={event => { event.preventDefault(); submit() }}>
         <label className={cn(labelClass, 'sm:col-span-2')}>Query<input className={cn(fieldClass, 'mt-1')} value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
-        <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
-        <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
-        <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
-        <label className={labelClass}>Detected language<input className={cn(fieldClass, 'mt-1')} value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="en" /></label>
-        <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>
-        <label className={labelClass}>Entity<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_id} onChange={e => setForm(f => ({ ...f, entity_id: selected(e) }))}>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.text} ({entity.kind})</option>)}</select></label>
-        <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
-        <label className={labelClass}>Keyword search<input className={cn(fieldClass, 'mt-1')} value={keywordTerm} onChange={e => setKeywordTerm(e.target.value)} placeholder="Find a keyword" /></label>
-        <label className={labelClass}>Keyword<select className={cn(fieldClass, 'mt-1')} multiple value={form.keyword_id} onChange={e => setForm(f => ({ ...f, keyword_id: selected(e) }))}>{keywords.map(keyword => <option key={keyword.id} value={keyword.id}>{keyword.text}</option>)}</select></label>
-        <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
-        <label className={labelClass}>Mentioned country<input className={cn(fieldClass, 'mt-1')} value={form.mentioned_country} onChange={e => setForm(f => ({ ...f, mentioned_country: e.target.value }))} placeholder="FR" /></label>
         <label className={labelClass}>After<input className={cn(fieldClass, 'mt-1')} value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
-        <label className={labelClass}>Before<input className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
-        <label className={labelClass}>Content<select className={cn(fieldClass, 'mt-1')} value={form.content_available} onChange={e => setForm(f => ({ ...f, content_available: e.target.value }))}><option value="">Any</option><option value="true">Available</option><option value="false">RSS only</option></select></label>
-        <label className={labelClass}>Processing<select className={cn(fieldClass, 'mt-1')} value={form.processing_status} onChange={e => setForm(f => ({ ...f, processing_status: e.target.value }))}><option value="">Any</option>{['queued', 'running', 'retrying', 'succeeded', 'failed'].map(value => <option key={value}>{value}</option>)}</select></label>
+        <div className="flex flex-col gap-1">
+          <label className={labelClass}>Before<input aria-describedby="search-before-help" className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
+          <p id="search-before-help" className="text-[11px] text-muted-foreground">Exclusive: up to the start of this day.</p>
+        </div>
         <label className={labelClass}>Sort<select className={cn(fieldClass, 'mt-1')} value={form.sort} onChange={e => setForm(f => ({ ...f, sort: e.target.value as Investigation['sort'] }))}><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="most_sources">Most sources</option></select></label>
-        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1')}>Search archive</button>
+        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1 lg:col-start-4')}>Search archive</button>
+        {/* Collapsing hides the fields but keeps them mounted, so draft edits survive. */}
+        <details className="sm:col-span-2 lg:col-span-4" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
+          <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced filters{advanced > 0 ? ` (${advanced})` : ''}</summary>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
+            <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+            <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
+            <label className={labelClass}>Detected language<input className={cn(fieldClass, 'mt-1')} value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="en" /></label>
+            <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>
+            <label className={labelClass}>Entity<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_id} onChange={e => setForm(f => ({ ...f, entity_id: selected(e) }))}>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.text} ({entity.kind})</option>)}</select></label>
+            <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
+            <label className={labelClass}>Keyword search<input className={cn(fieldClass, 'mt-1')} value={keywordTerm} onChange={e => setKeywordTerm(e.target.value)} placeholder="Find a keyword" /></label>
+            <label className={labelClass}>Keyword<select className={cn(fieldClass, 'mt-1')} multiple value={form.keyword_id} onChange={e => setForm(f => ({ ...f, keyword_id: selected(e) }))}>{keywords.map(keyword => <option key={keyword.id} value={keyword.id}>{keyword.text}</option>)}</select></label>
+            <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
+            <label className={labelClass}>Mentioned country<input className={cn(fieldClass, 'mt-1')} value={form.mentioned_country} onChange={e => setForm(f => ({ ...f, mentioned_country: e.target.value }))} placeholder="FR" /></label>
+            <label className={labelClass}>Content<select className={cn(fieldClass, 'mt-1')} value={form.content_available} onChange={e => setForm(f => ({ ...f, content_available: e.target.value }))}><option value="">Any</option><option value="true">Available</option><option value="false">RSS only</option></select></label>
+            <label className={labelClass}>Processing<select className={cn(fieldClass, 'mt-1')} value={form.processing_status} onChange={e => setForm(f => ({ ...f, processing_status: e.target.value }))}><option value="">Any</option>{['queued', 'running', 'retrying', 'succeeded', 'failed'].map(value => <option key={value}>{value}</option>)}</select></label>
+          </div>
+        </details>
       </form>
+
+      <ActiveFilterBar items={chips} onRemove={key => navigate(removeFilter(state, key))} onClear={clearAll} draftDiffers={draftDiffers} />
 
       <GlassPanel aria-labelledby="timeline-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
@@ -128,24 +160,24 @@ function SearchContent() {
             </label>
           </div>
         </div>
-        {timeline.isPending && <p className="text-sm text-muted-foreground">Charting matches…</p>}
-        {!timeline.isPending && timeline.isError && (
+        {timeline.isPending && <LoadingState label="Charting matches…" variant="chart" />}
+        {timeline.isError && (timelineTooFine ? (
           <>
-            <p className="error text-sm text-destructive">{timelineTooFine ? `${(timeline.error as ApiError).message}. Choose a larger interval.` : 'Could not load the timeline.'}</p>
-            {timelineTooFine && <button type="button" className={cn(ghostButtonClass, 'mt-2')} onClick={() => setTimelineInterval('auto')}>Use automatic interval</button>}
+            <p className="error text-sm text-destructive">{`${(timeline.error as ApiError).message}. Choose a larger interval.`}</p>
+            <button type="button" className={cn(ghostButtonClass, 'mt-2')} onClick={() => setTimelineInterval('auto')}>Use automatic interval</button>
           </>
-        )}
-        {!timeline.isPending && !timeline.isError && !timeline.data?.buckets.length && <p className="text-sm text-muted-foreground">No matching articles to chart.</p>}
-        {!timeline.isPending && !timeline.isError && Boolean(timeline.data?.buckets.length) && (
+        ) : <ErrorNotice message="Could not load the timeline." onRetry={isTransient(timeline.error) ? () => void timeline.refetch() : undefined} retrying={timeline.isFetching} />)}
+        {timeline.isSuccess && !timeline.data.buckets.length && <p className="text-sm text-muted-foreground">No matching articles to chart.</p>}
+        {Boolean(timeline.data?.buckets.length) && (
           <TimelineChart buckets={timeline.data!.buckets} interval={timeline.data!.interval} onSelect={selectRange} />
         )}
       </GlassPanel>
 
       <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>
         <label className={cn(labelClass, 'min-w-[220px] flex-1')}>Saved search name<input className={cn(fieldClass, 'mt-1')} value={saveName} onChange={e => setSaveName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
-        <button type="submit" disabled={save.isPending} className={primaryButtonClass}>Save search</button>
+        <button type="submit" disabled={save.isPending} className={primaryButtonClass}>{save.isPending ? 'Saving…' : 'Save search'}</button>
         {save.isError ? <p role="alert" className="error w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
-          : save.isSuccess && <p className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
+          : save.isSuccess && <p role="status" className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>
 
       <WatchSearchForm state={state} />
@@ -154,14 +186,29 @@ function SearchContent() {
         {state.story_cluster_id.length > 0 && (
           <p className="flex items-center gap-3 px-6 py-4 text-sm text-muted-foreground">Filtered to one story <button type="button" className={ghostButtonClass} onClick={() => navigate({ ...state, story_cluster_id: [] })}>Clear story filter</button></p>
         )}
-        {search.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Searching archive…</p>}
-        {!search.isPending && search.isError && (
+        {search.isPending && <div className="px-6 py-4"><LoadingState label="Searching archive…" /></div>}
+        {search.isError && (
           <div className="px-6 py-4">
-            <p role="alert" className="error text-sm text-destructive">{expired ? 'This search snapshot expired. Restart the search.' : upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}</p>
-            {expired && <button className={cn(ghostButtonClass, 'mt-2')} onClick={restart}>Restart search</button>}
+            {expired ? (
+              <>
+                <p role="alert" className="error text-sm text-destructive">This search snapshot expired. Restart the search.</p>
+                <button className={cn(ghostButtonClass, 'mt-2')} onClick={restart}>Restart search</button>
+              </>
+            ) : (
+              <ErrorNotice
+                message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}
+                onRetry={!upgradeRequired && isTransient(search.error) ? restart : undefined} retrying={search.isFetching}
+              />
+            )}
           </div>
         )}
-        {!search.isPending && !search.isError && !results.length && <p className="px-6 py-4 text-sm text-muted-foreground">No articles match this search.</p>}
+        {search.isSuccess && !results.length && (
+          <div className="px-6 py-4">
+            {chips.length
+              ? <EmptyState title="No articles match this search." description="Try removing a filter or widening the dates." action={<button type="button" className={cn(ghostButtonClass, 'w-auto')} onClick={clearAll}>Clear all filters</button>} />
+              : <EmptyState title="No articles match this search." description="Matches appear once sources have been collected and indexed." />}
+          </div>
+        )}
         {results.map(result => (
           <article key={result.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
             <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(result.article_id))}>
