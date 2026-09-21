@@ -20,7 +20,9 @@ from app.events.engine import EVENT_ALGORITHM_VERSION, BatchResult, dirty_cluste
 from app.events.models import EventAssociationRun
 from app.feeds.models import ArticleProcessingJob, Feed, FeedFetch
 from app.monitors.models import Monitor
+from app.nlp import execution as nlp_execution
 from app.nlp.models import ArticleNlpState, NlpJob, NlpProcessorRun
+from app.nlp.processors import ConfigurationError
 from app.operations import queries
 from app.search.models import SearchDelivery, SearchIndexTarget
 
@@ -508,6 +510,36 @@ async def test_monitor_failures_carry_a_category_and_time_but_no_message_or_owne
     for secret in ("hidden-name", "hidden-query", "private detail"):
         assert secret not in text
     assert all(r.message is None and r.ref_id is None for r in page.recent)
+
+
+async def test_an_nlp_failure_keeps_its_category_after_the_job_recovers() -> None:
+    token = uuid.uuid4().hex
+    async with session_factory() as db, db.begin():
+        source = await feed(db)
+        article = await _article(db, source, INSIDE)
+        state = ArticleNlpState(
+            article_id=article.id, processor_name="entities", input_fingerprint=DIGEST,
+            processor_version="t", configuration_fingerprint=DIGEST,
+        )  # fmt: skip
+        db.add(state)
+        await db.flush()
+        job = NlpJob(
+            state_id=state.id, article_id=article.id, processor_name="entities", generation=1,
+            input_fingerprint=DIGEST, processor_version="t", configuration_fingerprint=DIGEST,
+            status="running", next_attempt_at=INSIDE, claim_token=token,
+            claim_expires_at=NOW + timedelta(hours=1),
+        )  # fmt: skip
+        db.add(job)
+    await nlp_execution._record_failure(job.id, token, ConfigurationError("bad model"))
+    async with session_factory() as db, db.begin():
+        # A later successful attempt clears the job's category, as `_publish` does.
+        recovered = await db.get(NlpJob, job.id)
+        assert recovered is not None and recovered.error_category == "configuration"
+        recovered.error_category, recovered.status = None, "succeeded"
+    async with session_factory() as db:
+        page = await queries.failures(db, datetime.now(UTC), "nlp", HOURS, 100)
+    [mine] = [r for r in page.recent if r.ref_id == article.id]
+    assert mine.error_category == "configuration"
 
 
 async def test_search_failures_include_retrying_deliveries_with_a_cause() -> None:

@@ -88,6 +88,8 @@ class NlpProcessorRun(Base):
     generation: Mapped[int] = mapped_column(Integer)
     outcome: Mapped[str] = mapped_column(String(24))
     detail: Mapped[str | None] = mapped_column(Text)
+    # A failed run's category, kept here because the job's is overwritten by its next attempt.
+    error_category: Mapped[str | None] = mapped_column(String(64))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

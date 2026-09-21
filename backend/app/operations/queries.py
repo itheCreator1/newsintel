@@ -361,7 +361,8 @@ def _failure_sources(area: Area):  # type: ignore[no-untyped-def]
         return _job_failures(ClusterJob, ClusterJob.completed_at, ("failed",))
     if area == "nlp":
         r = NlpProcessorRun
-        category = func.coalesce(NlpJob.error_category, "unknown")
+        # Runs from before migration 0014 carry no category; they fall back to their job's.
+        category = func.coalesce(r.error_category, NlpJob.error_category, "unknown")
         return (
             select(
                 r.id, r.article_id.label("ref"), literal("failed").label("status"),

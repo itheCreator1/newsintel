@@ -372,6 +372,7 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
             generation=job.generation,
             outcome="failed",
             detail=str(exc)[:1000],
+            error_category=category,
             completed_at=now,
         )
         db.add(run)
