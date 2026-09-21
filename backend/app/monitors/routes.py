@@ -80,7 +80,8 @@ async def get_one(monitor_id: uuid.UUID, db: Db, session: Auth) -> MonitorRespon
 async def update(
     monitor_id: uuid.UUID, payload: MonitorUpdate, db: Db, session: Mutation
 ) -> MonitorResponse:
-    item = await _owned(db, session, monitor_id)
+    # Locked, so a criteria reset sees and clears what a concurrent evaluation just wrote.
+    item = await _owned(db, session, monitor_id, lock=True)
     try:
         return monitor_response(await update_monitor(db, item, payload))
     except MonitorNameConflict as exc:
