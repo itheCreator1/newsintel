@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from event_fixtures import feed
 from sqlalchemy import delete, select
-from test_phase13b_postgres import _article
+from test_compare_postgres import _article
 
 from app.db.session import session_factory
 from app.search import indexing

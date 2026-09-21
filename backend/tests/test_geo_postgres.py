@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from event_fixtures import BASE, annotate, entities, feed
-from test_phase13b_postgres import (
+from test_compare_postgres import (
     NOW,
     _article,
     _cluster,

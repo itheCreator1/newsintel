@@ -7,9 +7,9 @@ import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, update
-from test_phase7_postgres import _article, _attach_entities, _entity, _feed
-from test_phase11b_elasticsearch import _evaluate, _index, _watch
-from test_phase11c_postgres import CSRF, _client
+from test_clustering_postgres import _article, _attach_entities, _entity, _feed
+from test_monitor_api_postgres import CSRF, _client
+from test_monitor_evaluation_elasticsearch import _evaluate, _index, _watch
 
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.core.config import get_settings

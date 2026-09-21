@@ -43,9 +43,9 @@ migrate upgrade head
 
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
 # The source API is PostgreSQL-only, so point Elasticsearch at an unreachable port to prove it.
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_source_api.py tests/test_phase13a_postgres.py) > "$artifacts/pytest.log"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_source_api.py tests/test_source_dossier_postgres.py) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
-(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_source_api.py tests/test_phase13a_postgres.py tests/event_fixtures.py migrations)
+(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_source_api.py tests/test_source_dossier_postgres.py tests/event_fixtures.py migrations)
 (cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m mypy app)
 
 # The source routes change the API contract, so regenerate it and the frontend types, then prove the

@@ -9,7 +9,7 @@ from event_fixtures import DIGEST, feed
 from sqlalchemy import delete, func, select
 from sqlalchemy import event as sa_event
 from sqlalchemy.engine import Engine
-from test_phase13b_postgres import _article, _get, _status
+from test_compare_postgres import _article, _get, _status
 
 from app.auth.models import User
 from app.clustering.models import ArticleClusterState, ClusterJob
@@ -177,7 +177,7 @@ async def test_the_window_edge_is_inclusive_and_a_narrower_window_excludes() -> 
 
 
 async def test_events_report_the_dirty_backlog_the_engine_would_process() -> None:
-    from test_phase13b_postgres import _cluster
+    from test_compare_postgres import _cluster
 
     async with session_factory() as db:
         engine_dirty = (await db.execute(_DIRTY)).scalar_one()
@@ -351,8 +351,7 @@ async def test_the_events_pipeline_reports_the_runs_in_the_window() -> None:
 
 
 async def _fetches(db, item: Feed, *pattern: str, start: datetime = INSIDE) -> None:  # type: ignore[no-untyped-def]
-    """Oldest first: S success (10 entries, 2 invalid, 3 new), F failed (http_transient), Q queued.
-    """
+    """Oldest first: S success (10 entries, 2 invalid, 3 new), F failed (http_transient), Q queued."""
     for i, mark in enumerate(pattern):
         at = start - timedelta(minutes=len(pattern) - i)
         db.add(
@@ -481,13 +480,16 @@ async def test_failures_group_by_category_and_bound_the_recent_list() -> None:
         await db.flush()
         page = await queries.failures(db, NOW, "feed", HOURS, 2)
         again = await queries.failures(db, NOW, "feed", HOURS, 2)
+        # Other tests' failures can be newer than ours, so look for ours in a longer list.
+        wide = await queries.failures(db, NOW, "feed", HOURS, 1000)
         await db.rollback()
     ours = {c.category: c.count for c in page.by_category}
     assert ours["timeout"] >= 3 and ours["security"] >= 1
     assert len(page.recent) == 2 and page.recent == again.recent
     assert page.recent[0].at >= page.recent[1].at
-    assert page.recent[0].ref_id == item.id
-    assert len(page.recent[0].message or "") <= 300
+    mine = [f for f in wide.recent if f.ref_id == item.id]
+    assert len(mine) == 4
+    assert all(len(f.message or "") <= 300 for f in mine)
 
 
 async def test_monitor_failures_carry_a_category_and_time_but_no_message_or_owner() -> None:
@@ -628,7 +630,7 @@ async def test_health_reports_unreachable_dependencies_as_data_within_the_bound(
 
 
 async def test_the_pipelines_route_has_a_fixed_statement_count() -> None:
-    from test_phase13b_postgres import _statements
+    from test_compare_postgres import _statements
 
     first = await _statements("/operations/pipelines", hours=1)
     assert first == await _statements("/operations/pipelines", hours=168)

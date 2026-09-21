@@ -35,9 +35,9 @@ host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTE
 
 # The dossier's source of truth is PostgreSQL. Point Elasticsearch at an unreachable local port
 # so this gate proves the focused entity checks do not require a search service.
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_entity_dossier.py tests/test_phase10a_postgres.py) > "$artifacts/pytest.log"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL=http://127.0.0.1:1 NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q tests/test_entity_dossier.py tests/test_entity_dossier_postgres.py) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
-(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_entity_dossier.py tests/test_phase10a_postgres.py)
+(cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m ruff check app tests/test_entity_dossier.py tests/test_entity_dossier_postgres.py)
 (cd backend && UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m mypy app)
 
 PYTHONPATH=backend UV_CACHE_DIR="$root/backend/.uv-cache" uv run --directory backend --frozen python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > frontend/openapi.json

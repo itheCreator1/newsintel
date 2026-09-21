@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from event_fixtures import DIGEST, feed
 from sqlalchemy import select
-from test_phase13b_postgres import _article
+from test_compare_postgres import _article
 
 from app.auth.models import Session, User
 from app.clustering.models import ArticleClusterState, ClusterJob

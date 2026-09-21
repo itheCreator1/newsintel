@@ -28,7 +28,7 @@ $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade
 $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic downgrade 0003
 $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade head
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
-# tests/test_phase7_postgres.py (added on the Phase 7 branch, collected here too since this runs
+# tests/test_clustering_postgres.py (added on the Phase 7 branch, collected here too since this runs
 # the whole tests/ directory) needs a real Elasticsearch reachable from this host-side pytest
 # process, the same way NEWSINTEL_DATABASE_URL above overrides the host-mapped Postgres.
 host_elasticsearch_url="http://127.0.0.1:$NEWSINTEL_TEST_ELASTICSEARCH_PORT"

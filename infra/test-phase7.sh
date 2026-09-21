@@ -55,7 +55,7 @@ $compose exec -T postgres createdb -U newsintel newsintel_tests
 test_database="postgresql+asyncpg://newsintel:newsintel@postgres:5432/newsintel_tests"
 $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api alembic upgrade head
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
-# tests/test_phase7_postgres.py's real-Elasticsearch tests run in the host-side pytest process
+# tests/test_clustering_postgres.py's real-Elasticsearch tests run in the host-side pytest process
 # against a real adapter (see the Task 3 carried-forward note in the brief), so
 # NEWSINTEL_ELASTICSEARCH_URL needs a host-reachable override, the same way the host database URL
 # already overrides NEWSINTEL_DATABASE_URL above. test-phase6.sh gets the identical three lines

@@ -51,7 +51,7 @@ $compose exec -T postgres createdb -U newsintel newsintel_tests
 $compose run --rm -e NEWSINTEL_DATABASE_URL="postgresql+asyncpg://newsintel:newsintel@postgres:5432/newsintel_tests" api alembic upgrade head
 host_test_database="postgresql+asyncpg://newsintel:newsintel@127.0.0.1:$NEWSINTEL_TEST_POSTGRES_PORT/newsintel_tests"
 host_elasticsearch_url="http://127.0.0.1:$NEWSINTEL_TEST_ELASTICSEARCH_PORT"
-(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL="$host_elasticsearch_url" NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q -rs tests/test_phase11e_elasticsearch.py) > "$artifacts/pytest.log"
+(cd backend && NEWSINTEL_RUN_POSTGRES_TESTS=1 NEWSINTEL_DATABASE_URL="$host_test_database" NEWSINTEL_ELASTICSEARCH_URL="$host_elasticsearch_url" NEWSINTEL_FEED_TEST_ALLOWED_HOSTS='["localhost"]' UV_CACHE_DIR="$root/backend/.uv-cache" uv run --frozen python -m pytest -q -rs tests/test_monitor_changes_elasticsearch.py) > "$artifacts/pytest.log"
 cat "$artifacts/pytest.log"
 if grep -Eq '(^|[^0-9])[1-9][0-9]* skipped|^SKIPPED ' "$artifacts/pytest.log"; then echo "Required backend tests were skipped" >&2; exit 1; fi
 # The monitor workflow spec (extended in 11E) keeps the user it was written with.

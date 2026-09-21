@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, update
-from test_phase7_postgres import _article, _feed, _membership, _run_clustering
+from test_clustering_postgres import _article, _feed, _membership, _run_clustering
 
 from app.auth.models import User
 from app.core.config import get_settings
