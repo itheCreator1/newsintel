@@ -1,8 +1,9 @@
+import uuid
 from datetime import UTC, datetime, time, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.schemas import (
@@ -24,9 +25,8 @@ from app.auth.models import Session
 from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.feeds.models import Article
-from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, Entity
-from app.search.aggregations import date_histogram, ensure_complete
+from app.nlp.models import Entity
+from app.search.aggregations import date_histogram, ensure_complete, read_terms, terms
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 
@@ -37,6 +37,16 @@ Config = Annotated[Settings, Depends(get_settings)]
 Criteria = Annotated[SearchCriteria, Depends(search_criteria)]
 
 TOP_N = 10
+Scope = Literal["recent", "investigation"]
+# Spare entity buckets: one the catalogue no longer holds is skipped and the next takes its
+# place, as the SQL join did. ponytail: more than TOP_N misses in one ranking still comes back
+# short, fetch more candidates or reindex if merges ever outpace indexing.
+ENTITY_CANDIDATES = TOP_N * 2
+
+
+def _since(scope: Scope) -> datetime | None:
+    """Recent keeps Overview's rolling window; investigation is the criteria alone."""
+    return None if scope == "investigation" else datetime.now(UTC) - timedelta(days=DISPLAY_DAYS)
 
 
 async def _aggregate(
@@ -111,56 +121,55 @@ async def ingestion_timeline(
 
 @router.get("/analytics/top-entities", response_model=TopEntitiesResponse)
 async def top_entities(
-    db: Db, _auth: Auth, entity_type: str | None = Query(None)
+    db: Db, _auth: Auth, settings: Config, criteria: Criteria, scope: Scope = "recent"
 ) -> TopEntitiesResponse:
-    cutoff = datetime.now(UTC) - timedelta(days=DISPLAY_DAYS)
-    article_count = func.count(func.distinct(ArticleEntity.article_id))
-    query = (
-        select(
-            Entity.id, Entity.display_text, Entity.entity_type, article_count.label("article_count")
-        )
-        .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
-        .join(Article, Article.id == ArticleEntity.article_id)
-        .where(ArticleEntity.is_current.is_(True), Article.first_discovered_at >= cutoff)
-        .group_by(Entity.id, Entity.display_text, Entity.entity_type)
-        .order_by(article_count.desc(), Entity.id)
-        .limit(TOP_N)
+    # entity_type filters the articles (criteria) and the buckets: an article matching PERSON
+    # still carries ORG entities, which must not be ranked.
+    within = {"terms": {"entities.type": criteria.entity_types}} if criteria.entity_types else None
+    aggregations = await _aggregate(
+        db,
+        settings,
+        criteria,
+        {"entities": terms("entities", "entities.id", ENTITY_CANDIDATES, within=within)},
+        minimum=2,
+        since=_since(scope),
     )
-    if entity_type:
-        query = query.where(Entity.entity_type == entity_type.upper())
-    rows = (await db.execute(query)).all()
+    ranked = read_terms(aggregations.get("entities", {}), nested=True).buckets
+    rows = (
+        await db.execute(
+            select(Entity.id, Entity.display_text, Entity.entity_type).where(
+                Entity.id.in_([uuid.UUID(value) for value, _count in ranked])
+            )
+        )
+    ).all()
+    catalogue = {str(row.id): row for row in rows}
     return TopEntitiesResponse(
         entities=[
             TopEntity(
                 entity_id=row.id,
                 display_text=row.display_text,
                 entity_type=row.entity_type,
-                count=row.article_count,
+                count=count,
             )
-            for row in rows
-        ]
+            for value, count in ranked
+            if (row := catalogue.get(value)) is not None
+        ][:TOP_N]
     )
 
 
 @router.get("/analytics/top-countries", response_model=TopCountriesResponse)
-async def top_countries(db: Db, _auth: Auth) -> TopCountriesResponse:
-    cutoff = datetime.now(UTC) - timedelta(days=DISPLAY_DAYS)
-    article_count = func.count(func.distinct(ArticleCountryAnnotation.article_id))
-    query = (
-        select(ArticleCountryAnnotation.country_code, article_count.label("article_count"))
-        .join(Article, Article.id == ArticleCountryAnnotation.article_id)
-        .where(
-            ArticleCountryAnnotation.role == "primary",
-            ArticleCountryAnnotation.is_current.is_(True),
-            Article.first_discovered_at >= cutoff,
-        )
-        .group_by(ArticleCountryAnnotation.country_code)
-        .order_by(article_count.desc(), ArticleCountryAnnotation.country_code)
-        .limit(TOP_N)
+async def top_countries(
+    db: Db, _auth: Auth, settings: Config, criteria: Criteria, scope: Scope = "recent"
+) -> TopCountriesResponse:
+    aggregations = await _aggregate(
+        db,
+        settings,
+        criteria,
+        {"countries": terms(None, "primary_story_country", TOP_N)},
+        minimum=2,
+        since=_since(scope),
     )
-    rows = (await db.execute(query)).all()
+    ranked = read_terms(aggregations.get("countries", {}), nested=False).buckets
     return TopCountriesResponse(
-        countries=[
-            TopCountry(country_code=row.country_code, count=row.article_count) for row in rows
-        ]
+        countries=[TopCountry(country_code=value, count=count) for value, count in ranked]
     )

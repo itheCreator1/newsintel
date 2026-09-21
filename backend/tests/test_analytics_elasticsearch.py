@@ -117,3 +117,29 @@ async def test_recent_analytics_count_articles_by_discovery_not_publication(
         assert {b["date"]: b["count"] for b in timeline["buckets"] if b["count"]} == {
             (now - timedelta(days=days)).date().isoformat(): 1 for days in (1, 2, 3)
         }
+
+
+async def test_investigation_scope_drops_the_discovery_cutoff_and_keeps_the_criteria(
+    index_name: str,
+) -> None:
+    seeded = await _seed(index_name)
+    ada, harbour, grid = (str(seeded[key].id) for key in ("ada", "harbour", "grid"))
+    week = (seeded["now"] - timedelta(days=7)).date().isoformat()
+
+    async with _client(await _user()) as client:
+        countries = await _get(client, "top-countries", scope="investigation")
+        assert _pairs(countries["countries"], "country_code") == [("GR", 2), ("FR", 1), ("US", 1)]
+        entities = await _get(client, "top-entities", scope="investigation")
+        assert _pairs(entities["entities"], "entity_id") == sorted(
+            [(ada, 2), (harbour, 2), (grid, 2)]
+        )
+        orgs = await _get(client, "top-entities", scope="investigation", entity_type="ORG")
+        assert _pairs(orgs["entities"], "entity_id") == sorted([(harbour, 2), (grid, 2)])
+
+        # `after` filters publication: the article published 90 days ago leaves, and the one
+        # discovered 40 days ago but published yesterday stays.
+        recent_week = await _get(client, "top-countries", scope="investigation", after=week)
+        assert _pairs(recent_week["countries"], "country_code") == [("FR", 1), ("GR", 1), ("US", 1)]
+        # Recent scope applies the same criteria on top of its discovery cutoff.
+        recent = await _get(client, "top-countries", after=week)
+        assert _pairs(recent["countries"], "country_code") == [("GR", 1), ("US", 1)]
