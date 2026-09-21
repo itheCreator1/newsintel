@@ -22,6 +22,7 @@ test-results/
 data/
 /docs/
 /AGENTS.md
+/CLAUDE.md
 /graphify-out/
 /.claude/
 /.playwright-mcp/
