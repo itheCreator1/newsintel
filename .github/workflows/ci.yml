@@ -6,6 +6,10 @@ on:
     branches:
       - main
       - "phase/**"
+  # Nightly, so calendar-dependent regressions surface even without a push.
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -131,3 +135,32 @@ jobs:
           path: |
             backend/pytest.log
             backend/fixture-server.log
+
+  e2e:
+    name: Browser workflows (${{ matrix.group }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [search, investigations, monitors, graph]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      # playwright.config.ts defaults to the distro Chromium; point it at the one just installed.
+      - run: echo "PLAYWRIGHT_CHROMIUM_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+        working-directory: frontend
+      - run: infra/test-e2e.sh ${{ matrix.group }}
+        env:
+          NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-${{ matrix.group }}
+          path: ${{ runner.temp }}/e2e
