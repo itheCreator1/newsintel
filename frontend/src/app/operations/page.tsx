@@ -27,7 +27,7 @@ function Note({ children, error }: { children: string; error?: boolean }) {
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
-  return <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-sm text-foreground">{value}</dd></div>
+  return <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="m-0 font-mono text-sm text-foreground">{value}</dd></div>
 }
 
 function AsOf({ at }: { at: string }) {
