@@ -125,6 +125,8 @@ function CompareContent() {
   const [picked, setPicked] = useState<Record<string, string>>({})
   const [tab, setTab] = useState<'articles' | 'stories'>('articles')
   const [part, setPart] = useState<ComparePart>('both')
+  // A country input is uncontrolled (a half-typed code is not in the URL), so a swap remounts the pickers.
+  const [swaps, setSwaps] = useState(0)
 
   const same = Boolean(a && b) && (kind === 'country' ? a.toUpperCase() === b.toUpperCase() : a === b)
   const valid = (ref: string) => kind !== 'country' || COUNTRY.test(ref)
@@ -182,11 +184,11 @@ function CompareContent() {
               </select>
             </label>
           )}
-          <button className={ghostButtonClass} disabled={!a && !b} onClick={() => go({ a: b, b: a })}>Swap</button>
+          <button className={ghostButtonClass} disabled={!a && !b} onClick={() => { setSwaps(n => n + 1); go({ a: b, b: a }) }}>Swap</button>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <SubjectPicker key={`${kind}-a`} kind={kind} slot="A" value={a} label={aLabel} onPick={(ref, label) => pick('a', ref, label)} />
-          <SubjectPicker key={`${kind}-b`} kind={kind} slot="B" value={b} label={bLabel} onPick={(ref, label) => pick('b', ref, label)} />
+          <SubjectPicker key={`${kind}-a-${swaps}`} kind={kind} slot="A" value={a} label={aLabel} onPick={(ref, label) => pick('a', ref, label)} />
+          <SubjectPicker key={`${kind}-b-${swaps}`} kind={kind} slot="B" value={b} label={bLabel} onPick={(ref, label) => pick('b', ref, label)} />
         </div>
       </GlassPanel>
 

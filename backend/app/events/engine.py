@@ -6,6 +6,7 @@ a pure function of the facts loaded here, so a fixed database state gives a fixe
 """
 
 import uuid
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -241,6 +242,36 @@ async def load_event_facts(
     }
 
 
+async def event_facts_without(
+    db: AsyncSession, event_id: uuid.UUID, cluster_id: uuid.UUID, stop_words: frozenset[str]
+) -> EventFacts | None:
+    """The event as its other members describe it, so a cluster never matches its own evidence.
+
+    None when the cluster is the event's only member.
+    ponytail: the country is a vote of the members' countries; `refresh_event` weights articles.
+    """
+    others = list(
+        await db.scalars(
+            select(StoryCluster)
+            .join(EventCluster, EventCluster.cluster_id == StoryCluster.id)
+            .where(EventCluster.event_id == event_id, StoryCluster.id != cluster_id)
+            .order_by(StoryCluster.id)
+        )
+    )
+    if not others:
+        return None
+    facts = list((await load_cluster_facts(db, others, stop_words)).values())
+    countries = Counter(f.country for f in facts if f.country)
+    return EventFacts(
+        event_id,
+        min(f.first_published_at for f in facts),
+        max(f.last_published_at for f in facts),
+        frozenset().union(*(f.entity_ids for f in facts)),
+        tuple(f.title_tokens for f in facts),
+        min(countries, key=lambda code: (-countries[code], code)) if countries else None,
+    )
+
+
 async def candidate_event_ids(
     db: AsyncSession, cluster: ClusterFacts, version: str
 ) -> list[uuid.UUID]:
@@ -357,19 +388,26 @@ class RuleEventAssociator:
         current_id: uuid.UUID | None,
         stop_words: frozenset[str],
     ) -> tuple[int, int]:
-        candidate_ids = await candidate_event_ids(db, cluster, self.version)
-        loaded = await load_event_facts(
-            db, [*candidate_ids, *([current_id] if current_id else [])], stop_words
+        candidate_ids = [
+            i for i in await candidate_event_ids(db, cluster, self.version) if i != current_id
+        ]
+        loaded = await load_event_facts(db, candidate_ids, stop_words)
+        current = (
+            await event_facts_without(db, current_id, cluster.id, stop_words)
+            if current_id
+            else None
         )
         chosen = choose_event(
-            cluster,
-            [loaded[i] for i in candidate_ids if i in loaded],
-            current=loaded.get(current_id) if current_id else None,
+            cluster, [loaded[i] for i in candidate_ids if i in loaded], current=current
         )
         created = 0
+        event: Event
         if chosen is None:
-            event = await create_event(db, self.version)
-            created = 1
+            if current_id and current is None:  # its own event: leaving would only recreate it
+                event = await db.get(Event, current_id)  # type: ignore[assignment]
+            else:
+                event = await create_event(db, self.version)
+                created = 1
             score, signals = 0.0, {}
         else:
             event = await db.get(Event, chosen[0].id)  # type: ignore[assignment]

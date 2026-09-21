@@ -2,6 +2,7 @@ import asyncio
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -15,6 +16,7 @@ from app.feeds.models import Article
 from app.investigations.schemas import InvestigationState
 from app.jobs import monitors as monitor_jobs
 from app.monitors import evaluation
+from app.monitors import routes as monitor_routes
 from app.monitors.evaluation import claim_monitor, process_monitor
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate, MonitorUpdate
@@ -282,6 +284,34 @@ async def test_an_edited_target_or_a_new_view_during_evaluation_discards_the_res
     assert not await process_monitor(monitor_id, await _claim(monitor_id), adapter, now=now)
     viewed = await _read(monitor_id)
     assert viewed.eval_cursor_at == baseline and viewed.unseen_article_count == 0
+
+
+async def test_a_criteria_edit_clears_what_a_concurrent_evaluation_is_writing() -> None:
+    monitor_id, baseline = await _baselined()
+    owner = (await _read(monitor_id)).user_id
+    async with session_factory() as writer:
+        # The evaluation holds the row and writes a cursor it has not committed yet.
+        item = await writer.get(Monitor, monitor_id, with_for_update=True)
+        assert item is not None
+        item.eval_cursor_at = baseline + timedelta(minutes=5)
+        item.claim_token = "running"
+        await writer.flush()
+
+        async def edit() -> None:
+            async with session_factory() as db:
+                await monitor_routes.update(
+                    monitor_id,
+                    MonitorUpdate(kind="search", state=InvestigationState(q="gas")),
+                    db,
+                    SimpleNamespace(user_id=owner),  # type: ignore[arg-type]
+                )
+
+        editing = asyncio.create_task(edit())
+        await asyncio.sleep(0.3)
+        await writer.commit()
+        await editing
+    edited = await _read(monitor_id)
+    assert edited.eval_cursor_at is None and edited.claim_token is None
 
 
 async def test_a_match_missing_from_postgres_does_not_break_the_commit() -> None:

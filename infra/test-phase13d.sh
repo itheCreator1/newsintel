@@ -39,7 +39,7 @@ migrate() { $compose run --rm -e NEWSINTEL_DATABASE_URL="$test_database" api ale
 
 # 13D adds migration 0013 (event association runs and four indexes on finish times); prove it round-trips.
 migrate upgrade head
-[ "$(tests_psql "select version_num from alembic_version")" = 0013 ] || { echo "Phase 13D must end at migration 0013" >&2; exit 1; }
+[ "$(tests_psql "select version_num from alembic_version")" = 0014 ] || { echo "The migration head must be 0014 (0014 follows 13D)" >&2; exit 1; }
 idx() { tests_psql "select count(*) from pg_indexes where indexname in ('ix_event_association_runs_started','ix_article_jobs_completed','ix_cluster_jobs_completed','ix_nlp_runs_completed','ix_feed_fetches_started')"; }
 [ "$(idx)" = 5 ] || { echo "0013 did not create its indexes" >&2; exit 1; }
 migrate downgrade 0012
@@ -76,7 +76,7 @@ tail -3 "$artifacts/pytest-full.log"
 
 $compose up -d --wait --wait-timeout 120 postgres redis elasticsearch fixture
 $compose run --rm api alembic upgrade head
-$compose run --rm api alembic heads | tr -d '\r' | grep -q '^0013 (head)' || { echo "Phase 13D must end at migration 0013" >&2; exit 1; }
+$compose run --rm api alembic heads | tr -d '\r' | grep -q '^0014 (head)' || { echo "The migration head must be 0014 (0014 follows 13D)" >&2; exit 1; }
 # `relationships seed` signs in as phase7; the entity spec uses phase10b, the event spec phase12d, the source spec phase13a, the compare spec phase13b, the map spec phase13d.
 printf 'phase7-password\nphase7-password\n' | $compose run --rm -T api python -m app.cli create-user phase7
 printf 'phase10b-password\nphase10b-password\n' | $compose run --rm -T api python -m app.cli create-user phase10b
