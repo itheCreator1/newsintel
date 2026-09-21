@@ -2,10 +2,11 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
+import { monitor } from '../../test/monitors'
 import { renderWithQuery } from '../../test/render'
 import SearchPageRoute from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the brushed bucket span.
 vi.mock('../../components/TimelineChart', () => ({
   TimelineChart: (props: { buckets?: unknown[]; interval?: string; onSelect: (range: { start: string; end: string }) => void }) =>
@@ -325,4 +326,40 @@ it('shows pending and announced success while saving and watching', async () => 
   fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Grid watch' } })
   fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
   expect((await screen.findByText(/Watching “Grid watch”/)).getAttribute('role')).toBe('status')
+})
+
+it('saves the search on screen as the monitor criteria, keeping its kind, and returns to the monitor', async () => {
+  vi.mocked(api.monitor).mockResolvedValue(monitor({ id: 'm1', name: 'Acme watch', kind: 'entity' }))
+  vi.mocked(api.updateMonitor).mockResolvedValueOnce(monitor({ id: 'm1', name: 'Acme watch', kind: 'entity' }))
+  renderSearch('q=grid&entity_id=entity-one&monitor=m1')
+
+  expect(await screen.findByText('Editing the criteria of “Acme watch” (entity)')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Watch search' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'Stop editing' })).toHaveAttribute('href', '/search/?q=grid&entity_id=entity-one')
+  fireEvent.click(screen.getByRole('button', { name: 'Save criteria' }))
+  await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenCalledWith('m1', { kind: 'entity', state: expect.objectContaining({ q: 'grid', entity_id: ['entity-one'] }) }))
+  await vi.waitFor(() => expect(navigationHarness.pathname).toBe('/monitors/'))
+  expect(navigationHarness.searchParams.get('id')).toBe('m1')
+})
+
+it('keeps editing the monitor when the filters change, and shows why a save is refused', async () => {
+  vi.mocked(api.monitor).mockResolvedValue(monitor({ id: 'm1', name: 'Acme watch', kind: 'entity' }))
+  vi.mocked(api.updateMonitor).mockRejectedValueOnce(new ApiError('An entity monitor needs an entity_id', 422))
+  const { rerenderSame } = renderSearch('q=old&monitor=m1')
+  await screen.findByText('Editing the criteria of “Acme watch” (entity)')
+  fireEvent.change(screen.getByLabelText('Query'), { target: { value: 'new phrase' } })
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+  expect(navigationHarness.searchParams.get('q')).toBe('new phrase')
+  expect(navigationHarness.searchParams.get('monitor')).toBe('m1')
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Save criteria' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('An entity monitor needs an entity_id')
+})
+
+it('falls back to watching when the monitor being edited cannot be loaded', async () => {
+  vi.mocked(api.monitor).mockRejectedValue(new ApiError('Not found', 404))
+  renderSearch('q=grid&monitor=gone')
+  expect(await screen.findByText(/could not be loaded/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Watch search' })).toBeTruthy()
 })

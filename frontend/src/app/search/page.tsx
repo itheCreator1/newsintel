@@ -11,6 +11,7 @@ import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
@@ -38,6 +39,8 @@ function SearchContent() {
   const client = useQueryClient()
   const currentHref = toHref(pathname, urlParams)
   const state = stateFromQuery(urlParams)
+  // Set while editing a monitor's criteria; every navigation keeps it so filter changes stay in the edit.
+  const editing = urlParams.get('monitor') ?? ''
   const [form, setForm] = useState(() => formFromState(state))
   const [sourceTerm, setSourceTerm] = useState('')
   const [entityTerm, setEntityTerm] = useState('')
@@ -70,7 +73,8 @@ function SearchContent() {
   const timelineTooFine = errorCode(timeline.error) === 'timeline_too_fine'
   const save = useMutation({ mutationFn: (name: string) => api.createSavedSearch(name, state), onSuccess: () => client.invalidateQueries({ queryKey: ['saved-searches'] }) })
 
-  function navigate(next: Investigation) { router.push(toHref('/search', queryFromState(next))) }
+  function withMonitor(query: URLSearchParams) { if (editing) query.set('monitor', editing); return query }
+  function navigate(next: Investigation) { router.push(toHref('/search', withMonitor(queryFromState(next)))) }
   function draftState(draft = form): Investigation {
     return {
       ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: split(draft.country).map(code => code.toUpperCase()), after: draft.after || null, before: draft.before || null,
@@ -180,7 +184,7 @@ function SearchContent() {
           : save.isSuccess && <p role="status" className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
       </form>
 
-      <WatchForm state={state} />
+      {editing ? <EditMonitorBar key={editing} id={editing} state={state} stopHref={toHref('/search', queryFromState(state))} /> : <WatchForm state={state} />}
 
       <GlassPanel className="overflow-hidden p-0">
         {state.story_cluster_id.length > 0 && (
