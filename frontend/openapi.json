@@ -3343,6 +3343,220 @@
         }
       }
     },
+    "/api/v1/operations/health": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Health",
+        "description": "Dependency probes under a hard timeout each. An unreachable dependency is reported as data\n(HTTP 200), so one outage never hides the rest.",
+        "operationId": "operations_health_api_v1_operations_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/pipelines": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Pipelines",
+        "operationId": "operations_pipelines_api_v1_operations_pipelines_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Window length in hours, ending now.",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Window length in hours, ending now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelinesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/feeds": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Feeds",
+        "operationId": "operations_feeds_api_v1_operations_feeds_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Window length in hours, ending now.",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Window length in hours, ending now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/storage": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Storage",
+        "operationId": "operations_storage_api_v1_operations_storage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/failures": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Failures",
+        "operationId": "operations_failures_api_v1_operations_failures_get",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "feed",
+                "article",
+                "search",
+                "nlp",
+                "cluster",
+                "monitor",
+                "event"
+              ],
+              "type": "string",
+              "title": "Area"
+            }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Window length in hours, ending now.",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Window length in hours, ending now."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FailuresResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -6418,6 +6632,24 @@
         ],
         "title": "CapabilityResponse"
       },
+      "CategoryCount": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "count"
+        ],
+        "title": "CategoryCount"
+      },
       "ChangeEvidence": {
         "properties": {
           "article_id": {
@@ -7226,6 +7458,29 @@
         ],
         "title": "EdgeEvidenceResponse"
       },
+      "ElasticsearchStorage": {
+        "properties": {
+          "index": {
+            "type": "string",
+            "title": "Index"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "store_bytes": {
+            "type": "integer",
+            "title": "Store Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "documents",
+          "store_bytes"
+        ],
+        "title": "ElasticsearchStorage"
+      },
       "EntityAnnotationResponse": {
         "properties": {
           "id": {
@@ -7957,6 +8212,91 @@
         ],
         "title": "EventPage"
       },
+      "EventPipeline": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "default": "events"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          },
+          "algorithm_version": {
+            "type": "string",
+            "title": "Algorithm Version"
+          },
+          "dirty_clusters": {
+            "type": "integer",
+            "title": "Dirty Clusters"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "runs_in_window": {
+            "type": "integer",
+            "title": "Runs In Window"
+          },
+          "failed_runs_in_window": {
+            "type": "integer",
+            "title": "Failed Runs In Window"
+          },
+          "failed_clusters_in_window": {
+            "type": "integer",
+            "title": "Failed Clusters In Window"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "definition",
+          "algorithm_version",
+          "dirty_clusters",
+          "last_run_at",
+          "last_success_at",
+          "runs_in_window",
+          "failed_runs_in_window",
+          "failed_clusters_in_window",
+          "last_error"
+        ],
+        "title": "EventPipeline"
+      },
       "EventSummary": {
         "properties": {
           "id": {
@@ -8135,6 +8475,130 @@
         ],
         "title": "EventTimelinePage"
       },
+      "FailureItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "ref_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ref_id",
+          "status",
+          "at",
+          "error_category",
+          "message"
+        ],
+        "title": "FailureItem"
+      },
+      "FailuresResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "feed",
+              "article",
+              "search",
+              "nlp",
+              "cluster",
+              "monitor",
+              "event"
+            ],
+            "title": "Area"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryCount"
+            },
+            "type": "array",
+            "title": "By Category"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/FailureItem"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "area",
+          "window_hours",
+          "window_start",
+          "by_category",
+          "recent"
+        ],
+        "title": "FailuresResponse"
+      },
       "FeedCreate": {
         "properties": {
           "name": {
@@ -8212,6 +8676,121 @@
           "url"
         ],
         "title": "FeedCreate"
+      },
+      "FeedHealth": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "poll_interval_minutes": {
+            "type": "integer",
+            "title": "Poll Interval Minutes"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "failing",
+              "overdue",
+              "awaiting",
+              "ok"
+            ],
+            "title": "State"
+          },
+          "last_fetch_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch Status"
+          },
+          "last_fetch_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "next_poll_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Next Poll At"
+          },
+          "overdue_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overdue Seconds"
+          },
+          "failure_streak": {
+            "type": "integer",
+            "title": "Failure Streak"
+          },
+          "streak_capped": {
+            "type": "boolean",
+            "title": "Streak Capped"
+          },
+          "failures_by_category": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Failures By Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "poll_interval_minutes",
+          "state",
+          "last_fetch_status",
+          "last_fetch_at",
+          "last_success_at",
+          "next_poll_at",
+          "overdue_seconds",
+          "failure_streak",
+          "streak_capped",
+          "failures_by_category"
+        ],
+        "title": "FeedHealth"
       },
       "FeedResponse": {
         "properties": {
@@ -8308,6 +8887,39 @@
           "created_at"
         ],
         "title": "FeedResponse"
+      },
+      "FeedTotals": {
+        "properties": {
+          "fetches": {
+            "type": "integer",
+            "title": "Fetches"
+          },
+          "entries": {
+            "type": "integer",
+            "title": "Entries"
+          },
+          "invalid": {
+            "type": "integer",
+            "title": "Invalid"
+          },
+          "new": {
+            "type": "integer",
+            "title": "New"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fetches",
+          "entries",
+          "invalid",
+          "new",
+          "duplicates"
+        ],
+        "title": "FeedTotals"
       },
       "FeedUpdate": {
         "properties": {
@@ -8421,6 +9033,48 @@
         },
         "type": "object",
         "title": "FeedUpdate"
+      },
+      "FeedsResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedHealth"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/FeedTotals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window_hours",
+          "window_start",
+          "truncated",
+          "items",
+          "totals"
+        ],
+        "title": "FeedsResponse"
       },
       "FetchPage": {
         "properties": {
@@ -8818,6 +9472,36 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HealthResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "probes": {
+            "items": {
+              "$ref": "#/components/schemas/Probe"
+            },
+            "type": "array",
+            "title": "Probes"
+          },
+          "queues": {
+            "items": {
+              "$ref": "#/components/schemas/QueueDepth"
+            },
+            "type": "array",
+            "title": "Queues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "probes",
+          "queues"
+        ],
+        "title": "HealthResponse"
+      },
       "HighlightSegment": {
         "properties": {
           "text": {
@@ -9195,6 +9879,81 @@
         ],
         "title": "JobPage"
       },
+      "JobPipeline": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          },
+          "window_basis": {
+            "type": "string",
+            "title": "Window Basis"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running"
+          },
+          "retrying": {
+            "type": "integer",
+            "title": "Retrying"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "lease_expired": {
+            "type": "integer",
+            "title": "Lease Expired"
+          },
+          "oldest_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Wait Seconds"
+          },
+          "completed_in_window": {
+            "type": "integer",
+            "title": "Completed In Window"
+          },
+          "failed_in_window": {
+            "type": "integer",
+            "title": "Failed In Window"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "definition",
+          "window_basis",
+          "queued",
+          "running",
+          "retrying",
+          "failed",
+          "lease_expired",
+          "oldest_wait_seconds",
+          "completed_in_window",
+          "failed_in_window"
+        ],
+        "title": "JobPipeline"
+      },
       "JobResponse": {
         "properties": {
           "id": {
@@ -9567,6 +10326,69 @@
           "next_cursor"
         ],
         "title": "MonitorPage"
+      },
+      "MonitorPipeline": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "default": "monitors"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "enabled": {
+            "type": "integer",
+            "title": "Enabled"
+          },
+          "due": {
+            "type": "integer",
+            "title": "Due"
+          },
+          "oldest_overdue_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Overdue Seconds"
+          },
+          "in_error": {
+            "type": "integer",
+            "title": "In Error"
+          },
+          "by_error_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryCount"
+            },
+            "type": "array",
+            "title": "By Error Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "definition",
+          "total",
+          "enabled",
+          "due",
+          "oldest_overdue_seconds",
+          "in_error",
+          "by_error_category"
+        ],
+        "title": "MonitorPipeline"
       },
       "MonitorResponse": {
         "properties": {
@@ -10112,6 +10934,47 @@
         "title": "Overlap",
         "description": "Two sets, A and B. `jaccard` is `both / union` and null when the union is empty."
       },
+      "PipelinesResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobPipeline"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "events": {
+            "$ref": "#/components/schemas/EventPipeline"
+          },
+          "monitors": {
+            "$ref": "#/components/schemas/MonitorPipeline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window_hours",
+          "window_start",
+          "jobs",
+          "events",
+          "monitors"
+        ],
+        "title": "PipelinesResponse"
+      },
       "PollResponse": {
         "properties": {
           "fetch_id": {
@@ -10135,6 +10998,58 @@
           "reused"
         ],
         "title": "PollResponse"
+      },
+      "Probe": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded",
+              "down",
+              "unknown"
+            ],
+            "title": "State"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "state",
+          "checked_at"
+        ],
+        "title": "Probe"
       },
       "ProcessRequest": {
         "properties": {
@@ -10262,6 +11177,34 @@
           "input_fingerprint"
         ],
         "title": "ProcessorOutcomeResponse"
+      },
+      "QueueDepth": {
+        "properties": {
+          "queue": {
+            "type": "string",
+            "title": "Queue"
+          },
+          "ready": {
+            "type": "integer",
+            "title": "Ready"
+          },
+          "delayed": {
+            "type": "integer",
+            "title": "Delayed"
+          },
+          "dead": {
+            "type": "integer",
+            "title": "Dead"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queue",
+          "ready",
+          "delayed",
+          "dead"
+        ],
+        "title": "QueueDepth"
       },
       "RelatedArticle": {
         "properties": {
@@ -10463,6 +11406,44 @@
           "status"
         ],
         "title": "RetryIndexResponse"
+      },
+      "RunError": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "category",
+          "message"
+        ],
+        "title": "RunError"
       },
       "SavedSearchCreate": {
         "properties": {
@@ -11518,6 +12499,71 @@
         ],
         "title": "StopWordsUpdate"
       },
+      "StorageResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "database_bytes": {
+            "type": "integer",
+            "title": "Database Bytes"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableSize"
+            },
+            "type": "array",
+            "title": "Tables"
+          },
+          "retained_html_objects": {
+            "type": "integer",
+            "title": "Retained Html Objects"
+          },
+          "article_files_measured": {
+            "type": "boolean",
+            "title": "Article Files Measured"
+          },
+          "article_files_note": {
+            "type": "string",
+            "title": "Article Files Note"
+          },
+          "elasticsearch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ElasticsearchStorage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "elasticsearch_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elasticsearch Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "database_bytes",
+          "tables",
+          "retained_html_objects",
+          "article_files_measured",
+          "article_files_note",
+          "elasticsearch",
+          "elasticsearch_error"
+        ],
+        "title": "StorageResponse"
+      },
       "StoryChange": {
         "properties": {
           "cluster_id": {
@@ -11716,6 +12762,29 @@
           "retired"
         ],
         "title": "Subject"
+      },
+      "TableSize": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "title": "Total Bytes"
+          },
+          "approximate_rows": {
+            "type": "integer",
+            "title": "Approximate Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "total_bytes",
+          "approximate_rows"
+        ],
+        "title": "TableSize"
       },
       "TimelineBucket": {
         "properties": {

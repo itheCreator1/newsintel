@@ -190,3 +190,21 @@ it('requests the country map for one role and its evidence with an encoded curso
     '/api/v1/geo/articles?role=source&code=FR&days=90&cursor=c%2B1',
   ])
 })
+
+it('requests each operations view with its window and area', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+
+  await api.opsHealth()
+  await api.opsPipelines(24)
+  await api.opsFeeds(72)
+  await api.opsStorage()
+  await api.opsFailures('cluster', 6)
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/operations/health',
+    '/api/v1/operations/pipelines?hours=24',
+    '/api/v1/operations/feeds?hours=72',
+    '/api/v1/operations/storage',
+    '/api/v1/operations/failures?area=cluster&hours=6',
+  ])
+})

@@ -74,6 +74,7 @@ class NlpProcessorRun(Base):
     __tablename__ = "nlp_processor_runs"
     __table_args__ = (
         Index("ix_nlp_runs_article_processor", "article_id", "processor_name", "started_at"),
+        Index("ix_nlp_runs_completed", "completed_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_jobs.id", ondelete="CASCADE"))

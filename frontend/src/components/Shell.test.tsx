@@ -36,5 +36,6 @@ describe('application shell', () => {
     expect(screen.getByRole('link', { name: 'Saved Searches' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Watchlist' })).toHaveAttribute('href', '/monitors/')
     expect(screen.getByRole('link', { name: 'Jobs' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Operations' })).toHaveAttribute('href', '/operations/')
   })
 })

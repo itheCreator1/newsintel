@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 import structlog
-from sqlalchemy import and_, distinct, func, or_, select, text
+from sqlalchemy import Select, and_, distinct, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.engine import CLUSTER_ENTITY_TYPES, jaccard, title_tokens
@@ -75,6 +75,7 @@ class BatchResult:
     deleted: int = 0
     failed: int = 0
     skipped: bool = False
+    last_error: str | None = None
 
 
 def time_gap(cluster: ClusterFacts, event: EventFacts) -> timedelta | None:
@@ -268,6 +269,32 @@ async def _lock(db: AsyncSession) -> bool:
     return bool(await db.scalar(text(f"SELECT pg_try_advisory_xact_lock({EVENT_ADVISORY_LOCK})")))
 
 
+def dirty_clusters(version: str) -> Select[tuple[StoryCluster, uuid.UUID]]:
+    """Clusters that are new or changed since their decision for `version`, with their event id.
+
+    The one definition of "dirty": the batch reads it and the operations page counts it.
+    """
+    return (
+        select(StoryCluster, EventCluster.event_id)
+        .outerjoin(
+            EventCluster,
+            and_(
+                EventCluster.cluster_id == StoryCluster.id,
+                EventCluster.algorithm_version == version,
+            ),
+        )
+        .where(
+            StoryCluster.article_count >= 2,
+            StoryCluster.first_published_at.is_not(None),
+            StoryCluster.last_published_at.is_not(None),
+            or_(
+                EventCluster.cluster_id.is_(None),
+                StoryCluster.updated_at > EventCluster.cluster_updated_at,
+            ),
+        )
+    )
+
+
 @runtime_checkable
 class EventAssociator(Protocol):
     version: str
@@ -292,23 +319,7 @@ class RuleEventAssociator:
             return result
         rows = (
             await db.execute(
-                select(StoryCluster, EventCluster.event_id)
-                .outerjoin(
-                    EventCluster,
-                    and_(
-                        EventCluster.cluster_id == StoryCluster.id,
-                        EventCluster.algorithm_version == self.version,
-                    ),
-                )
-                .where(
-                    StoryCluster.article_count >= 2,
-                    StoryCluster.first_published_at.is_not(None),
-                    StoryCluster.last_published_at.is_not(None),
-                    or_(
-                        EventCluster.cluster_id.is_(None),
-                        StoryCluster.updated_at > EventCluster.cluster_updated_at,
-                    ),
-                )
+                dirty_clusters(self.version)
                 .order_by(StoryCluster.first_published_at, StoryCluster.id)
                 .limit(limit)
                 # Blocks a concurrent dissolve until commit; a plain update (growth) does not wait.
@@ -328,8 +339,9 @@ class RuleEventAssociator:
                 result.created += created
                 result.deleted += deleted
                 result.evaluated += 1
-            except Exception:
+            except Exception as exc:
                 result.failed += 1
+                result.last_error = f"{type(exc).__name__}: {exc}"[:1000]
                 log.exception(
                     "event_association_failed",
                     error_category="event_association",

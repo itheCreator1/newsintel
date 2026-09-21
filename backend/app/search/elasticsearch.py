@@ -145,3 +145,13 @@ class ElasticsearchAdapter:
         response = await self._request("POST", f"/{index_name}/_search", json_body=body)
         result: dict[str, Any] = response.json()
         return result
+
+    async def health(self) -> dict[str, Any]:
+        result: dict[str, Any] = (await self._request("GET", "/_cluster/health")).json()
+        return result
+
+    async def index_stats(self, alias: str) -> tuple[int, int]:
+        """Document count and store size in bytes over the indices behind `alias` (primaries)."""
+        response = await self._request("GET", f"/{alias}/_stats/docs,store")
+        total = response.json()["_all"]["primaries"]
+        return int(total["docs"]["count"]), int(total["store"]["size_in_bytes"])

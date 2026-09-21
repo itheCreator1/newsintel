@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Float,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
     text,
@@ -116,3 +118,24 @@ class EventEntity(Base):
     )
     article_count: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EventAssociationRun(Base):
+    """One association run that did work or failed; an idle scheduler tick writes nothing.
+
+    Rows older than `RUN_RETENTION` (`app.events.execution`) are deleted as new ones are written.
+    """
+
+    __tablename__ = "event_association_runs"
+    __table_args__ = (Index("ix_event_association_runs_started", "started_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    sweep: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    evaluated: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    deleted: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    failed: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    error_category: Mapped[str | None] = mapped_column(String(64))
+    error_message: Mapped[str | None] = mapped_column(Text)

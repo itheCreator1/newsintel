@@ -50,7 +50,10 @@ class Feed(Base):
 
 class FeedFetch(Base):
     __tablename__ = "feed_fetches"
-    __table_args__ = (Index("ix_feed_fetches_history", "feed_id", "started_at"),)
+    __table_args__ = (
+        Index("ix_feed_fetches_history", "feed_id", "started_at"),
+        Index("ix_feed_fetches_started", "started_at"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     claim_token: Mapped[str] = mapped_column(String(64), unique=True)
@@ -135,6 +138,7 @@ class ArticleProcessingJob(Base):
     __table_args__ = (
         Index("ix_article_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
         Index("ix_article_jobs_article_created", "article_id", "created_at"),
+        Index("ix_article_jobs_completed", "completed_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
