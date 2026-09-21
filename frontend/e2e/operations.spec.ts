@@ -24,7 +24,7 @@ test('operations workflow shows healthy dependencies, matches the job pages and 
   await expect(page).toHaveURL(/\/operations\/$/)
 
   // Every dependency answers, including the scheduler heartbeat and the Dramatiq queues in Redis.
-  for (const name of ['PostgreSQL', 'Redis', 'Elasticsearch', 'Scheduler']) await expect(probe(page, name)).toContainText('OK', { timeout: 30_000 })
+  for (const name of ['PostgreSQL', 'Redis', 'Elasticsearch', 'Scheduler', 'Workers']) await expect(probe(page, name)).toContainText('OK', { timeout: 30_000 })
   await expect(probe(page, 'Scheduler')).toContainText(/Last cycle \d+ s ago/)
   const queues = page.getByRole('table', { name: 'Queues' })
   for (const queue of ['default', 'search', 'monitors', 'nlp', 'clustering', 'events']) await expect(queues.getByRole('row', { name: new RegExp(`^${queue} `) })).toBeVisible()

@@ -103,3 +103,10 @@ it('links to the operational metrics', async () => {
   renderWithQuery(() => <JobsPage />)
   expect((await screen.findByRole('link', { name: 'Operational metrics' })).getAttribute('href')).toBe('/operations/')
 })
+
+it('marks a failed job as an error, not as pending', async () => {
+  const { container } = renderWithQuery(() => <JobsPage />)
+  await screen.findByText(failedJob.article_title)
+  const badge = [...container.querySelectorAll('.job-row span')].find(el => el.textContent === 'failed')
+  expect(badge?.className).toContain('text-destructive')
+})

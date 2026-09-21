@@ -122,3 +122,51 @@ def test_the_queue_layout_lists_every_queue_the_actors_use() -> None:
     from app.jobs.broker import broker
 
     assert set(probes.QUEUES) == set(broker.get_declared_queues())
+
+
+@pytest.mark.parametrize(
+    ("ages", "state"),
+    [
+        ({"nlp": None, "search": None}, "unknown"),
+        ({"nlp": 3.0, "search": 59.0}, "ok"),
+        ({"nlp": 312.0, "search": 3.0}, "down"),
+        ({"nlp": None, "search": 3.0}, "down"),
+    ],
+)
+def test_workers_state_needs_a_live_worker_on_every_queue(
+    ages: dict[str, float | None], state: str
+) -> None:
+    found, detail = heartbeat.workers_state(ages)
+    assert found == state
+    if state == "down":
+        assert "nlp" in detail and "search" not in detail
+
+
+def test_a_booted_worker_beats_for_the_queues_it_consumes() -> None:
+    from app.jobs.broker import QueueHeartbeat
+
+    class Client:
+        def __init__(self) -> None:
+            self.keys: dict[str, str] = {}
+
+        def set(self, key: str, value: str, ex: int) -> None:
+            self.keys[key] = value
+
+    class Broker:
+        client = Client()
+
+        def get_declared_queues(self) -> set[str]:
+            return {"nlp", "events"}
+
+    class Worker:
+        consumer_whitelist = None
+
+    broker = Broker()
+    QueueHeartbeat().after_worker_boot(broker, Worker())
+    deadline = time.monotonic() + 2
+    while len(broker.client.keys) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert set(broker.client.keys) == {
+        "newsintel:heartbeat:queue:nlp",
+        "newsintel:heartbeat:queue:events",
+    }
