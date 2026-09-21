@@ -981,6 +981,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Facet Counts
+         * @description Top values on the articles matching the search; each count is matching articles.
+         */
+        get: operations["search_facet_counts_api_v1_search_facets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/indexing/status": {
         parameters: {
             query?: never;
@@ -2152,6 +2172,22 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** FacetBucket */
+        FacetBucket: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string | null;
+            /** Count */
+            count: number;
+        };
+        /** FacetGroup */
+        FacetGroup: {
+            /** Buckets */
+            buckets: components["schemas"]["FacetBucket"][];
+            /** Truncated */
+            truncated: boolean;
+        };
         /** FailureItem */
         FailureItem: {
             /**
@@ -3282,6 +3318,20 @@ export interface components {
             /** Name */
             name?: string | null;
             state?: components["schemas"]["InvestigationState"] | null;
+        };
+        /** SearchFacets */
+        SearchFacets: {
+            /** Total */
+            total: number;
+            sources: components["schemas"]["FacetGroup"];
+            source_countries: components["schemas"]["FacetGroup"];
+            story_countries: components["schemas"]["FacetGroup"];
+            mentioned_countries: components["schemas"]["FacetGroup"];
+            languages: components["schemas"]["FacetGroup"];
+            entities: components["schemas"]["FacetGroup"];
+            entity_types: components["schemas"]["FacetGroup"];
+            keywords: components["schemas"]["FacetGroup"];
+            story_clusters: components["schemas"]["FacetGroup"];
         };
         /** SearchPage */
         SearchPage: {
@@ -5719,6 +5769,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchTimeline"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_facet_counts_api_v1_search_facets_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchFacets"];
                 };
             };
             /** @description Validation Error */
