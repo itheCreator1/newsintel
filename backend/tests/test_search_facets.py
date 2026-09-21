@@ -1,7 +1,11 @@
 from typing import Any
 
 import pytest
+from fastapi import HTTPException
+from test_search_timeline import _Adapter, _criteria, _Database
 
+from app.core.config import Settings
+from app.main import create_app
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.facets import (
@@ -11,6 +15,7 @@ from app.search.facets import (
     facets_body,
     parse_facets,
 )
+from app.search.routes import search_facet_counts
 
 QUERY: dict[str, Any] = {"bool": {"must": [{"match_all": {}}], "filter": []}}
 ROOT_ORDER = [{"articles": "desc"}, {"_key": "asc"}]
@@ -103,3 +108,57 @@ def test_partial_responses_are_rejected_not_undercounted(broken: dict[str, Any])
     with pytest.raises(PartialResponse):
         parse_facets({**_response(), **broken})
     assert issubclass(PartialResponse, ElasticsearchUnavailable)  # routes map it to 503
+
+
+@pytest.fixture
+def adapter(monkeypatch: pytest.MonkeyPatch) -> type[_Adapter]:
+    _Adapter.responses, _Adapter.bodies, _Adapter.unavailable = [], [], False
+    monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _Adapter)
+    return _Adapter
+
+
+async def _facets(schema_version: int = 3) -> object:
+    return await search_facet_counts(
+        _Database(schema_version),  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        Settings(),
+        _criteria(),
+        10,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("schema_version", [1, 2])
+async def test_facets_require_a_schema_three_index(
+    adapter: type[_Adapter], schema_version: int
+) -> None:
+    with pytest.raises(HTTPException) as exc:
+        await _facets(schema_version)
+    assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "search_upgrade_required"  # type: ignore[index]
+    assert adapter.bodies == []
+
+
+@pytest.mark.asyncio
+async def test_facets_report_elasticsearch_outage(adapter: type[_Adapter]) -> None:
+    adapter.unavailable = True
+    with pytest.raises(HTTPException) as exc:
+        await _facets()
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_facets_report_a_partial_response_as_unavailable(adapter: type[_Adapter]) -> None:
+    adapter.responses = [{**_response(), "timed_out": True}]
+    with pytest.raises(HTTPException) as exc:
+        await _facets()
+    assert exc.value.status_code == 503
+
+
+def test_facets_route_shares_search_parameters_in_openapi() -> None:
+    paths = create_app().openapi()["paths"]
+    params = paths["/api/v1/search/facets"]["get"]["parameters"]
+    search_names = {item["name"] for item in paths["/api/v1/search"]["get"]["parameters"]}
+    assert {item["name"] for item in params} == search_names - {"sort", "cursor"}
+    limit = next(item for item in params if item["name"] == "limit")["schema"]
+    assert (limit["default"], limit["maximum"]) == (10, MAX_FACET_BUCKETS)

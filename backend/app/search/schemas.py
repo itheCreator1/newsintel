@@ -87,3 +87,27 @@ class SearchTimeline(BaseModel):
     interval: Literal["hour", "day", "week", "month", "year"]
     total: int
     buckets: list[TimelineBucket]
+
+
+class FacetBucket(BaseModel):
+    value: str
+    label: str | None
+    count: int
+
+
+class FacetGroup(BaseModel):
+    buckets: list[FacetBucket]
+    truncated: bool
+
+
+class SearchFacets(BaseModel):
+    total: int
+    sources: FacetGroup
+    source_countries: FacetGroup
+    story_countries: FacetGroup
+    mentioned_countries: FacetGroup
+    languages: FacetGroup
+    entities: FacetGroup
+    entity_types: FacetGroup
+    keywords: FacetGroup
+    story_clusters: FacetGroup

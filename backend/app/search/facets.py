@@ -1,9 +1,17 @@
 """Bounded facet counts for one investigation; every count is matching root articles."""
 
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from app.search.elasticsearch import ElasticsearchUnavailable
+from sqlalchemy import Select, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.clustering.models import StoryCluster
+from app.feeds.models import Article, Feed
+from app.nlp.models import Entity, Keyword
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.schemas import FacetBucket, FacetGroup, SearchFacets
 
 MAX_FACET_BUCKETS = 25
 ORDER = [{"_count": "desc"}, {"_key": "asc"}]
@@ -79,3 +87,57 @@ def parse_facets(response: dict[str, Any]) -> tuple[int, dict[str, Counted]]:
             truncated=int(top.get("sum_other_doc_count", 0)) > 0,
         )
     return int(response["hits"]["total"]["value"]), groups
+
+
+def _ids(counted: Counted) -> list[uuid.UUID]:
+    found: list[uuid.UUID] = []
+    for value, _count in counted.buckets:
+        try:
+            found.append(uuid.UUID(value))
+        except ValueError:
+            continue  # not a catalogue id, so it cannot be labelled
+    return found
+
+
+def _label_queries(groups: dict[str, Counted]) -> dict[str, Select[Any]]:
+    return {
+        "sources": select(Feed.id, Feed.name).where(Feed.id.in_(_ids(groups["sources"]))),
+        "entities": select(Entity.id, Entity.display_text).where(
+            Entity.id.in_(_ids(groups["entities"]))
+        ),
+        "keywords": select(Keyword.id, Keyword.display_text).where(
+            Keyword.id.in_(_ids(groups["keywords"]))
+        ),
+        "story_clusters": select(StoryCluster.id, Article.title)
+        .outerjoin(Article, Article.id == StoryCluster.representative_article_id)
+        .where(StoryCluster.id.in_(_ids(groups["story_clusters"]))),
+    }
+
+
+async def search_facets(
+    db: AsyncSession,
+    adapter: ElasticsearchAdapter,
+    index_name: str,
+    query: dict[str, Any],
+    limit: int,
+) -> SearchFacets:
+    total, groups = parse_facets(await adapter.search_index(index_name, facets_body(query, limit)))
+    # One batched query per catalogue; a bucket the catalogue no longer holds is dropped.
+    labels = {
+        name: {str(key): label for key, label in (await db.execute(statement)).all()}
+        for name, statement in _label_queries(groups).items()
+    }
+    output: dict[str, FacetGroup] = {}
+    for name, counted in groups.items():
+        known = labels.get(name)
+        output[name] = FacetGroup(
+            buckets=[
+                FacetBucket(
+                    value=value, label=known[value] if known is not None else None, count=count
+                )
+                for value, count in counted.buckets
+                if known is None or value in known
+            ],
+            truncated=counted.truncated,
+        )
+    return SearchFacets(total=total, **output)
