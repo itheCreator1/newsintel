@@ -9,7 +9,7 @@ async function login(page: Page) {
 }
 
 // Runs after `relationships seed`: "Relationships Wire" and "Relationships Daily" share two stories.
-// The fixture articles are dated 7-11 September 2026, so the widest window keeps them in range for longest.
+// The fixture server shifts the articles to end yesterday; the widest window also covers a stale Compose stack.
 test('compare workflow moves from a source dossier to shared evidence and back', async ({ page }) => {
   await login(page)
   await page.getByRole('link', { name: 'Sources', exact: true }).click()
