@@ -160,6 +160,18 @@ it('requests a source dossier with its window, paged evidence and encoded cursor
   ])
 })
 
+it('requests facets with repeated filters and an optional bucket limit', async () => {
+  const empty = { buckets: [], truncated: false }
+  const body = { total: 0, sources: empty, source_countries: empty, story_countries: empty, mentioned_countries: empty, languages: empty, entities: empty, entity_types: empty, keywords: empty, story_clusters: empty }
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify(body), { status: 200 }))
+
+  await api.facets({ q: 'grid', source_country: ['US', 'GR'] })
+  await api.facets({ q: 'grid' }, 25)
+
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/search/facets?q=grid&source_country=US&source_country=GR')
+  expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/search/facets?q=grid&limit=25')
+})
+
 it('requests a comparison and its evidence with the same subjects, an encoded cursor and the chosen part', async () => {
   const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
   const spec = { kind: 'entity' as const, a: 'e1', b: 'e2', days: 7 }

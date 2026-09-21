@@ -20,6 +20,7 @@ from app.feeds.models import Feed
 from app.feeds.service import decode_cursor, encode_cursor
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.facets import MAX_FACET_BUCKETS, search_facets
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.rebuild import rebuild_status
 from app.search.schemas import (
@@ -28,6 +29,7 @@ from app.search.schemas import (
     IndexFailurePage,
     IndexStatus,
     RetryIndexResponse,
+    SearchFacets,
     SearchPage,
     SearchResult,
     SearchResultSource,
@@ -336,6 +338,26 @@ async def search_timeline(
     return SearchTimeline(
         interval=chosen, total=sum(bucket.count for bucket in buckets), buckets=buckets
     )
+
+
+@router.get("/search/facets", response_model=SearchFacets)
+async def search_facet_counts(
+    db: Db,
+    _auth: Auth,
+    settings: Config,
+    criteria: Criteria,
+    limit: Annotated[int, Query(ge=1, le=MAX_FACET_BUCKETS)] = 10,
+) -> SearchFacets:
+    """Top values on the articles matching the search; each count is matching articles."""
+    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+    try:
+        # Keyword, entity and country groups need V2 fields and story clusters need V3.
+        index_name, schema_version = await current_search_target(db, criteria, minimum=3)
+        return await search_facets(
+            db, adapter, index_name, build_query(criteria, schema_version), limit
+        )
+    except ElasticsearchUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
 
 
 @router.get("/search/indexing/status", response_model=IndexStatus)
