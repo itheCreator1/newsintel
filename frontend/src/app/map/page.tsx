@@ -9,6 +9,7 @@ import type { GeoArticleRole, GeoCountriesResponse, GeoRole } from '../../lib/ap
 import { GeoChart } from '../../components/GeoChart'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { WatchForm } from '../../components/WatchForm'
 import world from '../../lib/world.geo.json'
 import { compareHref, emptyInvestigation, eventHref, mapHref, queryFromState, refine, toHref, type ListField } from '../../lib/investigation'
 import { countryName, plural } from '../../lib/utils'
@@ -148,6 +149,7 @@ function MapContent() {
             {role !== 'mentioned' && role !== 'source' && <Link className={ghostButtonClass} href={toHref('/events', new URLSearchParams({ country, from }))}>Events with this country</Link>}
             {articleRole && <Link className={ghostButtonClass} href={compareHref({ kind: 'country', a: country, role: articleRole, days })}>Compare with another country</Link>}
           </div>
+          {articleRole && <WatchForm key={`${role}-${country}`} className="px-6" kind="country" state={refine(emptyInvestigation(), SEARCH_FIELD[articleRole], country)} defaultName={`${name} (${role} country)`} label="Watch country" />}
           {found && articleRole && (
             <>
               {articles.isPending && <Note>Loading articles…</Note>}

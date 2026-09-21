@@ -5,7 +5,7 @@ import { navigationHarness, resetNavigationHarness } from '../../test/navigation
 import { renderWithQuery } from '../../test/render'
 import ClustersPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { cluster: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { cluster: vi.fn(), createMonitor: vi.fn() } }))
 
 const page = (items: { article_id: string; title: string }[], next: string | null) => ({
   id: 'cluster-1', algorithm_version: 'v1', article_count: 3, source_count: 2, first_published_at: '2026-09-10T08:00:00Z', last_published_at: '2026-09-12T18:00:00Z', representative_article_id: 'a1',
@@ -58,4 +58,12 @@ it('shows an error state when the cluster cannot be loaded', async () => {
   renderWithQuery(() => <ClustersPage />)
 
   expect(await screen.findByText('Could not load this story.')).toBeTruthy()
+})
+
+it('watches this story, named after its first article', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  renderWithQuery(() => <ClustersPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch story' }))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('First report', expect.objectContaining({ story_cluster_id: ['cluster-1'], q: '' }), 'cluster'))
 })

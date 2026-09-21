@@ -7,8 +7,9 @@ import { Suspense } from 'react'
 import { api } from '../../lib/api'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { WatchForm } from '../../components/WatchForm'
 import { chipClass, ghostButtonClass } from '../../lib/ui-classes'
-import { parseHref, queryFromState, refine, stateFromQuery, toHref } from '../../lib/investigation'
+import { emptyInvestigation, parseHref, queryFromState, refine, stateFromQuery, toHref } from '../../lib/investigation'
 
 function ClusterContent() {
   const router = useRouter()
@@ -47,6 +48,7 @@ function ClusterContent() {
                   : 'Publication dates are not available.'}
               </p>
               <Link className={chipClass} href={searchWithinStoryHref}>Search within this story</Link>
+              <WatchForm key={id} className="" kind="cluster" state={refine(emptyInvestigation(), 'story_cluster_id', id)} defaultName={members[0]?.title ?? ''} label="Watch story" />
             </div>
             {members.map(member => (
               <article key={member.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">

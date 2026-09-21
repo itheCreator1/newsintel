@@ -8,7 +8,7 @@ import MapPage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { geoCountries: vi.fn(), geoArticles: vi.fn(), events: vi.fn() },
+  api: { geoCountries: vi.fn(), geoArticles: vi.fn(), events: vi.fn(), createMonitor: vi.fn() },
 }))
 vi.mock('../../components/GeoChart', () => ({
   GeoChart: ({ items, selected, ariaLabel, onSelect }: { items: { code: string; label: string; value: number }[]; selected?: string; ariaLabel: string; onSelect(code: string): void }) => (
@@ -186,4 +186,23 @@ it('ignores a role or window it does not know and a country that is not a code',
   await screen.findByText('map Greece 5')
   expect(api.geoCountries).toHaveBeenCalledWith('story', 30)
   expect(screen.queryByRole('region', { name: /Greece/ })).toBeNull()
+})
+
+it('watches the selected country in the role on screen', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  vi.mocked(api.geoCountries).mockResolvedValue(response({ role: 'mentioned' }))
+  open('role=mentioned&country=GR')
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch country' }))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Greece (mentioned country)', expect.objectContaining({ mentioned_country: ['GR'], story_country: [] }), 'country'))
+})
+
+it('offers no watch for the event role, which has no monitor field', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(response({
+    role: 'event', coverage: { unit: 'events', window_total: 5, located: 3 },
+    items: [row('GR', { articles: null, stories: null, events: 2 })],
+  }))
+  open('role=event&country=GR')
+  expect(await screen.findByRole('heading', { name: 'Greece' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Watch country' })).toBeNull()
 })

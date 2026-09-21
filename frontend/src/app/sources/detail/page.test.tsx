@@ -7,7 +7,7 @@ import SourceDetailPage from './page'
 
 vi.mock('../../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../lib/api')>()),
-  api: { source: vi.fn(), sourceCoverage: vi.fn(), sourceTiming: vi.fn(), sourceArticles: vi.fn(), sourceClusters: vi.fn(), sourceFetches: vi.fn() },
+  api: { source: vi.fn(), sourceCoverage: vi.fn(), sourceTiming: vi.fn(), sourceArticles: vi.fn(), sourceClusters: vi.fn(), sourceFetches: vi.fn(), createMonitor: vi.fn() },
 }))
 vi.mock('../../../components/BarChart', () => ({
   BarChart: ({ items, onSelect }: { items: { id: string; label: string }[]; onSelect(item: { id: string }): void }) => (
@@ -195,4 +195,12 @@ it('starts a comparison from the dossier and labels the way back from one', asyn
 
   expect(await screen.findByRole('link', { name: 'Compare with another source' })).toHaveAttribute('href', '/compare/?kind=source&a=s-1')
   expect(screen.getByRole('link', { name: 'Back to comparison' }).getAttribute('href')).toBe('/compare/?kind=source&a=s-1&b=s-2')
+})
+
+it('watches this source under its name', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  renderWithQuery(() => <SourceDetailPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch source' }))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Relationships Wire', expect.objectContaining({ source_id: ['s-1'], entity_id: [] }), 'source'))
 })

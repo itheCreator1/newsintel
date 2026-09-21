@@ -207,7 +207,7 @@ it('watches the complete investigation state by name and reports a duplicate', a
   fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Greek grid' } })
   await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
 
-  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Greek grid', expect.objectContaining({ q: 'grid', source_country: ['GR'], sort: 'newest' })))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Greek grid', expect.objectContaining({ q: 'grid', source_country: ['GR'], sort: 'newest' }), 'search'))
   expect(await screen.findByText('Watching “Greek grid”.')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
   await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))

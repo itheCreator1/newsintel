@@ -9,6 +9,7 @@ import { BarChart } from '../../../components/BarChart'
 import { GlassPanel } from '../../../components/GlassPanel'
 import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
+import { WatchForm } from '../../../components/WatchForm'
 import { plural } from '../../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
@@ -99,6 +100,7 @@ function SourceContent() {
             <p className="text-sm text-muted-foreground">Last attempt {health.last_attempt_status ?? '—'} · {when(health.last_attempt_at)} · last success {when(data.last_success_at)} · next poll {when(data.next_poll_at)}</p>
             {health.last_failure && <p className="text-sm text-muted-foreground">{`Last failure: ${health.last_failure.error_category ?? 'error'}${health.last_failure.error_message ? ` — ${health.last_failure.error_message}` : ''}`}</p>}
             <p className="text-xs text-muted-foreground">Articles seen from {when(data.first_seen_at)} to {when(data.last_seen_at)}</p>
+            <WatchForm key={id} className="" kind="source" state={searchState} defaultName={data.name} label="Watch source" />
           </div>
         )}
       </GlassPanel>
