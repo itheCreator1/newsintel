@@ -161,7 +161,7 @@ function GraphContent() {
             : <EmptyState title="No co-occurring entities yet." description="Entities appear once articles have been processed." />)}
           {nodes.length > 0 && (
             <>
-              <EntityGraph nodes={nodes} edges={edges} focus={focus} onSelect={selectEntity} onSelectEdge={selectEdge} />
+              <EntityGraph nodes={nodes} edges={edges} focus={focus} selectedEdge={selectedEdge} onSelect={selectEntity} onSelectEdge={selectEdge} />
               {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
               <ul className="mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
                 {nodes.map(node => (
