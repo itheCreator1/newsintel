@@ -123,6 +123,8 @@ async def search_facets(
 ) -> SearchFacets:
     total, groups = parse_facets(await adapter.search_index(index_name, facets_body(query, limit)))
     # One batched query per catalogue; a bucket the catalogue no longer holds is dropped.
+    # ponytail: dropping happens after the ES top-N cut, so a group can return fewer than `limit`
+    # buckets while ranks past the cut stay hidden; request limit + slack and trim here if it bites.
     labels = {
         name: {str(key): label for key, label in (await db.execute(statement)).all()}
         for name, statement in _label_queries(groups).items()
