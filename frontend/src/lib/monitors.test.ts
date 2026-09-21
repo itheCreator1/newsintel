@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { changes, monitor } from '../test/monitors'
-import { countsLabel, describeChanges, monitorStatus } from './monitors'
+import { countsLabel, describeChanges, monitorStatus, unseenMonitors } from './monitors'
 
 const NOW = Date.parse('2026-09-20T12:00:00Z')
 
@@ -70,4 +70,12 @@ it('names an untitled story and admits when more changes exist than are shown', 
 
   expect(lines[1].text).toBe('New story: Untitled story — 1 source')
   expect(lines.slice(2).map(line => line.text)).toEqual(['More sources matched in this window than are listed.', 'More entities matched in this window than are listed.', 'More stories matched in this window than are listed.'])
+})
+
+it('counts enabled monitors with new articles for the navigation badge', () => {
+  expect(unseenMonitors([
+    monitor({ id: 'a', unseen_article_count: 3 }), monitor({ id: 'b', unseen_article_count: 1 }),
+    monitor({ id: 'c', unseen_article_count: 0 }), monitor({ id: 'd', unseen_article_count: 5, enabled: false }),
+  ])).toBe(2)
+  expect(unseenMonitors(undefined)).toBe(0)
 })
