@@ -351,8 +351,7 @@ async def test_the_events_pipeline_reports_the_runs_in_the_window() -> None:
 
 
 async def _fetches(db, item: Feed, *pattern: str, start: datetime = INSIDE) -> None:  # type: ignore[no-untyped-def]
-    """Oldest first: S success (10 entries, 2 invalid, 3 new), F failed (http_transient), Q queued.
-    """
+    """Oldest first: S success (10 entries, 2 invalid, 3 new), F failed (http_transient), Q queued."""
     for i, mark in enumerate(pattern):
         at = start - timedelta(minutes=len(pattern) - i)
         db.add(
@@ -481,13 +480,16 @@ async def test_failures_group_by_category_and_bound_the_recent_list() -> None:
         await db.flush()
         page = await queries.failures(db, NOW, "feed", HOURS, 2)
         again = await queries.failures(db, NOW, "feed", HOURS, 2)
+        # Other tests' failures can be newer than ours, so look for ours in a longer list.
+        wide = await queries.failures(db, NOW, "feed", HOURS, 1000)
         await db.rollback()
     ours = {c.category: c.count for c in page.by_category}
     assert ours["timeout"] >= 3 and ours["security"] >= 1
     assert len(page.recent) == 2 and page.recent == again.recent
     assert page.recent[0].at >= page.recent[1].at
-    assert page.recent[0].ref_id == item.id
-    assert len(page.recent[0].message or "") <= 300
+    mine = [f for f in wide.recent if f.ref_id == item.id]
+    assert len(mine) == 4
+    assert all(len(f.message or "") <= 300 for f in mine)
 
 
 async def test_monitor_failures_carry_a_category_and_time_but_no_message_or_owner() -> None:
