@@ -55,9 +55,8 @@ async def fetch_feed_http(
                         raise httpx.TooManyRedirects(
                             "Feed redirect limit exceeded", request=response.request
                         )
-                    current = str(response.url.join(location)).replace(
-                        str(response.url.netloc), parsed.netloc
-                    )
+                    # Resolve against the hostname URL, not the pinned-IP one we connected to.
+                    current = str(httpx.URL(current).join(location))
                     continue
                 chunks: list[bytes] = []
                 size = 0
@@ -105,9 +104,8 @@ async def fetch_page_http(url: str, settings: Settings) -> FeedHttpResponse:
                         raise httpx.TooManyRedirects(
                             "Article redirect limit exceeded", request=response.request
                         )
-                    current = str(response.url.join(location)).replace(
-                        str(response.url.netloc), parsed.netloc
-                    )
+                    # Resolve against the hostname URL, not the pinned-IP one we connected to.
+                    current = str(httpx.URL(current).join(location))
                     continue
                 chunks: list[bytes] = []
                 size = 0
