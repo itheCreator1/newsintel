@@ -128,6 +128,10 @@ jobs:
         run: |
           uv run --frozen python -m pytest -q -rs tests | tee pytest.log
           ! grep -Eq '[0-9]+ skipped' pytest.log
+      # The suite has just filled the tables; dump and restore them as the README's runbook does.
+      - name: PostgreSQL restore rehearsal
+        working-directory: .
+        run: infra/test-restore.sh ${{ job.services.postgres.id }} newsintel_tests
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
