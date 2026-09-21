@@ -104,3 +104,11 @@ it('keeps a loaded chart when a background refetch fails', async () => {
   expect(screen.getByRole('button', { name: /Top primary story countries/ })).toBeTruthy()
   focusManager.setFocused(undefined)
 })
+
+it('says core services are unavailable when the status check fails, not that it is still checking', async () => {
+  vi.mocked(api.status).mockRejectedValue(new Error('503 Service Unavailable'))
+  renderWithQuery(() => <OverviewPage />)
+
+  expect(await screen.findByText('Unavailable')).toBeTruthy()
+  expect(screen.queryByText('Checking')).toBeNull()
+})

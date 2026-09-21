@@ -65,7 +65,7 @@ export default function OverviewPage() {
         </span>
         <div>
           <strong className="block text-sm font-semibold text-foreground">Core services</strong>
-          <p className="mt-0.5 text-sm capitalize text-muted-foreground">{status.data?.status || 'Checking'}</p>
+          <p className="mt-0.5 text-sm capitalize text-muted-foreground">{status.data?.status || (status.isError ? 'Unavailable' : 'Checking')}</p>
         </div>
       </GlassPanel>
 
