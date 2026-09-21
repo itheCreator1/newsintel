@@ -97,6 +97,7 @@ export function MonitorDetail({ id }: { id: string }) {
             </p>
             <div className="flex flex-wrap gap-2">
               {item.state && <Link className={chipClass} href={toHref('/search', queryFromState(fromSaved(item.state)))}>Open in search</Link>}
+              {item.state && <Link className={chipClass} href={toHref('/search', new URLSearchParams([...queryFromState(fromSaved(item.state)), ['monitor', id]]))}>Edit criteria</Link>}
               {item.state && <button type="button" className={ghostButtonClass} disabled={toggle.isPending} onClick={() => toggle.mutate(!item.enabled)}>{item.enabled ? 'Pause monitor' : 'Resume monitor'}</button>}
               {!renaming && <button type="button" className={ghostButtonClass} onClick={() => { rename.reset(); setNewName(item.name); setRenaming(true) }}>Rename monitor</button>}
               <button type="button" className={cn(ghostButtonClass, 'border-destructive/30 text-destructive hover:border-destructive hover:text-destructive')} disabled={remove.isPending} onClick={() => { if (window.confirm(`Delete the monitor “${item.name}”?`)) remove.mutate() }}>Delete monitor</button>

@@ -70,6 +70,17 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await page.getByRole('button', { name: 'Save name' }).click()
   await expect(page.getByRole('heading', { level: 3, name: 'Harbor desk' })).toBeVisible()
 
+  // Search is the criteria editor: a filter change keeps the edit, and saving restarts the counts.
+  await page.getByRole('link', { name: 'Edit criteria' }).click()
+  await expect(page.getByText('Editing the criteria of “Harbor desk” (search)')).toBeVisible()
+  await page.getByLabel('Query', { exact: true }).fill('Harbor strike')
+  await page.getByLabel('Query', { exact: true }).press('Enter')
+  await expect(page).toHaveURL(/q=Harbor\+strike&monitor=/)
+  await page.getByRole('button', { name: 'Save criteria' }).click()
+  await expect(page).toHaveURL(/\/monitors\/\?id=/)
+  await expect(page.getByRole('link', { name: 'Open in search' })).toHaveAttribute('href', '/search/?q=Harbor+strike')
+  await expect(page.getByText('Nothing new', { exact: true })).toBeVisible()
+
   page.on('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Delete monitor' }).click()
   await expect(page).toHaveURL(/\/monitors\/$/)

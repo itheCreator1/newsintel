@@ -116,7 +116,7 @@ export const api = {
   monitorResults: (id: string, scope: 'unseen' | 'recent', cursor?: string) => request<MonitorResultPage>(`/monitors/${id}/results?${new URLSearchParams({ scope, ...(cursor ? { cursor } : {}) })}`),
   monitorChanges: (id: string) => request<MonitorChanges>(`/monitors/${id}/changes`),
   createMonitor: (name: string, state: InvestigationState, kind: MonitorKind = 'search') => mutate<Monitor>('/monitors', 'POST', { name, kind, state }),
-  updateMonitor: (id: string, payload: { name?: string; enabled?: boolean }) => mutate<Monitor>(`/monitors/${id}`, 'PATCH', payload),
+  updateMonitor: (id: string, payload: { name?: string; enabled?: boolean; kind?: MonitorKind; state?: InvestigationState }) => mutate<Monitor>(`/monitors/${id}`, 'PATCH', payload),
   markMonitorViewed: (id: string, through: string) => mutate<Monitor>(`/monitors/${id}/viewed`, 'POST', { through }),
   deleteMonitor: (id: string) => mutate<void>(`/monitors/${id}`, 'DELETE'),
   searchSources: (q = '', cursor?: string) => request<SearchSourcePage>(`/search/sources?${new URLSearchParams({ ...(q ? { q } : {}), ...(cursor ? { cursor } : {}) })}`),

@@ -156,6 +156,7 @@ it('shows the counters, what they cover and the unseen articles, linking back to
   expect(screen.getByText('2 new articles · 1 new story')).toBeTruthy()
   expect(screen.getAllByText(/Counted through/).length).toBeGreaterThan(0) // the header, and the changes panel once it loads
   expect(screen.getByRole('link', { name: 'Open in search' })).toHaveAttribute('href', '/search/?q=harbor')
+  expect(screen.getByRole('link', { name: 'Edit criteria' })).toHaveAttribute('href', '/search/?q=harbor&monitor=m1')
   expect(await screen.findByRole('link', { name: 'Harbor strike widens' })).toHaveAttribute('href', '/articles/?article=a1&from=%2Fmonitors%2F%3Fid%3Dm1')
   expect(api.monitorResults).toHaveBeenCalledWith('m1', 'unseen', undefined)
   expect(screen.getAllByRole('link', { name: 'Wire' })[0].getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=s1&from=%2Fmonitors%2F/)
@@ -231,6 +232,7 @@ it('explains a monitor whose state cannot be read and returns no results for it'
 
   expect(await screen.findByText(/can no longer be evaluated: state.retired_filter/)).toBeTruthy()
   expect(screen.queryByRole('link', { name: 'Open in search' })).toBeNull()
+  expect(screen.queryByRole('link', { name: 'Edit criteria' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Rename monitor' })).toBeTruthy()
 })
 
