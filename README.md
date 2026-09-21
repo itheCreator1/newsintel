@@ -16,11 +16,11 @@ NewsIntel continuously collects news, deduplicates it, extracts entities and key
 - **An entity relationship graph**, built from versioned NLP annotations (spaCy NER), lets you explore who and what keeps showing up together across the archive. Every edge is explainable co-occurrence: open one to see the exact articles and stories behind it, under the same filters as the graph. Entity dossiers show an entity's articles, stories and closest neighbours.
 - **Events.** A deterministic, versioned association engine groups related story clusters into events by time, shared entities, headline overlap and story country, and stores why each cluster joined. The **Events** UI lists them with filters (status, country, entity, date range) and opens a dossier with a UTC-day timeline, the member stories with their join scores and signals, the articles, and links to every entity — all served by the read-only `/api/v1/events` API.
 - **Source dossiers.** Every source has a page with its health and fetch history, how many of its articles carry a publish date and were extracted (each metric shown against its denominator), what it covers (entities, countries by role, languages), and where it sits in story timing — first to publish in N of M shared stories, or the median minutes behind the first article. The metrics are descriptive; there is no quality score. Served by the read-only `/api/v1/sources` API.
-- **Domain-driven backend**, not a god-object API: `feeds`, `articles`, `ingestion`, `extraction`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, and `jobs` are separate modules under `backend/app`, each owning its models, service layer, and routes.
+- **Domain-driven backend**, not a god-object API: `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations`, and `jobs` are separate modules under `backend/app`, each owning its models, service layer, and routes.
 - **Async background processing** via Dramatiq + Redis, with a dedicated scheduler and NLP worker so feed polling, extraction, and entity/keyword tagging never block a request.
-- **Saved investigations** — bookmark searches and clusters and come back to them as a running case file. The storage for durable *monitors* (watches over a search, entity, source, country or story cluster) is in place and the scheduler evaluates due monitors incrementally in the background (unseen article/story counts, latest match, per-monitor failure state); the API (`/api/v1/monitors`: CRUD, unseen results, viewed state) and the **Watchlist** UI are in place: watch a search from Search or Saved Searches, see new articles and stories per monitor, read a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) with links to the evidence articles, open what is new, and mark it seen.
-- **A dark glassmorphism UI** across all twelve routes (overview, search, articles, sources, clusters, entities, events, graph, jobs, saved searches, watchlist, settings) built with Next.js App Router, TanStack Query, and Apache ECharts.
-- **Typed and tested end to end** — SQLAlchemy 2 + Pydantic on the backend, TypeScript + generated API types on the frontend, 30+ backend test modules, `ruff`/`mypy` on Python, and per-phase acceptance gates in `infra/test-phaseN.sh`.
+- **Saved investigations and a watchlist.** Bookmark searches and come back to them as a running case file. Monitors watch a search, entity, source, country or story: start one from Search, Saved Searches, or an entity, source, story or map page. The scheduler evaluates them in the background. The **Watchlist** shows each monitor's new articles and stories, a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) linked to the evidence, and a mark-as-seen action. A monitor's criteria are edited in Search, and the navigation counts the monitors with something new. Served by `/api/v1/monitors`.
+- **A dark glassmorphism UI** across all fifteen routes (overview, search, articles, sources, clusters, entities, events, graph, map, compare, jobs, operations, saved searches, watchlist, settings) built with Next.js App Router, TanStack Query, and Apache ECharts.
+- **Typed and tested end to end** — SQLAlchemy 2 + Pydantic on the backend, TypeScript + generated API types on the frontend, `ruff`/`mypy` on Python, and a CI gate that runs the PostgreSQL and Elasticsearch integration suite, an API-contract drift check, a backup-restore rehearsal and every Playwright browser workflow against a full Compose stack.
 
 ## Architecture at a glance
 
@@ -40,7 +40,7 @@ NewsIntel continuously collects news, deduplicates it, extracts entities and key
                                                         └──────────────┘
 ```
 
-Six Compose services (`frontend`, `api`, `worker`, `nlp-worker`, `scheduler`, plus `postgres`/`redis`/`elasticsearch`) each do one job. See [AGENTS.md](AGENTS.md) for the full product specification, data model, and architecture rules.
+Five application services (`frontend`, `api`, `worker`, `nlp-worker`, `scheduler`) and three data services (`postgres`, `redis`, `elasticsearch`) run under Docker Compose, each doing one job.
 
 ## Tech stack
 
@@ -102,7 +102,7 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
-Per-phase acceptance gates live in `infra/test-phaseN.sh` (each provisions its own disposable Compose stack and cleans up).
+Browser workflows: `infra/test-e2e.sh <search|investigations|monitors|graph>` builds a disposable Compose stack, runs that group's Playwright specs and cleans up; CI runs all four. The older `infra/test-phaseN.sh` scripts are kept as per-phase records.
 
 ## License
 
