@@ -20,7 +20,7 @@ export default function SourcesPage() {
   const [url, setUrl] = useState('')
   const [country, setCountry] = useState('')
   const [language, setLanguage] = useState('')
-  const [pollIntervalMinutes, setPollIntervalMinutes] = useState(30)
+  const [pollIntervalMinutes, setPollIntervalMinutes] = useState(60)
   const [mode, setMode] = useState<'rss' | 'full_text' | 'full_text_html'>('rss')
 
   const feeds = useQuery({ queryKey: ['feeds', cursor], queryFn: () => api.feeds(cursor) })
@@ -63,7 +63,7 @@ export default function SourcesPage() {
                 <option value="full_text_html">Full text + retained HTML</option>
               </select>
             </label>
-            <label className={labelClass}>Poll interval (minutes)<input className={cn(fieldClass, 'mt-1')} value={pollIntervalMinutes} onChange={event => setPollIntervalMinutes(Number(event.target.value))} type="number" min={5} /></label>
+            <label className={labelClass}>Poll interval (minutes)<input className={cn(fieldClass, 'mt-1')} value={pollIntervalMinutes} onChange={event => setPollIntervalMinutes(Number(event.target.value))} type="number" min={5} max={10080} /></label>
             <button className={cn(primaryButtonClass, 'self-start')}>Add source</button>
           </form>
         </GlassPanel>
@@ -95,6 +95,23 @@ export default function SourcesPage() {
                     <option value="full_text">Full text</option>
                     <option value="full_text_html">Full text + HTML</option>
                   </select>
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground" onClick={event => event.stopPropagation()}>Every
+                    {/* Saved on blur/Enter; keyed on the server value so a save or refetch remounts it. */}
+                    <input
+                      key={feed.poll_interval_minutes}
+                      className={cn(fieldClass, 'w-20')}
+                      type="number"
+                      min={5}
+                      max={10080}
+                      aria-label={`Poll interval for ${feed.name}`}
+                      defaultValue={feed.poll_interval_minutes}
+                      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }}
+                      onBlur={event => {
+                        const minutes = event.currentTarget.valueAsNumber
+                        if (Number.isInteger(minutes) && event.currentTarget.checkValidity() && minutes !== feed.poll_interval_minutes) update.mutate({ feed, changes: { poll_interval_minutes: minutes } })
+                      }}
+                    />min
+                  </label>
                   <button type="button" className={ghostButtonClass} onClick={event => { event.stopPropagation(); update.mutate({ feed, changes: { enabled: !feed.enabled } }) }}>{feed.enabled ? 'Disable' : 'Enable'}</button>
                   <Link className={ghostButtonClass} aria-label={`Dossier for ${feed.name}`} href={sourceHref(feed.id)} onClick={event => event.stopPropagation()}>Dossier</Link>
                   <button type="button" className={ghostButtonClass} onClick={event => { event.stopPropagation(); poll.mutate(feed.id) }}>Poll now</button>

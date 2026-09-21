@@ -8657,7 +8657,7 @@
             "maximum": 10080.0,
             "minimum": 5.0,
             "title": "Poll Interval Minutes",
-            "default": 30
+            "default": 60
           },
           "fetching_mode": {
             "type": "string",

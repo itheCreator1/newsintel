@@ -12,7 +12,7 @@ class FeedCreate(BaseModel):
     expected_language: str | None = Field(default=None, min_length=2, max_length=16)
     tags: list[str] = Field(default_factory=list, max_length=50)
     enabled: bool = True
-    poll_interval_minutes: int = Field(default=30, ge=5, le=10080)
+    poll_interval_minutes: int = Field(default=60, ge=5, le=10080)
     fetching_mode: Literal["rss", "full_text", "full_text_html"] = "rss"
 
 

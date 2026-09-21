@@ -4,11 +4,11 @@ from pydantic import ValidationError
 from app.feeds.schemas import FeedCreate, FeedUpdate
 
 
-def test_new_feed_defaults_to_enabled_rss_every_thirty_minutes() -> None:
+def test_new_feed_defaults_to_enabled_rss_every_hour() -> None:
     feed = FeedCreate(name="Wire", url="https://example.com/rss")
     assert feed.enabled is True
     assert feed.fetching_mode == "rss"
-    assert feed.poll_interval_minutes == 30
+    assert feed.poll_interval_minutes == 60
 
 
 def test_feed_interval_has_five_minute_floor() -> None:
