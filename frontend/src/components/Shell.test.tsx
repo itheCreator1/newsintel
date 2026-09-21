@@ -116,15 +116,11 @@ describe('application shell', () => {
     expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?order=activity&limit=100'))).toBe(true)
   })
 
-  it('shows no badge when nothing is new or the monitors cannot be loaded', async () => {
-    withMonitors(() => new Response(JSON.stringify({ items: [monitor({ id: 'c' })], next_cursor: null })))
-    expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
-    await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
-    expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
-  })
-
-  it('keeps the plain Watchlist link when the monitors request fails', async () => {
-    withMonitors(() => new Response(JSON.stringify({ detail: 'boom' }), { status: 500 }))
+  it.each([
+    ['nothing is new', () => new Response(JSON.stringify({ items: [monitor({ id: 'c' })], next_cursor: null }))],
+    ['the monitors request fails', () => new Response(JSON.stringify({ detail: 'boom' }), { status: 500 })],
+  ])('keeps the plain Watchlist link when %s', async (_, response) => {
+    withMonitors(response)
     expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
     await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
     expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
