@@ -136,6 +136,9 @@ class ElasticsearchAdapter:
         response = await self._request("POST", f"/{alias}/_pit?keep_alive=5m")
         return str(response.json()["id"])
 
+    async def close_point_in_time(self, pit_id: str) -> None:
+        await self._request("DELETE", "/_pit", json_body={"id": pit_id})
+
     async def search(self, body: dict[str, Any]) -> dict[str, Any]:
         response = await self._request("POST", "/_search", json_body=body)
         result: dict[str, Any] = response.json()

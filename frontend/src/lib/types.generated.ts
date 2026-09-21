@@ -1785,6 +1785,8 @@ export interface components {
             article_count: number;
             /** Cluster Count */
             cluster_count: number;
+            /** Cluster Count Estimated */
+            cluster_count_estimated: boolean;
             /** First At */
             first_at: string | null;
             /** Last At */

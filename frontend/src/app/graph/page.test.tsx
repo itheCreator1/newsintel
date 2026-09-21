@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.mocked(api.edgeEvidence).mockResolvedValue({
     source: { id: 'entity-one', text: 'Acme', type: 'ORG' }, target: { id: 'entity-two', text: 'Jane Doe', type: 'PERSON' },
     meaning: 'Both entities are mentioned in the same article. This is co-occurrence, not a stated relationship.',
-    article_count: 3, cluster_count: 1, first_at: null, last_at: null, articles: [], next_cursor: null, clusters: [], missing_from_archive: 0,
+    article_count: 3, cluster_count: 1, cluster_count_estimated: true, first_at: null, last_at: null, articles: [], next_cursor: null, clusters: [], missing_from_archive: 0,
   })
   vi.mocked(api.search).mockResolvedValue({ items: [{ article_id: 'a1', title: 'Acme partners with Jane Doe', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 1, sources: ['Wire'], source_refs: [], highlights: [], summary: null }], next_cursor: null })
   vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: false }], next_cursor: null })

@@ -10,7 +10,7 @@ const article = (id: string, title: string) => ({ id, title, original_url: `http
 const evidence = (over = {}) => ({
   source: { id: 'ent-1', text: 'Harbour Authority', type: 'ORG' }, target: { id: 'ent-2', text: 'Ada Reyes', type: 'PERSON' },
   meaning: 'Both entities are mentioned in the same article. This is co-occurrence, not a stated relationship.',
-  article_count: 2, cluster_count: 1, first_at: '2026-09-10T08:00:00Z', last_at: '2026-09-14T12:00:00Z',
+  article_count: 2, cluster_count: 1, cluster_count_estimated: true, first_at: '2026-09-10T08:00:00Z', last_at: '2026-09-14T12:00:00Z',
   articles: [article('a1', 'Harbour hires Reyes')], next_cursor: null,
   clusters: [{ id: 'c1', edge_article_count: 2, article_count: 5, source_count: 3, representative_article: article('a9', 'Harbour leadership change') }],
   missing_from_archive: 0, ...over,
@@ -30,7 +30,7 @@ it('explains the edge as co-occurrence and summarises its evidence', async () =>
 
   expect(await screen.findByRole('heading', { name: 'Harbour Authority and Ada Reyes' })).toBeTruthy()
   expect(screen.getByText(/co-occurrence, not a stated relationship/)).toBeTruthy()
-  expect(screen.getByText('2 articles · 1 story')).toBeTruthy()
+  expect(screen.getByText('2 articles · about 1 story (estimated)')).toBeTruthy()
   expect(api.edgeEvidence).toHaveBeenCalledWith({ ...filters, source: 'ent-1', target: 'ent-2' }, undefined)
 })
 

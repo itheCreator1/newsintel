@@ -7388,6 +7388,10 @@
             "type": "integer",
             "title": "Cluster Count"
           },
+          "cluster_count_estimated": {
+            "type": "boolean",
+            "title": "Cluster Count Estimated"
+          },
           "first_at": {
             "anyOf": [
               {
@@ -7449,6 +7453,7 @@
           "meaning",
           "article_count",
           "cluster_count",
+          "cluster_count_estimated",
           "first_at",
           "last_at",
           "articles",

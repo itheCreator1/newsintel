@@ -211,7 +211,7 @@ async def search_articles(
         }[sort]
         sort_clause.append({"article_id": "asc"})
         body: dict[str, Any] = {
-            "size": limit,
+            "size": limit + 1,  # the extra hit reveals whether a page follows
             "pit": {"id": pit_id, "keep_alive": "5m"},
             "query": build_query(criteria, schema_version),
             "sort": sort_clause,
@@ -239,12 +239,21 @@ async def search_articles(
                 409, {"code": "restart_search", "message": "Search snapshot expired"}
             ) from exc
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
-    hits = response.get("hits", {}).get("hits", [])
+    found = response.get("hits", {}).get("hits", [])
+    hits = found[:limit]
     items = [search_result(hit) for hit in hits]
+    pit_id = response.get("pit_id", pit_id)
     next_cursor = None
-    if len(hits) == limit:
+    if len(found) <= limit:
+        # The last page: release the snapshot now; its keep_alive only covers abandoned searches.
+        # A replay of this page's cursor then gets the existing restart_search response.
+        try:
+            await adapter.close_point_in_time(pit_id)
+        except ElasticsearchUnavailable:
+            pass
+    else:
         payload = {
-            "pit": response.get("pit_id", pit_id),
+            "pit": pit_id,
             "after": hits[-1]["sort"],
             "session": str(session.id),
             "criteria": criteria_hash,

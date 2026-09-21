@@ -262,7 +262,9 @@ def evidence_body(
         "aggs": {
             "first": {"min": {"field": "effective_date"}},
             "last": {"max": {"field": "effective_date"}},
-            "cluster_count": {"cardinality": {"field": "story_cluster_id"}},
+            "cluster_count": {
+                "cardinality": {"field": "story_cluster_id", "precision_threshold": 3000}
+            },
             "clusters": {"terms": {"field": "story_cluster_id", "size": EVIDENCE_CLUSTERS}},
         },
     }
@@ -382,6 +384,7 @@ async def edge_evidence(
         meaning=MEANING,
         article_count=hits.total,
         cluster_count=hits.cluster_count,
+        cluster_count_estimated=True,
         first_at=hits.first_at,
         last_at=hits.last_at,
         articles=[article_response(article) for article in page],

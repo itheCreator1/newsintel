@@ -23,19 +23,6 @@ Config = Annotated[Settings, Depends(get_settings)]
 Criteria = Annotated[SearchCriteria, Depends(search_criteria)]
 
 
-async def _graph_index(db: AsyncSession, criteria: SearchCriteria) -> tuple[str, int]:
-    index_name, schema_version = await current_search_target(db, criteria)
-    if schema_version < 2:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            {
-                "code": "search_upgrade_required",
-                "message": "Rebuild search to schema version 2 to use the entity graph",
-            },
-        )
-    return index_name, schema_version
-
-
 @router.get("/graph/entities", response_model=GraphResponse)
 async def entity_graph(
     db: Db,
@@ -48,7 +35,7 @@ async def entity_graph(
 ) -> GraphResponse:
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await _graph_index(db, criteria)
+        index_name, schema_version = await current_search_target(db, criteria, minimum=2)
         return await collect_entity_graph(
             db,
             adapter,
@@ -87,7 +74,7 @@ async def edge_evidence(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Entity not found")
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await _graph_index(db, criteria)
+        index_name, schema_version = await current_search_target(db, criteria, minimum=2)
         return await collect_edge_evidence(
             db,
             adapter,

@@ -94,7 +94,9 @@ def test_evidence_body_reuses_the_graph_query_and_requires_both_entities() -> No
     assert "search_after" not in body
     assert body["aggs"]["first"] == {"min": {"field": "effective_date"}}
     assert body["aggs"]["last"] == {"max": {"field": "effective_date"}}
-    assert body["aggs"]["cluster_count"] == {"cardinality": {"field": "story_cluster_id"}}
+    assert body["aggs"]["cluster_count"] == {
+        "cardinality": {"field": "story_cluster_id", "precision_threshold": 3000}
+    }
     assert body["aggs"]["clusters"] == {"terms": {"field": "story_cluster_id", "size": 10}}
 
 
@@ -317,6 +319,7 @@ async def test_evidence_lists_canonical_articles_and_stories(
     assert (result.target.id, result.target.text) == (RIGHT, "Ada Reyes")
     assert "co-occurrence" in result.meaning
     assert (result.article_count, result.cluster_count) == (2, 1)
+    assert result.cluster_count_estimated is True  # cardinality is approximate; say so
     assert result.first_at == datetime(2026, 9, 10, 8, tzinfo=UTC)
     assert [article.id for article in result.articles] == [first, second]
     assert result.next_cursor is None

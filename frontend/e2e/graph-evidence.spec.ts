@@ -24,7 +24,7 @@ test('graph edge evidence workflow discloses the articles and story behind an ed
   await expect(panel.getByRole('heading', { level: 3 })).toHaveText(/Barack Obama and Microsoft|Microsoft and Barack Obama/)
   await expect(panel.getByText(/co-occurrence, not a stated relationship/)).toBeVisible()
   // The evidence total is the same number the graph drew on the edge.
-  await expect(panel.getByText(`${weight} articles · 1 story`)).toBeVisible()
+  await expect(panel.getByText(`${weight} articles · about 1 story (estimated)`)).toBeVisible()
   // One story link plus one link per evidence article (the seeded pair are two reports of one story).
   const evidenceLinks = panel.getByRole('link', { name: /^Barack Obama meets Microsoft/ })
   await expect(evidenceLinks).toHaveCount(weight + 1)

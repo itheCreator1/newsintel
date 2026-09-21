@@ -171,11 +171,22 @@ async def search_criteria(
     )
 
 
-async def current_search_target(db: AsyncSession, criteria: SearchCriteria) -> tuple[str, int]:
+async def current_search_target(
+    db: AsyncSession, criteria: SearchCriteria, *, minimum: int = 1
+) -> tuple[str, int]:
+    """The live index and its schema; `minimum` is the endpoint's floor whatever the filters."""
     target = await db.scalar(
         select(SearchIndexTarget).where(SearchIndexTarget.role == "current").limit(1)
     )
     schema_version = target.schema_version if target else 1
+    if schema_version < minimum:
+        raise HTTPException(
+            409,
+            {
+                "code": "search_upgrade_required",
+                "message": f"Rebuild search to schema version {minimum} to use this view",
+            },
+        )
     if criteria.annotation_search and schema_version < 2:
         raise HTTPException(
             409,
