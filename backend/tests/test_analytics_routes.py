@@ -78,6 +78,20 @@ async def test_ingestion_buckets_utc_discovery_days_over_the_37_day_input(
 
 
 @pytest.mark.asyncio
+async def test_ingestion_timeline_drops_publication_dates_but_keeps_other_criteria(
+    adapter: type[_Adapter],
+) -> None:
+    adapter.responses = [{"aggregations": {"days": {"buckets": []}}}]
+    criteria = _criteria("climate", start=date(2026, 1, 1))
+
+    await ingestion_timeline(_Database(2), object(), Settings(), criteria)  # type: ignore[arg-type]
+
+    query = adapter.bodies[0][1]["query"]
+    assert not any("effective_date" in item.get("range", {}) for item in query["bool"]["filter"])
+    assert query["bool"]["must"][0]["multi_match"]["query"] == "climate"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("broken", ["outage", "timed_out", "failed_shard"])
 async def test_ingestion_reports_an_outage_or_partial_answer_as_unavailable(
     adapter: type[_Adapter], broken: str

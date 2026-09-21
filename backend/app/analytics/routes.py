@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
 from typing import Annotated, Any, Literal
 
@@ -88,10 +89,12 @@ async def ingestion_timeline(
     start = today - timedelta(days=LOOKBACK_DAYS - 1)
     cutoff = datetime.combine(start, time.min, UTC)
     # A recent-ingestion metric, so no scope: the criteria can narrow it, never widen the window.
+    # Drop start/end: they filter effective_date (publication), which would starve the trailing
+    # baseline detect_spikes needs and manufacture spikes out of the emptied days.
     aggregations = await _aggregate(
         db,
         settings,
-        criteria,
+        replace(criteria, start=None, end=None),
         {
             "days": date_histogram(
                 "first_discovered_at", "day", cutoff, datetime.combine(today, time.min, UTC)
