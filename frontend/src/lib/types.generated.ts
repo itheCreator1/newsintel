@@ -2217,7 +2217,7 @@ export interface components {
             enabled: boolean;
             /**
              * Poll Interval Minutes
-             * @default 30
+             * @default 60
              */
             poll_interval_minutes: number;
             /**

@@ -29,7 +29,7 @@ class Feed(Base):
     expected_language: Mapped[str | None] = mapped_column(String(16))
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    poll_interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    poll_interval_minutes: Mapped[int] = mapped_column(Integer, default=60)
     fetching_mode: Mapped[str] = mapped_column(String(16), default="rss")
     etag: Mapped[str | None] = mapped_column(Text)
     last_modified: Mapped[str | None] = mapped_column(Text)
