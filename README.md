@@ -102,7 +102,7 @@ Backend: `cd backend && uv sync && uv run pytest && uv run ruff check . && uv ru
 
 Frontend: `cd frontend && npm install && npm test && npm run typecheck && npm run build`
 
-Per-phase acceptance gates live in `infra/test-phaseN.sh` (each provisions its own disposable Compose stack and cleans up). Implementation status and design decisions are tracked in [INTELLIGENCE_ROADMAP.md](INTELLIGENCE_ROADMAP.md).
+Per-phase acceptance gates live in `infra/test-phaseN.sh` (each provisions its own disposable Compose stack and cleans up).
 
 ## License
 
