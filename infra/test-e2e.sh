@@ -96,6 +96,10 @@ case $group in
     run_id=$(echo "$output" | sed -n 's/.*run_id=\([^ ]*\).*/\1/p')
     [ -n "$run_id" ] || { echo "NLP reprocessing run id missing" >&2; exit 1; }
     $compose run --rm nlp-worker python -m app.cli resume-nlp-reprocessing "$run_id"
+    # The spec filters by a keyword read from PostgreSQL, then searches Elasticsearch once; wait until
+    # the new keywords are both annotated and indexed, or the search can answer before they arrive.
+    wait_until "NLP backlog" nlp_drained
+    wait_until "Indexing" indexing_drained
     e2e "search restores URL state|annotations refine search"
     ;;
   investigations)
