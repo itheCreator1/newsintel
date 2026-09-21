@@ -1,3 +1,5 @@
+import asyncio
+import socket
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -69,6 +71,21 @@ def test_malformed_or_non_feed_xml_is_rejected() -> None:
 async def test_private_or_credentialed_feed_urls_are_rejected(url: str) -> None:
     with pytest.raises(UnsafeFeedUrl):
         await validate_public_url(url)
+
+
+@pytest.mark.asyncio
+async def test_ipv4_addresses_are_pinned_before_ipv6(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A plain string sort put "2a02:..." before "95.100..." and pinned an IPv6 address the
+    # Docker network cannot route, so dual-stack feeds failed whenever DNS rotated.
+    async def records(*_args: object, **_kwargs: object) -> list[tuple]:
+        return [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2a02:26f0::2d63", 443, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("95.100.237.185", 443)),
+        ]
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", records)
+    destination = await validate_public_url("https://rss.dw.com/rss")
+    assert destination.addresses == ("95.100.237.185", "2a02:26f0::2d63")
 
 
 def test_stale_claims_are_rejected_and_retry_is_bounded() -> None:

@@ -53,7 +53,13 @@ async def validate_public_url(
         )
     except socket.gaierror as exc:
         raise UnsafeFeedUrl("Feed hostname could not be resolved") from exc
-    addresses = tuple(sorted({record[4][0] for record in records}))
+    # IPv4 first: callers pin addresses[0], and Docker networks have no IPv6 route by default.
+    addresses = tuple(
+        sorted(
+            {record[4][0] for record in records},
+            key=lambda address: (ipaddress.ip_address(address).version, address),
+        )
+    )
     if not addresses or not all(_is_public(address) for address in addresses):
         raise UnsafeFeedUrl("Feed destination is not public")
     return ValidatedDestination(url, hostname, addresses)
