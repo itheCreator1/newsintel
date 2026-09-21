@@ -1,4 +1,5 @@
 import re
+import sys
 from datetime import UTC, date, datetime, timedelta
 from email.utils import format_datetime, parsedate_to_datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -54,4 +55,5 @@ class FixtureHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("0.0.0.0", 80), FixtureHandler).serve_forever()
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 80
+    ThreadingHTTPServer(("0.0.0.0", port), FixtureHandler).serve_forever()
