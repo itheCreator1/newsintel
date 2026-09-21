@@ -15,5 +15,7 @@ test('search restores URL state, opens detail, and reports unavailability', asyn
   await page.reload()
   await expect(page.getByLabel('Query', { exact: true })).toHaveValue('Fixture AND story')
   await page.getByText('Fixture story', { exact: true }).first().click()
+  // The result's own snippet quotes the body, so prove detail opened by its URL first.
+  await expect(page).toHaveURL(/\/articles\/\?/)
   await expect(page.getByText(/first readable fixture article/)).toBeVisible({ timeout: 30_000 })
 })
