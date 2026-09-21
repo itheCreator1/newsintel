@@ -36,8 +36,7 @@ async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     async def target(db: object, criteria: object, **_: object) -> tuple[str, int]:
         return name, 3
 
-    # raising=False only until Task 3 imports current_search_target into the analytics routes.
-    monkeypatch.setattr(routes, "current_search_target", target, raising=False)
+    monkeypatch.setattr(routes, "current_search_target", target)
     return name
 
 
