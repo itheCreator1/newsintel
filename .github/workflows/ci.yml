@@ -13,7 +13,7 @@ permissions:
 jobs:
   backend:
     name: Backend (ruff, mypy, pytest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
 
   frontend:
     name: Frontend (vitest, tsc, build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
