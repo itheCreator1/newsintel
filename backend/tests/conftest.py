@@ -9,16 +9,14 @@ from app.db.session import session_factory
 
 async def _truncate_all() -> None:
     async with session_factory() as db, db.begin():
-        tables = (
-            await db.scalars(
-                text(
-                    "SELECT quote_ident(tablename) FROM pg_tables"
-                    " WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
-                )
+        truncate = await db.scalar(
+            text(
+                "SELECT 'TRUNCATE ' || string_agg(quote_ident(tablename), ', ')"
+                " || ' RESTART IDENTITY CASCADE' FROM pg_tables"
+                " WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
             )
-        ).all()
-        if tables:
-            await db.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))
+        )
+        await db.execute(text(truncate))
 
 
 @pytest.fixture(scope="session", autouse=True)
