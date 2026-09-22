@@ -50,14 +50,15 @@ if ! (cd backend && uv run --frozen python -m pytest -q -rs tests) > "$artifacts
 fi
 tail -3 "$artifacts/pytest.log"
 if grep -Eq '[0-9]+ skipped' "$artifacts/pytest.log"; then
-  grep SKIPPED "$artifacts/pytest.log" >&2
+  grep SKIPPED "$artifacts/pytest.log" >&2 || true
   echo "The gated suite skipped tests" >&2
   exit 1
 fi
 infra/test-restore.sh "$($compose ps -q postgres)" newsintel_tests
 
 # Contract: regenerated OpenAPI and TypeScript types must match the checked-in ones.
-(cd backend && uv run --frozen python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > ../frontend/openapi.json)
+(cd backend && uv run --frozen python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > "$artifacts/openapi.json")
+mv "$artifacts/openapi.json" frontend/openapi.json
 (cd frontend && npm run generate:api)
 git diff --exit-code frontend/openapi.json frontend/src/lib/types.generated.ts
 
@@ -65,8 +66,8 @@ git diff --exit-code frontend/openapi.json frontend/src/lib/types.generated.ts
 (cd frontend && npm test && npm run typecheck && npm run build)
 
 # Browser groups, each on its own disposable stack; free this project's ports first.
-docker rm -f "$redis" >/dev/null
-$compose down -v --remove-orphans >/dev/null
+docker rm -f "$redis" >/dev/null 2>&1 || true
+$compose down -v --remove-orphans >/dev/null 2>&1 || true
 for group in search investigations monitors graph; do
   env -u NEWSINTEL_TEST_POSTGRES_PORT -u NEWSINTEL_TEST_ELASTICSEARCH_PORT -u NEWSINTEL_TEST_FIXTURE_PORT NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh "$group"
 done
