@@ -3,6 +3,7 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile.test
+    image: ${NEWSINTEL_IMAGE_BACKEND_TEST:-newsintel-backend-test:local}
     environment:
       NEWSINTEL_RUN_POSTGRES_TESTS: "1"
       NEWSINTEL_DATABASE_URL: postgresql+asyncpg://newsintel:newsintel@test-postgres:5432/newsintel_tests
@@ -14,12 +15,12 @@ services:
       test-postgres: { condition: service_healthy }
       test-redis: { condition: service_healthy }
       test-elasticsearch: { condition: service_healthy }
-      test-fixture: { condition: service_started }
 
   frontend-test:
     build:
       context: ../frontend
       dockerfile: Dockerfile.test
+    image: ${NEWSINTEL_IMAGE_FRONTEND_TEST:-newsintel-frontend-test:local}
 
   test-postgres:
     image: postgres:17.6-alpine
@@ -52,8 +53,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
-
-  test-fixture:
-    image: python:3.13-alpine
-    command: ["python", "/fixtures/server.py"]
-    volumes: ["../backend/tests/fixtures:/fixtures:ro"]

@@ -6,6 +6,16 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 project=$(ni_project test)
 compose="docker compose -p $project -f docker/compose.test.yaml"
+rt_compose="docker compose -p $project -f docker/compose.yaml"
+ner_compose="docker compose -p $project -f docker/compose.yaml -f docker/compose.ner.yaml"
+# Run-scoped tags: every build below names its image explicitly so up/run in this script and in
+# the e2e groups it dispatches (via --reuse-images) resolve to the same already-built image
+# instead of rebuilding it once per service/group.
+export NEWSINTEL_IMAGE_BACKEND_TEST="newsintel-backend-test:$project"
+export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
+export NEWSINTEL_IMAGE_BACKEND="newsintel-backend:$project"
+export NEWSINTEL_IMAGE_BACKEND_NER="newsintel-backend-ner:$project"
+export NEWSINTEL_IMAGE_FRONTEND="newsintel-frontend:$project"
 ni_report_init "${NEWSINTEL_TEST_ARTIFACTS:-}" "$root" test
 
 cleanup() {
@@ -25,17 +35,57 @@ cd "$root"
 ni_env_report "$root" "${NEWSINTEL_CACHE_STATE:-warm}"
 ni_mem_start "$project"
 
-ni_stage build.all
-$compose build backend-test frontend-test
+# Compose 5.5.1 does not dedupe a multi-service build that shares one `image:` name (verified:
+# `docker compose build --dry-run api worker nlp-worker scheduler` runs all four separately).
+# So each shared-image group is built through exactly one representative service; the sibling
+# services (worker/nlp-worker/scheduler, and worker/scheduler under the NER overlay) resolve to
+# the same tag at up/run time without ever being built themselves.
+# ni_stage's own aggregate would only cover the gap between two stage markers (near-zero), so
+# build.all is instead written by hand below as the wall-clock span of the five sub-builds --
+# required so phase-5's stage-name diff against the phase-1 baseline (which only has build.all)
+# has a common key. It duplicates the 5 rows' time; ni_report_finalize's TOTAL excludes it.
+ni_bt0=$(date +%s)
+ni_stage build.backend-test
+$compose build backend-test
+ni_stage build.frontend-test
+$compose build frontend-test
+ni_stage build.backend
+$rt_compose build api
+ni_stage build.backend-ner
+$ner_compose build api
+ni_stage build.frontend
+$rt_compose build frontend
+ni_bt1=$(date +%s)
+printf 'build.all\t%s\t%s\t0\n' "$ni_bt0" "$((ni_bt1 - ni_bt0))" >> "$artifacts/timings.tsv"
+
 {
   printf 'service_image\timage_id\n'
-  $compose config --images | while read -r ni_img; do
-    printf '%s\t%s\n' "$ni_img" "$(docker image inspect --format '{{.Id}}' "$ni_img" 2>/dev/null || echo unknown)"
+  for ni_c in "$compose" "$rt_compose" "$ner_compose"; do
+    $ni_c config --images | while read -r ni_img; do
+      printf '%s\t%s\n' "$ni_img" "$(docker image inspect --format '{{.Id}}' "$ni_img" 2>/dev/null || echo unknown)"
+    done
   done
 } > "$artifacts/images.tsv"
 
+# Manifest test-e2e.sh's --reuse-images validates against: revision + tree hash prove the images
+# below were built from exactly this working tree, and each recorded image ID must still match
+# what `docker image inspect` reports at group-start time.
+ni_manifest="$artifacts/image-manifest.env"
+{
+  echo "NEWSINTEL_MANIFEST_REVISION=$(git -C "$root" rev-parse HEAD)"
+  echo "NEWSINTEL_MANIFEST_TREE_HASH=$(ni_tree_hash "$root")"
+  echo "NEWSINTEL_IMAGE_BACKEND=$NEWSINTEL_IMAGE_BACKEND"
+  echo "NEWSINTEL_IMAGE_BACKEND_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_BACKEND")"
+  echo "NEWSINTEL_IMAGE_BACKEND_NER=$NEWSINTEL_IMAGE_BACKEND_NER"
+  echo "NEWSINTEL_IMAGE_BACKEND_NER_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_BACKEND_NER")"
+  echo "NEWSINTEL_IMAGE_FRONTEND=$NEWSINTEL_IMAGE_FRONTEND"
+  echo "NEWSINTEL_IMAGE_FRONTEND_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_FRONTEND")"
+  echo "NEWSINTEL_IMAGE_FRONTEND_TEST=$NEWSINTEL_IMAGE_FRONTEND_TEST"
+  echo "NEWSINTEL_IMAGE_FRONTEND_TEST_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_FRONTEND_TEST")"
+} > "$ni_manifest"
+
 ni_stage deps.up
-$compose up -d --wait --wait-timeout 180 test-postgres test-redis test-elasticsearch test-fixture
+$compose up -d --wait --wait-timeout 180 test-postgres test-redis test-elasticsearch
 
 ni_stage ruff
 $compose run --rm backend-test ruff check .
@@ -90,7 +140,7 @@ $compose run --rm --no-deps frontend-test npm run build
 
 for group in search investigations monitors graph; do
   ni_stage "e2e.$group"
-  NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh "$group"
+  NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh --reuse-images "$ni_manifest" "$group"
 done
 
 echo "Docker test gate passed; diagnostics directory: $artifacts"

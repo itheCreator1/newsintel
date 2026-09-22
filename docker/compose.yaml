@@ -3,6 +3,7 @@ name: newsintel
 services:
   frontend:
     build: ../frontend
+    image: ${NEWSINTEL_IMAGE_FRONTEND:-newsintel-frontend:local}
     ports: ["127.0.0.1:${NEWSINTEL_PORT:-8080}:8080"]
     depends_on:
       api: { condition: service_healthy }
@@ -14,6 +15,7 @@ services:
 
   api:
     build: ../backend
+    image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
     environment: &backend-env
       NEWSINTEL_DATABASE_URL: postgresql+asyncpg://newsintel:${POSTGRES_PASSWORD:-newsintel}@postgres:5432/newsintel
       NEWSINTEL_REDIS_URL: redis://redis:6379/0
@@ -44,6 +46,7 @@ services:
 
   worker:
     build: ../backend
+    image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
     command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "app.jobs.monitors", "--processes", "1", "--threads", "4"]
     environment: *backend-env
     volumes: ["article-data:/var/lib/newsintel/articles"]
@@ -53,6 +56,7 @@ services:
 
   nlp-worker:
     build: ../backend
+    image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
     command:
       ["dramatiq", "app.jobs.nlp", "app.jobs.clustering", "app.jobs.events", "--processes", "1", "--threads", "1"]
     environment: *backend-env
@@ -62,6 +66,7 @@ services:
 
   scheduler:
     build: ../backend
+    image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
     command: ["python", "-m", "app.scheduler"]
     environment: *backend-env
     depends_on:

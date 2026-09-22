@@ -7,6 +7,13 @@ ni_project() {
   echo "newsintel-$1-$$-$(date +%s)"
 }
 
+# ni_tree_hash <root> -> prints a hash over the working tree's uncommitted state (tracked-file
+# changes plus untracked-file listing). Used to prove a --reuse-images manifest still matches the
+# tree it was built from -- a revision match alone isn't enough since the tree can be dirty.
+ni_tree_hash() {
+  { git -C "$1" status --porcelain; git -C "$1" diff HEAD; } | sha256sum | cut -d' ' -f1
+}
+
 # ni_single_head <compose> <service> <message>
 # Runs the duplicated "exactly one migration head" assertion; exits 1 with <message> on stderr
 # if it fails (matches the two scripts' pre-existing, slightly different wording).
@@ -137,7 +144,10 @@ ni_report_finalize() {
     echo "Stage timings (slowest first):"
     tail -n +2 "$artifacts/timings.tsv" | sort -t "$(printf '\t')" -k3,3nr |
       awk -F'\t' '{printf "  %-28s %6ss  status=%s\n", $1, $3, $4}'
-    ni_rf_total=$(tail -n +2 "$artifacts/timings.tsv" | awk -F'\t' '{s += $3} END {print s + 0}')
+    # build.all is a hand-written aggregate duplicating test-docker.sh's 5 per-config build
+    # rows (kept so phase-5's stage-name diff against the phase-1 baseline has a common key);
+    # excluded here so TOTAL isn't double-counted.
+    ni_rf_total=$(tail -n +2 "$artifacts/timings.tsv" | awk -F'\t' '$1 != "build.all" {s += $3} END {print s + 0}')
     printf "%-30s %6ss\n" TOTAL "$ni_rf_total"
   } > "$artifacts/timings.txt" 2>/dev/null || true
 

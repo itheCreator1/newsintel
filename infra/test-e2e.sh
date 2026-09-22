@@ -1,13 +1,70 @@
 #!/bin/sh
 # Maintained browser suite: runs every Playwright workflow entirely inside Docker.
-# Usage: infra/test-e2e.sh <group>, one of search, investigations, monitors, graph.
+# Usage: infra/test-e2e.sh [--reuse-images <manifest>] <group>, group is one of search,
+# investigations, monitors, graph.
+# --reuse-images <manifest> skips this script's own frontend-test build and runs the app with
+# --no-build, trusting the images test-e2e.sh's own project's caller (test-docker.sh) already
+# built and recorded in <manifest> (a shell env file, sourced in). Standalone invocations without
+# the flag are unaffected: they always build from current source using Docker's cache, as before.
 # Each group gets a fresh Compose project because the specs share fixture feeds and assert exact counts.
 # The phase scripts stay as historical records; this one tracks the current migration head.
 set -eu
 
-group=${1:?usage: infra/test-e2e.sh search|investigations|monitors|graph}
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
+
+usage="usage: infra/test-e2e.sh [--reuse-images <manifest>] search|investigations|monitors|graph"
+reuse_manifest=
+if [ "${1:-}" = "--reuse-images" ]; then
+  reuse_manifest=${2:?$usage}
+  shift 2
+fi
+group=${1:?$usage}
+
+case $group in
+  search | investigations | monitors | graph) ;;
+  *) echo "Unknown group: $group" >&2; exit 2 ;;
+esac
+
+if [ -n "$reuse_manifest" ]; then
+  [ -r "$reuse_manifest" ] || { echo "Reuse manifest not readable: $reuse_manifest" >&2; exit 2; }
+  . "$reuse_manifest"
+  ni_head=$(git -C "$root" rev-parse HEAD)
+  [ "${NEWSINTEL_MANIFEST_REVISION:-}" = "$ni_head" ] || {
+    echo "Reuse manifest is for a different revision: manifest=${NEWSINTEL_MANIFEST_REVISION:-<unset>} HEAD=$ni_head" >&2
+    exit 2
+  }
+  ni_wanthash=$(ni_tree_hash "$root")
+  [ "${NEWSINTEL_MANIFEST_TREE_HASH:-}" = "$ni_wanthash" ] || {
+    echo "Reuse manifest is stale: the working tree changed since the images were built" >&2
+    exit 2
+  }
+  # ni_check_image <label> <tag-var-name> <id-var-name>: resolves the two named manifest
+  # variables indirectly (POSIX eval, not a bashism) and fails with a message naming exactly
+  # which image and which check (missing/unbuilt/stale) tripped -- never a generic error.
+  ni_check_image() {
+    eval "ni_ci_tag=\${$2:-}"
+    eval "ni_ci_want=\${$3:-}"
+    [ -n "$ni_ci_tag" ] && [ -n "$ni_ci_want" ] || {
+      echo "Reuse manifest is missing the $1 image tag/id" >&2
+      exit 2
+    }
+    ni_ci_got=$(docker image inspect --format '{{.Id}}' "$ni_ci_tag" 2>/dev/null) || {
+      echo "Reuse manifest image not found for $1: $ni_ci_tag" >&2
+      exit 2
+    }
+    [ "$ni_ci_got" = "$ni_ci_want" ] || {
+      echo "Reuse manifest image is stale for $1: $ni_ci_tag is $ni_ci_got, manifest recorded $ni_ci_want" >&2
+      exit 2
+    }
+  }
+  ni_check_image backend NEWSINTEL_IMAGE_BACKEND NEWSINTEL_IMAGE_BACKEND_ID
+  ni_check_image frontend NEWSINTEL_IMAGE_FRONTEND NEWSINTEL_IMAGE_FRONTEND_ID
+  ni_check_image frontend-test NEWSINTEL_IMAGE_FRONTEND_TEST NEWSINTEL_IMAGE_FRONTEND_TEST_ID
+  [ "$group" = graph ] && ni_check_image backend-ner NEWSINTEL_IMAGE_BACKEND_NER NEWSINTEL_IMAGE_BACKEND_NER_ID
+  export NEWSINTEL_IMAGE_BACKEND NEWSINTEL_IMAGE_FRONTEND NEWSINTEL_IMAGE_FRONTEND_TEST NEWSINTEL_IMAGE_BACKEND_NER
+fi
+
 project=$(ni_project "e2e-$group")
 ni_report_init "${NEWSINTEL_E2E_ARTIFACTS:-}" "$root" "e2e-$group"
 
@@ -58,9 +115,16 @@ rebuild_search() {
 }
 
 ni_stage build
-$compose build frontend-test
+if [ -z "$reuse_manifest" ]; then
+  $compose build frontend-test
+fi
+
+deps_extra=
+app_build_flag=--build
+[ -n "$reuse_manifest" ] && { deps_extra=--no-build; app_build_flag=--no-build; }
+
 ni_stage deps.up
-$compose up -d --wait --wait-timeout 180 postgres redis elasticsearch fixture
+$compose up -d --wait --wait-timeout 180 $deps_extra postgres redis elasticsearch fixture
 ni_stage alembic.upgrade
 $compose run --rm api alembic upgrade head
 ni_stage alembic.single-head
@@ -72,10 +136,9 @@ case $group in
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
   graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d ;;
-  *) echo "Unknown group: $group" >&2; exit 2 ;;
 esac
 ni_stage app.up
-$compose up -d --build api worker nlp-worker scheduler frontend
+$compose up -d $app_build_flag api worker nlp-worker scheduler frontend
 wait_until "Application readiness" '$compose exec -T frontend wget -qO- http://127.0.0.1:8080/api/v1/health/live >/dev/null 2>&1'
 
 ni_stage scenarios
