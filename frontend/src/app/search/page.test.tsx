@@ -430,3 +430,9 @@ it('opens the investigation in Graph with the criteria Graph applies and names t
   expect(link.getAttribute('href')).toBe('/graph/?q=grid&country=GR&country=US')
   expect(screen.getByText('Graph does not apply: Keyword.')).toBeTruthy()
 })
+
+it('opens the whole investigation in Map, which applies every criterion', async () => {
+  renderSearch('q=grid&country=GR&keyword_id=keyword-one&sort=newest')
+  const link = await screen.findByRole('link', { name: 'Open in Map' })
+  expect(link.getAttribute('href')).toBe('/map/?scope=investigation&q=grid&source_country=GR&keyword_id=keyword-one')
+})

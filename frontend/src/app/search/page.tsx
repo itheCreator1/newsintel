@@ -17,7 +17,7 @@ import { FacetPanel } from '../../components/FacetPanel'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { advancedCount, clearCriteria, errorCode, filterChips, graphHref, GRAPH_CHIP_FIELDS, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from '../../lib/filter-ui'
-import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
+import { brushRange, clusterHref, INTERVALS, mapHref, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -166,6 +166,7 @@ function SearchContent() {
       <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <Link className={cn(ghostButtonClass, 'w-auto')} href={graphHref(state)}>Open in Graph</Link>
         {ignoredByGraph.length > 0 && <span>Graph does not apply: {ignoredByGraph.join(', ')}.</span>}
+        <Link className={cn(ghostButtonClass, 'w-auto')} href={mapHref({ investigation: state })}>Open in Map</Link>
       </p>
 
       <GlassPanel aria-labelledby="timeline-heading">
