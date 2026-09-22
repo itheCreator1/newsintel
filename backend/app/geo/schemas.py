@@ -52,5 +52,9 @@ class GeoCountriesResponse(BaseModel):
 
 
 class GeoArticlePage(BaseModel):
+    """`skipped_stale`: hits on this page whose article PostgreSQL no longer holds (the index lags a
+    merge or deletion); they are skipped rather than replaced, and paging continues past them."""
+
     items: list[ArticleResponse]
     next_cursor: str | None
+    skipped_stale: int

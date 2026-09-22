@@ -173,5 +173,7 @@ async def articles(
         else None
     )
     return GeoArticlePage(
-        items=[article_response(row.Article) for row in rows[:limit]], next_cursor=next_cursor
+        items=[article_response(row.Article) for row in rows[:limit]],
+        next_cursor=next_cursor,
+        skipped_stale=0,
     )

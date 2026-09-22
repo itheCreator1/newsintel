@@ -34,7 +34,11 @@ function open(search = '') {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.geoCountries).mockResolvedValue(response())
-  vi.mocked(api.geoArticles).mockResolvedValue({ items: [article('a1', 'Harbour talks')], next_cursor: null })
+  vi.mocked(api.geoArticles).mockResolvedValue({
+    items: [article('a1', 'Harbour talks')],
+    next_cursor: null,
+    skipped_stale: 0,
+  })
   vi.mocked(api.events).mockResolvedValue({ items: [eventItem('ev1', 'Harbour fire')], next_cursor: null } as never)
 })
 afterEach(cleanup)
@@ -141,8 +145,17 @@ it('lists events, not articles, for the event role and never offers a search tha
 })
 
 it('loads more articles with the cursor', async () => {
-  vi.mocked(api.geoArticles).mockResolvedValueOnce({ items: [article('a1', 'Harbour talks')], next_cursor: 'next' })
-    .mockResolvedValueOnce({ items: [article('a2', 'Port strike')], next_cursor: null })
+  vi.mocked(api.geoArticles)
+    .mockResolvedValueOnce({
+      items: [article('a1', 'Harbour talks')],
+      next_cursor: 'next',
+      skipped_stale: 0,
+    })
+    .mockResolvedValueOnce({
+      items: [article('a2', 'Port strike')],
+      next_cursor: null,
+      skipped_stale: 0,
+    })
   open('country=GR')
   fireEvent.click(await screen.findByRole('button', { name: 'Load more articles' }))
   expect(await screen.findByRole('link', { name: 'Port strike' })).toBeTruthy()

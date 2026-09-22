@@ -2438,12 +2438,18 @@ export interface components {
             /** Completed At */
             completed_at: string | null;
         };
-        /** GeoArticlePage */
+        /**
+         * GeoArticlePage
+         * @description `skipped_stale`: hits on this page whose article PostgreSQL no longer holds (the index lags a
+         *     merge or deletion); they are skipped rather than replaced, and paging continues past them.
+         */
         GeoArticlePage: {
             /** Items */
             items: components["schemas"]["ArticleResponse"][];
             /** Next Cursor */
             next_cursor: string | null;
+            /** Skipped Stale */
+            skipped_stale: number;
         };
         /**
          * GeoCountriesResponse
@@ -5517,10 +5523,25 @@ export interface operations {
             query: {
                 role: "story" | "mentioned" | "source";
                 code: string;
-                /** @description Window length in UTC days, ending today. */
-                days?: number;
+                scope?: "recent" | "investigation";
+                /** @description Recent maps only: window length in UTC days, ending today. */
+                days?: number | null;
                 cursor?: string | null;
                 limit?: number;
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
             };
             header?: never;
             path?: never;

@@ -89,16 +89,22 @@ async def geo_countries(
 @router.get("/geo/articles", response_model=GeoArticlePage)
 async def geo_articles(
     db: Db,
-    _auth: Auth,
+    session: Auth,
+    settings: Config,
+    criteria: Criteria,
     role: ArticleRole,
     code: Annotated[str, Query(min_length=2, max_length=2)],
-    days: Annotated[
-        int, Query(ge=1, le=366, description="Window length in UTC days, ending today.")
-    ] = 30,
+    scope: MapScope = "recent",
+    days: Days = None,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> GeoArticlePage:
     if not COUNTRY.fullmatch(code):
         raise HTTPException(422, "A country is a two-letter code")
-    cursor_value = _cursor_or_400(cursor)
-    return await queries.articles(db, role, code.upper(), days, limit, cursor_value)
+    window = recent_days(scope, criteria, days)
+    if window is not None:
+        return await queries.articles(db, role, code.upper(), window, limit, _cursor_or_400(cursor))
+    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+    return await investigation.articles(
+        db, adapter, settings.secret_key, session.id, role, code.upper(), criteria, limit, cursor
+    )
