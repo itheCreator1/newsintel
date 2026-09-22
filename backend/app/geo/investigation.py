@@ -5,10 +5,16 @@ coverage base are document and filter counts, exact over the index; stories and 
 cardinality estimates and the response flags them. Roles are never combined.
 """
 
+from datetime import UTC, date, datetime, time
 from typing import Any
 
-from app.geo.schemas import ArticleRole, GeoCountry, GeoCoverage
-from app.search.aggregations import ORDER, ROOT_ORDER
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.geo.schemas import ArticleRole, GeoCountriesResponse, GeoCountry, GeoCoverage
+from app.search.aggregations import ORDER, ROOT_ORDER, ensure_complete
+from app.search.criteria import SearchCriteria, build_query, current_search_target
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 
 # Stories count distinct `story_cluster_id`, a schema 3 field; the floor is explicit because
 # empty criteria never trip `current_search_target`'s own annotation checks.
@@ -106,3 +112,32 @@ def parse_countries(
         located=int(aggregations.get("located", {}).get("doc_count", 0)),
     )
     return coverage, items
+
+
+def _midnight(day: date | None) -> datetime | None:
+    return datetime.combine(day, time.min, UTC) if day else None
+
+
+async def countries(
+    db: AsyncSession, adapter: ElasticsearchAdapter, role: ArticleRole, criteria: SearchCriteria
+) -> GeoCountriesResponse:
+    index_name, schema_version = await current_search_target(db, criteria, minimum=SCHEMA_FLOOR)
+    try:
+        response = await adapter.search_index(
+            index_name, countries_body(role, build_query(criteria, schema_version))
+        )
+        ensure_complete(response)
+    except ElasticsearchUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The map is unavailable") from exc
+    coverage, items = parse_countries(role, response)
+    return GeoCountriesResponse(
+        role=role,
+        scope="investigation",
+        days=None,
+        window_start=_midnight(criteria.start),
+        window_end=_midnight(criteria.end),
+        coverage=coverage,
+        items=items,
+        stories_estimated=True,
+        sources_estimated=role == "source",
+    )

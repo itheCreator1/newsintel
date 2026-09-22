@@ -2445,23 +2445,37 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
-        /** GeoCountriesResponse */
+        /**
+         * GeoCountriesResponse
+         * @description `scope=recent` counts are exact, from PostgreSQL over the last `days`. `scope=investigation`
+         *     counts come from Elasticsearch over the shared search criteria, bounded only by their own
+         *     `after`/`before` (`window_start`/`window_end`, either may be open): articles and coverage are
+         *     exact document counts, stories and sources cardinality estimates, as the flags say.
+         */
         GeoCountriesResponse: {
             /**
              * Role
              * @enum {string}
              */
             role: "story" | "mentioned" | "source" | "event";
-            /** Days */
-            days: number;
             /**
-             * Window Start
-             * Format: date-time
+             * Scope
+             * @enum {string}
              */
-            window_start: string;
+            scope: "recent" | "investigation";
+            /** Days */
+            days: number | null;
+            /** Window Start */
+            window_start: string | null;
+            /** Window End */
+            window_end: string | null;
             coverage: components["schemas"]["GeoCoverage"];
             /** Items */
             items: components["schemas"]["GeoCountry"][];
+            /** Stories Estimated */
+            stories_estimated: boolean;
+            /** Sources Estimated */
+            sources_estimated: boolean;
         };
         /**
          * GeoCountry
@@ -5454,8 +5468,23 @@ export interface operations {
         parameters: {
             query: {
                 role: "story" | "mentioned" | "source" | "event";
-                /** @description Window length in UTC days, ending today. */
-                days?: number;
+                scope?: "recent" | "investigation";
+                /** @description Recent maps only: window length in UTC days, ending today. */
+                days?: number | null;
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
             };
             header?: never;
             path?: never;

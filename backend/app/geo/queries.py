@@ -133,7 +133,15 @@ async def countries(db: AsyncSession, role: Role, days: int) -> GeoCountriesResp
     else:
         coverage, items = await _article_countries(db, role, start)
     return GeoCountriesResponse(
-        role=role, days=days, window_start=start, coverage=coverage, items=items
+        role=role,
+        scope="recent",
+        days=days,
+        window_start=start,
+        window_end=None,
+        coverage=coverage,
+        items=items,
+        stories_estimated=False,
+        sources_estimated=False,
     )
 
 
