@@ -35,6 +35,9 @@ V3 = ARTICLE_INDEX_SETTINGS_V3["mappings"]["properties"]
 # Query clauses whose keys are field names; with a "field" key the same names are aggregations.
 _LEAF = {"term", "terms", "range", "match", "match_phrase", "prefix", "wildcard"}
 # Keys whose values are never field references (bucket order, include lists, paging, bounds).
+# ponytail: only the clauses listed here are read; others (query_string, regexp, fuzzy, ...) and
+# aggregations named like an _OPAQUE key are walked unchecked. Add a clause here when a builder
+# first uses it.
 _OPAQUE = {"order", "include", "exclude", "pit", "search_after", "extended_bounds"}
 
 ENTITY = "66666666-6666-4666-8666-666666666666"
@@ -58,6 +61,14 @@ def _nested_of(properties: dict[str, Any], field: str) -> str | None:
     return nested
 
 
+def _container(properties: dict[str, Any], field: str) -> bool:
+    """An object or nested field: a query or aggregation on it silently matches nothing."""
+    node: dict[str, Any] = {"properties": properties}
+    for part in field.split("."):
+        node = node["properties"][part]
+    return "properties" in node
+
+
 def unmapped(body: dict[str, Any], properties: dict[str, Any]) -> list[str]:
     errors: list[str] = []
 
@@ -69,6 +80,8 @@ def unmapped(body: dict[str, Any], properties: dict[str, Any]) -> list[str]:
             errors.append(
                 f"{where}: {field} lives under '{nested or 'root'}', used in '{context or 'root'}'"
             )
+        elif placed and _container(properties, field):
+            errors.append(f"{where}: {field} is an object, not a field")
 
     def path(value: str, where: str) -> str:
         if _nested_of(properties, value) != value:
@@ -114,7 +127,7 @@ def unmapped(body: dict[str, Any], properties: dict[str, Any]) -> list[str]:
             elif key == "highlight":
                 for field in value["fields"]:
                     ref(field, context, "highlight")
-            elif key == "aggs":
+            elif key in ("aggs", "aggregations"):
                 walk(value, children)
             else:
                 walk(value, context)
@@ -214,6 +227,31 @@ def test_text_sort_source_and_highlight_fields_are_checked() -> None:
         "sort: published is not mapped",
         "_source: headline is not mapped",
         "highlight: lede is not mapped",
+    ]
+
+
+def test_an_object_field_used_as_a_leaf_is_reported() -> None:
+    body = {
+        "query": {"term": {"keywords": KEYWORD}},
+        "aggs": {"k": {"terms": {"field": "keywords"}}},
+    }
+    assert unmapped(body, V3) == [
+        "term: keywords is an object, not a field",
+        "field: keywords is an object, not a field",
+    ]
+
+
+def test_the_long_aggregations_key_sets_the_nested_context() -> None:
+    body = {
+        "aggregations": {
+            "p": {
+                "nested": {"path": "provenance"},
+                "aggregations": {"l": {"terms": {"field": "detected_language"}}},
+            }
+        }
+    }
+    assert unmapped(body, V3) == [
+        "field: detected_language lives under 'root', used in 'provenance'"
     ]
 
 
