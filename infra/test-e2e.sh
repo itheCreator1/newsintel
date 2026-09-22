@@ -1,5 +1,5 @@
 #!/bin/sh
-# Maintained browser suite (Phase 14A.3): runs every Playwright workflow against the current stack.
+# Maintained browser suite: runs every Playwright workflow entirely inside Docker.
 # Usage: infra/test-e2e.sh <group>, one of search, investigations, monitors, graph.
 # Each group gets a fresh Compose project because the specs share fixture feeds and assert exact counts.
 # The phase scripts stay as historical records; this one tracks the current migration head.
@@ -10,16 +10,8 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 project="newsintel-e2e-$group-$$-$(date +%s)"
 artifacts=${NEWSINTEL_E2E_ARTIFACTS:-/tmp/$project}
 mkdir -p "$artifacts"
-pick_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()'; }
-NEWSINTEL_PORT=${NEWSINTEL_PORT:-$(pick_port)}
-NEWSINTEL_TEST_POSTGRES_PORT=${NEWSINTEL_TEST_POSTGRES_PORT:-$(pick_port)}
-NEWSINTEL_TEST_FIXTURE_PORT=${NEWSINTEL_TEST_FIXTURE_PORT:-$(pick_port)}
-NEWSINTEL_TEST_ELASTICSEARCH_PORT=${NEWSINTEL_TEST_ELASTICSEARCH_PORT:-$(pick_port)}
-export NEWSINTEL_PORT NEWSINTEL_TEST_POSTGRES_PORT NEWSINTEL_TEST_FIXTURE_PORT NEWSINTEL_TEST_ELASTICSEARCH_PORT
-export NEWSINTEL_E2E_BASE_URL="http://127.0.0.1:$NEWSINTEL_PORT"
-export NEWSINTEL_E2E_OUTPUT_DIR="$artifacts/playwright"
 
-files="-f docker/compose.yaml -f docker/compose.e2e.yaml"
+files="-f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.test.yaml -f docker/compose.e2e-container.yaml"
 # Entities, events, sources, comparison and the map need real NER; the other groups skip its heavy build.
 [ "$group" = graph ] && files="$files -f docker/compose.ner.yaml"
 compose="docker compose -p $project $files"
@@ -36,7 +28,12 @@ trap cleanup EXIT INT TERM
 
 cd "$root"
 psql_app() { $compose exec -T postgres psql -U newsintel -d newsintel -Atc "$1"; }
-e2e() { (cd frontend && npm run e2e -- --grep "$1"); }
+e2e() {
+  $compose run --rm --no-deps -v "$artifacts:/artifacts" \
+    -e NEWSINTEL_E2E_BASE_URL=http://frontend:8080 \
+    -e NEWSINTEL_E2E_OUTPUT_DIR=/artifacts/playwright \
+    frontend-test npm run e2e -- --grep "$1"
+}
 users() { for user in "$@"; do printf '%s-password\n%s-password\n' "$user" "$user" | $compose run --rm -T api python -m app.cli create-user "$user"; done; }
 wait_until() {  # wait_until <what> <shell condition>
   deadline=$(( $(date +%s) + 120 ))
@@ -57,6 +54,7 @@ rebuild_search() {
   echo "$output" | grep -q "status=completed" || $compose run --rm worker python -m app.cli resume-search-rebuild "$rebuild_id"
 }
 
+$compose build frontend-test
 $compose up -d --wait --wait-timeout 180 postgres redis elasticsearch fixture
 $compose run --rm api alembic upgrade head
 [ "$($compose run --rm api alembic heads | grep -c '(head)')" = 1 ] || { echo "Migrations must have a single head" >&2; exit 1; }
@@ -69,7 +67,7 @@ case $group in
   *) echo "Unknown group: $group" >&2; exit 2 ;;
 esac
 $compose up -d --build api worker nlp-worker scheduler frontend
-wait_until "Application readiness" 'curl -fsS "$NEWSINTEL_E2E_BASE_URL/api/v1/health/live" >/dev/null 2>&1'
+wait_until "Application readiness" '$compose exec -T frontend wget -qO- http://127.0.0.1:8080/api/v1/health/live >/dev/null 2>&1'
 
 case $group in
   search)

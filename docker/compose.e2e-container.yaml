@@ -1,0 +1,12 @@
+services:
+  api:
+    environment:
+      NEWSINTEL_ALLOWED_HOSTS: '["localhost", "127.0.0.1", "frontend"]'
+  frontend:
+    ports: !reset []
+  postgres:
+    ports: !reset []
+  elasticsearch:
+    ports: !reset []
+  fixture:
+    ports: !reset []

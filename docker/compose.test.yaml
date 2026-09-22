@@ -1,0 +1,59 @@
+services:
+  backend-test:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.test
+    environment:
+      NEWSINTEL_RUN_POSTGRES_TESTS: "1"
+      NEWSINTEL_DATABASE_URL: postgresql+asyncpg://newsintel:newsintel@test-postgres:5432/newsintel_tests
+      NEWSINTEL_ELASTICSEARCH_URL: http://test-elasticsearch:9200
+      NEWSINTEL_REDIS_URL: redis://test-redis:6379/0
+      NEWSINTEL_TEST_FIXTURE_PORT: "18080"
+      NEWSINTEL_FEED_TEST_ALLOWED_HOSTS: '["localhost"]'
+    depends_on:
+      test-postgres: { condition: service_healthy }
+      test-redis: { condition: service_healthy }
+      test-elasticsearch: { condition: service_healthy }
+      test-fixture: { condition: service_started }
+
+  frontend-test:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.test
+
+  test-postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: newsintel_tests
+      POSTGRES_USER: newsintel
+      POSTGRES_PASSWORD: newsintel
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U newsintel -d newsintel_tests"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-redis:
+    image: redis:8.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  test-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  test-fixture:
+    image: python:3.13-alpine
+    command: ["python", "/fixtures/server.py"]
+    volumes: ["../backend/tests/fixtures:/fixtures:ro"]
