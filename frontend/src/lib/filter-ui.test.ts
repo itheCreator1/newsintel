@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from './api'
-import { advancedCount, clearCriteria, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from './filter-ui'
-import { emptyInvestigation, stateFromQuery } from './investigation'
+import { advancedCount, clearCriteria, filterChips, GRAPH_CHIP_FIELDS, graphHref, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from './filter-ui'
+import { emptyInvestigation, parseHref, stateFromQuery } from './investigation'
 
 const state = stateFromQuery(new URLSearchParams('q=grid&after=2026-09-01&country=gr&country=GR&entity_id=e1&entity_id=e2&content_available=false&sort=newest&interval=week&story_cluster_id=c1'))
 
@@ -45,5 +45,21 @@ describe('filter chips', () => {
     expect(isTransient(new ApiError('down', 503))).toBe(true)
     expect(isTransient(new ApiError('bad', 422))).toBe(false)
     expect(isTransient(new ApiError('upgrade', 409))).toBe(false)
+  })
+})
+
+describe('graph link', () => {
+  it('carries the criteria Graph applies, keeps repeated values, and names the ones it drops', () => {
+    const search = stateFromQuery(new URLSearchParams('q=grid&after=2026-09-01&country=GR&country=US&entity_type=ORG&entity_id=e1&keyword_id=k1&sort=newest&interval=week&content_available=true'))
+    const href = graphHref(search)
+    expect(href.startsWith('/graph/?')).toBe(true)
+    const query = parseHref(href)
+    expect(Object.fromEntries([...new Set(query.keys())].map(key => [key, query.getAll(key)]))).toEqual({ q: ['grid'], country: ['GR', 'US'], entity_type: ['ORG'], after: ['2026-09-01'] })
+    expect(unsupportedCriteria(search, GRAPH_CHIP_FIELDS)).toEqual(['Entity', 'Keyword', 'Content'])
+  })
+
+  it('names nothing when every applied criterion reaches Graph', () => {
+    expect(unsupportedCriteria(stateFromQuery(new URLSearchParams('q=grid&story_country=DE')), GRAPH_CHIP_FIELDS)).toEqual([])
+    expect(graphHref(emptyInvestigation())).toBe('/graph/')
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, mapHref, queryFromState, refine, searchParams, sourceHref, stateFromQuery } from './investigation'
+import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, mapHref, queryFromState, refine, searchParams, sourceHref, stateFromQuery, toggle } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -127,5 +127,22 @@ describe('mapHref', () => {
     expect(mapHref({ role: 'story', days: 30 })).toBe('/map/')
     expect(mapHref({ role: 'mentioned', days: 90, country: 'gr' })).toBe('/map/?role=mentioned&days=90&country=GR')
     expect(mapHref({ country: 'FR' })).toBe('/map/?country=FR')
+  })
+})
+
+describe('facet toggle', () => {
+  it('adds a value beside the applied ones, keeps the rest of the investigation, and removes it on the second click', () => {
+    const base = stateFromQuery(new URLSearchParams('q=grid&entity_id=e1&sort=newest'))
+    const added = toggle(base, 'entity_id', 'e2')
+    expect(added.entity_id).toEqual(['e1', 'e2'])
+    expect(added.q).toBe('grid')
+    expect(added.sort).toBe('newest')
+    expect(toggle(added, 'entity_id', 'e1').entity_id).toEqual(['e2'])
+  })
+
+  it('normalizes country codes so a facet value matches the applied filter', () => {
+    const base = stateFromQuery(new URLSearchParams('story_country=gr'))
+    expect(toggle(base, 'story_country', 'GR').story_country).toEqual([])
+    expect(toggle(emptyInvestigation(), 'mentioned_country', 'fr').mentioned_country).toEqual(['FR'])
   })
 })

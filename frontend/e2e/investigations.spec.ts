@@ -58,6 +58,33 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await expect(page).not.toHaveURL(/after=/)
   await expect(heading(page)).toHaveText('6 matching articles over time')
 
+  // Facets count the whole investigation; a value toggles the same bookmarkable filter the pickers use.
+  const sourceFacets = page.getByRole('region', { name: 'Sources', exact: true })
+  const wireFacet = sourceFacets.getByRole('button', { name: 'Harbor Wire 3', exact: true })
+  await expect(wireFacet).toHaveAttribute('aria-pressed', 'false')
+  await expect(sourceFacets.getByRole('button', { name: 'Harbor Daily 3', exact: true })).toBeVisible()
+  await wireFacet.click()
+  await expect(page).toHaveURL(/source_id=/)
+  await expect(heading(page)).toHaveText('3 matching articles over time')
+  await expect(wireFacet).toHaveAttribute('aria-pressed', 'true')
+  await page.goBack()
+  await expect(heading(page)).toHaveText('6 matching articles over time')
+  await page.goForward()
+  await expect(heading(page)).toHaveText('3 matching articles over time')
+
+  // Graph receives the criteria it applies; a source filter is one of them.
+  await page.getByRole('link', { name: 'Open in Graph' }).click()
+  await expect(page).toHaveURL(/\/graph\/\?/)
+  const graphUrl = new URL(page.url())
+  expect(graphUrl.searchParams.get('q')).toBe('Harbor')
+  expect(graphUrl.searchParams.getAll('source_id')).toHaveLength(1)
+  await expect(page.getByLabel('Query', { exact: true })).toHaveValue('Harbor')
+  await page.goBack()
+  await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
+  await wireFacet.click()
+  await expect(page).not.toHaveURL(/source_id=/)
+  await expect(heading(page)).toHaveText('6 matching articles over time')
+
   await page.getByRole('button', { name: 'Filter by source Harbor Wire' }).first().click()
   await expect(page).toHaveURL(/source_id=/)
   await expect(heading(page)).toHaveText('3 matching articles over time')
