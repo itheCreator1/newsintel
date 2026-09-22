@@ -7,9 +7,9 @@ set -eu
 
 group=${1:?usage: infra/test-e2e.sh search|investigations|monitors|graph}
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-project="newsintel-e2e-$group-$$-$(date +%s)"
-artifacts=${NEWSINTEL_E2E_ARTIFACTS:-/tmp/$project}
-mkdir -p "$artifacts"
+. "$root/infra/lib.sh"
+project=$(ni_project "e2e-$group")
+ni_report_init "${NEWSINTEL_E2E_ARTIFACTS:-}" "$root" "e2e-$group"
 
 files="-f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.test.yaml -f docker/compose.e2e-container.yaml"
 # Entities, events, sources, comparison and the map need real NER; the other groups skip its heavy build.
@@ -17,6 +17,7 @@ files="-f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.test.
 compose="docker compose -p $project $files"
 cleanup() {
   status=$?
+  ni_report_finalize "$status"
   if [ "$status" -ne 0 ]; then
     $compose logs --no-color > "$artifacts/compose.log" 2>&1 || true
     echo "E2E artifacts: $artifacts" >&2
@@ -27,6 +28,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$root"
+ni_env_report "$root" "${NEWSINTEL_CACHE_STATE:-warm}"
+ni_mem_start "$project"
 psql_app() { $compose exec -T postgres psql -U newsintel -d newsintel -Atc "$1"; }
 e2e() {
   $compose run --rm --no-deps -v "$artifacts:/artifacts" \
@@ -54,10 +57,15 @@ rebuild_search() {
   echo "$output" | grep -q "status=completed" || $compose run --rm worker python -m app.cli resume-search-rebuild "$rebuild_id"
 }
 
+ni_stage build
 $compose build frontend-test
+ni_stage deps.up
 $compose up -d --wait --wait-timeout 180 postgres redis elasticsearch fixture
+ni_stage alembic.upgrade
 $compose run --rm api alembic upgrade head
-[ "$($compose run --rm api alembic heads | grep -c '(head)')" = 1 ] || { echo "Migrations must have a single head" >&2; exit 1; }
+ni_stage alembic.single-head
+ni_single_head "$compose" api "Migrations must have a single head"
+ni_stage users
 case $group in
   search) users phase3 phase4 phase5 ;;
   investigations) users phase6 ;;
@@ -66,8 +74,11 @@ case $group in
   graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d ;;
   *) echo "Unknown group: $group" >&2; exit 2 ;;
 esac
+ni_stage app.up
 $compose up -d --build api worker nlp-worker scheduler frontend
 wait_until "Application readiness" '$compose exec -T frontend wget -qO- http://127.0.0.1:8080/api/v1/health/live >/dev/null 2>&1'
+
+ni_stage scenarios
 
 case $group in
   search)

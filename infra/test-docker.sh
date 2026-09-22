@@ -3,13 +3,14 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-project="newsintel-test-$$-$(date +%s)"
-artifacts=${NEWSINTEL_TEST_ARTIFACTS:-/tmp/$project}
+. "$root/infra/lib.sh"
+project=$(ni_project test)
 compose="docker compose -p $project -f docker/compose.test.yaml"
-mkdir -p "$artifacts"
+ni_report_init "${NEWSINTEL_TEST_ARTIFACTS:-}" "$root" test
 
 cleanup() {
   status=$?
+  ni_report_finalize "$status"
   if [ "$status" -ne 0 ]; then
     $compose logs --no-color > "$artifacts/compose.log" 2>&1 || true
     echo "Test artifacts: $artifacts" >&2
@@ -21,23 +22,31 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cd "$root"
+ni_env_report "$root" "${NEWSINTEL_CACHE_STATE:-warm}"
+ni_mem_start "$project"
 
-echo "==> Building test images"
+ni_stage build.all
 $compose build backend-test frontend-test
+{
+  printf 'service_image\timage_id\n'
+  $compose config --images | while read -r ni_img; do
+    printf '%s\t%s\n' "$ni_img" "$(docker image inspect --format '{{.Id}}' "$ni_img" 2>/dev/null || echo unknown)"
+  done
+} > "$artifacts/images.tsv"
 
-echo "==> Starting integration dependencies"
+ni_stage deps.up
 $compose up -d --wait --wait-timeout 180 test-postgres test-redis test-elasticsearch test-fixture
 
-echo "==> Backend static checks and migrations"
+ni_stage ruff
 $compose run --rm backend-test ruff check .
+ni_stage mypy
 $compose run --rm backend-test mypy app
+ni_stage alembic.upgrade
 $compose run --rm backend-test alembic upgrade head
-[ "$($compose run --rm backend-test alembic heads | grep -c '(head)')" = 1 ] || {
-  echo "Migrations must have exactly one head" >&2
-  exit 1
-}
+ni_stage alembic.single-head
+ni_single_head "$compose" backend-test "Migrations must have exactly one head"
 
-echo "==> Backend suite (skips are failures)"
+ni_stage pytest
 $compose run --rm -v "$artifacts:/artifacts" backend-test \
   bash -o pipefail -c '
     python tests/fixtures/server.py 18080 > /artifacts/fixture-server.log 2>&1 &
@@ -54,29 +63,33 @@ $compose run --rm -v "$artifacts:/artifacts" backend-test \
     ! grep -Eq "[0-9]+ skipped" /artifacts/pytest.log
   '
 
-echo "==> PostgreSQL backup and restore rehearsal"
+ni_stage restore
 infra/test-restore.sh "$($compose ps -q test-postgres)" newsintel_tests
 
-echo "==> API contract"
+ni_stage contract.openapi
 $compose run --rm -v "$artifacts:/artifacts" backend-test \
   sh -c "python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > /artifacts/openapi.json"
 cmp frontend/openapi.json "$artifacts/openapi.json" || {
   echo "frontend/openapi.json is stale" >&2
   exit 1
 }
+
+ni_stage contract.types
 $compose run --rm --no-deps -v "$artifacts:/artifacts" frontend-test sh -c \
   'cp src/lib/types.generated.ts /tmp/types.generated.ts && cp /artifacts/openapi.json openapi.json && npm run generate:api && cmp /tmp/types.generated.ts src/lib/types.generated.ts' || {
   echo "frontend/src/lib/types.generated.ts is stale" >&2
   exit 1
 }
 
-echo "==> Frontend unit, type, and production-build checks"
+ni_stage frontend.unit
 $compose run --rm --no-deps frontend-test npm test
+ni_stage frontend.typecheck
 $compose run --rm --no-deps frontend-test npm run typecheck
+ni_stage frontend.build
 $compose run --rm --no-deps frontend-test npm run build
 
 for group in search investigations monitors graph; do
-  echo "==> Browser workflows: $group"
+  ni_stage "e2e.$group"
   NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh "$group"
 done
 
