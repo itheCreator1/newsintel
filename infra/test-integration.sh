@@ -12,16 +12,21 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 
 [ "$#" -ge 1 ] || { echo "usage: infra/test-integration.sh <pytest-node-id>..." >&2; exit 2; }
 
-# Normalize every id the same way classify.py's own lookup does (strip a leading "backend/") so
-# both a repo-root-relative id (as typed from $root) and a backend/-relative one work identically
-# -- pytest itself runs with cwd=/app (== backend/) inside the container, so a literal "backend/"
-# prefix would otherwise fail collection there even though classify.py would still classify it.
-ni_strip_backend_prefix() {
-  for ni_id in "$@"; do
-    printf '%s\n' "${ni_id#backend/}"
-  done
-}
-set -- $(ni_strip_backend_prefix "$@")
+# Normalize every id (strip a leading "backend/") so both a repo-root-relative id (as typed from
+# $root) and a backend/-relative one work identically -- pytest itself runs with cwd=/app (==
+# backend/) inside the container, so a literal "backend/" prefix would otherwise fail collection
+# there. Rebuilt via append-then-shift, not `set -- $(...)`: a bare unquoted command substitution
+# word-splits on every space, which would mangle a parametrized node id containing one (pytest
+# produces ids like "test_foo.py::test[a b]" for string/tuple parametrize values) -- appending
+# each already-quoted stripped id one at a time keeps it intact as a single argument.
+ni_orig_n=$#
+ni_i=0
+while [ "$ni_i" -lt "$ni_orig_n" ]; do
+  ni_i=$((ni_i + 1))
+  eval "ni_arg=\$$ni_i"
+  set -- "$@" "${ni_arg#backend/}"
+done
+shift "$ni_orig_n"
 
 project=$(ni_project integration)
 compose="docker compose -p $project -f docker/compose.test.yaml"

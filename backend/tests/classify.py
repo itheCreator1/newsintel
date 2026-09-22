@@ -23,11 +23,10 @@ def load_manifest() -> dict:
 
 
 def resolve(manifest: dict, node_id: str) -> tuple[str, dict]:
-    """Normalize a pytest node id to its manifest key: strip a leading 'backend/', take
-    everything left of the first '::', then the bare filename."""
+    """Normalize a pytest node id to its manifest key: take everything left of the first '::',
+    then the bare filename -- this already discards any leading directory (e.g. 'backend/' or
+    'tests/'), regardless of which form the id was given in."""
     path_part = node_id.split("::", 1)[0]
-    if path_part.startswith("backend/"):
-        path_part = path_part[len("backend/") :]
     key = Path(path_part).name
     entry = manifest.get(key)
     if entry is None:
