@@ -6,7 +6,7 @@ import { monitor } from '../../test/monitors'
 import { renderWithQuery } from '../../test/render'
 import SearchPageRoute from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), facets: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the brushed bucket span.
 vi.mock('../../components/TimelineChart', () => ({
   TimelineChart: (props: { buckets?: unknown[]; interval?: string; onSelect: (range: { start: string; end: string }) => void }) =>
@@ -15,11 +15,15 @@ vi.mock('../../components/TimelineChart', () => ({
 
 const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }] }
 
+const bucketless = { buckets: [], truncated: false }
+const noFacets = { total: 0, sources: bucketless, source_countries: bucketless, story_countries: bucketless, mentioned_countries: bucketless, languages: bucketless, entities: bucketless, entity_types: bucketless, keywords: bucketless, story_clusters: bucketless }
+
 beforeEach(() => {
   vi.clearAllMocks()
   resetNavigationHarness({ pathname: '/search/' })
   vi.mocked(api.search).mockResolvedValue({ items: [result], next_cursor: 'next' })
   vi.mocked(api.timeline).mockResolvedValue({ interval: 'week', total: 5, buckets: [{ start: '2026-01-05T00:00:00Z', count: 3 }, { start: '2026-01-12T00:00:00Z', count: 2 }] })
+  vi.mocked(api.facets).mockResolvedValue(noFacets)
   vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: true }], next_cursor: null })
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'entity-one', kind: 'ORG', normalized_text: 'acme', text: 'Acme' }], next_cursor: null })
   vi.mocked(api.nlpKeywords).mockResolvedValue({ items: [{ id: 'keyword-one', kind: 'keyword', normalized_text: 'climate policy', text: 'climate policy' }], next_cursor: null })
@@ -362,4 +366,55 @@ it('falls back to watching when the monitor being edited cannot be loaded', asyn
   renderSearch('q=grid&monitor=gone')
   expect(await screen.findByText(/could not be loaded/)).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Watch search' })).toBeTruthy()
+})
+
+it('toggles a facet into the bookmarkable filters, labels its chip, and Back restores the investigation', async () => {
+  vi.mocked(api.facets).mockResolvedValue({ ...noFacets, total: 5, entities: { buckets: [{ value: 'entity-two', label: 'Jane Doe', count: 2 }], truncated: false } })
+  const { rerenderSame } = renderSearch('q=grid&entity_id=entity-one&sort=newest')
+  await vi.waitFor(() => expect(api.facets).toHaveBeenLastCalledWith({ q: 'grid', entity_id: ['entity-one'] }))
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Jane Doe 2' }))
+  expect(navigationHarness.searchParams.getAll('entity_id')).toEqual(['entity-one', 'entity-two'])
+  rerenderSame()
+  await vi.waitFor(() => expect(api.facets).toHaveBeenLastCalledWith({ q: 'grid', entity_id: ['entity-one', 'entity-two'] }))
+  expect(await screen.findByRole('button', { name: 'Remove Entity: Jane Doe' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Jane Doe 2' }).getAttribute('aria-pressed')).toBe('true')
+
+  navigationHarness.back()
+  rerenderSame()
+  expect(navigationHarness.searchParams.getAll('entity_id')).toEqual(['entity-one'])
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'grid', entity_id: ['entity-one'], sort: 'newest' }, undefined))
+})
+
+it('keys facets on the criteria alone, so re-sorting does not refetch them', async () => {
+  const { rerenderSame } = renderSearch('q=grid')
+  await vi.waitFor(() => expect(api.facets).toHaveBeenCalledTimes(1))
+  fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'oldest' } })
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'grid', sort: 'oldest' }, undefined))
+  expect(api.facets).toHaveBeenCalledTimes(1)
+})
+
+it('offers Retry for unavailable facets but not for a required index upgrade', async () => {
+  vi.mocked(api.facets).mockRejectedValueOnce(new ApiError('down', 503))
+  renderSearch('q=grid')
+  expect(await screen.findByText('Facets are temporarily unavailable.')).toBeTruthy()
+  fireEvent.click(within(screen.getByRole('region', { name: 'Refine by' })).getByRole('button', { name: 'Retry' }))
+  await vi.waitFor(() => expect(api.facets).toHaveBeenCalledTimes(2))
+  cleanup()
+
+  vi.mocked(api.facets).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  renderSearch('q=grid')
+  expect(await screen.findByText('Search upgrade required. Rebuild the search index to see facets.')).toBeTruthy()
+  expect(within(screen.getByRole('region', { name: 'Refine by' })).queryByRole('button', { name: 'Retry' })).toBeNull()
+  // Results do not depend on the facet schema floor.
+  expect(await screen.findByText('Safe <script> title')).toBeTruthy()
+})
+
+it('opens the investigation in Graph with the criteria Graph applies and names the ones it does not', async () => {
+  renderSearch('q=grid&country=GR&country=US&keyword_id=keyword-one')
+  const link = await screen.findByRole('link', { name: 'Open in Graph' })
+  expect(link.getAttribute('href')).toBe('/graph/?q=grid&country=GR&country=US')
+  expect(screen.getByText('Graph does not apply: Keyword.')).toBeTruthy()
 })

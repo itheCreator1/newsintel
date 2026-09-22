@@ -13,10 +13,11 @@ import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
+import { FacetPanel } from '../../components/FacetPanel'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
-import { advancedCount, clearCriteria, errorCode, filterChips, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
-import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toHref, type Investigation, type ListField } from '../../lib/investigation'
+import { advancedCount, clearCriteria, errorCode, filterChips, graphHref, GRAPH_CHIP_FIELDS, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from '../../lib/filter-ui'
+import { brushRange, clusterHref, INTERVALS, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -65,6 +66,15 @@ function SearchContent() {
   const timelineCriteria = searchParams(state, { interval: true })
   const search = useInfiniteQuery({ queryKey: ['search', criteria], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.search(criteria, pageParam), getNextPageParam: page => page.next_cursor ?? undefined, retry: false })
   const timeline = useQuery({ queryKey: ['search-timeline', timelineCriteria], queryFn: () => api.timeline(timelineCriteria), retry: false })
+  // Facets ignore sort, so re-sorting results never refetches them.
+  const facetCriteria = Object.fromEntries(Object.entries(criteria).filter(([key]) => key !== 'sort'))
+  const facets = useQuery({ queryKey: ['search-facets', facetCriteria], queryFn: () => api.facets(facetCriteria), retry: false })
+  const facetsUpgrade = errorCode(facets.error) === 'search_upgrade_required'
+  const facetsDown = facets.error instanceof ApiError && facets.error.status === 503
+  // A value selected from a facet need not be on the pickers' loaded pages, so chips also take facet labels.
+  const facetLabels = (group: 'sources' | 'entities' | 'keywords' | 'story_clusters') =>
+    (facets.data?.[group].buckets ?? []).flatMap(bucket => bucket.label ? [[bucket.value, bucket.label] as const] : [])
+  const ignoredByGraph = unsupportedCriteria(state, GRAPH_CHIP_FIELDS)
   const results = search.data?.pages.flatMap(page => page.items) ?? []
   const searchError = search.error instanceof ApiError ? search.error : null
   const expired = searchError?.status === 409 && errorCode(searchError) === 'restart_search'
@@ -86,9 +96,10 @@ function SearchContent() {
   // Compared through the same form round trip, so a URL the form cannot represent exactly never reads as an edit.
   const draftDiffers = queryFromState(draftState()).toString() !== queryFromState(draftState(formFromState(state))).toString()
   const chips = filterChips(state, SEARCH_CHIP_FIELDS, {
-    source_id: new Map(sources.map(source => [source.id, source.name])),
-    entity_id: new Map(entities.map(entity => [entity.id, entity.text])),
-    keyword_id: new Map(keywords.map(keyword => [keyword.id, keyword.text])),
+    source_id: new Map([...facetLabels('sources'), ...sources.map(source => [source.id, source.name] as const)]),
+    entity_id: new Map([...facetLabels('entities'), ...entities.map(entity => [entity.id, entity.text] as const)]),
+    keyword_id: new Map([...facetLabels('keywords'), ...keywords.map(keyword => [keyword.id, keyword.text] as const)]),
+    story_cluster_id: new Map(facetLabels('story_clusters')),
   }, { content: true })
   function clearAll() {
     setSourceTerm(''); setEntityTerm(''); setKeywordTerm('')
@@ -151,6 +162,11 @@ function SearchContent() {
 
       <ActiveFilterBar items={chips} onRemove={key => navigate(removeFilter(state, key))} onClear={clearAll} draftDiffers={draftDiffers} />
 
+      <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <Link className={cn(ghostButtonClass, 'w-auto')} href={graphHref(state)}>Open in Graph</Link>
+        {ignoredByGraph.length > 0 && <span>Graph does not apply: {ignoredByGraph.join(', ')}.</span>}
+      </p>
+
       <GlassPanel aria-labelledby="timeline-heading">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <h3 id="timeline-heading" className="text-sm font-semibold text-foreground">{timeline.data?.total ? `${timeline.data.total} matching articles over time` : 'Timeline'}</h3>
@@ -174,6 +190,18 @@ function SearchContent() {
         {Boolean(timeline.data?.buckets.length) && (
           <TimelineChart buckets={timeline.data!.buckets} interval={timeline.data!.interval} onSelect={selectRange} />
         )}
+      </GlassPanel>
+
+      <GlassPanel aria-labelledby="facets-heading">
+        <h3 id="facets-heading" className="mb-4 text-sm font-semibold text-foreground">Refine by</h3>
+        {facets.isPending && <LoadingState label="Counting facets…" />}
+        {facets.isError && (
+          <ErrorNotice
+            message={facetsUpgrade ? 'Search upgrade required. Rebuild the search index to see facets.' : facetsDown ? 'Facets are temporarily unavailable.' : 'Could not load facets.'}
+            onRetry={isTransient(facets.error) ? () => void facets.refetch() : undefined} retrying={facets.isFetching}
+          />
+        )}
+        {facets.isSuccess && <FacetPanel facets={facets.data} state={state} onToggle={(field, value) => navigate(toggle(state, field, value))} />}
       </GlassPanel>
 
       <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>
