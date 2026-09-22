@@ -152,7 +152,7 @@ The Operations page (`/operations/`) shows dependency health, pipeline backlogs,
 
 ### Backup and restore
 
-PostgreSQL holds everything that matters (P1). Elasticsearch is rebuilt from it, so it needs no backup. Retained article HTML, on the worker's `article-data` volume, is optional. CI rehearses the dump and restore on every push (`infra/test-restore.sh`).
+PostgreSQL holds everything that matters (P1). Elasticsearch is rebuilt from it, so it needs no backup. Retained article HTML, on the worker's `article-data` volume, is optional. The full Docker test gate rehearses the dump and restore (`infra/test-restore.sh`).
 
 Back up:
 
@@ -175,16 +175,21 @@ dc run --rm api python -m app.cli rebuild-search   # the index no longer matches
 
 ## 7. Development checks
 
-The system is typed and tested end to end:
+The system is typed and tested end to end. Development and validation require Docker, Docker Compose, Git, and ordinary POSIX shell utilities; Python, Node, browsers, databases, and test tools run in containers.
+
 - **Backend:** SQLAlchemy 2 and Pydantic, checked with `ruff` and `mypy`.
 - **Frontend:** TypeScript, using API types generated from the checked-in OpenAPI spec.
-- **CI gate:** runs the PostgreSQL and Elasticsearch integration suite, an API-contract drift check, a backup-restore rehearsal, and every Playwright browser workflow against a full Compose stack.
+- **Full gate:** `./infra/test-docker.sh` builds dedicated test images, runs backend and frontend checks, rejects skipped tests and stale generated contracts, rehearses backup/restore, and runs every browser workflow against disposable Compose stacks.
 
-Backend: `cd backend && uv run pytest && uv run ruff check . && uv run mypy app`
+Run the maintained whole-repository gate from the repository root:
 
-Frontend: `cd frontend && npm test && npm run typecheck && npm run build`
+```sh
+./infra/test-docker.sh
+```
 
-Browser workflows: `infra/test-e2e.sh <search|investigations|monitors|graph>` builds a disposable Compose stack, runs that group's Playwright specs and cleans up; CI runs all four. The older `infra/test-phaseN.sh` scripts are kept as per-phase records.
+Browser workflows can be run separately with `./infra/test-e2e.sh <search|investigations|monitors|graph>`. Each command uses a fresh database and isolated Compose network. Containers and volumes are always removed; failures retain Compose logs, pytest output, Playwright traces, and screenshots under the reported `/tmp` directory (or under `NEWSINTEL_TEST_ARTIFACTS` / `NEWSINTEL_E2E_ARTIFACTS`).
+
+GitHub Actions is intentionally absent: pushes and pull requests have no automatic test run, nightly regression run, or status check. Run `./infra/test-docker.sh` before merging. The older phase acceptance scripts remain historical records; this Docker gate supersedes `docs/scripts/full-suite.sh` and `infra/test-phase15-completion.sh` as the maintained full-suite entry point.
 
 ## 8. Limitations
 

@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { chromium, defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -8,7 +8,7 @@ export default defineConfig({
     baseURL: process.env.NEWSINTEL_E2E_BASE_URL || 'http://127.0.0.1:18081',
     browserName: 'chromium',
     headless: true,
-    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || '/usr/bin/chromium' },
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || chromium.executablePath() },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
