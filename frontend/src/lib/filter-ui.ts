@@ -1,5 +1,5 @@
 import { ApiError } from './api'
-import { emptyInvestigation, type Investigation, type ListField } from './investigation'
+import { emptyInvestigation, queryFromState, toHref, type Investigation, type ListField } from './investigation'
 
 export type FilterChip = { key: string; label: string }
 /** Display names already loaded by the page, per ID field; a missing name falls back to the full ID. */
@@ -47,6 +47,19 @@ export function removeFilter(state: Investigation, key: string): Investigation {
 /** Search's clear-all: every criterion goes, display preferences stay. */
 export function clearCriteria(state: Investigation): Investigation {
   return { ...emptyInvestigation(), sort: state.sort, interval: state.interval }
+}
+
+/** Graph applies only its own criteria, so its link carries those and nothing Graph would hold invisibly. */
+export function graphHref(state: Investigation): string {
+  const carried: Investigation = { ...emptyInvestigation(), q: state.q, after: state.after, before: state.before }
+  for (const field of GRAPH_ADVANCED) carried[field] = state[field]
+  return toHref('/graph', queryFromState(carried))
+}
+
+/** Applied Search criteria a view limited to `fields` would not apply, by display name (e.g. ['Entity', 'Content']). */
+export function unsupportedCriteria(state: Investigation, fields: ListField[]): string[] {
+  const names = SEARCH_CHIP_FIELDS.filter(field => !fields.includes(field) && state[field].length).map(field => FIELD_NAMES[field])
+  return state.content_available === null ? names : [...names, 'Content']
 }
 
 /** Worth a Retry: the network failed or the server did. Domain answers (4xx, 409 upgrade) are not. */

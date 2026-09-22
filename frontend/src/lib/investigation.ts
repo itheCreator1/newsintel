@@ -148,6 +148,12 @@ export function refine(state: Investigation, field: ListField, value: string): I
   return { ...state, [field]: [normalize(field, value)] }
 }
 
+/** Facet selection: appends the value to its field (repeated values are OR'd, as the pickers produce) or removes it when applied. */
+export function toggle(state: Investigation, field: ListField, value: string): Investigation {
+  const item = normalize(field, value)
+  return { ...state, [field]: state[field].includes(item) ? state[field].filter(existing => existing !== item) : [...state[field], item] }
+}
+
 export type BucketInterval = Exclude<typeof INTERVALS[number], 'auto'>
 
 export function bucketEnd(start: string, interval: BucketInterval): string {
