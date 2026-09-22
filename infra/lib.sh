@@ -14,14 +14,17 @@ ni_tree_hash() {
   { git -C "$1" status --porcelain; git -C "$1" diff HEAD; } | sha256sum | cut -d' ' -f1
 }
 
-# ni_single_head <compose> <service> <message>
+# ni_single_head <compose> <service> <message> [run-flag]
 # Runs the duplicated "exactly one migration head" assertion; exits 1 with <message> on stderr
-# if it fails (matches the two scripts' pre-existing, slightly different wording).
+# if it fails (matches the two scripts' pre-existing, slightly different wording). [run-flag],
+# e.g. "--no-deps", is passed through to the underlying `run` untouched; omit it (as the two
+# original callers do) to get the original three-arg behavior unchanged.
 ni_single_head() {
   ni_sh_compose=$1
   ni_sh_service=$2
   ni_sh_message=$3
-  [ "$($ni_sh_compose run --rm "$ni_sh_service" alembic heads | grep -c '(head)')" = 1 ] || {
+  ni_sh_flag=${4:-}
+  [ "$($ni_sh_compose run --rm $ni_sh_flag "$ni_sh_service" alembic heads | grep -c '(head)')" = 1 ] || {
     echo "$ni_sh_message" >&2
     exit 1
   }

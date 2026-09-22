@@ -1,0 +1,93 @@
+# Per-module test classification for backend/tests/*.py, used by classify.py to derive
+# test-quick.sh's unit selection and test-integration.sh's service requirements.
+#
+# Derived by grepping every test_*.py module's source for its actual skip-gate markers
+# (NEWSINTEL_RUN_POSTGRES_TESTS, NEWSINTEL_TEST_FIXTURE_PORT) and, for Elasticsearch, by
+# reading each Postgres-gated module that mentions "elasticsearch" to tell a real live-cluster
+# call apart from a monkeypatched exception or a graceful-degradation assertion -- not from
+# filename convention. Verified against `pytest --collect-only` (594 collected, 75 modules).
+#
+# kind: "unit" (no service flags) or "integration" (Postgres-gated, kind implied by postgres).
+# postgres/elasticsearch/fixture_server: true iff the module's source requires that service.
+# elasticsearch=true is human-audited in one direction only (source mentions "Elasticsearch");
+# the reverse isn't checked here since some Postgres-gated modules mention it while testing
+# graceful degradation without a live cluster -- test-integration.sh backstops a wrong `false`
+# by pointing NEWSINTEL_ELASTICSEARCH_URL at http://127.0.0.1:1 whenever no selected module
+# declares elasticsearch, so a missed `true` fails loudly instead of silently passing.
+# note: optional, used for filename-convention exceptions and audited elasticsearch=false calls.
+"test_analytics_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_analytics_routes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_analytics_timeline.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_api_surface.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_article_maintenance.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Postgres-gated despite no _postgres suffix (filename convention exception)." }
+"test_article_processing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_article_processing_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
+"test_auth_helpers.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_classification.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_clustering_cli.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_clustering_engine.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_clustering_postgres.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false, note = "Named _postgres but its tail makes real ElasticsearchAdapter calls; needs live ES." }
+"test_compare_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_compare_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_csrf.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_entity_dossier.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_entity_dossier_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_event_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_event_api_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_event_engine.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_event_engine_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_event_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_events.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_feed_http.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_feed_ingestion.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_feed_ingestion_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
+"test_feed_schemas.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_fixture_server.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_geo_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_geo_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_geo_investigation.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_geo_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_graph_edge_evidence.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_graph_edge_evidence_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_graph_entities.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_health.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_index_schema.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_jobs.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_monitor_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_monitor_api_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_monitor_changes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_monitor_changes_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_monitor_evaluation.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_monitor_evaluation_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_monitor_evaluation_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Imports ElasticsearchUnavailable to test error handling; the exception is raised via monkeypatch, not a live cluster." }
+"test_monitor_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_monitor_results_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_monitors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_nlp_intent.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_nlp_jobs_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_nlp_ner_model.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false, note = "Independently gated by its own NEWSINTEL_RUN_NER_TESTS var (pinned-version file read, no spaCy import); safe to run in quick." }
+"test_nlp_processors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_operations_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_operations_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Mentions Elasticsearch only to assert graceful degradation when ES is unreachable (asserts probe state is down when the ES url ends in \":1\"); does not require a live cluster." }
+"test_retention_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_saved_searches.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_saved_searches_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_search_aggregations.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_delivery_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_search_facets.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_facets_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_search_indexing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_intent.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_intent_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_search_pagination_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_search_query.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_rebuild.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_related.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_related_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_search_results.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_search_timeline.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_security.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_sessions.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_settings.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_source_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_source_dossier_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
