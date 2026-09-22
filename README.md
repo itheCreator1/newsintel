@@ -106,7 +106,7 @@ Two details make the index trustworthy. Each article carries a *revision* bumped
 ![Search results for "China" with a daily timeline, save and watch actions, and highlighted matches](assets/search.png)
 <sub>**Figure 4.** Search. Full-text queries with field filters, a matching-articles timeline, and highlighted hits. Any search can be saved as a running case file or turned into a monitor that the scheduler re-evaluates in the background. The **Watchlist** then shows each monitor's new articles and stories, with a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) linked to the evidence.</sub>
 
-**Search is the investigation hub.** The query and filters live in the URL, and every view reads that same state: bounded facets beside the results (10 values per group, 25 at most), the Overview analytics in investigation scope, the Graph and the Map. An article's detail page adds **Related coverage**: other articles with similar wording from outside the article's own story, found by Elasticsearch `more_like_this`. Similar wording is not a confirmed connection, and the panel says so.
+**Search is the investigation hub.** The query and filters live in the URL, and every view reads that same state: bounded facets beside the results (10 values per group, 25 at most), the Graph and the Map. (Overview stays on its own recent-window scope; the API's `scope=investigation` mode exists but the only caller is Map.) An article's detail page adds **Related coverage**: other articles with similar wording from outside the article's own story, found by Elasticsearch `more_like_this`. Similar wording is not a confirmed connection, and the panel says so.
 
 ![Entity relationship graph with GPE, ORG, PERSON and OTHER nodes and co-occurrence edges](assets/graph.png)
 <sub>**Figure 5.** The relationship graph: who and what keeps showing up together. Deliberately bounded — "narrow the filters to see more" is a feature, not an apology. Each edge opens the articles and stories behind it, and each entity has a dossier with its articles, stories and closest neighbours.</sub>
@@ -189,7 +189,7 @@ Run the maintained whole-repository gate from the repository root:
 
 Browser workflows can be run separately with `./infra/test-e2e.sh <search|investigations|monitors|graph>`. Each command uses a fresh database and isolated Compose network. Containers and volumes are always removed; failures retain Compose logs, pytest output, Playwright traces, and screenshots under the reported `/tmp` directory (or under `NEWSINTEL_TEST_ARTIFACTS` / `NEWSINTEL_E2E_ARTIFACTS`).
 
-GitHub Actions is intentionally absent: pushes and pull requests have no automatic test run, nightly regression run, or status check. Run `./infra/test-docker.sh` before merging. The older phase acceptance scripts remain historical records; this Docker gate supersedes `docs/scripts/full-suite.sh` and `infra/test-phase15-completion.sh` as the maintained full-suite entry point.
+There is no automated pre-merge gate: pushes and pull requests have no automatic test run, nightly regression run, or status check. Run `./infra/test-docker.sh` before merging. The older phase acceptance scripts remain historical records; `./infra/test-docker.sh` is the maintained full-suite entry point.
 
 ## 8. Limitations
 
