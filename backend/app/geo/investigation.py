@@ -219,6 +219,10 @@ async def articles(
         if not cursor:
             pit_id = await adapter.open_point_in_time(index_name)
         query = build_query(criteria, schema_version)
+        # ponytail: no ensure_complete() here, unlike the counts request above. A shard failure
+        # silently drops evidence rows (not just a count), and len(found) <= limit below can then
+        # end paging early, closing the PIT on what looks like the last page. Upgrade path: call
+        # ensure_complete on this response too.
         response = await adapter.search(articles_body(role, code, query, pit_id, limit, after))
     except ElasticsearchUnavailable as exc:
         message = str(exc)

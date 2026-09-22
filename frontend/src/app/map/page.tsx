@@ -13,7 +13,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
 import world from '../../lib/world.geo.json'
 import { errorCode, filterChips, removeFilter, SEARCH_CHIP_FIELDS } from '../../lib/filter-ui'
-import { compareHref, emptyInvestigation, eventHref, mapHref, mapStateFromQuery, queryFromState, refine, searchParams as criteriaOf, toHref, type Investigation, type ListField } from '../../lib/investigation'
+import { compareHref, emptyInvestigation, eventHref, mapHref, mapStateFromQuery, normalize, queryFromState, refine, searchParams as criteriaOf, toHref, type Investigation, type ListField } from '../../lib/investigation'
 import { countryName, plural } from '../../lib/utils'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 
@@ -27,6 +27,9 @@ const ROLES: { value: GeoRole; label: string; note: string }[] = [
 const WINDOWS = [7, 30, 90, 365]
 const DRAWN = new Set(world.features.map(feature => feature.properties.code))
 const SEARCH_FIELD: Record<GeoArticleRole, ListField> = { story: 'story_country', mentioned: 'mentioned_country', source: 'source_country' }
+// Only mentioned/source can already be filtered by the investigation on the same field a role maps to;
+// story is one value per article, so replacing it always narrows (see canRefine below).
+const FILTER_LABEL: Partial<Record<ListField, string>> = { mentioned_country: 'mentioned countries', source_country: 'source countries' }
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
@@ -102,6 +105,14 @@ function MapContent() {
   const feeds = data?.sources_estimated ?? false
   // The selected country's articles, as an ordinary search: the investigation narrowed to it, or a recent window.
   const searchCountry = (field: ListField) => toHref('/search', queryFromState(investigation ? refine(investigation, field, country) : { ...refine(emptyInvestigation(), field, country), after: from }))
+  // refine() replaces the role's field with [country], which only narrows when the investigation had
+  // no filter there (or already had this exact one). Story is always safe: one story country per article.
+  // ponytail: the shared criteria OR repeated list values and merge `mentioned:`/source operators in `q`
+  // into the same list, so the intersection (existing filter AND this country) can't be expressed here —
+  // a q operator on the same field still widens too. Upgrade path: an AND criterion in SearchCriteria.
+  const filterField = articleRole ? SEARCH_FIELD[articleRole] : undefined
+  const existingFilter = investigation && filterField ? investigation[filterField] : []
+  const canRefine = role === 'story' || !investigation || existingFilter.length === 0 || (existingFilter.length === 1 && existingFilter[0] === normalize(filterField!, country))
 
   return (
     <div className="flex flex-col gap-6 font-sans">
@@ -187,11 +198,12 @@ function MapContent() {
             <button className={ghostButtonClass} onClick={() => go({ country: '' })}>Clear selection</button>
           </div>
           <div className="flex flex-wrap gap-2 px-6">
-            {articleRole && <Link className={ghostButtonClass} href={searchCountry(SEARCH_FIELD[articleRole])}>Search these articles</Link>}
+            {articleRole && canRefine && <Link className={ghostButtonClass} href={searchCountry(SEARCH_FIELD[articleRole])}>Search these articles</Link>}
             {!investigation && role !== 'mentioned' && role !== 'source' && <Link className={ghostButtonClass} href={toHref('/events', new URLSearchParams({ country, from }))}>Events with this country</Link>}
             {!investigation && articleRole && <Link className={ghostButtonClass} href={compareHref({ kind: 'country', a: country, role: articleRole, days })}>Compare with another country</Link>}
           </div>
-          {articleRole && <WatchForm key={`${role}-${country}`} className="px-6" kind="country" state={refine(investigation ?? emptyInvestigation(), SEARCH_FIELD[articleRole], country)} defaultName={`${name} (${role} country)`} label="Watch country" />}
+          {articleRole && !canRefine && <Note>{`This investigation already filters ${FILTER_LABEL[filterField!]}; refine it in Search.`}</Note>}
+          {articleRole && canRefine && <WatchForm key={`${role}-${country}`} className="px-6" kind="country" state={refine(investigation ?? emptyInvestigation(), SEARCH_FIELD[articleRole], country)} defaultName={`${name} (${role} country)`} label="Watch country" />}
           {found && articleRole && (
             <>
               {articles.isPending && <Note>Loading articles…</Note>}

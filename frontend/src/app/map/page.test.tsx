@@ -272,3 +272,20 @@ it('says when matching articles are gone from the database', async () => {
   open('scope=investigation&selected_country=GR')
   expect(await screen.findByText('2 matching articles are no longer available and not listed.')).toBeTruthy()
 })
+
+it('drops Search and Watch when the investigation already filters this role\'s field, since they could only widen it', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(investigating({ role: 'mentioned' }))
+  open('scope=investigation&mentioned_country=UA&role=mentioned&selected_country=PL')
+  const panel = await screen.findByRole('region', { name: 'Poland' })
+  expect(within(panel).queryByRole('link', { name: 'Search these articles' })).toBeNull()
+  expect(within(panel).queryByRole('button', { name: 'Watch country' })).toBeNull()
+  expect(within(panel).getByText('This investigation already filters mentioned countries; refine it in Search.')).toBeTruthy()
+})
+
+it('keeps Search and Watch when the investigation has no filter on this role\'s field', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(investigating({ role: 'mentioned' }))
+  open('scope=investigation&q=grid&role=mentioned&selected_country=GR')
+  const panel = await screen.findByRole('region', { name: 'Greece' })
+  expect(within(panel).getByRole('link', { name: 'Search these articles' })).toBeTruthy()
+  expect(within(panel).getByRole('button', { name: 'Watch country' })).toBeTruthy()
+})

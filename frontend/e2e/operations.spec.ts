@@ -83,4 +83,11 @@ test('operations page reports a stopped Elasticsearch and keeps every other pane
   await expect(page.getByRole('region', { name: 'Feeds' }).getByRole('listitem').first()).toBeVisible()
   await expect(page.getByRole('region', { name: 'Storage' }).getByText(/Elasticsearch could not be measured/)).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('region', { name: 'Storage' }).getByRole('table', { name: 'Tables' })).toBeVisible()
+
+  // The recent map is SQL-backed and must keep working with Elasticsearch down.
+  await page.goto('/map/?role=source&days=365')
+  await expect(page.getByText(/of \d+ articles in the last 365 days have a source country/)).toBeVisible()
+  await expect(page.getByRole('row', { name: /^Greece/ }).getByRole('cell').nth(1)).toHaveText('3')
+  await expect(page.getByRole('region', { name: 'Investigation' })).toHaveCount(0)
+  await expect(page.getByText('Could not load the map.')).toHaveCount(0)
 })

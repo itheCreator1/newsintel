@@ -10,7 +10,7 @@ export type Investigation = Required<Omit<InvestigationState, 'after' | 'before'
 
 // Source country keeps its historical `country` URL key so existing bookmarks still open.
 const urlKey = (field: ListField) => field === 'source_country' ? 'country' : field
-const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
+export const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
 
 export function emptyInvestigation(): Investigation {
   return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'relevance', interval: 'auto' }
