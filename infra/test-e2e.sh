@@ -103,7 +103,9 @@ case $group in
     e2e "search restores URL state|annotations refine search"
     # A second rebuild over the live alias (the first one above created it): the cutover path a V3
     # re-rebuild or a V4 takes. Every article must land in the new index, the old target becomes
-    # retained and its index stays for rollback, and search keeps answering through the alias.
+    # retained and its index stays for rollback. Search reads the current target's index (from
+    # PostgreSQL, not the alias), so the re-run spec proves reads survive the switch; the checks
+    # before it prove the alias moved.
     es() { $compose exec -T elasticsearch curl -fsS "http://127.0.0.1:9200/$1"; }
     alias_index() { es "_cat/aliases/articles-current?h=index" | tr -d '[:space:]'; }
     old_index=$(alias_index)
