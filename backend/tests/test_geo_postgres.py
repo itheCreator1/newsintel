@@ -93,7 +93,9 @@ async def _world() -> SimpleNamespace:
         )  # fmt: skip
         _WORLD = SimpleNamespace(
             us=us, gr=gr,
-            a=SimpleNamespace(a1=a1.id, a2=a2.id, a3=a3.id, a4=a4.id, a5=a5.id, a6=a6.id),
+            a=SimpleNamespace(
+                a1=a1.id, a2=a2.id, a3=a3.id, a4=a4.id, a5=a5.id, a6=a6.id, old=old.id
+            ),
             c1=c1.id, c2=c2.id, c3=c3.id,
         )  # fmt: skip
     return _WORLD
