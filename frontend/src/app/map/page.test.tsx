@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { api } from '../../lib/api'
+import { api, ApiError } from '../../lib/api'
 import type { GeoCountriesResponse } from '../../lib/api-types'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
@@ -18,7 +18,7 @@ vi.mock('../../components/GeoChart', () => ({
 
 const row = (country_code: string, over = {}) => ({ country_code, articles: 5, stories: 3, sources: null, events: null, ...over })
 const response = (over = {}) => ({
-  role: 'story', days: 30, window_start: '2026-08-22T00:00:00Z',
+  role: 'story', scope: 'recent', days: 30, window_start: '2026-08-22T00:00:00Z', window_end: null, stories_estimated: false, sources_estimated: false,
   coverage: { unit: 'articles', window_total: 10, located: 4 },
   items: [row('GR'), row('FR', { articles: 2, stories: 1 }), row('XK', { articles: 1, stories: 1 })],
   ...over,
@@ -46,7 +46,7 @@ afterEach(cleanup)
 it('shows the story country map by default with its definition and the base of every count', async () => {
   open()
   expect(await screen.findByText('map Greece 5')).toBeTruthy()
-  expect(api.geoCountries).toHaveBeenCalledWith('story', 30)
+  expect(api.geoCountries).toHaveBeenCalledWith('story', { days: '30' })
   expect(screen.getByText(/named alone in its title/)).toBeTruthy()
   expect(screen.getByText('4 of 10 articles in the last 30 days have a story country; 6 have none.')).toBeTruthy()
   const table = screen.getByRole('table')
@@ -57,7 +57,7 @@ it('shows the story country map by default with its definition and the base of e
 it('reads the role and window from the URL and asks for exactly that', async () => {
   open('role=mentioned&days=90')
   await screen.findByText('map Greece 5')
-  expect(api.geoCountries).toHaveBeenCalledWith('mentioned', 90)
+  expect(api.geoCountries).toHaveBeenCalledWith('mentioned', { days: '90' })
   expect((screen.getByLabelText('Location role') as HTMLSelectElement).value).toBe('mentioned')
   expect((screen.getByLabelText('Window') as HTMLSelectElement).value).toBe('90')
 })
@@ -114,7 +114,7 @@ it('opens a selected country with its counts, its articles and links that refine
   const panel = await screen.findByRole('region', { name: 'Greece' })
   expect(within(panel).getByText('5 articles · 3 stories')).toBeTruthy()
   expect(await within(panel).findByRole('link', { name: 'Harbour talks' })).toBeTruthy()
-  expect(api.geoArticles).toHaveBeenCalledWith('story', 'GR', 30, undefined)
+  expect(api.geoArticles).toHaveBeenCalledWith('story', 'GR', { days: '30' }, undefined)
   expect(within(panel).getByRole('link', { name: 'Search these articles' }).getAttribute('href')).toBe('/search/?story_country=GR&after=2026-08-22')
   expect(within(panel).getByRole('link', { name: 'Events with this country' }).getAttribute('href')).toBe('/events/?country=GR&from=2026-08-22')
   expect(within(panel).getByRole('link', { name: 'Compare with another country' }).getAttribute('href')).toBe('/compare/?kind=country&a=GR&role=story')
@@ -164,7 +164,7 @@ it('loads more articles with the cursor', async () => {
   open('country=GR')
   fireEvent.click(await screen.findByRole('button', { name: 'Load more articles' }))
   expect(await screen.findByRole('link', { name: 'Port strike' })).toBeTruthy()
-  expect(api.geoArticles).toHaveBeenLastCalledWith('story', 'GR', 30, 'next')
+  expect(api.geoArticles).toHaveBeenLastCalledWith('story', 'GR', { days: '30' }, 'next')
 })
 
 it('says so when the selected country has nothing in this role and window', async () => {
@@ -202,7 +202,7 @@ it('reports an empty window, a role with no located items and a failure', async 
 it('ignores a role or window it does not know and a country that is not a code', async () => {
   open('role=everywhere&days=5&country=GRC')
   await screen.findByText('map Greece 5')
-  expect(api.geoCountries).toHaveBeenCalledWith('story', 30)
+  expect(api.geoCountries).toHaveBeenCalledWith('story', { days: '30' })
   expect(screen.queryByRole('region', { name: /Greece/ })).toBeNull()
 })
 
@@ -223,4 +223,52 @@ it('offers no watch for the event role, which has no monitor field', async () =>
   open('role=event&country=GR')
   expect(await screen.findByRole('heading', { name: 'Greece' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Watch country' })).toBeNull()
+})
+
+const investigating = (over = {}) => response({ scope: 'investigation', days: null, window_start: '2026-09-01T00:00:00Z', window_end: null, stories_estimated: true, sources_estimated: false, ...over })
+const criteria = { scope: 'investigation', q: 'grid', source_country: ['GR'], after: '2026-09-01' }
+
+it('maps an investigation with its criteria and no window, and marks estimated counts', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(investigating())
+  open('scope=investigation&q=grid&source_country=GR&after=2026-09-01&sort=newest&selected_country=GR')
+  expect(await screen.findByText('map Greece 5')).toBeTruthy()
+  expect(api.geoCountries).toHaveBeenCalledWith('story', criteria)
+  expect(screen.queryByLabelText('Window')).toBeNull()
+  expect(screen.getByText('4 of 10 matching articles published from 2026-09-01 have a story country; 6 have none.')).toBeTruthy()
+  const greece = within(screen.getByRole('table')).getAllByRole('row')[1]
+  expect(greece.textContent).toContain('≈3')
+  expect(within(greece).getByText('(estimated)', { exact: false })).toBeTruthy()
+  const panel = screen.getByRole('region', { name: 'Greece' })
+  expect(within(panel).getByText('5 articles · about 3 stories (estimated)')).toBeTruthy()
+  await vi.waitFor(() => expect(api.geoArticles).toHaveBeenCalledWith('story', 'GR', criteria, undefined))
+  expect(within(panel).getByRole('link', { name: 'Search these articles' }).getAttribute('href')).toBe('/search/?q=grid&country=GR&story_country=GR&after=2026-09-01&sort=newest')
+  expect(within(panel).queryByRole('link', { name: 'Compare with another country' })).toBeNull()
+  expect(within(panel).queryByRole('link', { name: 'Events with this country' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'Back to Search' }).getAttribute('href')).toBe('/search/?q=grid&country=GR&after=2026-09-01&sort=newest')
+})
+
+it('explains that events take no investigation criteria and leaves the investigation for a recent window', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(investigating())
+  open('scope=investigation&role=event&q=grid&selected_country=GR')
+  await screen.findByText('map Greece 5')
+  expect(api.geoCountries).toHaveBeenCalledWith('story', { scope: 'investigation', q: 'grid' })
+  expect((screen.getByRole('option', { name: 'Event country' }) as HTMLOptionElement).disabled).toBe(true)
+  expect(screen.getByText(/Event country maps events, which have no article criteria/)).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Query: grid' }))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?scope=investigation&selected_country=GR')
+  fireEvent.click(screen.getByRole('button', { name: 'Use a recent window' }))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?selected_country=GR')
+})
+
+it('asks for a search rebuild when the index predates investigation maps', async () => {
+  vi.mocked(api.geoCountries).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  open('scope=investigation')
+  expect(await screen.findByText('Search upgrade required. Rebuild the search index to map an investigation.')).toBeTruthy()
+})
+
+it('says when matching articles are gone from the database', async () => {
+  vi.mocked(api.geoCountries).mockResolvedValue(investigating())
+  vi.mocked(api.geoArticles).mockResolvedValue({ items: [article('a1', 'Harbour talks')], next_cursor: null, skipped_stale: 2 })
+  open('scope=investigation&selected_country=GR')
+  expect(await screen.findByText('2 matching articles are no longer available and not listed.')).toBeTruthy()
 })
