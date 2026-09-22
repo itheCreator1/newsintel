@@ -139,11 +139,11 @@ The remaining routes follow the same design language:
 
 ## 6. Operations
 
-**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show.
+**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
 
-**What needs Elasticsearch.** Search, facets, the Overview analytics panels, the investigation Map and Related coverage read the index. While it is down they say they are unavailable, and ingestion, processing and the recent-window Map keep working. A view that needs a newer index than the current one asks for an upgrade; run `rebuild-search`, which builds the new index beside the live one and moves the alias when it has caught up. The previous index is kept for rollback.
+**What needs Elasticsearch.** Search, facets, the Overview analytics panels, the Graph, the Watchlist's results, "What changed" and evaluation, the investigation Map and Related coverage read the index. While it is down they return an error or say they are unavailable, and ingestion, processing and the recent-window Map keep working. A view that needs a newer index than the current one asks for an upgrade; run `rebuild-search` (then `resume-search-rebuild <rebuild_id>` if it reports `catching_up`), which builds the new index beside the live one and moves the alias once it has caught up. The previous index is kept for rollback.
 
-**Estimated counts.** Two numbers come from Elasticsearch's cardinality estimate (precision 3000) and are always labelled as estimates: the distinct stories behind a Graph edge, and the story and source counts of the investigation Map. Every other count is exact for the indexed snapshot.
+**Estimated counts.** Three numbers come from Elasticsearch's cardinality estimate (precision 3000). Two are labelled: the distinct stories behind a Graph edge ("about N stories (estimated)"), and the story and source counts of the investigation Map (`≈N` in the table, "estimated" to a screen reader). The Watchlist's "N new stories" badge is not marked; it is a notification count and near-exact below 3000 distinct stories. Every other count is exact for the indexed snapshot.
 
 The Operations page (`/operations/`) shows dependency health, pipeline backlogs, feed health and storage. Two things it does not show:
 
@@ -170,7 +170,7 @@ dc exec -T postgres pg_restore -U newsintel -d newsintel --clean --if-exists --n
 dc run --rm --no-deps -T worker tar xzf - -C /var/lib/newsintel < articles-DATE.tgz  # if backed up
 dc run --rm api alembic upgrade head    # a dump from an older release needs the newer migrations
 dc up -d
-dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows
+dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows; resume-search-rebuild <id> if catching_up
 ```
 
 ## 7. Development checks
