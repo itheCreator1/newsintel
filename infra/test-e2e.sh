@@ -110,6 +110,7 @@ case $group in
     [ "$(psql_app "with stale as (update saved_searches set state = state || '{\"retired_filter\": true}' where name = 'Stale investigation' returning id) select count(*) from stale")" = 1 ] || { echo "Stale saved search missing" >&2; exit 1; }
     e2e "invalid saved search"
     [ "$(psql_app "select count(*) from saved_searches")" = 0 ] || { echo "Saved searches were not deleted" >&2; exit 1; }
+    e2e "related coverage workflow"
     ;;
   monitors)
     rebuild_search

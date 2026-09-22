@@ -1001,6 +1001,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/articles/{article_id}/related": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Related Coverage
+         * @description Articles worded like this one, outside its story: similarity, not a stated connection.
+         */
+        get: operations["related_coverage_api_v1_articles__article_id__related_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/indexing/status": {
         parameters: {
             query?: never;
@@ -3228,6 +3248,26 @@ export interface components {
             role: string;
             /** Article Count */
             article_count: number;
+        };
+        /**
+         * RelatedCoverage
+         * @description Articles worded like one article, outside its story: similarity, not story membership.
+         *
+         *     `skipped_stale`: hits the index described out of date. Either the article is gone from
+         *     PostgreSQL, or it has joined this article's story since it was indexed. They are dropped, not
+         *     replaced, so a response can hold fewer than `limit` items.
+         */
+        RelatedCoverage: {
+            /** Items */
+            items: components["schemas"]["RelatedCoverageItem"][];
+            /** Skipped Stale */
+            skipped_stale: number;
+        };
+        /** RelatedCoverageItem */
+        RelatedCoverageItem: {
+            article: components["schemas"]["ArticleResponse"];
+            /** Score */
+            score: number;
         };
         /** RelatedEntityResponse */
         RelatedEntityResponse: {
@@ -5864,6 +5904,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchFacets"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    related_coverage_api_v1_articles__article_id__related_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelatedCoverage"];
                 };
             };
             /** @description Validation Error */

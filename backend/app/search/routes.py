@@ -24,11 +24,13 @@ from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavaila
 from app.search.facets import MAX_FACET_BUCKETS, search_facets
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.rebuild import rebuild_status
+from app.search.related import MAX_RELATED, related_articles
 from app.search.schemas import (
     HighlightSegment,
     IndexFailure,
     IndexFailurePage,
     IndexStatus,
+    RelatedCoverage,
     RetryIndexResponse,
     SearchFacets,
     SearchPage,
@@ -346,6 +348,24 @@ async def search_facet_counts(
         )
     except ElasticsearchUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+
+
+@router.get("/articles/{article_id}/related", response_model=RelatedCoverage)
+async def related_coverage(
+    article_id: uuid.UUID,
+    db: Db,
+    _auth: Auth,
+    settings: Config,
+    limit: Annotated[int, Query(ge=1, le=MAX_RELATED)] = 8,
+) -> RelatedCoverage:
+    """Articles worded like this one, outside its story: similarity, not a stated connection."""
+    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+    try:
+        return await related_articles(db, adapter, article_id, limit)
+    except ElasticsearchUnavailable as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Related coverage is unavailable"
+        ) from exc
 
 
 @router.get("/search/indexing/status", response_model=IndexStatus)

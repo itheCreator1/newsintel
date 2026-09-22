@@ -8,6 +8,7 @@ import { api } from '../../lib/api'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
+import { RelatedCoveragePanel } from '../../components/RelatedCoveragePanel'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 
@@ -48,6 +49,12 @@ function ArticlesContent() {
   function refinedSearchHref(field: ListField, value: string) {
     const origin = stateFromQuery(from.startsWith('/search') ? parseHref(from) : new URLSearchParams())
     return toHref('/search', queryFromState(refine(origin, field, value)))
+  }
+
+  function articleHref(id: string) {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('article', id)
+    return toHref(pathname, next)
   }
 
   return (
@@ -169,8 +176,8 @@ function ArticlesContent() {
                   <>
                     <p className="text-sm text-foreground">{detail.data.story_cluster.article_count} articles from {detail.data.story_cluster.source_count} sources</p>
                     {(detail.data.related ?? []).length > 0 && (
-                      <div className="annotation-group flex flex-wrap items-center gap-2"><strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Related articles</strong>{(detail.data.related ?? []).map(related => (
-                        <Link key={related.article_id} className={chipClass} href={toHref(pathname, (() => { const next = new URLSearchParams(searchParams.toString()); next.set('article', related.article_id); return next })())}>{related.title}</Link>
+                      <div className="annotation-group flex flex-wrap items-center gap-2"><strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Also in this story</strong>{(detail.data.related ?? []).map(related => (
+                        <Link key={related.article_id} className={chipClass} href={articleHref(related.article_id)}>{related.title}</Link>
                       ))}</div>
                     )}
                     <div className="flex gap-2">
@@ -180,6 +187,7 @@ function ArticlesContent() {
                   </>
                 ) : <p className="text-sm text-muted-foreground">Not part of a detected story.</p>}
               </section>
+              <RelatedCoveragePanel articleId={selectedId} hrefFor={articleHref} />
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-border pt-4 text-sm">
                 <dt className="text-muted-foreground">Published</dt><dd className="text-foreground">{detail.data.published_at ? new Date(detail.data.published_at).toLocaleString() : 'Not supplied'}</dd>
                 <dt className="text-muted-foreground">First discovered</dt><dd className="text-foreground">{new Date(detail.data.first_discovered_at).toLocaleString()}</dd>

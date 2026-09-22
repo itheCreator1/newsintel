@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.feeds.schemas import ArticleResponse
+
 
 class HighlightSegment(BaseModel):
     text: str
@@ -111,3 +113,19 @@ class SearchFacets(BaseModel):
     entity_types: FacetGroup
     keywords: FacetGroup
     story_clusters: FacetGroup
+
+
+class RelatedCoverageItem(BaseModel):
+    article: ArticleResponse
+    score: float  # more_like_this relevance; comparable only within one response
+
+
+class RelatedCoverage(BaseModel):
+    """Articles worded like one article, outside its story: similarity, not story membership.
+
+    `skipped_stale`: hits the index described out of date. Either the article is gone from
+    PostgreSQL, or it has joined this article's story since it was indexed. They are dropped, not
+    replaced, so a response can hold fewer than `limit` items."""
+
+    items: list[RelatedCoverageItem]
+    skipped_stale: int

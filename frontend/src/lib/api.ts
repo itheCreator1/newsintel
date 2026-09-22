@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -56,6 +56,7 @@ export const api = {
   },
   article: (id: string) => request<ArticleDetail>(`/articles/${id}`),
   articleAnnotations: (id: string) => request<ArticleAnnotations>(`/articles/${id}/annotations`),
+  relatedArticles: (id: string) => request<RelatedCoverage>(`/articles/${id}/related`),
   processArticle: (id: string, mode: 'full_text' | 'full_text_html') => mutate<{ job_id: string; status: string; reused: boolean }>(`/articles/${id}/process`, 'POST', { mode }),
   reprocessArticle: (id: string, processors: string[] = []) => mutate<{ status: string; jobs_created: number }>(`/articles/${id}/nlp/reprocess`, 'POST', { processors }),
   jobs: (filters: { articleId?: string; stage?: string; status?: string; cursor?: string } = {}) => {

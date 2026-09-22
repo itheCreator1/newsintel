@@ -145,3 +145,25 @@ test('invalid saved search explains why it cannot be opened', async ({ page }) =
   await page.getByRole('button', { name: 'Delete Stale investigation' }).click()
   await expect(page.getByText('Stale investigation')).toHaveCount(0)
 })
+
+test('related coverage workflow lists similar articles outside the story', async ({ page }) => {
+  await login(page)
+  await page.goto('/search?q=Harbor')
+  await expect(heading(page)).toHaveText('6 matching articles over time', { timeout: 30_000 })
+  const first = page.locator('.search-result').first()
+  const title = (await first.locator('.result-open strong').innerText()).trim()
+  await first.locator('.result-open').click()
+  await expect(page).toHaveURL(/\/articles\/\?/)
+
+  const panel = page.getByRole('region', { name: 'Related coverage' })
+  await expect(panel.getByText(/Similar wording is not a confirmed connection/)).toBeVisible()
+  const links = panel.getByRole('link')
+  await expect(links).toHaveCount(5, { timeout: 30_000 })
+  await expect(panel.getByRole('link', { name: title, exact: true })).toHaveCount(0)
+
+  const next = (await links.first().innerText()).trim()
+  await links.first().click()
+  await expect(page.getByRole('heading', { level: 3, name: next, exact: true })).toBeVisible()
+  await expect(links).toHaveCount(5, { timeout: 30_000 })
+  await expect(panel.getByRole('link', { name: next, exact: true })).toHaveCount(0)
+})
