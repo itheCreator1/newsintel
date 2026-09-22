@@ -36,17 +36,21 @@ def test_every_geo_route_requires_a_session() -> None:
         assert current_session in [d.call for d in route.dependant.dependencies], route.path
 
 
-def test_the_map_takes_one_role_and_a_bounded_window() -> None:
+def test_the_map_takes_one_role_a_scope_and_a_bounded_recent_window() -> None:
     params = _query(_operations()[PREFIX + "/countries"]["get"])
     assert params["role"]["schema"]["enum"] == ["story", "mentioned", "source", "event"]
     assert params["role"]["required"] is True
-    assert (params["days"]["schema"]["minimum"], params["days"]["schema"]["maximum"]) == (1, 366)
+    assert params["scope"]["schema"]["enum"] == ["recent", "investigation"]
+    assert params["scope"]["schema"]["default"] == "recent"
+    days = params["days"]["schema"]["anyOf"][0]
+    assert (days["minimum"], days["maximum"]) == (1, 366)
+    assert {"q", "source_country", "story_country", "after", "before"} <= set(params)
 
 
 def test_evidence_is_keyset_paged_for_the_article_roles_only() -> None:
     params = _query(_operations()[PREFIX + "/articles"]["get"])
     assert params["role"]["schema"]["enum"] == ["story", "mentioned", "source"]
-    assert {"code", "days", "cursor", "limit"} <= set(params)
+    assert {"code", "days", "cursor", "limit", "scope", "q"} <= set(params)
     assert (params["limit"]["schema"]["minimum"], params["limit"]["schema"]["maximum"]) == (1, 100)
 
 
@@ -60,3 +64,7 @@ def test_the_map_reports_coverage_with_its_base_and_no_score() -> None:
     assert {"GeoCountriesResponse", "GeoCountry", "GeoCoverage"} <= set(ours)
     everything = str({n: schemas[n] for n in ours}).lower()
     assert not {"winner", "score", "rank"} & set(everything.replace("'", " ").split())
+    assert "skipped_stale" in schemas["GeoArticlePage"]["properties"]
+    assert {"stories_estimated", "sources_estimated", "scope", "window_end"} <= set(
+        schemas["GeoCountriesResponse"]["properties"]
+    )

@@ -50,6 +50,11 @@ class SearchCriteria:
     def schema_v3_required(self) -> bool:
         return bool(self.story_cluster_ids)
 
+    @property
+    def empty(self) -> bool:
+        """No article criterion at all; sort and interval are display preferences, not criteria."""
+        return all(value in ("", [], None) for value in self.fingerprint().values())
+
     def fingerprint(self) -> dict[str, Any]:
         return {
             "q": self.q,

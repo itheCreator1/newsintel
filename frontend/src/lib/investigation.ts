@@ -10,7 +10,7 @@ export type Investigation = Required<Omit<InvestigationState, 'after' | 'before'
 
 // Source country keeps its historical `country` URL key so existing bookmarks still open.
 const urlKey = (field: ListField) => field === 'source_country' ? 'country' : field
-const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
+export const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
 
 export function emptyInvestigation(): Investigation {
   return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'relevance', interval: 'auto' }
@@ -118,13 +118,29 @@ export function compareHref({ kind, a, b, role, days }: { kind: CompareKind; a?:
   return toHref('/compare', query)
 }
 
-/** Map link; the role, window and selected country are all in the URL so a view can be bookmarked. */
-export function mapHref({ role, days, country }: { role?: GeoRole; days?: number; country?: string }): string {
+/**
+ * Map link. A recent map keeps its legacy `days`; an investigation map carries the shared criteria
+ * instead and has no window. On /map `country` is the legacy selection, so the source-country
+ * filter travels as `source_country` and the selection as `selected_country`.
+ */
+export function mapHref({ role, days, country, investigation }: { role?: GeoRole; days?: number; country?: string; investigation?: Investigation }): string {
   const query = new URLSearchParams()
+  if (investigation) {
+    query.set('scope', 'investigation')
+    for (const [key, value] of queryFromState({ ...investigation, sort: 'relevance', interval: 'auto' })) query.append(key === 'country' ? 'source_country' : key, value)
+  }
   if (role && role !== 'story') query.set('role', role)
-  if (days && days !== 30) query.set('days', String(days))
-  if (country) query.set('country', country.toUpperCase())
+  if (days && days !== 30 && !investigation) query.set('days', String(days))
+  if (country) query.set('selected_country', country.toUpperCase())
   return toHref('/map', query)
+}
+
+/** Map URL state, the inverse of `mapHref`; a legacy `country` still opens as the selection. */
+export function mapStateFromQuery(query: URLSearchParams): { investigation: boolean; state: Investigation; selected: string } {
+  const shared = new URLSearchParams()
+  for (const [key, value] of query) if (key !== 'country') shared.append(key === 'source_country' ? 'country' : key, value)
+  const selected = (query.get('selected_country') || query.get('country') || '').trim().toUpperCase()
+  return { investigation: query.get('scope') === 'investigation', state: stateFromQuery(shared), selected: /^[A-Z]{2}$/.test(selected) ? selected : '' }
 }
 
 export function fromSaved(state: InvestigationState): Investigation {

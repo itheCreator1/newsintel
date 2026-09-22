@@ -10,6 +10,7 @@ from app.feeds.schemas import ArticleResponse
 # the story role. A map shows exactly one role; roles are never added together.
 Role = Literal["story", "mentioned", "source", "event"]
 ArticleRole = Literal["story", "mentioned", "source"]
+MapScope = Literal["recent", "investigation"]
 
 
 class GeoCountry(BaseModel):
@@ -34,13 +35,26 @@ class GeoCoverage(BaseModel):
 
 
 class GeoCountriesResponse(BaseModel):
+    """`scope=recent` counts are exact, from PostgreSQL over the last `days`. `scope=investigation`
+    counts come from Elasticsearch over the shared search criteria, bounded only by their own
+    `after`/`before` (`window_start`/`window_end`, either may be open): articles and coverage are
+    exact document counts, stories and sources cardinality estimates, as the flags say."""
+
     role: Role
-    days: int
-    window_start: datetime
+    scope: MapScope
+    days: int | None
+    window_start: datetime | None
+    window_end: datetime | None
     coverage: GeoCoverage
     items: list[GeoCountry]
+    stories_estimated: bool
+    sources_estimated: bool
 
 
 class GeoArticlePage(BaseModel):
+    """`skipped_stale`: hits on this page whose article PostgreSQL no longer holds (the index lags a
+    merge or deletion); they are skipped rather than replaced, and paging continues past them."""
+
     items: list[ArticleResponse]
     next_cursor: str | None
+    skipped_stale: int
