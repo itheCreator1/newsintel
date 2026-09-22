@@ -29,6 +29,7 @@ from app.search.criteria import SearchCriteria, build_query
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.facets import facets_body
 from app.search.rebuild import SCHEMA_VERSION
+from app.search.related import related_body
 from app.search.routes import search_articles, search_timeline
 
 V3 = ARTICLE_INDEX_SETTINGS_V3["mappings"]["properties"]
@@ -108,7 +109,7 @@ def unmapped(body: dict[str, Any], properties: dict[str, Any]) -> list[str]:
                 for field in value:
                     if field != "boost":
                         ref(field, context, key)
-            elif key == "multi_match":
+            elif key in ("multi_match", "more_like_this"):
                 for field in value["fields"]:
                     ref(field.split("^")[0], context, key)
             elif key == "field" and isinstance(value, str):
@@ -295,6 +296,7 @@ def _builder_bodies() -> dict[str, dict[str, Any]]:
         "monitor prior": prior_body(
             query, now, {"sources": [SOURCE], "entities": [ENTITY], "stories": [CLUSTER]}, 3
         ),
+        "related": related_body(entity, uuid.UUID(CLUSTER)),
     }
 
 

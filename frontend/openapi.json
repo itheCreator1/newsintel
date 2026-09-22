@@ -5112,6 +5112,62 @@
         }
       }
     },
+    "/api/v1/articles/{article_id}/related": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Related Coverage",
+        "description": "Articles worded like this one, outside its story: similarity, not a stated connection.",
+        "operationId": "related_coverage_api_v1_articles__article_id__related_get",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatedCoverage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/indexing/status": {
       "get": {
         "tags": [
@@ -13041,6 +13097,45 @@
           "article_count"
         ],
         "title": "RelatedCountryResponse"
+      },
+      "RelatedCoverage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedCoverageItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "skipped_stale": {
+            "type": "integer",
+            "title": "Skipped Stale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "skipped_stale"
+        ],
+        "title": "RelatedCoverage",
+        "description": "Articles worded like one article, outside its story: similarity, not story membership.\n\n`skipped_stale`: hits the index described out of date. Either the article is gone from\nPostgreSQL, or it has joined this article's story since it was indexed. They are dropped, not\nreplaced, so a response can hold fewer than `limit` items."
+      },
+      "RelatedCoverageItem": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleResponse"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "score"
+        ],
+        "title": "RelatedCoverageItem"
       },
       "RelatedEntityResponse": {
         "properties": {

@@ -177,7 +177,7 @@ async def search_criteria(
 
 
 async def current_search_target(
-    db: AsyncSession, criteria: SearchCriteria, *, minimum: int = 1
+    db: AsyncSession, criteria: SearchCriteria | None, *, minimum: int = 1
 ) -> tuple[str, int]:
     """The live index and its schema; `minimum` is the endpoint's floor whatever the filters."""
     target = await db.scalar(
@@ -192,7 +192,7 @@ async def current_search_target(
                 "message": f"Rebuild search to schema version {minimum} to use this view",
             },
         )
-    if criteria.annotation_search and schema_version < 2:
+    if criteria is not None and criteria.annotation_search and schema_version < 2:
         raise HTTPException(
             409,
             {
@@ -200,7 +200,7 @@ async def current_search_target(
                 "message": "Rebuild search to schema version 2 to use annotation filters",
             },
         )
-    if criteria.schema_v3_required and schema_version < 3:
+    if criteria is not None and criteria.schema_v3_required and schema_version < 3:
         raise HTTPException(
             409,
             {
