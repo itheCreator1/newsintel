@@ -12,6 +12,7 @@ vi.mock('../../lib/api', () => ({
     articles: vi.fn(),
     article: vi.fn(),
     articleAnnotations: vi.fn(),
+    relatedArticles: vi.fn(),
     processArticle: vi.fn(),
     reprocessArticle: vi.fn(),
   },
@@ -35,6 +36,7 @@ beforeEach(() => {
     .mockResolvedValueOnce({ items: [article('one', 'First article')], next_cursor: 'next' })
     .mockResolvedValueOnce({ items: [article('two', 'Second article')], next_cursor: null })
   vi.mocked(api.articleAnnotations).mockResolvedValue({ article_id: 'one', capabilities: [], countries: [], entities: [], keywords: [], language: null, processors: [], source_countries: [] })
+  vi.mocked(api.relatedArticles).mockResolvedValue({ items: [], skipped_stale: 0 })
 })
 
 afterEach(cleanup)
@@ -202,4 +204,17 @@ it.each([
   renderWithQuery(() => <ArticlesPage />)
 
   expect(await screen.findByRole('link', { name })).toHaveAttribute('href', expectedHref)
+})
+
+it('shows related coverage apart from the story and opens a related article in place', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one&feed=f1' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  vi.mocked(api.relatedArticles).mockResolvedValue({ items: [{ article: article('two', 'Worded alike'), score: 2 }], skipped_stale: 0 })
+  renderWithQuery(() => <ArticlesPage />)
+
+  const panel = await screen.findByRole('region', { name: 'Related coverage' })
+  expect(await screen.findByRole('link', { name: 'Worded alike' })).toHaveAttribute('href', toHref('/articles/', new URLSearchParams('article=two&feed=f1')))
+  expect(panel.textContent).toMatch(/not a confirmed connection/)
+  expect(api.relatedArticles).toHaveBeenCalledWith('one')
 })

@@ -65,7 +65,7 @@ test('relationships workflow links search, the cluster, article detail, and the 
   await memberRows.first().locator('.result-open').click()
   await expect(page).toHaveURL(/\/articles\/\?/)
   const relatedGroup = page.locator('.story .annotation-group')
-  await expect(relatedGroup.getByText('Related articles')).toBeVisible({ timeout: 30_000 })
+  await expect(relatedGroup.getByText('Also in this story')).toBeVisible({ timeout: 30_000 })
   await expect(relatedGroup.getByRole('link')).toHaveCount(1)
 
   await page.goBack()
