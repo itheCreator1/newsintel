@@ -84,17 +84,40 @@ ni_manifest="$artifacts/image-manifest.env"
   echo "NEWSINTEL_IMAGE_FRONTEND_TEST_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_FRONTEND_TEST")"
 } > "$ni_manifest"
 
+# Bring dependencies up without waiting so Elasticsearch's slow healthcheck overlaps the static
+# checks below (which touch no service) instead of blocking wall time in front of them; the hard
+# `--wait` barrier just before alembic.upgrade still guarantees migrations never race startup.
 ni_stage deps.up
+$compose up -d test-postgres test-redis test-elasticsearch
+
+if [ "${NEWSINTEL_TEST_CONCURRENT_STATIC:-0}" = 1 ]; then
+  ni_stage static
+  $compose run --rm --no-deps backend-test ruff check . > "$artifacts/ruff.log" 2>&1 &
+  ni_ruff_pid=$!
+  $compose run --rm --no-deps backend-test mypy app > "$artifacts/mypy.log" 2>&1 &
+  ni_mypy_pid=$!
+  ni_ruff_status=0
+  ni_mypy_status=0
+  wait "$ni_ruff_pid" || ni_ruff_status=$?
+  wait "$ni_mypy_pid" || ni_mypy_status=$?
+  cat "$artifacts/ruff.log"
+  cat "$artifacts/mypy.log"
+  [ "$ni_ruff_status" -eq 0 ] || { echo "ruff failed" >&2; exit "$ni_ruff_status"; }
+  [ "$ni_mypy_status" -eq 0 ] || { echo "mypy failed" >&2; exit "$ni_mypy_status"; }
+else
+  ni_stage ruff
+  $compose run --rm --no-deps backend-test ruff check .
+  ni_stage mypy
+  $compose run --rm --no-deps backend-test mypy app
+fi
+
+ni_stage deps.wait
 $compose up -d --wait --wait-timeout 180 test-postgres test-redis test-elasticsearch
 
-ni_stage ruff
-$compose run --rm backend-test ruff check .
-ni_stage mypy
-$compose run --rm backend-test mypy app
 ni_stage alembic.upgrade
 $compose run --rm backend-test alembic upgrade head
 ni_stage alembic.single-head
-ni_single_head "$compose" backend-test "Migrations must have exactly one head"
+ni_single_head "$compose" backend-test "Migrations must have exactly one head" --no-deps
 
 ni_stage pytest
 $compose run --rm -v "$artifacts:/artifacts" backend-test \
@@ -116,8 +139,13 @@ $compose run --rm -v "$artifacts:/artifacts" backend-test \
 ni_stage restore
 infra/test-restore.sh "$($compose ps -q test-postgres)" newsintel_tests
 
+# `stop`, not `down`/`rm`: keeps the containers (and compose logs) available for the failure trap
+# while every remaining stage runs --no-deps or against its own separate Compose project.
+ni_stage deps.stop
+$compose stop test-postgres test-redis test-elasticsearch
+
 ni_stage contract.openapi
-$compose run --rm -v "$artifacts:/artifacts" backend-test \
+$compose run --rm --no-deps -v "$artifacts:/artifacts" backend-test \
   sh -c "python -c 'import json; from app.main import create_app; print(json.dumps(create_app().openapi(), indent=2))' > /artifacts/openapi.json"
 cmp frontend/openapi.json "$artifacts/openapi.json" || {
   echo "frontend/openapi.json is stale" >&2
