@@ -1,6 +1,6 @@
 'use client'
 
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
@@ -68,7 +68,8 @@ function SearchContent() {
   const timeline = useQuery({ queryKey: ['search-timeline', timelineCriteria], queryFn: () => api.timeline(timelineCriteria), retry: false })
   // Facets ignore sort, so re-sorting results never refetches them.
   const facetCriteria = Object.fromEntries(Object.entries(criteria).filter(([key]) => key !== 'sort'))
-  const facets = useQuery({ queryKey: ['search-facets', facetCriteria], queryFn: () => api.facets(facetCriteria), retry: false })
+  // Keeping the previous counts during a recount keeps the pressed facet, and its focus, on screen.
+  const facets = useQuery({ queryKey: ['search-facets', facetCriteria], queryFn: () => api.facets(facetCriteria), retry: false, placeholderData: keepPreviousData })
   const facetsUpgrade = errorCode(facets.error) === 'search_upgrade_required'
   const facetsDown = facets.error instanceof ApiError && facets.error.status === 503
   // A value selected from a facet need not be on the pickers' loaded pages, so chips also take facet labels.
@@ -201,7 +202,7 @@ function SearchContent() {
             onRetry={isTransient(facets.error) ? () => void facets.refetch() : undefined} retrying={facets.isFetching}
           />
         )}
-        {facets.isSuccess && <FacetPanel facets={facets.data} state={state} onToggle={(field, value) => navigate(toggle(state, field, value))} />}
+        {facets.data && <FacetPanel facets={facets.data} state={state} onToggle={(field, value) => navigate(toggle(state, field, value))} />}
       </GlassPanel>
 
       <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>

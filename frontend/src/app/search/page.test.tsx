@@ -386,6 +386,18 @@ it('toggles a facet into the bookmarkable filters, labels its chip, and Back res
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'grid', entity_id: ['entity-one'], sort: 'newest' }, undefined))
 })
 
+it('keeps the previous facets on screen while a toggle recounts them', async () => {
+  vi.mocked(api.facets).mockResolvedValueOnce({ ...noFacets, total: 5, entities: { buckets: [{ value: 'entity-two', label: 'Jane Doe', count: 2 }], truncated: false } })
+  vi.mocked(api.facets).mockReturnValue(new Promise(() => {}))
+  const { rerenderSame } = renderSearch('q=grid')
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Jane Doe 2' }))
+  rerenderSame()
+  await vi.waitFor(() => expect(api.facets).toHaveBeenCalledTimes(2))
+  expect(screen.getByRole('button', { name: 'Jane Doe 2' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.queryByText('Counting facets…')).toBeNull()
+})
+
 it('keys facets on the criteria alone, so re-sorting does not refetch them', async () => {
   const { rerenderSame } = renderSearch('q=grid')
   await vi.waitFor(() => expect(api.facets).toHaveBeenCalledTimes(1))
