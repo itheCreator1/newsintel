@@ -101,6 +101,23 @@ case $group in
     wait_until "NLP backlog" nlp_drained
     wait_until "Indexing" indexing_drained
     e2e "search restores URL state|annotations refine search"
+    # A second rebuild over the live alias (the first one above created it): the cutover path a V3
+    # re-rebuild or a V4 takes. Every article must land in the new index, the old target becomes
+    # retained and its index stays for rollback. Search reads the current target's index (from
+    # PostgreSQL, not the alias), so the re-run spec proves reads survive the switch; the checks
+    # before it prove the alias moved.
+    es() { $compose exec -T elasticsearch curl -fsS "http://127.0.0.1:9200/$1"; }
+    alias_index() { es "_cat/aliases/articles-current?h=index" | tr -d '[:space:]'; }
+    old_index=$(alias_index)
+    [ -n "$old_index" ] || { echo "Search alias missing before the second rebuild" >&2; exit 1; }
+    rebuild_search
+    new_index=$(alias_index)
+    [ -n "$new_index" ] && [ "$new_index" != "$old_index" ] || { echo "Alias did not move: $old_index -> $new_index" >&2; exit 1; }
+    [ "$(es "_cat/count/articles-current?h=count" | tr -d '[:space:]')" = "$(psql_app "select count(*) from articles")" ] || { echo "The new index does not hold every article" >&2; exit 1; }
+    [ "$(psql_app "select role from search_index_targets where index_name = '$new_index'")" = current ] || { echo "New target is not current" >&2; exit 1; }
+    [ "$(psql_app "select role from search_index_targets where index_name = '$old_index'")" = retained ] || { echo "Old target is not retained" >&2; exit 1; }
+    es "$old_index/_count" >/dev/null || { echo "The old index was not kept for rollback" >&2; exit 1; }
+    e2e "search restores URL state"
     ;;
   investigations)
     e2e "investigation seed"

@@ -106,6 +106,8 @@ Two details make the index trustworthy. Each article carries a *revision* bumped
 ![Search results for "China" with a daily timeline, save and watch actions, and highlighted matches](assets/search.png)
 <sub>**Figure 4.** Search. Full-text queries with field filters, a matching-articles timeline, and highlighted hits. Any search can be saved as a running case file or turned into a monitor that the scheduler re-evaluates in the background. The **Watchlist** then shows each monitor's new articles and stories, with a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) linked to the evidence.</sub>
 
+**Search is the investigation hub.** The query and filters live in the URL, and every view reads that same state: bounded facets beside the results (10 values per group, 25 at most), the Overview analytics in investigation scope, the Graph and the Map. An article's detail page adds **Related coverage**: other articles with similar wording from outside the article's own story, found by Elasticsearch `more_like_this`. Similar wording is not a confirmed connection, and the panel says so.
+
 ![Entity relationship graph with GPE, ORG, PERSON and OTHER nodes and co-occurrence edges](assets/graph.png)
 <sub>**Figure 5.** The relationship graph: who and what keeps showing up together. Deliberately bounded — "narrow the filters to see more" is a feature, not an apology. Each edge opens the articles and stories behind it, and each entity has a dossier with its articles, stories and closest neighbours.</sub>
 
@@ -113,7 +115,7 @@ Two details make the index trustworthy. Each article carries a *revision* bumped
 <sub>**Figure 6.** An event dossier: a UTC-day timeline, the member stories with their join scores and signals, the articles, and every entity involved. Events are grouped by time, shared entities, headline overlap and story country, and served by the read-only `/api/v1/events` API.</sub>
 
 ![World choropleth of articles by story country, with a ranked country table](assets/map.png)
-<sub>**Figure 7.** The map, by *story country*: the one country an article is about. Location roles are never summed together, and the page tells you how many articles have no country at all, because a choropleth that hides its denominator is just a very confident guess.</sub>
+<sub>**Figure 7.** The map, by *story country*: the one country an article is about. Location roles are never summed together, and the page tells you how many articles have no country at all, because a choropleth that hides its denominator is just a very confident guess. Opened from Search, the map covers the whole investigation from Elasticsearch, and its story and source counts are estimates, shown as `≈N (estimated)`. Opened on its own, it keeps the recent-window PostgreSQL mode, with exact counts, which works while Elasticsearch is down.</sub>
 
 The remaining routes follow the same design language:
 - **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
@@ -129,7 +131,7 @@ The remaining routes follow the same design language:
 | Backend | Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic, `uv` |
 | Background jobs | Dramatiq, Redis, PostgreSQL job tables with leases |
 | Canonical storage | PostgreSQL |
-| Search | Elasticsearch (versioned indices behind an alias, zero-downtime reindexing) |
+| Search | Elasticsearch (versioned indices behind an alias, zero-downtime reindexing): full text, facets, investigation analytics and map, related coverage |
 | NLP | spaCy NER, pluggable/versioned processors |
 | Extraction | Trafilatura, behind a replaceable extractor interface |
 | Frontend | Next.js (App Router, static export), React, TypeScript, TanStack Query, Apache ECharts |
@@ -137,7 +139,11 @@ The remaining routes follow the same design language:
 
 ## 6. Operations
 
-**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show.
+**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
+
+**What needs Elasticsearch.** Search, facets, the Overview analytics panels, the Graph, the Watchlist's results, "What changed" and evaluation, the investigation Map and Related coverage read the index. While it is down they return an error or say they are unavailable, and ingestion, processing and the recent-window Map keep working. A view that needs a newer index than the current one asks for an upgrade; run `rebuild-search` (then `resume-search-rebuild <rebuild_id>` if it reports `catching_up`), which builds the new index beside the live one and moves the alias once it has caught up. The previous index is kept for rollback.
+
+**Estimated counts.** Three numbers come from Elasticsearch's cardinality estimate (precision 3000). Two are labelled: the distinct stories behind a Graph edge ("about N stories (estimated)"), and the story and source counts of the investigation Map (`≈N` in the table, "estimated" to a screen reader). The Watchlist's "N new stories" badge is not marked; it is a notification count and near-exact below 3000 distinct stories. Every other count is exact for the indexed snapshot.
 
 The Operations page (`/operations/`) shows dependency health, pipeline backlogs, feed health and storage. Two things it does not show:
 
@@ -164,7 +170,7 @@ dc exec -T postgres pg_restore -U newsintel -d newsintel --clean --if-exists --n
 dc run --rm --no-deps -T worker tar xzf - -C /var/lib/newsintel < articles-DATE.tgz  # if backed up
 dc run --rm api alembic upgrade head    # a dump from an older release needs the newer migrations
 dc up -d
-dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows
+dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows; resume-search-rebuild <id> if catching_up
 ```
 
 ## 7. Development checks
@@ -188,6 +194,7 @@ In the tradition of papers that are honest about their methods:
 - **Entity quality is spaCy's quality.** NER mislabels things (the graph in Figure 5 has met a "Last week" it believes is an entity). Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
 - **Story country is conservative.** It is only assigned when a country is named alone in the title and repeated in the text, and mainly for English-language articles, so most articles have none. The map says so rather than guessing.
 - **Rule-based clustering and events.** They are deterministic and explainable, but they miss paraphrases that share neither entities nor headline terms.
+- **Related coverage is wording, not meaning.** It needs at least five shared terms, so a paraphrase in different words is missed, and a short or text-poor article gets no related coverage rather than a guess.
 - **Scale is designed, not unlimited.** The target is on the order of five million articles on a single Compose host. Beyond that, the ceilings are named in the code as they are met.
 
 ## License

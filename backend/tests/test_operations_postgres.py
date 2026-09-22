@@ -351,7 +351,7 @@ async def test_the_events_pipeline_reports_the_runs_in_the_window() -> None:
 
 
 async def _fetches(db, item: Feed, *pattern: str, start: datetime = INSIDE) -> None:  # type: ignore[no-untyped-def]
-    """Oldest first: S success (10 entries, 2 invalid, 3 new), F failed (http_transient), Q queued."""
+    """Oldest first: S success (10 entries, 2 invalid, 3 new), F http_transient, Q queued."""
     for i, mark in enumerate(pattern):
         at = start - timedelta(minutes=len(pattern) - i)
         db.add(
