@@ -86,22 +86,27 @@ it('keeps the window and the selected country when the role changes, and the rol
   open('days=90&country=GR')
   await screen.findByText('map Greece 5')
   fireEvent.change(screen.getByLabelText('Location role'), { target: { value: 'mentioned' } })
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?role=mentioned&days=90&country=GR')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?role=mentioned&days=90&selected_country=GR')
   fireEvent.change(screen.getByLabelText('Window'), { target: { value: '7' } })
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?days=7&country=GR')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?days=7&selected_country=GR')
 })
 
 it('selects a country from the map or the table and clears it again', async () => {
   const view = open()
   fireEvent.click(await screen.findByText('map France 2'))
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?country=FR')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?selected_country=FR')
   fireEvent.click(within(screen.getByRole('table')).getByRole('button', { name: 'Greece' }))
-  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?country=GR')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/?selected_country=GR')
 
-  resetNavigationHarness({ pathname: '/map/', search: 'country=GR' })
+  resetNavigationHarness({ pathname: '/map/', search: 'selected_country=GR' })
   view.rerenderSame()
   fireEvent.click(await screen.findByRole('button', { name: 'Clear selection' }))
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/map/')
+})
+
+it('opens the canonical selected_country as the selection', async () => {
+  open('country=GR')
+  expect(await screen.findByRole('region', { name: 'Greece' })).toBeTruthy()
 })
 
 it('opens a selected country with its counts, its articles and links that refine the investigation', async () => {

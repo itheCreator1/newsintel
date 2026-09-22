@@ -81,7 +81,7 @@ it('links a country filter to the map of event countries and offers nothing with
   resetNavigationHarness({ pathname: '/events/', search: 'country=gr&days=1' })
   const { unmount } = renderWithQuery(() => <EventsPage />)
   await screen.findByRole('link', { name: 'Headline ev-1' })
-  expect(screen.getByRole('link', { name: 'View on map' }).getAttribute('href')).toBe('/map/?role=event&country=GR')
+  expect(screen.getByRole('link', { name: 'View on map' }).getAttribute('href')).toBe('/map/?role=event&selected_country=GR')
   unmount()
 
   resetNavigationHarness({ pathname: '/events/' })

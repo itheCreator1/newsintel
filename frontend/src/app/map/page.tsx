@@ -11,7 +11,7 @@ import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
 import world from '../../lib/world.geo.json'
-import { compareHref, emptyInvestigation, eventHref, mapHref, queryFromState, refine, toHref, type ListField } from '../../lib/investigation'
+import { compareHref, emptyInvestigation, eventHref, mapHref, mapStateFromQuery, queryFromState, refine, toHref, type ListField } from '../../lib/investigation'
 import { countryName, plural } from '../../lib/utils'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 
@@ -23,7 +23,6 @@ const ROLES: { value: GeoRole; label: string; note: string }[] = [
   { value: 'event', label: 'Event country', note: 'An event’s most frequent story country. It is derived from the story country, not a separate location.' },
 ]
 const WINDOWS = [7, 30, 90, 365]
-const COUNTRY = /^[A-Za-z]{2}$/
 const DRAWN = new Set(world.features.map(feature => feature.properties.code))
 const SEARCH_FIELD: Record<GeoArticleRole, ListField> = { story: 'story_country', mentioned: 'mentioned_country', source: 'source_country' }
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
@@ -54,7 +53,7 @@ function MapContent() {
   const currentHref = toHref(pathname, searchParams)
   const role = ROLES.find(item => item.value === searchParams.get('role'))?.value ?? 'story'
   const days = WINDOWS.includes(Number(searchParams.get('days'))) ? Number(searchParams.get('days')) : 30
-  const country = COUNTRY.test(searchParams.get('country') ?? '') ? searchParams.get('country')!.toUpperCase() : ''
+  const country = mapStateFromQuery(searchParams).selected
   const definition = ROLES.find(item => item.value === role)!
 
   const map = useQuery({ queryKey: ['geo-countries', role, days], queryFn: () => api.geoCountries(role, days), retry: false })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InvestigationState } from './api-types'
-import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, mapHref, queryFromState, refine, searchParams, sourceHref, stateFromQuery, toggle } from './investigation'
+import { brushRange, bucketEnd, compareHref, emptyInvestigation, eventHref, fromSaved, mapHref, mapStateFromQuery, queryFromState, refine, searchParams, sourceHref, stateFromQuery, toggle } from './investigation'
 
 function params(entries: Record<string, string | string[]>): URLSearchParams {
   const query = new URLSearchParams()
@@ -122,11 +122,30 @@ describe('compareHref', () => {
 })
 
 describe('mapHref', () => {
-  it('holds the role, window and selected country in the URL and leaves out the defaults', () => {
+  it('writes only non-default recent choices and the selection as selected_country', () => {
     expect(mapHref({})).toBe('/map/')
     expect(mapHref({ role: 'story', days: 30 })).toBe('/map/')
-    expect(mapHref({ role: 'mentioned', days: 90, country: 'gr' })).toBe('/map/?role=mentioned&days=90&country=GR')
-    expect(mapHref({ country: 'FR' })).toBe('/map/?country=FR')
+    expect(mapHref({ role: 'mentioned', days: 90, country: 'gr' })).toBe('/map/?role=mentioned&days=90&selected_country=GR')
+    expect(mapHref({ country: 'FR' })).toBe('/map/?selected_country=FR')
+  })
+
+  it('carries an investigation instead of a window, with the source-country filter apart from the selection', () => {
+    const state = { ...emptyInvestigation(), q: 'grid', source_country: ['GR', 'US'], story_country: ['DE'], after: '2026-09-01', sort: 'newest' as const, interval: 'week' as const }
+    const href = mapHref({ role: 'source', days: 90, country: 'fr', investigation: state })
+    expect(href).toBe('/map/?scope=investigation&q=grid&source_country=GR&source_country=US&story_country=DE&after=2026-09-01&role=source&selected_country=FR')
+    expect(mapStateFromQuery(new URL(href, 'http://n').searchParams)).toEqual({ investigation: true, selected: 'FR', state: { ...state, sort: 'relevance', interval: 'auto' } })
+    expect(mapHref({ investigation: emptyInvestigation() })).toBe('/map/?scope=investigation')
+  })
+})
+
+describe('mapStateFromQuery', () => {
+  it('opens legacy links: `country` is the selection and never a filter', () => {
+    const view = mapStateFromQuery(new URLSearchParams('role=event&days=90&country=gr'))
+    expect(view.investigation).toBe(false)
+    expect(view.selected).toBe('GR')
+    expect(view.state.source_country).toEqual([])
+    expect(mapStateFromQuery(new URLSearchParams('selected_country=FR&country=GR')).selected).toBe('FR')
+    expect(mapStateFromQuery(new URLSearchParams('country=GRC')).selected).toBe('')
   })
 })
 

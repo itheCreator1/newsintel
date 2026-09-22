@@ -118,13 +118,29 @@ export function compareHref({ kind, a, b, role, days }: { kind: CompareKind; a?:
   return toHref('/compare', query)
 }
 
-/** Map link; the role, window and selected country are all in the URL so a view can be bookmarked. */
-export function mapHref({ role, days, country }: { role?: GeoRole; days?: number; country?: string }): string {
+/**
+ * Map link. A recent map keeps its legacy `days`; an investigation map carries the shared criteria
+ * instead and has no window. On /map `country` is the legacy selection, so the source-country
+ * filter travels as `source_country` and the selection as `selected_country`.
+ */
+export function mapHref({ role, days, country, investigation }: { role?: GeoRole; days?: number; country?: string; investigation?: Investigation }): string {
   const query = new URLSearchParams()
+  if (investigation) {
+    query.set('scope', 'investigation')
+    for (const [key, value] of queryFromState({ ...investigation, sort: 'relevance', interval: 'auto' })) query.append(key === 'country' ? 'source_country' : key, value)
+  }
   if (role && role !== 'story') query.set('role', role)
-  if (days && days !== 30) query.set('days', String(days))
-  if (country) query.set('country', country.toUpperCase())
+  if (days && days !== 30 && !investigation) query.set('days', String(days))
+  if (country) query.set('selected_country', country.toUpperCase())
   return toHref('/map', query)
+}
+
+/** Map URL state, the inverse of `mapHref`; a legacy `country` still opens as the selection. */
+export function mapStateFromQuery(query: URLSearchParams): { investigation: boolean; state: Investigation; selected: string } {
+  const shared = new URLSearchParams()
+  for (const [key, value] of query) if (key !== 'country') shared.append(key === 'source_country' ? 'country' : key, value)
+  const selected = (query.get('selected_country') || query.get('country') || '').trim().toUpperCase()
+  return { investigation: query.get('scope') === 'investigation', state: stateFromQuery(shared), selected: /^[A-Z]{2}$/.test(selected) ? selected : '' }
 }
 
 export function fromSaved(state: InvestigationState): Investigation {
