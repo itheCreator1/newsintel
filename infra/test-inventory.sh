@@ -8,6 +8,10 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 project=$(ni_project inventory)
+# Run-scoped tags, same convention as test-quick.sh: never fall back to the shared :local tag,
+# so a concurrent run can't clobber this run's images (or vice versa).
+export NEWSINTEL_IMAGE_BACKEND_TEST="newsintel-backend-test:$project"
+export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
 compose="docker compose -p $project -f docker/compose.test.yaml"
 ni_report_init "${NEWSINTEL_TEST_ARTIFACTS:-}" "$root" inventory
 
@@ -60,6 +64,10 @@ $compose run --rm --no-deps frontend-test npx vitest list > "$artifacts/inventor
 for group in search investigations monitors graph; do
   ni_stage "e2e.$group.invocations"
   ni_e2e_calls "$group" > "$artifacts/inventory/e2e-$group-invocations.txt"
+  [ -s "$artifacts/inventory/e2e-$group-invocations.txt" ] || {
+    echo "No e2e() calls found for $group group in infra/test-e2e.sh" >&2
+    exit 1
+  }
 
   ni_stage "e2e.$group.specs"
   filter=$(tr '\n' '|' < "$artifacts/inventory/e2e-$group-invocations.txt" | sed 's/|$//')

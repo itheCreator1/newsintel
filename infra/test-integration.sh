@@ -20,10 +20,7 @@ root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 # produces ids like "test_foo.py::test[a b]" for string/tuple parametrize values) -- appending
 # each already-quoted stripped id one at a time keeps it intact as a single argument.
 ni_orig_n=$#
-ni_i=0
-while [ "$ni_i" -lt "$ni_orig_n" ]; do
-  ni_i=$((ni_i + 1))
-  eval "ni_arg=\$$ni_i"
+for ni_arg do
   set -- "$@" "${ni_arg#backend/}"
 done
 shift "$ni_orig_n"

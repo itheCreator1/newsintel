@@ -64,6 +64,12 @@ def test_unit_modules_declare_no_service_flags() -> None:
     assert not violations, f"unit-kind modules must not set any service flag: {violations}"
 
 
+# Note: nothing here checks the converse -- a kind="integration" row with postgres=false passes
+# every check above (it's not a unit-kind module, so test_unit_modules_declare_no_service_flags
+# doesn't apply, and it declares no service flags, so this function and the fixture-server check
+# below don't apply either). Left uncovered deliberately: this is the safe direction -- it can
+# only make test-quick.sh's `--paths unit` selection wrongly include an integration-kind module,
+# never weaken the full gate's `pytest -q -rs tests`, which ignores kind/postgres entirely.
 def test_elasticsearch_and_fixture_server_imply_postgres() -> None:
     violations = sorted(
         name

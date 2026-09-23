@@ -25,6 +25,7 @@ case $group in
   search | investigations | monitors | graph) ;;
   *) echo "Unknown group: $group" >&2; exit 2 ;;
 esac
+[ "$#" -eq 1 ] || { echo "$usage" >&2; exit 2; }
 
 if [ -n "$reuse_manifest" ]; then
   [ -r "$reuse_manifest" ] || { echo "Reuse manifest not readable: $reuse_manifest" >&2; exit 2; }
@@ -66,6 +67,15 @@ if [ -n "$reuse_manifest" ]; then
 fi
 
 project=$(ni_project "e2e-$group")
+# Run-scoped tags for a standalone run (no --reuse-images): same convention as test-docker.sh/
+# test-quick.sh/test-integration.sh, so this run never falls back to the shared :local tag. The
+# --reuse-images branch above already exported the manifest's own tags; don't clobber those.
+if [ -z "$reuse_manifest" ]; then
+  export NEWSINTEL_IMAGE_BACKEND="newsintel-backend:$project"
+  export NEWSINTEL_IMAGE_FRONTEND="newsintel-frontend:$project"
+  export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
+  export NEWSINTEL_IMAGE_BACKEND_NER="newsintel-backend-ner:$project"
+fi
 ni_report_init "${NEWSINTEL_E2E_ARTIFACTS:-}" "$root" "e2e-$group"
 
 files="-f docker/compose.yaml -f docker/compose.e2e.yaml -f docker/compose.test.yaml -f docker/compose.e2e-container.yaml"
