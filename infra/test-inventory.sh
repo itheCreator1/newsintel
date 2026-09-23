@@ -24,15 +24,17 @@ cd "$root"
 mkdir -p "$artifacts/inventory"
 
 # ni_e2e_calls <group>: the ordered e2e() grep-argument strings from that group's own case arm in
-# test-e2e.sh (the second `case $group in` block -- the first is the earlier `users ...` dispatch,
-# which also has a "<group>)" line and would otherwise be matched first). A deliberately repeated
-# call (e.g. search's two "search restores URL state" invocations) prints twice, not deduplicated.
+# test-e2e.sh (the third `case $group in` block -- the first is the group-validation dispatch
+# (search|investigations|monitors|graph) ;; *) ..., the second is the `users ...` setup dispatch,
+# both of which also have a "<group>)" line and would otherwise be matched first). A deliberately
+# repeated call (e.g. search's two "search restores URL state" invocations) prints twice, not
+# deduplicated.
 ni_e2e_calls() {
   awk -v grp="$1" '
     /^case \$group in$/ { casenum++ }
-    casenum == 2 && $0 ~ "^  " grp "\\)" { inblock = 1 }
-    casenum == 2 && inblock { print }
-    casenum == 2 && inblock && /;;/ { inblock = 0 }
+    casenum == 3 && $0 ~ "^  " grp "\\)" { inblock = 1 }
+    casenum == 3 && inblock { print }
+    casenum == 3 && inblock && /;;/ { inblock = 0 }
   ' "$root/infra/test-e2e.sh" | grep -oE 'e2e "[^"]*"' | sed -e 's/^e2e "//' -e 's/"$//'
 }
 
@@ -45,11 +47,11 @@ $compose run --rm --no-deps backend-test pytest --collect-only -q tests \
 
 ni_stage backend.quick
 if [ -f "$root/backend/tests/classify.py" ]; then
-  # ponytail: classify.py's manifest-selection CLI is defined by Task 3, not yet landed -- this
-  # guard fires once it exists but the actual unit-path collection command isn't wired in yet;
-  # upgrade path is Task 3 (or 5) adding the real invocation here. Until then, no file is written,
-  # matching this task's brief ("or just omit that file for now").
-  echo "backend/tests/classify.py exists but backend-quick.txt is not yet wired (Task 3+ follow-up)" >&2
+  $compose run --rm --no-deps backend-test \
+    sh -c 'pytest --collect-only -q $(python tests/classify.py --paths unit)' \
+    > "$artifacts/inventory/backend-quick.txt"
+else
+  echo "backend/tests/classify.py absent; backend-quick.txt not written (pre-Task-3 tree)" >&2
 fi
 
 ni_stage frontend.tests
