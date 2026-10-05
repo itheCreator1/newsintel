@@ -30,6 +30,7 @@ const article = (id: string, title: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   resetNavigationHarness({ pathname: '/articles/' })
   vi.mocked(api.feeds).mockResolvedValue({ items: [], next_cursor: null })
   vi.mocked(api.articles)
@@ -217,4 +218,94 @@ it('shows related coverage apart from the story and opens a related article in p
   expect(await screen.findByRole('link', { name: 'Worded alike' })).toHaveAttribute('href', toHref('/articles/', new URLSearchParams('article=two&feed=f1')))
   expect(panel.textContent).toMatch(/not a confirmed connection/)
   expect(api.relatedArticles).toHaveBeenCalledWith('one')
+})
+
+const content = (text: string) => ({ text, content_hash: 'h', previous_content_hash: null, change_count: 0, extractor_name: 'x', extractor_version: '1', extracted_at: '2026-09-13T12:00:00Z', last_content_change_at: '2026-09-13T12:00:00Z', html_retained: false })
+
+function readingList() {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article'), article('two', 'Second article')], next_cursor: null })
+  vi.mocked(api.article).mockImplementation(async id => ({ ...article(id, `${id} detail`), content: null, processing: [] }))
+}
+
+it('marks the open article in the list and steps through it with j and k', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  readingList()
+  const { rerenderSame } = renderWithQuery(() => <ArticlesPage />)
+
+  expect((await screen.findByRole('button', { name: /First article/ })).getAttribute('aria-current')).toBe('true')
+  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+  fireEvent.keyDown(document.body, { key: 'j' })
+  expect(navigationHarness.searchParams.get('article')).toBe('two')
+  rerenderSame()
+
+  expect(screen.getByRole('button', { name: /Second article/ }).getAttribute('aria-current')).toBe('true')
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  fireEvent.keyDown(document.body, { key: 'k' })
+  expect(navigationHarness.searchParams.get('article')).toBe('one')
+})
+
+it('loads the next page when stepping past the last loaded article', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.article).mockImplementation(async id => ({ ...article(id, `${id} detail`), content: null, processing: [] }))
+  renderWithQuery(() => <ArticlesPage />)
+
+  await fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
+
+  await vi.waitFor(() => expect(navigationHarness.searchParams.get('article')).toBe('two'))
+  expect(api.articles).toHaveBeenLastCalledWith(undefined, 'next')
+})
+
+it('ignores reading shortcuts typed into a field or with a modifier held', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  readingList()
+  renderWithQuery(() => <ArticlesPage />)
+  await screen.findByRole('button', { name: /First article/ })
+
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Source' }), { key: 'j' })
+  fireEvent.keyDown(document.body, { key: 'j', ctrlKey: true })
+  fireEvent.keyDown(document.body, { key: 'f', metaKey: true })
+
+  expect(navigationHarness.replace).not.toHaveBeenCalled()
+})
+
+it('enters focus mode with f, hides the list, and leaves it with Escape', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  readingList()
+  const { rerenderSame } = renderWithQuery(() => <ArticlesPage />)
+  await screen.findByRole('button', { name: /First article/ })
+
+  fireEvent.keyDown(document.body, { key: 'f' })
+  expect(navigationHarness.searchParams.get('focus')).toBe('1')
+  rerenderSame()
+  expect(screen.queryByRole('button', { name: /First article/ })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Exit focus' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 3, name: 'one detail' })).toBeTruthy()
+
+  fireEvent.keyDown(document.body, { key: 'Escape' })
+  expect(navigationHarness.searchParams.get('focus')).toBeNull()
+})
+
+it('highlights annotated words in the text and lets highlights be switched off', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one&from=%2Fsearch%3Fq%3Denergy' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: content('Acme signs\n\na climate policy deal.'), processing: [] })
+  const occurrence = (start: number, end: number) => ({ section: 'body', reference_id: null, start, end, input_start: start, input_end: end })
+  vi.mocked(api.articleAnnotations).mockResolvedValue({
+    article_id: 'one', capabilities: [], countries: [], language: null, processors: [], source_countries: [],
+    // Offsets index "Acme signs a climate policy deal.", the whitespace-collapsed text.
+    keywords: [{ id: 'keyword-one', text: 'climate policy', normalized_text: 'climate policy', kind: 'keyphrase', relevance: 0.9, raw_score: 0.1, occurrence_count: 1, fresh: true, occurrences: [occurrence(13, 27)] }],
+    entities: [{ id: 'entity-one', text: 'Acme', normalized_text: 'acme', entity_type: 'ORG', original_label: 'ORG', relevance: 0.8, occurrence_count: 1, fresh: true, occurrences: [occurrence(0, 4)] }],
+  })
+  const { container } = renderWithQuery(() => <ArticlesPage />)
+
+  await vi.waitFor(() => expect(container.querySelectorAll('.reader-newsprint mark')).toHaveLength(2))
+  const [entity, keyword] = [...container.querySelectorAll('.reader-newsprint mark a')]
+  expect(entity.textContent).toBe('Acme')
+  expect(entity).toHaveAttribute('href', '/entities/?id=entity-one')
+  expect(keyword.textContent).toBe('climate policy')
+  expect(keyword).toHaveAttribute('href', '/search/?q=energy&keyword_id=keyword-one')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Highlights' }))
+  expect(container.querySelector('.reader-newsprint mark')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Highlights' }).getAttribute('aria-pressed')).toBe('false')
 })

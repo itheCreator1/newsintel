@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
 
 // next/font/google is a Next-compiler macro (SWC transform); it has no meaning outside `next build`/`next dev`.
 const mockFont = () => ({ className: '', variable: '', style: { fontFamily: 'sans-serif' } })
-vi.mock('next/font/google', () => ({ Manrope: mockFont, JetBrains_Mono: mockFont }))
+vi.mock('next/font/google', () => ({ Manrope: mockFont, JetBrains_Mono: mockFont, PT_Serif: mockFont }))
 
 // Vitest has no globals, so Testing Library never unmounts on its own; a component left mounted can still
 // schedule React work after jsdom is torn down (`window is not defined`).

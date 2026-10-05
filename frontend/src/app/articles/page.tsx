@@ -3,14 +3,22 @@
 import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
+import { ArticleReader } from '../../components/ArticleReader'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { RelatedCoveragePanel } from '../../components/RelatedCoveragePanel'
+import { highlightRanges, type ReaderRange } from '../../lib/reader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+
+const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
+
+function storedHighlights() {
+  try { return localStorage.getItem(HIGHLIGHTS_KEY) !== 'off' } catch { return true }
+}
 
 function ArticlesContent() {
   const router = useRouter()
@@ -21,6 +29,8 @@ function ArticlesContent() {
   const feedId = searchParams.get('feed') ?? undefined
   const selectedId = searchParams.get('article') ?? undefined
   const from = searchParams.get('from') ?? ''
+  // Focus mode hides the list, so it only means something while an article is open.
+  const focused = searchParams.get('focus') === '1' && Boolean(selectedId)
   const currentHref = toHref(pathname, searchParams)
 
   const feeds = useInfiniteQuery({ queryKey: ['feeds'], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.feeds(pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
@@ -33,6 +43,14 @@ function ArticlesContent() {
   const reprocess = useMutation({ mutationFn: () => api.reprocessArticle(selectedId!), onSuccess: () => { client.invalidateQueries({ queryKey: ['article-annotations', selectedId] }); client.invalidateQueries({ queryKey: ['nlp-status'] }) } })
   const mentionedCountries = annotations.data?.countries.filter(item => item.role === 'mentioned') ?? []
   const primaryCountries = annotations.data?.countries.filter(item => item.role === 'primary') ?? []
+  const selectedIndex = articleItems.findIndex(item => item.id === selectedId)
+  const hasNext = selectedIndex < articleItems.length - 1 || Boolean(articles.hasNextPage)
+  const [highlights, setHighlights] = useState(storedHighlights)
+  const text = detail.data?.content?.text ?? null
+  // Both queries refetch every five seconds; unchanged data keeps its identity, so this does not recompute.
+  const ranges = useMemo(() => highlights && text && annotations.data ? highlightRanges(text, annotations.data) : [], [highlights, text, annotations.data])
+  const listRef = useRef<HTMLElement>(null)
+  const readerRef = useRef<HTMLElement>(null)
 
   useEffect(() => { process.reset(); reprocess.reset() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [selectedId])
 
@@ -50,6 +68,49 @@ function ArticlesContent() {
     const origin = stateFromQuery(from.startsWith('/search') ? parseHref(from) : new URLSearchParams())
     return toHref('/search', queryFromState(refine(origin, field, value)))
   }
+
+  async function step(delta: 1 | -1) {
+    const target = articleItems[selectedIndex + delta]
+    if (target) return setQuery({ article: target.id })
+    if (delta === 1 && articles.hasNextPage && !articles.isFetchingNextPage) {
+      const next = (await articles.fetchNextPage()).data?.pages.at(-1)?.items[0]
+      if (next) setQuery({ article: next.id })
+    }
+  }
+
+  function toggleHighlights() {
+    try { localStorage.setItem(HIGHLIGHTS_KEY, highlights ? 'off' : 'on') } catch { /* a preference only; the toggle still works for this visit */ }
+    setHighlights(!highlights)
+  }
+
+  function rangeHref(range: ReaderRange) {
+    return range.kind === 'entity' ? entityHref(range.id) : refinedSearchHref('keyword_id', range.id)
+  }
+
+  // Start each article at its top. The panel scrolls itself beside the list; in focus mode and on
+  // narrow screens the page scrolls instead, so bring the panel back only when its top is off screen.
+  useEffect(() => {
+    const panel = readerRef.current
+    if (!panel || !selectedId) return
+    panel.scrollTo?.({ top: 0 })
+    const top = panel.getBoundingClientRect().top
+    if (top < 0 || top > window.innerHeight) panel.scrollIntoView?.({ block: 'start' })
+    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView?.({ block: 'nearest' })
+  }, [selectedId])
+
+  // Re-subscribed on every render so the handler always sees the current list, selection and URL.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.target instanceof Element && event.target.closest('input, select, textarea, [contenteditable="true"]')) return
+      if (event.key === 'j') step(1)
+      else if (event.key === 'k') step(-1)
+      else if (event.key === 'f' && selectedId) setQuery({ focus: focused ? undefined : '1' })
+      else if (event.key === 'Escape' && focused) setQuery({ focus: undefined })
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
 
   function articleHref(id: string) {
     const next = new URLSearchParams(searchParams.toString())
@@ -71,30 +132,45 @@ function ArticlesContent() {
         </div>
       </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
-        <GlassPanel className="overflow-hidden p-0">
+      <div className={cn('grid items-start gap-6', focused ? 'mx-auto w-full max-w-4xl' : 'lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]')}>
+        {!focused && <GlassPanel ref={listRef} className="overflow-hidden p-0">
           {articles.isPending && <p className="text-sm text-muted-foreground px-6 py-4">Loading articles…</p>}
           {!articles.isPending && articles.isError && <p className="error text-sm text-destructive px-6 py-4">Could not load articles.</p>}
           {!articles.isPending && !articles.isError && !articleItems.length && <p className="text-sm text-muted-foreground px-6 py-4">No collected articles.</p>}
           {articleItems.map(article => (
-            <button key={article.id} className="article-row flex w-full flex-col gap-1 border-t border-border px-6 py-4 text-left transition-colors first:border-t-0 hover:bg-accent/40" onClick={() => setQuery({ article: article.id })}>
+            <button key={article.id} aria-current={article.id === selectedId ? 'true' : undefined} className="article-row flex w-full flex-col gap-1 border-t border-border px-6 py-4 text-left transition-colors first:border-t-0 hover:bg-accent/40 aria-[current=true]:bg-accent aria-[current=true]:shadow-[inset_3px_0_0_0_var(--primary)]" onClick={() => setQuery({ article: article.id })}>
               <strong className="text-[15px] font-semibold text-foreground">{article.title}</strong>
               <span className="text-xs text-muted-foreground">{new Date(article.first_discovered_at).toLocaleString()}</span>
               <small className="text-xs text-muted-foreground">{article.provenance.map(p => p.feed_name).join(', ')}</small>
             </button>
           ))}
           {articles.hasNextPage && <div className="border-t border-border px-6 py-4"><button type="button" className={ghostButtonClass} disabled={articles.isFetchingNextPage} onClick={() => articles.fetchNextPage()}>Load more articles</button></div>}
-        </GlassPanel>
+        </GlassPanel>}
 
-        <GlassPanel className="flex flex-col gap-3">
+        <GlassPanel ref={readerRef} className={cn('flex flex-col gap-3', !focused && 'lg:sticky lg:top-8 lg:max-h-[calc(100dvh-4rem)] lg:overflow-y-auto')}>
+          {selectedId && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className={ghostButtonClass} title="Previous article (k)" disabled={selectedIndex <= 0} onClick={() => step(-1)}>Previous</button>
+              <button type="button" className={ghostButtonClass} title="Next article (j)" disabled={!hasNext || articles.isFetchingNextPage} onClick={() => step(1)}>Next</button>
+              <button type="button" className={ghostButtonClass} title="Focus mode (f)" aria-pressed={focused} onClick={() => setQuery({ focus: focused ? undefined : '1' })}>{focused ? 'Exit focus' : 'Focus'}</button>
+              <button type="button" className={cn(ghostButtonClass, highlights && 'border-ring text-foreground')} title="Mark entities and keywords in the text" aria-pressed={highlights} onClick={toggleHighlights}>Highlights</button>
+              {from && <Link className="ml-auto text-sm text-primary underline-offset-4 hover:underline" href={from}>{backLabel}</Link>}
+            </div>
+          )}
           {!selectedId && <p className="text-sm text-muted-foreground">Select an article to inspect its content and feed record.</p>}
           {selectedId && detail.isPending && <p className="text-sm text-muted-foreground">Loading article…</p>}
           {selectedId && !detail.isPending && detail.isError && <p className="error text-sm text-destructive">Could not load article details.</p>}
           {selectedId && detail.data && (
             <>
-              {from && <Link className="text-sm text-primary underline-offset-4 hover:underline" href={from}>{backLabel}</Link>}
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">Article detail</p>
-              <h3 className="text-lg font-semibold text-foreground">{detail.data.title}</h3>
+              <ArticleReader
+                title={detail.data.title}
+                text={text}
+                summary={detail.data.provenance.find(source => source.description)?.description}
+                date={detail.data.published_at ?? detail.data.first_discovered_at}
+                sources={[...new Set(detail.data.provenance.map(source => source.feed_name))]}
+                ranges={ranges}
+                hrefFor={rangeHref}
+              />
               <a className="text-sm text-primary underline-offset-4 hover:underline" href={detail.data.original_url} target="_blank" rel="noopener noreferrer">Open original article</a>
               <div className="flex gap-2">
                 <button type="button" className={cn(fieldClass, 'w-auto bg-primary text-primary-foreground')} disabled={process.isPending} onClick={() => process.mutate('full_text')}>{detail.data.content ? 'Refresh text' : 'Fetch text'}</button>
@@ -104,11 +180,7 @@ function ArticlesContent() {
               {process.isSuccess && <p className="text-sm text-primary">Processing scheduled.</p>}
               {process.error && <p className="error text-sm text-destructive">Could not schedule processing.</p>}
               {detail.data.content ? (
-                <article className="readable flex flex-col gap-2 border-t border-border pt-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">Readable text</p>
-                  <p className="text-sm text-muted-foreground">Extracted {new Date(detail.data.content.extracted_at).toLocaleString()} · {detail.data.content.change_count} changes · HTML {detail.data.content.html_retained ? 'retained' : 'temporary'}</p>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{detail.data.content.text}</div>
-                </article>
+                <p className="text-sm text-muted-foreground">Extracted {new Date(detail.data.content.extracted_at).toLocaleString()} · {detail.data.content.change_count} changes · HTML {detail.data.content.html_retained ? 'retained' : 'temporary'}</p>
               ) : (
                 <section className="processing flex flex-col gap-1 border-t border-border pt-4">
                   <strong className="text-sm font-semibold text-foreground">Content status</strong>
