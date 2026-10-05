@@ -24,7 +24,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({})) as { detail?: unknown }
     const detail = typeof payload.detail === 'string' ? payload.detail : Array.isArray(payload.detail) ? validationMessage(payload.detail) : payload.detail && typeof payload.detail === 'object' && 'message' in payload.detail ? String(payload.detail.message) : undefined
-    throw new ApiError(response.status === 401 ? 'Invalid username or password' : detail || 'Request failed', response.status, payload.detail)
+    // A 401 anywhere but the sign-in itself means the session ended, not that credentials were wrong.
+    const unauthorized = path === '/auth/login' ? 'Invalid username or password' : 'Your session has expired. Sign in again.'
+    throw new ApiError(response.status === 401 ? unauthorized : detail || 'Request failed', response.status, payload.detail)
   }
   return response.status === 204 ? undefined as T : response.json()
 }

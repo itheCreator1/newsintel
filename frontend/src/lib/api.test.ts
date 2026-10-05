@@ -220,3 +220,14 @@ it('requests each operations view with its window and area', async () => {
     '/api/v1/operations/failures?area=cluster&hours=6',
   ])
 })
+
+it('tells a rejected sign-in apart from a session that has expired', async () => {
+  const unauthorized = () => new Response(JSON.stringify({ detail: 'Authentication required' }), { status: 401 })
+  vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(unauthorized())
+    .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
+    .mockResolvedValueOnce(unauthorized())
+
+  await expect(api.backlog()).rejects.toMatchObject({ status: 401, message: 'Your session has expired. Sign in again.' })
+  await expect(api.login('analyst', 'wrong')).rejects.toMatchObject({ status: 401, message: 'Invalid username or password' })
+})
