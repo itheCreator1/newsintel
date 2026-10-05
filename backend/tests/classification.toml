@@ -38,6 +38,7 @@
 "test_event_engine_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_event_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_events.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_feed_fetch_status_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_feed_http.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_feed_ingestion.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_feed_ingestion_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
