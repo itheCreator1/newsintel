@@ -228,8 +228,14 @@ $compose run --rm --no-deps -v "$artifacts:/artifacts" frontend-test sh -c \
   exit 1
 }
 
-ni_stage frontend.unit
-$compose run --rm --no-deps frontend-test npm test
+# Vitest's findBy* queries give up after a second, and with the browser lanes already loading
+# every core the stage ran 22-31s instead of 14s and 2 of 320 tests timed out in one of three
+# measured runs. So under overlap it waits until the lanes have finished (see the end).
+frontend_unit() {
+  ni_stage frontend.unit
+  $compose run --rm --no-deps frontend-test npm test
+}
+[ "$e2e_overlap" = 1 ] || frontend_unit
 ni_stage frontend.typecheck
 $compose run --rm --no-deps frontend-test npm run typecheck
 ni_stage frontend.build
@@ -246,5 +252,6 @@ else
   [ "$e2e_overlap" = 1 ] || e2e_start
   e2e_join
 fi
+[ "$e2e_overlap" = 0 ] || frontend_unit
 
 echo "Docker test gate passed; diagnostics directory: $artifacts"
