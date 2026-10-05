@@ -2,6 +2,10 @@
 # Sourced, not executed: no shebang, no `set` (the caller's own `set -eu` applies).
 # Every ni_* function assumes POSIX sh; no bashisms.
 
+# Test stacks never restart a service: a crash must fail the run, not be papered over by the
+# production restart policy in docker/compose.yaml.
+export NEWSINTEL_RESTART_POLICY=no
+
 # ni_project <prefix> -> prints a unique Compose project name.
 ni_project() {
   echo "newsintel-$1-$$-$(date +%s)"
