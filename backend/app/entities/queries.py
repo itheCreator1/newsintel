@@ -103,6 +103,8 @@ async def articles(
     db: AsyncSession, entity_id: uuid.UUID, limit: int, cursor: tuple[datetime, uuid.UUID] | None
 ) -> EntityArticlePage:
     effective = effective_date()
+    # ponytail: orders by an expression no index covers, so a page sorts every article holding
+    # the entity; index the expression (or store it) if a heavily mentioned entity pages slowly.
     query = (
         select(Article, effective.label("effective_date"))
         .where(
@@ -198,6 +200,8 @@ async def relationships(
 ) -> EntityRelationshipsResponse:
     start = window_start(days)
     effective = effective_date()
+    # ponytail: the CTE is every in-window article holding the entity, with no cap; bound it (or
+    # use the graph's Elasticsearch co-occurrence aggregation) if a dossier ever loads slowly.
     scoped_articles = (
         select(ArticleEntity.article_id)
         .join(Article, Article.id == ArticleEntity.article_id)
