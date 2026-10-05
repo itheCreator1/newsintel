@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.fetching import FeedDocumentError, ParsedFeed, parse_feed_document
 from app.feeds.http import FeedTooLarge, fetch_feed_http
-from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
+from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFetch
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.normalization import normalize_article_url, normalized_title_hash
 from app.feeds.scheduling import lease_is_current, next_retry_delay
@@ -55,6 +55,7 @@ async def _persist_success(
             or not feed.claim_expires_at
             or not lease_is_current(token, feed.claim_token or "", feed.claim_expires_at, now)
         ):
+            _abandon(fetch, now)
             return False
         new_count = 0
         invalid_count = parsed.invalid_entries
@@ -150,6 +151,17 @@ async def _persist_success(
     return True
 
 
+def _abandon(fetch: FeedFetch | None, now: datetime) -> None:
+    """End a fetch whose claim was lost (feed retired, disabled or reclaimed) before it finished;
+    a finished one, as a redelivered message finds, is left alone.
+    """
+    if fetch is None or fetch.status in FETCH_FINISHED:
+        return
+    fetch.status = "failed"
+    fetch.error_category = "abandoned"
+    fetch.completed_at = now
+
+
 async def _finish_unchanged(feed_id: uuid.UUID, token: str, duration_ms: int, attempt: int) -> bool:
     return await _persist_success(
         feed_id, token, ParsedFeed(None, [], 0), 304, None, None, duration_ms, attempt
@@ -202,6 +214,15 @@ async def ingest_claim(feed_id: uuid.UUID, token: str) -> None:
         async with session_factory() as db:
             feed = await db.get(Feed, feed_id)
             if not feed or not feed.enabled or feed.retired_at or feed.claim_token != token:
+                _abandon(
+                    await db.scalar(
+                        select(FeedFetch)
+                        .where(FeedFetch.feed_id == feed_id, FeedFetch.claim_token == token)
+                        .with_for_update()
+                    ),
+                    datetime.now(UTC),
+                )
+                await db.commit()
                 return
             url, etag, modified = feed.url, feed.etag, feed.last_modified
         started = datetime.now(UTC)

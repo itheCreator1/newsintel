@@ -2,10 +2,10 @@ import base64
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.feeds.models import Article, Feed, FeedFetch
+from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedFetch
 from app.feeds.schemas import (
     ArticleContentResponse,
     ArticleDetailResponse,
@@ -37,6 +37,17 @@ async def claim_feed(
         active = await db.scalar(select(FeedFetch).where(FeedFetch.claim_token == feed.claim_token))
         if active:
             return active, True
+    if feed.claim_token:
+        # The fetch this claim replaces never finished (expired lease, lost message): end it
+        # here, since nothing else will.
+        await db.execute(
+            update(FeedFetch)
+            .where(
+                FeedFetch.claim_token == feed.claim_token,
+                FeedFetch.status.not_in(FETCH_FINISHED),
+            )
+            .values(status="failed", error_category="lease_expired", completed_at=now)
+        )
     token = uuid.uuid4().hex
     fetch = FeedFetch(feed_id=feed.id, claim_token=token)
     feed.claim_token = token

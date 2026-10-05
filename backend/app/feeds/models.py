@@ -48,6 +48,10 @@ class Feed(Base):
     discoveries: Mapped[list["FeedArticle"]] = relationship(back_populates="feed")
 
 
+# A fetch in any other status is still owed an outcome.
+FETCH_FINISHED = ("success", "failed")
+
+
 class FeedFetch(Base):
     __tablename__ = "feed_fetches"
     __table_args__ = (
