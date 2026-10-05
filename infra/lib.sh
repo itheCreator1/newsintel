@@ -151,10 +151,13 @@ ni_report_finalize() {
     echo "Stage timings (slowest first):"
     tail -n +2 "$artifacts/timings.tsv" | sort -t "$(printf '\t')" -k3,3nr |
       awk -F'\t' '{printf "  %-28s %6ss  status=%s\n", $1, $3, $4}'
-    # build.all is a hand-written aggregate duplicating test-docker.sh's 5 per-config build
-    # rows (kept so phase-5's stage-name diff against the phase-1 baseline has a common key);
-    # excluded here so TOTAL isn't double-counted.
-    ni_rf_total=$(tail -n +2 "$artifacts/timings.tsv" | awk -F'\t' '$1 != "build.all" {s += $3} END {print s + 0}')
+    # TOTAL is the rows' wall-clock span (first start to last end), not their sum: test-docker.sh
+    # writes aggregate rows (build.all, e2e.all) and browser-group rows that overlap other
+    # stages. For stages that run back to back the two are the same number.
+    ni_rf_total=$(tail -n +2 "$artifacts/timings.tsv" | awk -F'\t' '
+      NR == 1 { first = $2 }
+      { if ($2 < first) first = $2; if ($2 + $3 > last) last = $2 + $3 }
+      END { print (NR ? last - first : 0) }')
     printf "%-30s %6ss\n" TOTAL "$ni_rf_total"
   } > "$artifacts/timings.txt" 2>/dev/null || true
 
