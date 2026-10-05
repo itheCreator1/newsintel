@@ -40,8 +40,9 @@ Auth = Annotated[Session, Depends(current_session)]
 Mutation = Annotated[Session, Depends(require_csrf)]
 
 
-async def _active_feed(db: AsyncSession, feed_id: uuid.UUID) -> Feed:
-    feed = await db.scalar(select(Feed).where(Feed.id == feed_id, Feed.retired_at.is_(None)))
+async def _active_feed(db: AsyncSession, feed_id: uuid.UUID, *, lock: bool = False) -> Feed:
+    query = select(Feed).where(Feed.id == feed_id, Feed.retired_at.is_(None))
+    feed = await db.scalar(query.with_for_update() if lock else query)
     if feed is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Feed not found")
     return feed
@@ -103,7 +104,8 @@ async def update_feed(feed_id: uuid.UUID, payload: FeedUpdate, db: Db, _mutation
 
 @router.delete("/feeds/{feed_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def retire_feed(feed_id: uuid.UUID, db: Db, _mutation: Mutation) -> Response:
-    feed = await _active_feed(db, feed_id)
+    # Locked: clearing a claim loaded before the scheduler committed it would be a no-op.
+    feed = await _active_feed(db, feed_id, lock=True)
     feed.retired_at = datetime.now(UTC)
     feed.enabled = False
     feed.claim_token = None
@@ -130,7 +132,7 @@ async def poll_feed(feed_id: uuid.UUID, db: Db, _mutation: Mutation) -> PollResp
             fetch.error_category = "queue"
             fetch.error_message = str(exc)[:1000]
             fetch.completed_at = datetime.now(UTC)
-            feed = await db.get(Feed, feed_id)
+            feed = await db.get(Feed, feed_id, with_for_update=True)
             if feed and feed.claim_token == fetch.claim_token:
                 feed.claim_token = None
                 feed.claim_expires_at = None

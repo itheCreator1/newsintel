@@ -42,6 +42,7 @@
 "test_feed_http.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_feed_ingestion.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_feed_ingestion_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
+"test_feed_routes_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_feed_schemas.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_fixture_server.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_geo_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
