@@ -191,6 +191,8 @@ This is the only gate that counts as a full regression run: it is the sole bindi
 
 `NEWSINTEL_TEST_E2E_JOBS` (1, 2 or 4; default 1) runs the four browser groups in that many concurrent lanes instead of one after another. The groups, their specs and their order within a lane are unchanged: each is still its own Compose project with a fresh database and no published ports, so only wall-clock time differs. In a concurrent run each group's output goes to `e2e-<group>.log` in the artifacts directory (a failed group's log is printed in full at the end), a failing group stops only its own lane, and an interrupt or a failure elsewhere in the gate stops every lane and removes its containers.
 
+`NEWSINTEL_TEST_E2E_OVERLAP=1` (default 0) starts those lanes as soon as the images are built, so the browser groups run alongside the backend and frontend stages rather than after them. Every stage still runs and still has to pass; a failure in either half fails the gate.
+
 Faster local loops trade coverage for speed and never replace the full gate:
 
 - `./infra/test-quick.sh` — unit-only backend tests (`classify.py --paths unit`) plus ruff, mypy, the OpenAPI/TypeScript contract checks, and frontend unit/typecheck. No service containers start (`--no-deps` throughout, `network_mode: none`); it does not run integration tests, migrations, the restore rehearsal, `npm run build`, or any browser group.

@@ -28,6 +28,13 @@ case $e2e_jobs in
   4) e2e_lanes="search investigations monitors graph" ;;
   *) echo "NEWSINTEL_TEST_E2E_JOBS must be 1, 2 or 4" >&2; exit 2 ;;
 esac
+# NEWSINTEL_TEST_E2E_OVERLAP=1 starts the lanes as soon as the images are built, alongside the
+# backend/frontend stages instead of after them: the groups need only those images.
+e2e_overlap=${NEWSINTEL_TEST_E2E_OVERLAP:-0}
+case $e2e_overlap in
+  0 | 1) ;;
+  *) echo "NEWSINTEL_TEST_E2E_OVERLAP must be 0 or 1" >&2; exit 2 ;;
+esac
 ni_report_init "${NEWSINTEL_TEST_ARTIFACTS:-}" "$root" test
 
 # Each lane is its own session, so its pid is also its process group: one TERM to the group
@@ -142,6 +149,10 @@ ni_manifest="$artifacts/image-manifest.env"
   echo "NEWSINTEL_IMAGE_FRONTEND_TEST_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_FRONTEND_TEST")"
 } > "$ni_manifest"
 
+if [ "$e2e_overlap" = 1 ]; then
+  e2e_start
+fi
+
 # Bring dependencies up without waiting so Elasticsearch's slow healthcheck overlaps the static
 # checks below (which touch no service) instead of blocking wall time in front of them; the hard
 # `--wait` barrier just before alembic.upgrade still guarantees migrations never race startup.
@@ -224,7 +235,7 @@ $compose run --rm --no-deps frontend-test npm run typecheck
 ni_stage frontend.build
 $compose run --rm --no-deps frontend-test npm run build
 
-if [ "$e2e_jobs" = 1 ]; then
+if [ "$e2e_jobs" = 1 ] && [ "$e2e_overlap" = 0 ]; then
   for group in search investigations monitors graph; do
     ni_stage "e2e.$group"
     NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh --reuse-images "$ni_manifest" "$group"
@@ -232,7 +243,7 @@ if [ "$e2e_jobs" = 1 ]; then
 else
   # The lanes write their own e2e.<group> rows; e2e.join is the time this script spends waiting.
   ni_stage e2e.join
-  e2e_start
+  [ "$e2e_overlap" = 1 ] || e2e_start
   e2e_join
 fi
 
