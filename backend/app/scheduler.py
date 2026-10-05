@@ -294,18 +294,22 @@ async def schedule_source_refreshes(batch_size: int = 10) -> int:
 async def run_scheduler(interval_seconds: float = 10) -> None:
     redis = Redis.from_url(get_settings().redis_url)
     while True:
-        try:
-            await schedule_due_feeds()
-            await schedule_due_articles()
-            await schedule_due_nlp()
-            await schedule_due_clustering()
-            await schedule_due_search()
-            await schedule_due_monitors()
-            await schedule_due_events()
-            await schedule_source_refreshes()
-            await schedule_retention()
-        except Exception:
-            log.exception("scheduler_cycle_failed")
+        # Each step fails alone: one pipeline's persistent error must not starve the ones after it.
+        for step in (
+            schedule_due_feeds,
+            schedule_due_articles,
+            schedule_due_nlp,
+            schedule_due_clustering,
+            schedule_due_search,
+            schedule_due_monitors,
+            schedule_due_events,
+            schedule_source_refreshes,
+            schedule_retention,
+        ):
+            try:
+                await step()
+            except Exception:
+                log.exception("scheduler_cycle_failed", step=step.__name__)
         try:  # a failing cycle still means the process is alive; a Redis blip only logs
             await heartbeat.beat(redis, "scheduler")
         except Exception:

@@ -72,6 +72,7 @@
 "test_retention_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_saved_searches.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_saved_searches_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_scheduler_cycle.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_aggregations.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_delivery_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_search_facets.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
