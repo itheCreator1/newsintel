@@ -17,12 +17,13 @@ type Props = {
 }
 
 /** The article set as a page to read: a light Newsprint sheet (after Typora's theme of that name)
- * holding only title, byline and body. Controls and metadata stay outside it, in the app's own chrome. */
+ * holding only title, byline and body; controls and metadata stay outside it, in the app's own
+ * chrome. The title is an `h3` because it sits under the page's own `h2`. */
 export function ArticleReader({ title, text, summary, date, sources, ranges, hrefFor, className }: Props) {
   const byline = [sources.join(', '), date && new Date(date).toLocaleDateString(undefined, { dateStyle: 'long' }), text && `${readingMinutes(text)} min read`].filter(Boolean)
   return (
     <article className={cn('reader-newsprint', readerFont.variable, className)}>
-      <h1>{title}</h1>
+      <h3 className="reader-title">{title}</h3>
       {byline.length > 0 && <p className="reader-byline">{byline.join(' · ')}</p>}
       <div className="reader-body">
         {text

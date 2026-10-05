@@ -10,7 +10,7 @@ const hrefFor = (range: ReaderRange) => `/${range.kind}/${range.id}/`
 it('sets the article as a title, a byline and one paragraph per line', () => {
   const { container } = render(<ArticleReader title="Port delays spread" text={'First line.\n\nSecond line.'} date="2026-09-13T12:00:00Z" sources={['Harbor Wire', 'Harbor Daily']} ranges={[]} hrefFor={hrefFor} />)
 
-  expect(screen.getByRole('heading', { level: 1, name: 'Port delays spread' })).toBeTruthy()
+  expect(screen.getByRole('heading', { level: 3, name: 'Port delays spread' })).toBeTruthy()
   expect(screen.getByText(/Harbor Wire, Harbor Daily/).textContent).toMatch(/1 min read/)
   expect([...container.querySelectorAll('.reader-body p')].map(node => node.textContent)).toEqual(['First line.', 'Second line.'])
   expect(container.querySelector('mark')).toBeNull()

@@ -104,11 +104,12 @@ header { display: flex; align-items: center; justify-content: space-between; gap
   --shadow-glow: 0 0 32px 6px rgb(79 125 251 / 40%);
 }
 
-/* The article reader's sheet: Typora's Newsprint theme (cream paper, PT Serif, 40em measure), a
-   light page inside the dark app. Scoped to its own root so nothing else inherits it. */
+/* The article reader's sheet: Typora's Newsprint theme (cream paper, PT Serif), a light page inside
+   the dark app. Scoped to its own root so nothing else inherits it. The measure is Newsprint's 40em
+   at this body size, written in px so the larger title and smaller byline share the body's edges. */
 .reader-newsprint { background: #f3f2ee; color: #1f0909; font-family: var(--font-reader), "PT Serif", "Times New Roman", Times, serif; font-size: 17px; line-height: 1.6; padding: 2.5em clamp(1.25em, 5%, 3em); border-radius: 0.75rem; color-scheme: light; }
-.reader-newsprint > * { max-width: 40em; margin-left: auto; margin-right: auto; }
-.reader-newsprint h1 { font-family: inherit; font-size: 1.875em; font-weight: 700; line-height: 1.25; letter-spacing: normal; margin-top: 0; margin-bottom: 0.5em; }
+.reader-newsprint > * { max-width: 680px; margin-left: auto; margin-right: auto; }
+.reader-newsprint .reader-title { font-family: inherit; font-size: 1.875em; font-weight: 700; line-height: 1.25; letter-spacing: normal; margin-top: 0; margin-bottom: 0.5em; }
 .reader-newsprint .reader-byline { color: #656565; font-size: 0.85em; font-style: italic; margin-top: 0; margin-bottom: 2em; padding-bottom: 1em; border-bottom: 1px solid #bababa; }
 .reader-newsprint .reader-body p { margin-top: 0; margin-bottom: 1.5em; overflow-wrap: break-word; }
 .reader-newsprint .reader-body p:last-child { margin-bottom: 0; }
