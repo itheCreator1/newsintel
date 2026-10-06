@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,7 +10,14 @@ from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.graph.schemas import EdgeEvidenceResponse, GraphResponse
-from app.graph.service import MAX_EVIDENCE, MAX_NODES, decode_after, focus_query
+from app.graph.service import (
+    MAX_EVIDENCE,
+    MAX_EXPANDED,
+    MAX_NODES,
+    decode_after,
+    focus_query,
+    recent_since,
+)
 from app.graph.service import edge_evidence as collect_edge_evidence
 from app.graph.service import entity_graph as collect_entity_graph
 from app.nlp.models import Entity
@@ -32,6 +40,7 @@ async def entity_graph(
     focus_entity_id: uuid.UUID | None = None,
     nodes: Annotated[int, Query(ge=1, le=MAX_NODES)] = 30,
     min_edge_weight: Annotated[int, Query(ge=1)] = 2,
+    expand: Annotated[list[uuid.UUID] | None, Query(max_length=MAX_EXPANDED)] = None,
 ) -> GraphResponse:
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
@@ -45,6 +54,8 @@ async def entity_graph(
             nodes=nodes,
             min_edge_weight=min_edge_weight,
             focus_entity_id=focus_entity_id,
+            expand=expand,
+            since=recent_since(criteria.start, criteria.end, datetime.now(UTC)),
         )
     except ElasticsearchUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc

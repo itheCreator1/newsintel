@@ -2,7 +2,7 @@ import base64
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -26,6 +26,11 @@ from app.search.elasticsearch import ElasticsearchAdapter
 MAX_NODES = 50
 MAX_EDGES = 150
 MAX_EVIDENCE = 50
+# Expanding an entity adds its busiest neighbours to the drawn graph, in place.
+MAX_EXPANDED = 5
+EXPAND_NEIGHBOURS = 8
+# An edge is "new" when every article behind it falls in the last RECENT_DAYS of the window.
+RECENT_DAYS = 7
 EVIDENCE_CLUSTERS = 10
 MEANING = (
     "Both entities are mentioned in the same article. "
@@ -45,6 +50,7 @@ class EdgeWeight:
     target: str
     weight: int
     score: float
+    recent_weight: int = 0
 
 
 def _holds_entity(entity_id: str) -> dict[str, Any]:
@@ -69,27 +75,15 @@ def nodes_body(
     entity_types: list[str],
     nodes: int,
     focus_entity_id: uuid.UUID | None,
+    expand: list[uuid.UUID] | None = None,
 ) -> dict[str, Any]:
-    aggs: dict[str, Any] = {
-        "entities": {
-            "nested": {"path": "entities"},
-            "aggs": {
-                "filtered": {
-                    "filter": (
-                        {"terms": {"entities.type": entity_types}}
-                        if entity_types
-                        else {"match_all": {}}
-                    ),
-                    "aggs": {
-                        "top": {
-                            "terms": {"field": "entities.id", "size": min(nodes, MAX_NODES)},
-                            "aggs": {"articles": {"reverse_nested": {}}},
-                        }
-                    },
-                }
-            },
+    aggs: dict[str, Any] = {"entities": _top_entities(entity_types, min(nodes, MAX_NODES))}
+    for position, entity_id in enumerate((expand or [])[:MAX_EXPANDED]):
+        # +1: the expanded entity always co-occurs with itself.
+        aggs[f"expand_{position}"] = {
+            "filter": _holds_entity(str(entity_id)),
+            "aggs": {"entities": _top_entities(entity_types, EXPAND_NEIGHBOURS + 1)},
         }
-    }
     if focus_entity_id is not None:
         aggs["focus"] = {
             "nested": {"path": "entities"},
@@ -101,6 +95,65 @@ def nodes_body(
             },
         }
     return {"size": 0, "track_total_hits": False, "query": query, "aggs": aggs}
+
+
+def _top_entities(entity_types: list[str], size: int) -> dict[str, Any]:
+    return {
+        "nested": {"path": "entities"},
+        "aggs": {
+            "filtered": {
+                "filter": (
+                    {"terms": {"entities.type": entity_types}}
+                    if entity_types
+                    else {"match_all": {}}
+                ),
+                "aggs": {
+                    "top": {
+                        "terms": {"field": "entities.id", "size": size},
+                        "aggs": {"articles": {"reverse_nested": {}}},
+                    }
+                },
+            }
+        },
+    }
+
+
+def parse_expansion(
+    response: dict[str, Any], *, expand: list[uuid.UUID], drawn: list[str]
+) -> list[NodeCount]:
+    """The expanded entities and their busiest neighbours that the graph does not draw yet.
+
+    Counts here are co-occurrence with the expanded entity; the caller replaces them with each
+    entity's own article count once the adjacency request has counted it.
+    """
+    present = set(drawn)
+    added: list[NodeCount] = []
+
+    def add(entity_id: str, count: int) -> None:
+        if entity_id not in present and count > 0:
+            present.add(entity_id)
+            added.append(NodeCount(entity_id, count))
+
+    aggregations = response.get("aggregations", {})
+    for position, entity_id in enumerate(expand[:MAX_EXPANDED]):
+        expansion = aggregations.get(f"expand_{position}", {})
+        add(str(entity_id), int(expansion.get("doc_count", 0)))
+        top = expansion.get("entities", {}).get("filtered", {}).get("top", {})
+        neighbours = [
+            bucket for bucket in top.get("buckets", []) if str(bucket["key"]) != str(entity_id)
+        ]
+        for bucket in neighbours[:EXPAND_NEIGHBOURS]:
+            add(str(bucket["key"]), int(bucket["articles"]["doc_count"]))
+    return added
+
+
+def recent_since(start: date | None, end: date | None, now: datetime) -> datetime | None:
+    """Where the window's last RECENT_DAYS begin, or None when the window is no longer than that."""
+    window_end = datetime.combine(end, time.min, UTC) if end else now
+    since = window_end - timedelta(days=RECENT_DAYS)
+    if start is not None and datetime.combine(start, time.min, UTC) >= since:
+        return None
+    return since
 
 
 def parse_nodes(
@@ -135,18 +188,28 @@ def _ranking(node: NodeCount) -> tuple[int, str]:
     return (-node.article_count, node.entity_id)
 
 
-def edges_body(query: dict[str, Any], node_ids: list[str]) -> dict[str, Any]:
+def edges_body(
+    query: dict[str, Any], node_ids: list[str], since: datetime | None = None
+) -> dict[str, Any]:
+    matrix = {
+        "adjacency_matrix": {"filters": {node_id: _holds_entity(node_id) for node_id in node_ids}}
+    }
+    aggs: dict[str, Any] = {"co_occurrence": matrix}
+    if since is not None:
+        aggs["recent"] = {
+            "filter": {"range": {"effective_date": {"gte": since.isoformat()}}},
+            "aggs": {"co_occurrence": matrix},
+        }
+    return {"size": 0, "track_total_hits": False, "query": query, "aggs": aggs}
+
+
+def entity_counts(response: dict[str, Any]) -> dict[str, int]:
+    """Each entity's articles under the graph query, from the adjacency matrix's single buckets."""
+    buckets = response.get("aggregations", {}).get("co_occurrence", {}).get("buckets", [])
     return {
-        "size": 0,
-        "track_total_hits": False,
-        "query": query,
-        "aggs": {
-            "co_occurrence": {
-                "adjacency_matrix": {
-                    "filters": {node_id: _holds_entity(node_id) for node_id in node_ids}
-                }
-            }
-        },
+        str(bucket["key"]): int(bucket["doc_count"])
+        for bucket in buckets
+        if "&" not in str(bucket["key"])
     }
 
 
@@ -165,17 +228,18 @@ def parse_edges(
     *,
     node_ids: list[str],
     min_edge_weight: int,
-    pinned: str | None = None,
+    pinned: set[str] | None = None,
 ) -> tuple[list[EdgeWeight], bool]:
-    """Pairs at or above the minimum weight, strongest link first; `pinned`'s edges rank first."""
+    """Pairs at or above the minimum weight, strongest first; edges of `pinned` entities lead."""
     order = {node_id: position for position, node_id in enumerate(node_ids)}
-    buckets = response.get("aggregations", {}).get("co_occurrence", {}).get("buckets", [])
-    # Single-filter buckets count each entity's articles under the same query as the pairs.
-    counts = {
+    aggregations = response.get("aggregations", {})
+    buckets = aggregations.get("co_occurrence", {}).get("buckets", [])
+    counts = entity_counts(response)
+    recent = {
         str(bucket["key"]): int(bucket["doc_count"])
-        for bucket in buckets
-        if "&" not in str(bucket["key"])
+        for bucket in aggregations.get("recent", {}).get("co_occurrence", {}).get("buckets", [])
     }
+    pinned = pinned or set()
     edges: list[EdgeWeight] = []
     for bucket in buckets:
         pair = str(bucket["key"]).split("&")
@@ -187,10 +251,10 @@ def parse_edges(
             continue
         source, target = sorted(pair, key=lambda node_id: order[node_id])
         score = link_strength(weight, counts.get(source, weight), counts.get(target, weight))
-        edges.append(EdgeWeight(source, target, weight, score))
+        edges.append(EdgeWeight(source, target, weight, score, recent.get(str(bucket["key"]), 0)))
     edges.sort(
         key=lambda edge: (
-            pinned not in (edge.source, edge.target),
+            not pinned & {edge.source, edge.target},
             -edge.score,
             -edge.weight,
             edge.source,
@@ -224,25 +288,36 @@ async def entity_graph(
     nodes: int,
     min_edge_weight: int,
     focus_entity_id: uuid.UUID | None,
+    expand: list[uuid.UUID] | None = None,
+    since: datetime | None = None,
 ) -> GraphResponse:
+    expand = (expand or [])[:MAX_EXPANDED]
     response = await adapter.search_index(
         index_name,
-        nodes_body(query, entity_types=entity_types, nodes=nodes, focus_entity_id=focus_entity_id),
+        nodes_body(
+            query,
+            entity_types=entity_types,
+            nodes=nodes,
+            focus_entity_id=focus_entity_id,
+            expand=expand,
+        ),
     )
     counted, truncated = parse_nodes(response, nodes=nodes, focus_entity_id=focus_entity_id)
+    counted += parse_expansion(response, expand=expand, drawn=[item.entity_id for item in counted])
     catalogue = await _catalogue(db, [item.entity_id for item in counted])
     # An entity the archive no longer knows cannot be labelled, so it cannot be drawn either.
     resolved = [item for item in counted if item.entity_id in catalogue]
     node_ids = [item.entity_id for item in resolved]
     edges: list[EdgeWeight] = []
+    counts: dict[str, int] = {}
     if len(node_ids) > 1:
-        pairs = await adapter.search_index(index_name, edges_body(query, node_ids))
+        pairs = await adapter.search_index(index_name, edges_body(query, node_ids, since))
+        counts = entity_counts(pairs)
+        # Every focused article holds the focus, so its links score low; keep them all drawn, and
+        # likewise the links an expansion asked for.
+        pinned = {str(entity_id) for entity_id in [*expand, focus_entity_id] if entity_id}
         edges, edges_truncated = parse_edges(
-            pairs,
-            node_ids=node_ids,
-            min_edge_weight=min_edge_weight,
-            # Every focused article holds the focus, so its links score low; keep them all drawn.
-            pinned=str(focus_entity_id) if focus_entity_id else None,
+            pairs, node_ids=node_ids, min_edge_weight=min_edge_weight, pinned=pinned
         )
         truncated = truncated or edges_truncated
     return GraphResponse(
@@ -251,7 +326,7 @@ async def entity_graph(
                 id=catalogue[item.entity_id].id,
                 text=catalogue[item.entity_id].display_text,
                 type=catalogue[item.entity_id].entity_type,
-                article_count=item.article_count,
+                article_count=counts.get(item.entity_id, item.article_count),
             )
             for item in resolved
         ],
@@ -261,10 +336,12 @@ async def entity_graph(
                 target=uuid.UUID(edge.target),
                 weight=edge.weight,
                 score=edge.score,
+                recent_weight=edge.recent_weight,
             )
             for edge in edges
         ],
         truncated=truncated,
+        recent_since=since,
     )
 
 

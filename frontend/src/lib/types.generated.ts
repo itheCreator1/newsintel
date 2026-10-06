@@ -2553,6 +2553,11 @@ export interface components {
             weight: number;
             /** Score */
             score: number;
+            /**
+             * Recent Weight
+             * @default 0
+             */
+            recent_weight: number;
         };
         /** GraphNode */
         GraphNode: {
@@ -2576,6 +2581,8 @@ export interface components {
             edges: components["schemas"]["GraphEdge"][];
             /** Truncated */
             truncated: boolean;
+            /** Recent Since */
+            recent_since?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -6043,6 +6050,7 @@ export interface operations {
                 focus_entity_id?: string | null;
                 nodes?: number;
                 min_edge_weight?: number;
+                expand?: string[] | null;
                 q?: string;
                 source_id?: string[] | null;
                 source_country?: string[] | null;
