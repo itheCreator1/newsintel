@@ -195,6 +195,8 @@ By default the four browser groups run in two concurrent lanes that start as soo
 
 `NEWSINTEL_TEST_E2E_OVERLAP` (0 or 1; default 1) decides whether the lanes start right after the image build or only after the backend and frontend stages. A failure in either half fails the gate. Under overlap one stage moves: the frontend unit tests run after the lanes have finished, because their one-second render waits timed out when they shared the machine with two browser stacks.
 
+GitHub Actions runs `./infra/test-quick.sh`, the frontend build and a workflow lint on every PR (`.github/workflows/ci.yml`), and the full gate after every merge to `main`, nightly, on demand, and on PRs that change `infra/`, `docker/` or the Dockerfiles (`.github/workflows/full-gate.yml`). A green PR check therefore covers the quick loop only; a PR that touches application behaviour still needs the full gate run locally before merging.
+
 Faster local loops trade coverage for speed and never replace the full gate:
 
 - `./infra/test-quick.sh` — unit-only backend tests (`classify.py --paths unit`) plus ruff, mypy, the OpenAPI/TypeScript contract checks, and frontend unit/typecheck. No service containers start (`--no-deps` throughout, `network_mode: none`); it does not run integration tests, migrations, the restore rehearsal, `npm run build`, or any browser group.
