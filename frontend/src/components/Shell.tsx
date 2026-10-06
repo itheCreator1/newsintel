@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../lib/auth-context'
 import { displayFont, monoFont } from '../lib/fonts'
 import { NavLink } from './NavLink'
+import { QuickSearch } from './QuickSearch'
 import { WatchlistLink } from './WatchlistLink'
 
 const fontVars = `${displayFont.variable} ${monoFont.variable}`
@@ -16,6 +17,19 @@ const NAV_GROUPS: [string, [string, string][]][] = [
   ['System', [['/jobs', 'Jobs'], ['/operations', 'Operations'], ['/settings', 'Settings']]],
 ]
 
+const normalize = (path: string) => path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+const PAGE_NAMES = new Map<string, string>([
+  ...NAV_GROUPS.flatMap(([, links]) => links),
+  ['/sources/detail', 'Source'], ['/events/detail', 'Event'], ['/clusters', 'Story'], ['/entities', 'Entity'],
+])
+
+/** The browser tab title for a route, so tabs and history entries say which page they are. */
+export function pageTitle(pathname: string, signedIn: boolean): string {
+  if (!signedIn) return 'Sign in · NewsIntel'
+  const name = PAGE_NAMES.get(normalize(pathname))
+  return name && name !== 'Overview' ? `${name} · NewsIntel` : 'NewsIntel'
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const { user, loading, error, signIn, signOut } = useAuth()
   const pathname = usePathname()
@@ -25,6 +39,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
+  useEffect(() => { if (!loading) document.title = pageTitle(pathname, Boolean(user)) }, [pathname, user, loading])
 
   // Until the session check answers, show nothing rather than flashing the sign-in form at a signed-in user.
   if (loading) return <main className={`${fontVars} login-page font-sans`} role="status"><span className="sr-only">Loading NewsIntel…</span></main>
@@ -96,6 +111,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
         {/* Closed on narrow screens means display:none, which also takes the links out of the tab order. */}
         <div id="main-navigation" className={`${menuOpen ? 'flex' : 'hidden'} flex-col gap-4 lg:flex`}>
+          <QuickSearch />
           <nav
             aria-label="Main navigation"
             className="flex flex-col gap-4"
