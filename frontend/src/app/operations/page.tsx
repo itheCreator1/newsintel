@@ -13,6 +13,7 @@ import { sourceHref } from '../../lib/investigation'
 import { AREAS, DEFAULT_HOURS, FEED_FILTERS, HOURS, bytes, feedTone, operationsHref, probeTone, since, span, type FeedFilter } from '../../lib/operations'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { plural } from '../../lib/utils'
+import { LoadError, Note } from '../../components/Feedback'
 
 const PROBES: Record<string, string> = { postgres: 'PostgreSQL', redis: 'Redis', elasticsearch: 'Elasticsearch', nlp: 'NLP processors', scheduler: 'Scheduler', workers: 'Workers' }
 const PROBE_STATES = { ok: 'OK', degraded: 'Degraded', down: 'Down', unknown: 'Unknown' } as const
@@ -22,9 +23,6 @@ const JOB_AREA: Record<string, OpsArea> = { article: 'article', search: 'search'
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const hoursText = (hours: number) => hours === 1 ? '1 hour' : `${hours} hours`
 
-function Note({ children, error }: { children: string; error?: boolean }) {
-  return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
-}
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="m-0 font-mono text-sm text-foreground">{value}</dd></div>
@@ -167,7 +165,7 @@ function OperationsContent() {
           {health.data && <AsOf at={health.data.generated_at} />}
         </div>
         {health.isPending && <Note>Checking dependencies…</Note>}
-        {health.isError && <Note error>Could not check dependencies.</Note>}
+        {health.isError && <LoadError className="px-6 py-4" query={health} message="Could not check dependencies." />}
         {health.data && (
           <>
             <p className="px-6 text-xs text-muted-foreground">Each check has a 2 second limit; an unreachable service is shown as Down here instead of an error. Workers checks that each queue has a live worker process; whether it keeps up shows in each pipeline’s oldest wait and expired leases.</p>
@@ -194,7 +192,7 @@ function OperationsContent() {
       </GlassPanel>
 
       {pipelines.isPending && <GlassPanel className="p-0"><Note>Loading the pipelines…</Note></GlassPanel>}
-      {pipelines.isError && <GlassPanel className="p-0"><Note error>Could not load the pipelines.</Note></GlassPanel>}
+      {pipelines.isError && <GlassPanel className="p-0"><LoadError className="px-6 py-4" query={pipelines} message="Could not load the pipelines." /></GlassPanel>}
       {pipelines.data && <Pipelines data={pipelines.data} onFailures={next => go({ area: next })} />}
 
       <GlassPanel aria-label="Feeds" className="flex flex-col gap-3 p-0">
@@ -212,7 +210,7 @@ function OperationsContent() {
         </div>
         <p className="px-6 text-xs text-muted-foreground">Failing: the newest finished fetches failed (counted over the last 20). Overdue: the next poll is more than one interval late. Awaiting: no fetch has finished yet.</p>
         {feeds.isPending && <Note>Loading the feeds…</Note>}
-        {feeds.isError && <Note error>Could not load the feeds.</Note>}
+        {feeds.isError && <LoadError className="px-6 py-4" query={feeds} message="Could not load the feeds." />}
         {feeds.data && (
           <>
             <p className="px-6 text-sm text-foreground">
@@ -232,7 +230,7 @@ function OperationsContent() {
           {storage.data && <AsOf at={storage.data.generated_at} />}
         </div>
         {storage.isPending && <Note>Loading storage…</Note>}
-        {storage.isError && <Note error>Could not load storage.</Note>}
+        {storage.isError && <LoadError className="px-6 py-4" query={storage} message="Could not load storage." />}
         {storage.data && (
           <>
             <p className="px-6 text-sm text-foreground">Database {bytes(storage.data.database_bytes)}</p>
@@ -260,7 +258,7 @@ function OperationsContent() {
             <button className={ghostButtonClass} onClick={() => go({ area: null })}>Close</button>
           </div>
           {failures.isPending && <Note>Loading failures…</Note>}
-          {failures.isError && <Note error>Could not load the failures.</Note>}
+          {failures.isError && <LoadError className="px-6 py-4" query={failures} message="Could not load the failures." />}
           {failures.data && failures.data.by_category.length === 0 && failures.data.recent.length === 0 && <Note>{`No failures in the last ${hoursText(hours)}.`}</Note>}
           {failures.data && failures.data.by_category.length > 0 && (
             <ul aria-label="Failure categories" className="flex flex-wrap gap-3 px-6">

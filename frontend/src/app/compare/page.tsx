@@ -12,6 +12,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref, type ListField } from '../../lib/investigation'
+import { LoadError, Note } from '../../components/Feedback'
 
 const KINDS: { value: CompareKind; label: string }[] = [{ value: 'entity', label: 'Entities' }, { value: 'source', label: 'Sources' }, { value: 'country', label: 'Countries' }]
 const ROLES: { value: CompareRole; label: string }[] = [{ value: 'story', label: 'Story country' }, { value: 'mentioned', label: 'Mentioned country' }, { value: 'source', label: 'Source country' }]
@@ -30,9 +31,6 @@ const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string
 const roleName = (role: string) => role === 'primary' ? 'story' : role
 const searchField = (kind: CompareKind, role?: CompareRole): ListField => kind === 'entity' ? 'entity_id' : kind === 'source' ? 'source_id' : role === 'mentioned' ? 'mentioned_country' : role === 'source' ? 'source_country' : 'story_country'
 
-function Note({ children, error }: { children: string; error?: boolean }) {
-  return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
-}
 
 interface PickerProps { kind: CompareKind; slot: 'A' | 'B'; value: string; label: string; onPick(ref: string, label?: string): void }
 
@@ -194,7 +192,7 @@ function CompareContent() {
 
       {problem && <GlassPanel className="p-0"><Note>{problem}</Note></GlassPanel>}
       {ready && compare.isPending && <GlassPanel className="p-0"><Note>Loading comparison…</Note></GlassPanel>}
-      {compare.isError && <GlassPanel className="p-0"><Note error>{compare.error instanceof ApiError && compare.error.status === 404 ? 'One of these subjects was not found.' : 'Could not load this comparison.'}</Note></GlassPanel>}
+      {compare.isError && <GlassPanel className="p-0"><LoadError className="px-6 py-4" query={compare} message={compare.error instanceof ApiError && compare.error.status === 404 ? 'One of these subjects was not found.' : 'Could not load this comparison.'} /></GlassPanel>}
 
       {data && (
         <>
@@ -262,7 +260,7 @@ function CompareContent() {
             {tab === 'articles' && (
               <>
                 {articles.isPending && <Note>Loading articles…</Note>}
-                {articles.isError && <Note error>Could not load articles.</Note>}
+                {articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
                 {articles.data && !articleItems.length && <Note>No articles in this part.</Note>}
                 {articleItems.map(article => (
                   <div key={article.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
@@ -276,7 +274,7 @@ function CompareContent() {
             {tab === 'stories' && (
               <>
                 {stories.isPending && <Note>Loading stories…</Note>}
-                {stories.isError && <Note error>Could not load stories.</Note>}
+                {stories.isError && <LoadError className="px-6 py-4" query={stories} message="Could not load stories." />}
                 {stories.data && !storyItems.length && <Note>No stories in this part.</Note>}
                 {storyItems.map(story => (
                   <div key={story.id} className="flex flex-col gap-0.5 border-border px-6 py-3">

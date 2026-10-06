@@ -13,6 +13,7 @@ import { RelatedCoveragePanel } from '../../components/RelatedCoveragePanel'
 import { highlightRanges, type ReaderRange } from '../../lib/reader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+import { LoadError } from '../../components/Feedback'
 
 const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
 
@@ -135,7 +136,7 @@ function ArticlesContent() {
       <div className={cn('grid items-start gap-6', focused ? 'mx-auto w-full max-w-4xl' : 'lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]')}>
         {!focused && <GlassPanel ref={listRef} className="overflow-hidden p-0">
           {articles.isPending && <p className="text-sm text-muted-foreground px-6 py-4">Loading articles…</p>}
-          {!articles.isPending && articles.isError && <p className="error text-sm text-destructive px-6 py-4">Could not load articles.</p>}
+          {!articles.isPending && articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
           {!articles.isPending && !articles.isError && !articleItems.length && <p className="text-sm text-muted-foreground px-6 py-4">No collected articles.</p>}
           {articleItems.map(article => (
             <button key={article.id} aria-current={article.id === selectedId ? 'true' : undefined} className="article-row flex w-full flex-col gap-1 border-t border-border px-6 py-4 text-left transition-colors first:border-t-0 hover:bg-accent/40 aria-[current=true]:bg-accent aria-[current=true]:shadow-[inset_3px_0_0_0_var(--primary)]" onClick={() => setQuery({ article: article.id })}>
@@ -191,7 +192,7 @@ function ArticlesContent() {
               <section className="annotations flex flex-col gap-2 border-t border-border pt-4">
                 <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-foreground">Annotations</h4><button type="button" className={ghostButtonClass} disabled={reprocess.isPending} onClick={() => reprocess.mutate()}>Reprocess annotations</button></div>
                 {annotations.isPending && <p className="text-sm text-muted-foreground">Loading annotations…</p>}
-                {!annotations.isPending && annotations.isError && <p className="error text-sm text-destructive">Could not load annotations.</p>}
+                {!annotations.isPending && annotations.isError && <LoadError query={annotations} message="Could not load annotations." />}
                 {!annotations.isPending && !annotations.isError && annotations.data && (
                   <>
                     {annotations.data.language

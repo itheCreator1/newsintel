@@ -5,7 +5,8 @@ import { resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import JobsPage from './page'
 
-vi.mock('../../lib/api', () => ({
+vi.mock('../../lib/api', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../lib/api')>()),
   api: { jobs: vi.fn(), backlog: vi.fn(), retryJob: vi.fn(), indexingStatus: vi.fn(), indexingFailures: vi.fn(), retryIndexing: vi.fn(), nlpStatus: vi.fn(), nlpFailures: vi.fn(), retryNlpJob: vi.fn() },
 }))
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { isTransient } from '../lib/filter-ui'
 import { ghostButtonClass } from '../lib/ui-classes'
 import { cn } from '../lib/utils'
 
@@ -32,6 +33,20 @@ export function ErrorNotice({ message, onRetry, retrying = false }: { message: s
     <div className="flex flex-wrap items-center gap-3">
       <p role="alert" className="error text-sm text-destructive">{message}</p>
       {onRetry && <button type="button" className={cn(ghostButtonClass, 'w-auto')} disabled={retrying} onClick={onRetry}>{retrying ? 'Retrying…' : 'Retry'}</button>}
+    </div>
+  )
+}
+
+/** One-line status inside a list panel (loading text, an empty list, or a failure without a query to retry). */
+export function Note({ children, error }: { children: string; error?: boolean }) {
+  return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
+}
+
+/** A failed load, with Retry when the failure is worth retrying (outages and network errors, not a 404). */
+export function LoadError({ query, message, className }: { query: { error: unknown; isFetching: boolean; refetch: () => unknown }; message: string; className?: string }) {
+  return (
+    <div className={className}>
+      <ErrorNotice message={message} onRetry={isTransient(query.error) ? () => void query.refetch() : undefined} retrying={query.isFetching} />
     </div>
   )
 }
