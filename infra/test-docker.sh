@@ -59,25 +59,44 @@ e2e_stop() {
   done
   e2e_pids=
 }
-# Waits for every lane (one failing does not stop the others), then reports each group: the
-# closing line of a passed group's log, the whole log of a failed one.
+# Waits for every lane (one failing does not stop the others), then reports each group, lane by
+# lane: the closing line of a passed group's log, the whole log of a failed one. A group with no
+# row either follows a failed group in its lane or belongs to a lane that died before recording.
 e2e_join() {
   e2e_status=0
+  ni_lane_statuses=
   for ni_pid in $e2e_pids; do
-    wait "$ni_pid" || e2e_status=$?
+    ni_lane_status=0
+    wait "$ni_pid" || ni_lane_status=$?
+    [ "$ni_lane_status" -eq 0 ] || e2e_status=$ni_lane_status
+    ni_lane_statuses="$ni_lane_statuses $ni_lane_status"
   done
   e2e_pids=
   printf 'e2e.all\t%s\t%s\t%s\n' "$e2e_t0" "$(($(date +%s) - e2e_t0))" "$e2e_status" >> "$artifacts/timings.tsv"
-  for group in search investigations monitors graph; do
-    ni_group_status=$(awk -F'\t' -v s="e2e.$group" '$1 == s {print $4}' "$artifacts/timings.tsv")
-    case $ni_group_status in
-      0) tail -n 1 "$artifacts/e2e-$group.log" ;;
-      "") echo "E2E group $group did not run: an earlier group in its lane failed" >&2 ;;
-      *)
-        cat "$artifacts/e2e-$group.log"
-        echo "E2E group $group failed with status $ni_group_status" >&2
-        ;;
-    esac
+  # One status per lane, in $e2e_lanes order; word-splitting is intentional.
+  set -- $ni_lane_statuses
+  for ni_lane in $e2e_lanes; do
+    ni_lane_status=$1
+    shift
+    ni_lane_failed=0
+    for group in $(echo "$ni_lane" | tr ',' ' '); do
+      ni_group_status=$(awk -F'\t' -v s="e2e.$group" '$1 == s {print $4}' "$artifacts/timings.tsv")
+      case $ni_group_status in
+        0) tail -n 1 "$artifacts/e2e-$group.log" ;;
+        "")
+          if [ "$ni_lane_failed" = 1 ]; then
+            echo "E2E group $group did not run: an earlier group in its lane failed" >&2
+          else
+            echo "E2E group $group did not run: its lane exited with status $ni_lane_status before recording a result" >&2
+          fi
+          ;;
+        *)
+          cat "$artifacts/e2e-$group.log"
+          echo "E2E group $group failed with status $ni_group_status" >&2
+          ni_lane_failed=1
+          ;;
+      esac
+    done
   done
   [ "$e2e_status" -eq 0 ] || exit "$e2e_status"
 }
