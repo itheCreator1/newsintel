@@ -6,15 +6,13 @@ import { init, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import type { GraphEdge, GraphNode } from '../lib/api-types'
+import { chartTheme, entityColors } from '../lib/chart-theme'
 
 use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
-const TYPE_COLORS: Record<string, string> = {
-  PERSON: '#7ba0ff', ORG: '#63d0c2', GPE: '#f2b35e', COUNTRY: '#e8795f',
-  LOCATION: '#b48cf2', EVENT: '#f07fae', PRODUCT: '#9fd36b', OTHER: '#8891ab',
-}
-const FALLBACK_COLOR = '#8891ab'
-const HIGHLIGHT = '#7ba0ff'
+const TYPE_COLORS = entityColors
+const FALLBACK_COLOR = entityColors.OTHER
+const HIGHLIGHT = chartTheme.highlight
 /** Only the busiest nodes carry a permanent label; hovering reveals the rest. */
 const LABELLED_NODES = 12
 
@@ -54,7 +52,7 @@ export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) 
         return ''
       },
     },
-    legend: [{ type: 'scroll', data: categories, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: '#8891ab' }, pageTextStyle: { color: '#8891ab' }, top: 0 }],
+    legend: [{ type: 'scroll', data: categories, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: chartTheme.axisLabel }, pageTextStyle: { color: chartTheme.axisLabel }, top: 0 }],
     series: [{
       type: 'graph',
       layout: 'force',
@@ -65,10 +63,10 @@ export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) 
       // A static layout: labelLayout.hideOverlap only runs once, so an animated settle would leave
       // labels overlapping where nodes end up (and it would ignore prefers-reduced-motion).
       force: { repulsion: 160, gravity: 0.18, edgeLength: [50, 150], friction: 0.2, layoutAnimation: false },
-      label: { show: false, position: 'right', color: '#e9edfb', fontSize: 12, overflow: 'truncate', width: 120, textBorderColor: 'rgba(8, 11, 22, 0.85)', textBorderWidth: 3 },
+      label: { show: false, position: 'right', color: chartTheme.labelText, fontSize: 12, overflow: 'truncate', width: 120, textBorderColor: chartTheme.labelHalo, textBorderWidth: 3 },
       labelLayout: { hideOverlap: true },
-      lineStyle: { color: 'rgba(140, 165, 255, 1)', curveness: 0.1 },
-      itemStyle: { borderColor: 'rgba(8, 11, 22, 0.6)', borderWidth: 1 },
+      lineStyle: { color: chartTheme.edge, curveness: 0.1 },
+      itemStyle: { borderColor: chartTheme.nodeBorder, borderWidth: 1 },
       emphasis: { focus: 'adjacency', label: { show: true }, lineStyle: { opacity: 0.9 } },
       blur: { itemStyle: { opacity: 0.15 }, lineStyle: { opacity: 0.05 }, label: { show: false } },
       data: nodes.map(node => {
@@ -83,7 +81,7 @@ export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) 
           category: categories.indexOf(node.type),
           label: { show: highlighted || (labelled.has(node.id) && !dimmed(node.id)), fontWeight: highlighted ? 600 : 400 },
           itemStyle: highlighted
-            ? { borderColor: HIGHLIGHT, borderWidth: 3, shadowBlur: 14, shadowColor: 'rgba(123, 160, 255, 0.6)' }
+            ? { borderColor: HIGHLIGHT, borderWidth: 3, shadowBlur: 14, shadowColor: chartTheme.highlightShadow }
             : { opacity: dimmed(node.id) ? 0.25 : 1 },
         }
       }),
