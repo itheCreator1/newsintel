@@ -4,9 +4,11 @@ The default clusterer uses PostgreSQL rules only, so related reporting keeps
 working while Elasticsearch is unavailable.
 """
 
+import dataclasses
+import math
 import re
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol, runtime_checkable
@@ -14,12 +16,12 @@ from typing import Protocol, runtime_checkable
 from sqlalchemy import ColumnElement, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clustering.models import StoryCluster, StoryClusterMember
+from app.clustering.models import ArticleClusterTerm, StoryCluster, StoryClusterMember
 from app.feeds.models import Article, FeedArticle
 from app.nlp.models import ArticleEntity, Entity
-from app.nlp.service import current_stop_words
+from app.nlp.service import current_stop_words, load_input_document
 
-CLUSTER_ALGORITHM_VERSION = "rule-1"
+CLUSTER_ALGORITHM_VERSION = "rule-2"
 CLUSTER_TIME_WINDOW = timedelta(hours=48)
 CLUSTER_CANDIDATE_LIMIT = 200
 CLUSTER_SCORE_THRESHOLD = 0.45
@@ -28,10 +30,28 @@ CLUSTER_MINIMUM_SHARED_ENTITIES = 2
 TITLE_WEIGHT = 0.5
 ENTITY_WEIGHT = 0.35
 TIME_WEIGHT = 0.15
+# Wording: outlets rewording one story rarely share a headline, but their opening paragraphs
+# keep the same specifics (the barges, the unpaid invoices, the breakwater). The title and
+# the first words of the body (or the feed summary) are reduced to stemmed terms, each
+# weighted by how rare it is inside the clustering window.
+WORDING_WEIGHT = 1.0 - TIME_WEIGHT
+LEDE_WORD_LIMIT = 80
+TERM_MINIMUM_LENGTH = 3
+TERM_MAXIMUM_LENGTH = 64
+CLUSTER_MINIMUM_SHARED_TERMS = 4
+CLUSTER_TERM_CANDIDATE_LIMIT = 100
+# Shared weight is divided by the smaller term set, clamped: a short summary cannot look like
+# a match on a handful of words, and a long lede needs no more than this many to make one.
+TERM_OVERLAP_FLOOR = 12
+TERM_OVERLAP_CEILING = 25
+# A window this small cannot tell a rare term from a common one, so rarity is measured as if
+# the window held at least this many articles.
+TERM_WEIGHT_MINIMUM_WINDOW = 100
 # Clustering writes span articles, so every assignment serialises behind one lock.
 CLUSTERING_ADVISORY_LOCK = 728341906
 
 _TOKEN_PATTERN = re.compile(r"[0-9a-z]+")
+_WORD_PATTERN = re.compile(r"[^\W\d_]+")
 
 
 @dataclass(frozen=True)
@@ -42,6 +62,7 @@ class ArticleFeatures:
     effective_date: datetime
     entity_ids: frozenset[uuid.UUID]
     feed_ids: frozenset[uuid.UUID]
+    terms: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -82,6 +103,68 @@ def title_tokens(title: str, stop_words: frozenset[str]) -> frozenset[str]:
     )
 
 
+def stem(word: str) -> str:
+    """Strip common English inflections so "votes", "voted" and "voting" meet as "vot".
+
+    Deliberately small: it only has to agree with itself, not produce dictionary words.
+    """
+    if word.endswith("ies") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("sses"):
+        word = word[:-2]
+    elif word.endswith("s") and not word.endswith(("ss", "us", "is")) and len(word) > 3:
+        word = word[:-1]
+    for suffix in ("ing", "ed"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            word = word[: -len(suffix)]
+            # "planned" -> "plann" -> "plan", but "called" keeps its double l.
+            if len(word) > 3 and word[-1] == word[-2] and word[-1] not in "lsz":
+                word = word[:-1]
+            break
+    if word.endswith("e") and len(word) > 3:
+        word = word[:-1]
+    return word
+
+
+def lede_terms(
+    text: str, stop_words: frozenset[str], *, word_limit: int = LEDE_WORD_LIMIT
+) -> frozenset[str]:
+    """Stemmed content terms from the first words of an article (its title comes first)."""
+    words = _WORD_PATTERN.findall(text.casefold())[:word_limit]
+    return frozenset(
+        stem(word)[:TERM_MAXIMUM_LENGTH]
+        for word in words
+        if len(word) >= TERM_MINIMUM_LENGTH and word not in stop_words
+    )
+
+
+def term_weights(
+    document_frequencies: Mapping[str, int], window_articles: int
+) -> dict[str, float]:
+    """Inverse document frequency inside the window, scaled to [0, 1].
+
+    A term only one article in the window uses weighs 1; a term every article uses weighs 0.
+    """
+    window = max(window_articles, TERM_WEIGHT_MINIMUM_WINDOW)
+    scale = math.log(window)
+    return {
+        term: max(0.0, math.log(window / max(frequency, 1)) / scale)
+        for term, frequency in document_frequencies.items()
+    }
+
+
+def term_overlap(
+    left: frozenset[str], right: frozenset[str], weights: Mapping[str, float]
+) -> float:
+    shared = left & right
+    if len(shared) < CLUSTER_MINIMUM_SHARED_TERMS:
+        return 0.0
+    denominator = min(
+        max(min(len(left), len(right)), TERM_OVERLAP_FLOOR), TERM_OVERLAP_CEILING
+    )
+    return min(1.0, sum(weights.get(term, 0.0) for term in shared) / denominator)
+
+
 def jaccard[T](left: frozenset[T], right: frozenset[T]) -> float:
     if not left or not right:
         return 0.0
@@ -97,14 +180,26 @@ def time_proximity(
 
 
 def score_articles(
-    target: ArticleFeatures, candidate: ArticleFeatures, *, stop_words: frozenset[str]
+    target: ArticleFeatures,
+    candidate: ArticleFeatures,
+    *,
+    stop_words: frozenset[str],
+    weights: Mapping[str, float] | None = None,
 ) -> float:
+    """The better of two rules: headline and entities, or shared opening wording.
+
+    Each rule is time-weighted the same way, so either can carry a pair on its own.
+    """
     title = jaccard(
         title_tokens(target.title, stop_words), title_tokens(candidate.title, stop_words)
     )
     entities = jaccard(target.entity_ids, candidate.entity_ids)
     proximity = time_proximity(target.effective_date, candidate.effective_date)
-    return TITLE_WEIGHT * title + ENTITY_WEIGHT * entities + TIME_WEIGHT * proximity
+    headline = TITLE_WEIGHT * title + ENTITY_WEIGHT * entities + TIME_WEIGHT * proximity
+    if not weights:
+        return headline
+    wording = WORDING_WEIGHT * term_overlap(target.terms, candidate.terms, weights)
+    return max(headline, wording + TIME_WEIGHT * proximity)
 
 
 def shares_source(target: ArticleFeatures, candidate: ArticleFeatures) -> bool:
@@ -117,10 +212,14 @@ def rank_candidates(
     candidates: Iterable[ArticleFeatures],
     *,
     stop_words: frozenset[str],
+    weights: Mapping[str, float] | None = None,
     threshold: float = CLUSTER_SCORE_THRESHOLD,
 ) -> list[ScoredCandidate]:
     scored = [
-        ScoredCandidate(candidate, score_articles(target, candidate, stop_words=stop_words))
+        ScoredCandidate(
+            candidate,
+            score_articles(target, candidate, stop_words=stop_words, weights=weights),
+        )
         for candidate in candidates
         if candidate.article_id != target.article_id and not shares_source(target, candidate)
     ]
@@ -246,6 +345,95 @@ async def candidate_ids(db: AsyncSession, target: ArticleFeatures) -> list[uuid.
     return list((await db.scalars(query)).all())
 
 
+def _window(target: ArticleFeatures) -> tuple[datetime, datetime]:
+    return (
+        target.effective_date - CLUSTER_TIME_WINDOW,
+        target.effective_date + CLUSTER_TIME_WINDOW,
+    )
+
+
+async def store_terms(db: AsyncSession, target: ArticleFeatures, terms: frozenset[str]) -> None:
+    """Replace the article's indexed wording with the terms it has now."""
+    await db.execute(
+        delete(ArticleClusterTerm).where(ArticleClusterTerm.article_id == target.article_id)
+    )
+    if terms:
+        db.add_all(
+            ArticleClusterTerm(
+                article_id=target.article_id, term=term, effective_at=target.effective_date
+            )
+            for term in sorted(terms)
+        )
+    await db.flush()
+
+
+async def load_terms(
+    db: AsyncSession, article_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, frozenset[str]]:
+    if not article_ids:
+        return {}
+    terms: dict[uuid.UUID, set[str]] = {}
+    for article_id, term in (
+        await db.execute(
+            select(ArticleClusterTerm.article_id, ArticleClusterTerm.term).where(
+                ArticleClusterTerm.article_id.in_(article_ids)
+            )
+        )
+    ).all():
+        terms.setdefault(article_id, set()).add(term)
+    return {article_id: frozenset(values) for article_id, values in terms.items()}
+
+
+async def window_term_weights(db: AsyncSession, target: ArticleFeatures) -> dict[str, float]:
+    """Weigh the target's terms by how many articles in its window share each one."""
+    if not target.terms:
+        return {}
+    start, end = _window(target)
+    effective = _effective_date()
+    window_articles = await db.scalar(
+        select(func.count()).select_from(Article).where(effective >= start, effective <= end)
+    )
+    frequencies = {
+        term: int(count)
+        for term, count in (
+            await db.execute(
+                select(ArticleClusterTerm.term, func.count())
+                .where(
+                    ArticleClusterTerm.term.in_(target.terms),
+                    ArticleClusterTerm.effective_at >= start,
+                    ArticleClusterTerm.effective_at <= end,
+                )
+                .group_by(ArticleClusterTerm.term)
+            )
+        ).all()
+    }
+    return term_weights(
+        {term: frequencies.get(term, 1) for term in target.terms}, int(window_articles or 0)
+    )
+
+
+async def wording_candidate_ids(db: AsyncSession, target: ArticleFeatures) -> list[uuid.UUID]:
+    """Articles in the window sharing the most opening terms with the target."""
+    if len(target.terms) < CLUSTER_MINIMUM_SHARED_TERMS:
+        return []
+    start, end = _window(target)
+    shared = func.count()
+    query = (
+        select(ArticleClusterTerm.article_id)
+        .where(
+            ArticleClusterTerm.term.in_(target.terms),
+            ArticleClusterTerm.effective_at >= start,
+            ArticleClusterTerm.effective_at <= end,
+            ArticleClusterTerm.article_id != target.article_id,
+        )
+        .group_by(ArticleClusterTerm.article_id)
+        .having(shared >= CLUSTER_MINIMUM_SHARED_TERMS)
+        .order_by(shared.desc(), ArticleClusterTerm.article_id)
+        .limit(CLUSTER_TERM_CANDIDATE_LIMIT)
+    )
+    return list((await db.scalars(query)).all())
+
+
 async def _member_ids(db: AsyncSession, cluster_id: uuid.UUID) -> list[uuid.UUID]:
     return list(
         (
@@ -289,7 +477,7 @@ class StoryClusterer(Protocol):
 
 
 class RuleClusterer:
-    """Postgres-only clustering: shared title hash or shared entities, then scored."""
+    """Postgres-only clustering: shared title hash, entities or opening wording, then scored."""
 
     version = CLUSTER_ALGORITHM_VERSION
 
@@ -299,8 +487,23 @@ class RuleClusterer:
         if target is None:
             raise LookupError("article not found")
         stop_words = frozenset((await current_stop_words(db)).words)
-        candidates = await load_features(db, await candidate_ids(db, target))
-        ranked = rank_candidates(target, candidates.values(), stop_words=stop_words)
+        document = await load_input_document(db, article_id)
+        target = dataclasses.replace(target, terms=lede_terms(document.text, stop_words))
+        await store_terms(db, target, target.terms)
+        weights = await window_term_weights(db, target)
+        found = dict.fromkeys(await candidate_ids(db, target))
+        found.update(dict.fromkeys(await wording_candidate_ids(db, target)))
+        candidates = await load_features(db, list(found))
+        terms = await load_terms(db, list(candidates))
+        ranked = rank_candidates(
+            target,
+            (
+                dataclasses.replace(item, terms=terms.get(item.article_id, frozenset()))
+                for item in candidates.values()
+            ),
+            stop_words=stop_words,
+            weights=weights,
+        )
         member = await db.get(StoryClusterMember, article_id, with_for_update=True)
         previous_cluster_id = member.cluster_id if member is not None else None
         touched: set[uuid.UUID] = {article_id}

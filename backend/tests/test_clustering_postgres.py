@@ -16,7 +16,13 @@ from app.clustering.engine import (
     score_articles,
 )
 from app.clustering.execution import process_job
-from app.clustering.models import ArticleClusterState, ClusterJob, StoryCluster, StoryClusterMember
+from app.clustering.models import (
+    ArticleClusterState,
+    ArticleClusterTerm,
+    ClusterJob,
+    StoryCluster,
+    StoryClusterMember,
+)
 from app.clustering.routes import get_cluster
 from app.clustering.service import (
     claim_job,
@@ -77,6 +83,7 @@ async def _article(  # type: ignore[no-untyped-def]
     title_hash: str,
     hours: float = 0,
     discovered: datetime | None = None,
+    description: str | None = None,
 ) -> Article:
     article = Article(
         original_url=f"https://example.test/{uuid.uuid4()}",
@@ -95,7 +102,7 @@ async def _article(  # type: ignore[no-untyped-def]
                 article_id=article.id,
                 feed_title=title,
                 feed_url=article.original_url,
-                description=title,
+                description=description or title,
                 metadata_json={},
             )
         )
@@ -262,6 +269,74 @@ async def test_two_outlets_covering_one_event_stay_separate_articles_in_one_clus
     assert cluster.first_published_at == BASE_TIME
     assert cluster.last_published_at == BASE_TIME + timedelta(hours=3)
     assert state is not None and state.completed_generation == state.requested_generation
+
+
+async def test_outlets_rewording_one_story_cluster_on_their_opening_wording() -> None:
+    async with session_factory() as db, db.begin():
+        wire = await _article(
+            db,
+            feeds=[await _feed(db, "Reword Wire")],
+            title="Breakwater dredging halted after contractor walks off job",
+            title_hash=uuid.uuid4().hex,
+            description=(
+                "Work to deepen the shipping channel by the breakwater stopped when the"
+                " dredging contractor pulled its crews and barges, citing unpaid invoices."
+                " Fishermen said silt from the half-finished dredging clouded the water."
+            ),
+        )
+        daily = await _article(
+            db,
+            feeds=[await _feed(db, "Reword Daily")],
+            title="Port deepening project stalls in payment dispute",
+            title_hash=uuid.uuid4().hex,
+            hours=5,
+            description=(
+                "Barges left the breakwater as the firm hired to dredge the shipping channel"
+                " downed tools over unpaid invoices. Fishermen complained that silt stirred up"
+                " by the unfinished dredging had muddied the water."
+            ),
+        )
+        lanes = await _article(
+            db,
+            feeds=[await _feed(db, "Reword Gazette")],
+            title="Council approves protected cycle lanes",
+            title_hash=uuid.uuid4().hex,
+            hours=1,
+            description=(
+                "The council approved a network of protected cycle lanes through the centre."
+                " Shop owners said the work would cut parking."
+            ),
+        )
+        article_ids = [wire.id, daily.id, lanes.id]
+
+    for article_id in article_ids:
+        await _run_clustering(article_id)
+
+    membership = await _membership(article_ids)
+    assert set(membership) == {wire.id, daily.id}
+    assert membership[wire.id] == membership[daily.id]
+    async with session_factory() as db:
+        member = await db.get(StoryClusterMember, daily.id)
+        stored = set(
+            (
+                await db.scalars(
+                    select(ArticleClusterTerm.term).where(ArticleClusterTerm.article_id == wire.id)
+                )
+            ).all()
+        )
+    assert member is not None and member.score >= CLUSTER_SCORE_THRESHOLD
+    assert {"breakwater", "dredg", "barg", "invoic", "silt"} <= stored
+
+    # Reclustering replaces the article's terms rather than adding to them.
+    await _run_clustering(wire.id)
+    async with session_factory() as db:
+        count = await db.scalar(
+            select(func.count())
+            .select_from(ArticleClusterTerm)
+            .where(ArticleClusterTerm.article_id == wire.id)
+        )
+    assert count == len(stored)
+    assert await _membership(article_ids) == membership
 
 
 async def test_one_outlet_publishing_twice_is_not_related_reporting() -> None:
@@ -965,7 +1040,8 @@ async def test_downgrade_to_0007_removes_clustering_without_touching_the_archive
                         "SELECT to_regclass('story_clusters') IS NULL,"
                         " to_regclass('story_cluster_members') IS NULL,"
                         " to_regclass('article_cluster_state') IS NULL,"
-                        " to_regclass('cluster_jobs') IS NULL"
+                        " to_regclass('cluster_jobs') IS NULL,"
+                        " to_regclass('article_cluster_terms') IS NULL"
                     )
                 )
             ).one()
