@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 import structlog
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -144,7 +144,7 @@ EVALUATORS: dict[str, Evaluator] = {
 }
 
 
-def monitor_due(now: datetime):  # type: ignore[no-untyped-def]
+def monitor_due(now: datetime) -> ColumnElement[bool]:
     return (
         Monitor.enabled.is_(True)
         & (Monitor.next_evaluation_at <= now)

@@ -1,7 +1,8 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import ColumnElement, Select, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.engine import CLUSTER_ALGORITHM_VERSION
@@ -68,7 +69,7 @@ async def request_clustering(db: AsyncSession, article_id: uuid.UUID) -> int:
     return 1
 
 
-def job_due(now: datetime):  # type: ignore[no-untyped-def]
+def job_due(now: datetime) -> ColumnElement[bool]:
     return (
         ClusterJob.status.in_(("queued", "running", "retrying"))
         & (ClusterJob.next_attempt_at <= now)
@@ -112,7 +113,9 @@ def _parse_datetime(value: object) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def _apply_selection(query, selection: dict[str, object]):  # type: ignore[no-untyped-def]
+def _apply_selection[T: tuple[Any, ...]](
+    query: Select[T], selection: dict[str, object]
+) -> Select[T]:
     article_ids = selection.get("article_ids")
     if isinstance(article_ids, list):
         query = query.where(Article.id.in_([uuid.UUID(str(value)) for value in article_ids]))

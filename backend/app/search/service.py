@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import ColumnElement, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import session_factory
@@ -45,7 +45,7 @@ async def claim_delivery(
     return delivery, token
 
 
-def delivery_due(now: datetime):  # type: ignore[no-untyped-def]
+def delivery_due(now: datetime) -> ColumnElement[bool]:
     return (
         SearchDelivery.status.in_(("queued", "retrying", "running"))
         & (SearchDelivery.next_attempt_at <= now)

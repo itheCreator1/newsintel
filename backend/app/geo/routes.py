@@ -1,16 +1,14 @@
 import re
-import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.feeds.service import decode_cursor
 from app.geo import investigation, queries
 from app.geo.schemas import ArticleRole, GeoArticlePage, GeoCountriesResponse, MapScope, Role
 from app.search.criteria import SearchCriteria, search_criteria
@@ -27,15 +25,6 @@ Days = Annotated[
 ]
 COUNTRY = re.compile(r"[A-Za-z]{2}")
 DEFAULT_DAYS = 30
-
-
-def _cursor_or_400(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
-    if cursor is None:
-        return None
-    try:
-        return decode_cursor(cursor)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(400, "Invalid cursor") from None
 
 
 def recent_days(scope: MapScope, criteria: SearchCriteria, days: int | None) -> int | None:
@@ -103,7 +92,7 @@ async def geo_articles(
         raise HTTPException(422, "A country is a two-letter code")
     window = recent_days(scope, criteria, days)
     if window is not None:
-        return await queries.articles(db, role, code.upper(), window, limit, _cursor_or_400(cursor))
+        return await queries.articles(db, role, code.upper(), window, limit, cursor_or_400(cursor))
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     return await investigation.articles(
         db, adapter, settings.secret_key, session.id, role, code.upper(), criteria, limit, cursor
