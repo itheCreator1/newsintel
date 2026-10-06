@@ -116,7 +116,7 @@ def _event_articles(event_id: uuid.UUID):  # type: ignore[no-untyped-def]
 
 
 async def refresh_event(db: AsyncSession, event: Event) -> bool:
-    """Recompute the cached span, entity set and story country from the member clusters.
+    """Recompute the cached span, size, entity set and story country from the member clusters.
 
     An event left with no cluster is deleted (it is derived data); returns whether it survives.
     """
@@ -125,6 +125,17 @@ async def refresh_event(db: AsyncSession, event: Event) -> bool:
         await db.flush()
         return False
     await refresh_span(db, event)
+    event.cluster_count, event.article_count = (
+        await db.execute(
+            select(
+                func.count(distinct(EventCluster.cluster_id)),
+                func.count(distinct(StoryClusterMember.article_id)),
+            )
+            .select_from(EventCluster)
+            .outerjoin(StoryClusterMember, StoryClusterMember.cluster_id == EventCluster.cluster_id)
+            .where(EventCluster.event_id == event.id)
+        )
+    ).one()
     entity_rows = await db.execute(
         select(ArticleEntity.entity_id, func.count(distinct(ArticleEntity.article_id)))
         .join(StoryClusterMember, StoryClusterMember.article_id == ArticleEntity.article_id)

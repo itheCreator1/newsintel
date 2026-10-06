@@ -55,9 +55,24 @@ async def list_events(
     entity_id: uuid.UUID | None = None,
     from_: Annotated[datetime | None, Query(alias="from")] = None,
     to: datetime | None = None,
+    min_stories: Annotated[
+        int, Query(ge=1, le=1000, description="Only events with at least this many stories.")
+    ] = 1,
+    sort: Annotated[
+        Literal["latest", "biggest"],
+        Query(description="latest: newest end first; biggest: most articles first."),
+    ] = "latest",
     cursor: str | None = None,
     limit: Limit = 30,
 ) -> EventPage:
+    try:
+        decoded = (
+            (queries.decode_size_cursor(cursor) if sort == "biggest" else decode_cursor(cursor))
+            if cursor
+            else None
+        )
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "Invalid cursor") from None
     return await queries.events(
         db,
         version=algorithm_version or EVENT_ALGORITHM_VERSION,
@@ -66,8 +81,10 @@ async def list_events(
         entity_id=entity_id,
         start=from_,
         end=to,
+        min_stories=min_stories,
+        sort=sort,
         limit=limit,
-        cursor=_cursor_or_400(cursor),
+        cursor=decoded,
     )
 
 

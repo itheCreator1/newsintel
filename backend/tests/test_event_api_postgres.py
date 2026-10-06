@@ -134,6 +134,60 @@ async def test_filters_apply_alone_and_together() -> None:
     assert await found(status="superseded") == set()
 
 
+async def test_one_story_events_can_be_hidden_and_the_biggest_sort_pages_cleanly() -> None:
+    version = _version()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 2)
+        sizes = {}
+        # (stories, articles per story, hours): sizes and end times tie on purpose.
+        for stories, articles, hours in ((1, 4, 0), (2, 2, 1), (2, 2, 1), (3, 2, 2), (1, 2, 3)):
+            clusters = [
+                await story(db, ents, hours=hours, articles=articles) for _ in range(stories)
+            ]
+            event = await _make(db, version, clusters)
+            sizes[str(event.id)] = (stories, stories * articles, event.ended_at.isoformat())
+    every = await _walk("/events", 100, algorithm_version=version)
+    assert len(every) == 5
+    several = await _walk("/events", 100, algorithm_version=version, min_stories=2)
+    assert {e["id"] for e in several} == {i for i, (n, _, _) in sizes.items() if n >= 2}
+    assert all(e["cluster_count"] >= 2 for e in several)
+
+    biggest = await _walk("/events", 100, algorithm_version=version, sort="biggest")
+    keys = [(e["article_count"], e["ended_at"], e["id"]) for e in biggest]
+    assert keys == sorted(keys, reverse=True) and keys[0][0] == 6
+    for size in (1, 2):
+        paged = await _walk("/events", size, algorithm_version=version, sort="biggest")
+        assert [e["id"] for e in paged] == [e["id"] for e in biggest]
+    async with _client() as client:
+        latest = await client.get(
+            "/api/v1/events", params={"algorithm_version": version, "limit": 1}
+        )
+        wrong = {"sort": "biggest", "cursor": latest.json()["next_cursor"]}
+        assert (await client.get("/api/v1/events", params=wrong)).status_code == 400
+        for bad in ({"sort": "largest"}, {"min_stories": 0}):
+            assert (await client.get("/api/v1/events", params=bad)).status_code == 422
+
+
+async def test_the_detail_lists_the_sources_with_the_most_articles() -> None:
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 2)
+        busy, quiet = await feed(db), await feed(db)
+        event = await _make(
+            db,
+            _version(),
+            [
+                await story(db, ents, articles=3, feeds=[busy]),
+                await story(db, ents, hours=1, articles=1, feeds=[busy, quiet]),
+            ],
+        )
+        event_id, busy_id, quiet_id = str(event.id), str(busy.id), str(quiet.id)
+    detail = await _get(f"/events/{event_id}")
+    assert [(s["id"], s["article_count"]) for s in detail["sources"]] == [
+        (busy_id, 4),
+        (quiet_id, 1),
+    ]
+
+
 async def test_the_default_version_is_the_current_one_and_others_are_opt_in() -> None:
     other = _version()
     async with session_factory() as db, db.begin():

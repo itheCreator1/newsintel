@@ -20,20 +20,35 @@ from app.events.schemas import (
     EventDetail,
     EventEntityResponse,
     EventPage,
+    EventSourceResponse,
     EventSummary,
     EventTimelineDay,
     EventTimelinePage,
     TimelineEvidence,
 )
-from app.feeds.models import Article, FeedArticle
-from app.feeds.service import article_response, encode_cursor
+from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.service import article_response, decode_cursor, encode_cursor
 from app.nlp.models import Entity
 
 LIST_ENTITIES = 5
 DETAIL_ENTITIES = 20
+DETAIL_SOURCES = 10
 EVIDENCE_PER_DAY = 3
 
 Cursor = tuple[datetime, uuid.UUID]
+# The "biggest" order pages on (article count, end, id).
+SizeCursor = tuple[int, datetime, uuid.UUID]
+
+
+def encode_size_cursor(article_count: int, ended_at: datetime, item_id: uuid.UUID) -> str:
+    return encode_cursor(ended_at, item_id) + f".{article_count}"
+
+
+def decode_size_cursor(value: str) -> SizeCursor:
+    """Raises ValueError (or UnicodeDecodeError) on anything `encode_size_cursor` did not make."""
+    head, _, count = value.rpartition(".")
+    ended_at, item_id = decode_cursor(head)
+    return int(count), ended_at, item_id
 
 
 async def get_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
@@ -147,8 +162,26 @@ async def summaries(
 
 async def detail(db: AsyncSession, event: Event) -> EventDetail:
     (summary,) = await summaries(db, [event], DETAIL_ENTITIES)
+    articles = func.count(func.distinct(FeedArticle.article_id))
+    sources = await db.execute(
+        select(Feed.id, Feed.name, articles)
+        .select_from(EventCluster)
+        .join(StoryClusterMember, StoryClusterMember.cluster_id == EventCluster.cluster_id)
+        .join(FeedArticle, FeedArticle.article_id == StoryClusterMember.article_id)
+        .join(Feed, Feed.id == FeedArticle.feed_id)
+        .where(EventCluster.event_id == event.id)
+        .group_by(Feed.id, Feed.name)
+        .order_by(articles.desc(), Feed.name, Feed.id)
+        .limit(DETAIL_SOURCES)
+    )
     return EventDetail(
-        **summary.model_dump(), created_at=event.created_at, updated_at=event.updated_at
+        **summary.model_dump(),
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+        sources=[
+            EventSourceResponse(id=feed_id, name=name, article_count=count)
+            for feed_id, name, count in sources
+        ],
     )
 
 
@@ -161,9 +194,12 @@ async def events(
     entity_id: uuid.UUID | None,
     start: datetime | None,
     end: datetime | None,
+    min_stories: int = 1,
+    sort: str = "latest",
     limit: int,
-    cursor: Cursor | None,
+    cursor: Cursor | SizeCursor | None,
 ) -> EventPage:
+    """`cursor` is a `SizeCursor` for the "biggest" order and a `Cursor` otherwise."""
     query = select(Event).where(Event.algorithm_version == version, Event.ended_at.is_not(None))
     if status:
         query = query.where(Event.status == status)
@@ -181,18 +217,43 @@ async def events(
         query = query.where(Event.ended_at >= start)
     if end:
         query = query.where(Event.started_at <= end)
-    if cursor:
-        timestamp, item_id = cursor
-        query = query.where(
-            or_(Event.ended_at < timestamp, and_(Event.ended_at == timestamp, Event.id < item_id))
-        )
-    rows = list(
-        await db.scalars(query.order_by(Event.ended_at.desc(), Event.id.desc()).limit(limit + 1))
-    )
+    if min_stories > 1:
+        query = query.where(Event.cluster_count >= min_stories)
+    if sort == "biggest":
+        if cursor:
+            count, timestamp, item_id = cursor  # type: ignore[misc]
+            query = query.where(
+                or_(
+                    Event.article_count < count,
+                    and_(Event.article_count == count, Event.ended_at < timestamp),
+                    and_(
+                        Event.article_count == count,
+                        Event.ended_at == timestamp,
+                        Event.id < item_id,
+                    ),
+                )
+            )
+        query = query.order_by(Event.article_count.desc(), Event.ended_at.desc(), Event.id.desc())
+    else:
+        if cursor:
+            timestamp, item_id = cursor  # type: ignore[misc]
+            query = query.where(
+                or_(
+                    Event.ended_at < timestamp,
+                    and_(Event.ended_at == timestamp, Event.id < item_id),
+                )
+            )
+        query = query.order_by(Event.ended_at.desc(), Event.id.desc())
+    rows = list(await db.scalars(query.limit(limit + 1)))
     page = rows[:limit]
     next_cursor = None
     if len(rows) > limit and page[-1].ended_at:
-        next_cursor = encode_cursor(page[-1].ended_at, page[-1].id)
+        last = page[-1]
+        next_cursor = (
+            encode_size_cursor(last.article_count, last.ended_at, last.id)  # type: ignore[arg-type]
+            if sort == "biggest"
+            else encode_cursor(last.ended_at, last.id)  # type: ignore[arg-type]
+        )
     return EventPage(items=await summaries(db, page, LIST_ENTITIES), next_cursor=next_cursor)
 
 

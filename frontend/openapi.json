@@ -2084,6 +2084,36 @@
             }
           },
           {
+            "name": "min_stories",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Only events with at least this many stories.",
+              "default": 1,
+              "title": "Min Stories"
+            },
+            "description": "Only events with at least this many stories."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "latest",
+                "biggest"
+              ],
+              "type": "string",
+              "description": "latest: newest end first; biggest: most articles first.",
+              "default": "latest",
+              "title": "Sort"
+            },
+            "description": "latest: newest end first; biggest: most articles first."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -9841,6 +9871,13 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/EventSourceResponse"
+            },
+            "type": "array",
+            "title": "Sources"
           }
         },
         "type": "object",
@@ -9858,9 +9895,11 @@
           "headline_article_id",
           "entities",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "sources"
         ],
-        "title": "EventDetail"
+        "title": "EventDetail",
+        "description": "`sources` are the feeds with the most of the event's articles (up to 10)."
       },
       "EventEntityResponse": {
         "properties": {
@@ -10003,6 +10042,30 @@
           "last_error"
         ],
         "title": "EventPipeline"
+      },
+      "EventSourceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "article_count"
+        ],
+        "title": "EventSourceResponse"
       },
       "EventSummary": {
         "properties": {

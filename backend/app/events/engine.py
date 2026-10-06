@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 import structlog
-from sqlalchemy import Select, and_, distinct, func, or_, select, text
+from sqlalchemy import Select, and_, distinct, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.engine import CLUSTER_ENTITY_TYPES, jaccard, title_tokens
@@ -36,6 +36,8 @@ EVENT_CANDIDATE_LIMIT = 50
 EVENT_BATCH = 100
 EVENT_RECONCILE_WINDOW = timedelta(days=7)
 EVENT_RECONCILE_LIMIT = 500
+# An event with no new article for this long is closed; a late cluster that still fits reopens it.
+EVENT_CLOSE_AFTER = EVENT_TIME_WINDOW
 TIME_WEIGHT = 0.25
 ENTITY_WEIGHT = 0.4
 TITLE_WEIGHT = 0.2
@@ -324,7 +326,11 @@ async def event_facts_without(
 async def candidate_event_ids(
     db: AsyncSession, cluster: ClusterFacts, version: str
 ) -> list[uuid.UUID]:
-    """Recent active events sharing entities with the cluster, newest first; never all pairs."""
+    """Recent events sharing entities with the cluster, newest first; never all pairs.
+
+    Closed events are candidates too: closing follows the clock, and a backfill decides clusters
+    long after they were published.
+    """
     if not cluster.entity_ids:
         return []
     query = (
@@ -332,7 +338,7 @@ async def candidate_event_ids(
         .join(EventEntity, EventEntity.event_id == Event.id)
         .where(
             Event.algorithm_version == version,
-            Event.status == "active",
+            Event.status.in_(("active", "closed")),
             Event.ended_at >= cluster.first_published_at - EVENT_TIME_WINDOW,
             Event.started_at <= cluster.last_published_at + EVENT_TIME_WINDOW,
             EventEntity.entity_id.in_(cluster.entity_ids),
@@ -470,6 +476,7 @@ class RuleEventAssociator:
         else:
             event = await db.get(Event, chosen[0].id)  # type: ignore[assignment]
             score, signals = chosen[1].total, chosen[1].signals
+            event.status = "active"  # reopens a closed event; the next sweep closes it if idle
         await associate_cluster(
             db, event, cluster.id, score, signals, cluster_updated_at=cluster_updated_at
         )
@@ -481,8 +488,11 @@ class RuleEventAssociator:
         return created, deleted
 
 
-async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
-    """Refresh recent events, which loses members when clusters merge or dissolve.
+async def reconcile_events(
+    db: AsyncSession, version: str, now: datetime | None = None
+) -> BatchResult:
+    """Refresh recent events, which loses members when clusters merge or dissolve, then close the
+    events with no new article for `EVENT_CLOSE_AFTER`.
 
     ponytail: bounded to the newest `EVENT_RECONCILE_LIMIT` events of the last week; an event that
     loses a member later, or beyond that limit, stays stale until its next cluster decision.
@@ -495,7 +505,7 @@ async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
         select(Event)
         .where(
             Event.algorithm_version == version,
-            Event.status == "active",
+            Event.status.in_(("active", "closed")),
             or_(
                 Event.ended_at.is_(None),
                 Event.ended_at >= datetime.now(UTC) - EVENT_RECONCILE_WINDOW,
@@ -508,6 +518,16 @@ async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
         result.evaluated += 1
         if not await refresh_event(db, event):
             result.deleted += 1
+    await db.execute(
+        update(Event)
+        .where(
+            Event.algorithm_version == version,
+            Event.status == "active",
+            Event.ended_at < (now or datetime.now(UTC)) - EVENT_CLOSE_AFTER,
+        )
+        .values(status="closed")
+        .execution_options(synchronize_session=False)
+    )
     return result
 
 
