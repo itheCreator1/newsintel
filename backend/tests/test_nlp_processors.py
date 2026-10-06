@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -7,6 +8,7 @@ from app.nlp.processors import (
     ConfigurationError,
     InputTooLarge,
     ProcessorContext,
+    _is_junk_entity,
     detect_countries,
     detect_language,
     extract_entities,
@@ -90,6 +92,88 @@ def test_enabled_ner_with_missing_model_is_a_configuration_error(
 
     with pytest.raises(ConfigurationError, match="spaCy is not installed"):
         extract_entities(context(ENGLISH_TEXT, ner_enabled=True))
+
+
+@pytest.mark.parametrize(
+    ("text", "label"),
+    [
+        ("Last week", "DATE"),
+        ("Monday", "DATE"),
+        ("this morning", "TIME"),
+        ("40%", "PERCENT"),
+        ("$5 million", "MONEY"),
+        ("two", "CARDINAL"),
+        ("first", "ORDINAL"),
+        ("10 km", "QUANTITY"),
+        # Time phrases the model mislabels as named things.
+        ("Last week", "ORG"),
+        ("Tuesday", "PERSON"),
+        ("the past two years", "EVENT"),
+        ("Earlier this month", "ORG"),
+        ("Yesterday", "GPE"),
+        ("weeks ago", "ORG"),
+        # Punctuation and fragments.
+        ("'s", "ORG"),
+        ("--", "PERSON"),
+        ("U", "ORG"),
+    ],
+)
+def test_junk_entities_are_recognised(text: str, label: str) -> None:
+    assert _is_junk_entity(text, label)
+
+
+@pytest.mark.parametrize(
+    ("text", "label"),
+    [
+        ("Barack Obama", "PERSON"),
+        ("Microsoft", "ORG"),
+        ("EU", "ORG"),
+        ("Black Friday", "EVENT"),
+        ("World War II", "EVENT"),
+        ("Summer Olympics", "EVENT"),
+        ("Europeans", "NORP"),
+        ("the Week Magazine", "ORG"),
+    ],
+)
+def test_named_entities_are_kept(text: str, label: str) -> None:
+    assert not _is_junk_entity(text, label)
+
+
+class _FakeSpan:
+    def __init__(self, text: str, full_text: str, label: str) -> None:
+        self.text = text
+        self.label_ = label
+        self.start_char = full_text.index(text)
+        self.end_char = self.start_char + len(text)
+
+
+def test_extract_entities_drops_junk_before_grouping(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Last week Microsoft said 40% of staff in London met on Monday."
+    spans = [
+        ("Last week", "ORG"),
+        ("Microsoft", "ORG"),
+        ("40%", "PERCENT"),
+        ("London", "GPE"),
+        ("Monday", "DATE"),
+    ]
+
+    class FakePipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, value: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[_FakeSpan(span, value, label) for span, label in spans])
+
+    fake_spacy = SimpleNamespace(load=lambda _: FakePipeline())
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+
+    result = extract_entities(context(text, ner_enabled=True))
+
+    assert result.outcome == "success"
+    assert {(entity.normalized_text, entity.entity_type) for entity in result.entities} == {
+        ("microsoft", "ORG"),
+        ("london", "GPE"),
+    }
 
 
 def test_country_matching_is_explicit_and_primary_rule_requires_title_and_body() -> None:
