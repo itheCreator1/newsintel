@@ -38,7 +38,7 @@ jobs:
       - uses: ./.github/actions/warm-docker-cache
         with:
           files: |
-            docker/compose.test.yaml
+            compose.test.yaml
           targets: |
             backend-test
             frontend-test
@@ -46,7 +46,7 @@ jobs:
       - uses: ./.github/actions/warm-docker-cache
         with:
           files: |
-            docker/compose.yaml
+            compose.yaml
           targets: |
             api
             frontend
@@ -54,8 +54,8 @@ jobs:
       - uses: ./.github/actions/warm-docker-cache
         with:
           files: |
-            docker/compose.yaml
-            docker/compose.ner.yaml
+            compose.yaml
+            compose.ner.yaml
           targets: |
             api
           scope: runtime-ner

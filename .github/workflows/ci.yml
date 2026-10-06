@@ -26,8 +26,8 @@ jobs:
       - uses: ./.github/actions/warm-docker-cache
         with:
           files: |
-            docker/compose.test.yaml
-            docker/compose.quick.yaml
+            compose.test.yaml
+            compose.quick.yaml
           targets: |
             backend-test
             frontend-test

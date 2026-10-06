@@ -6,7 +6,7 @@ description: >-
   every layer already built.
 inputs:
   files:
-    description: Compose files, one per line, in the order the test script passes them.
+    description: Compose files under docker/, one per line, in the order the test script passes them.
     required: true
   targets:
     description: Compose services to build, one per line.
@@ -19,7 +19,7 @@ runs:
   steps:
     - uses: docker/bake-action@v7
       with:
-        source: .
+        source: ./docker
         files: ${{ inputs.files }}
         targets: ${{ inputs.targets }}
         set: |
