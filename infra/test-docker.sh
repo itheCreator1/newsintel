@@ -16,10 +16,75 @@ export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
 export NEWSINTEL_IMAGE_BACKEND="newsintel-backend:$project"
 export NEWSINTEL_IMAGE_BACKEND_NER="newsintel-backend-ner:$project"
 export NEWSINTEL_IMAGE_FRONTEND="newsintel-frontend:$project"
+# Browser groups run in NEWSINTEL_TEST_E2E_JOBS lanes (1, 2 or 4; default 2). They can run side by side
+# because each one is its own Compose project with a fresh database and no published ports
+# (docker/compose.e2e-container.yaml); the lanes only share the read-only images built below.
+e2e_jobs=${NEWSINTEL_TEST_E2E_JOBS:-2}
+case $e2e_jobs in
+  1) e2e_lanes="search,investigations,monitors,graph" ;;
+  # Paired so both lanes finish together on the measured group times (graph ~213s + monitors
+  # ~106s, search ~197s + investigations ~117s).
+  2) e2e_lanes="graph,monitors search,investigations" ;;
+  4) e2e_lanes="search investigations monitors graph" ;;
+  *) echo "NEWSINTEL_TEST_E2E_JOBS must be 1, 2 or 4" >&2; exit 2 ;;
+esac
+# NEWSINTEL_TEST_E2E_OVERLAP=1 (the default) starts the lanes as soon as the images are built,
+# alongside the backend/frontend stages instead of after them: the groups need only those images.
+# NEWSINTEL_TEST_E2E_JOBS=1 NEWSINTEL_TEST_E2E_OVERLAP=0 is the fully sequential gate.
+e2e_overlap=${NEWSINTEL_TEST_E2E_OVERLAP:-1}
+case $e2e_overlap in
+  0 | 1) ;;
+  *) echo "NEWSINTEL_TEST_E2E_OVERLAP must be 0 or 1" >&2; exit 2 ;;
+esac
 ni_report_init "${NEWSINTEL_TEST_ARTIFACTS:-}" "$root" test
+
+# Each lane is its own session, so its pid is also its process group: one TERM to the group
+# reaches the lane, the group it is running and that group's docker client.
+e2e_pids=
+e2e_start() {
+  e2e_t0=$(date +%s)
+  for ni_lane in $e2e_lanes; do
+    # Word-splitting the lane's group list into separate arguments is intentional.
+    setsid infra/test-e2e-lane.sh "$ni_manifest" "$artifacts" $(echo "$ni_lane" | tr ',' ' ') &
+    e2e_pids="$e2e_pids $!"
+  done
+}
+# No-op unless lanes are still running: an interrupt, or a failure elsewhere in the gate.
+e2e_stop() {
+  for ni_pid in $e2e_pids; do
+    kill -TERM -- "-$ni_pid" 2>/dev/null || true
+  done
+  for ni_pid in $e2e_pids; do
+    wait "$ni_pid" 2>/dev/null || true
+  done
+  e2e_pids=
+}
+# Waits for every lane (one failing does not stop the others), then reports each group: the
+# closing line of a passed group's log, the whole log of a failed one.
+e2e_join() {
+  e2e_status=0
+  for ni_pid in $e2e_pids; do
+    wait "$ni_pid" || e2e_status=$?
+  done
+  e2e_pids=
+  printf 'e2e.all\t%s\t%s\t%s\n' "$e2e_t0" "$(($(date +%s) - e2e_t0))" "$e2e_status" >> "$artifacts/timings.tsv"
+  for group in search investigations monitors graph; do
+    ni_group_status=$(awk -F'\t' -v s="e2e.$group" '$1 == s {print $4}' "$artifacts/timings.tsv")
+    case $ni_group_status in
+      0) tail -n 1 "$artifacts/e2e-$group.log" ;;
+      "") echo "E2E group $group did not run: an earlier group in its lane failed" >&2 ;;
+      *)
+        cat "$artifacts/e2e-$group.log"
+        echo "E2E group $group failed with status $ni_group_status" >&2
+        ;;
+    esac
+  done
+  [ "$e2e_status" -eq 0 ] || exit "$e2e_status"
+}
 
 cleanup() {
   status=$?
+  e2e_stop
   ni_report_finalize "$status"
   if [ "$status" -ne 0 ]; then
     $compose logs --no-color > "$artifacts/compose.log" 2>&1 || true
@@ -43,7 +108,8 @@ ni_mem_start "$project"
 # ni_stage's own aggregate would only cover the gap between two stage markers (near-zero), so
 # build.all is instead written by hand below as the wall-clock span of the five sub-builds --
 # required so phase-5's stage-name diff against the phase-1 baseline (which only has build.all)
-# has a common key. It duplicates the 5 rows' time; ni_report_finalize's TOTAL excludes it.
+# has a common key. It duplicates the 5 rows' time; ni_report_finalize's TOTAL is the rows'
+# wall-clock span, so an aggregate row inside that span doesn't change it.
 ni_bt0=$(date +%s)
 ni_stage build.backend-test
 $compose build backend-test
@@ -83,6 +149,10 @@ ni_manifest="$artifacts/image-manifest.env"
   echo "NEWSINTEL_IMAGE_FRONTEND_TEST=$NEWSINTEL_IMAGE_FRONTEND_TEST"
   echo "NEWSINTEL_IMAGE_FRONTEND_TEST_ID=$(docker image inspect --format '{{.Id}}' "$NEWSINTEL_IMAGE_FRONTEND_TEST")"
 } > "$ni_manifest"
+
+if [ "$e2e_overlap" = 1 ]; then
+  e2e_start
+fi
 
 # Bring dependencies up without waiting so Elasticsearch's slow healthcheck overlaps the static
 # checks below (which touch no service) instead of blocking wall time in front of them; the hard
@@ -159,16 +229,30 @@ $compose run --rm --no-deps -v "$artifacts:/artifacts" frontend-test sh -c \
   exit 1
 }
 
-ni_stage frontend.unit
-$compose run --rm --no-deps frontend-test npm test
+# Vitest's findBy* queries give up after a second, and with the browser lanes already loading
+# every core the stage ran 22-31s instead of 14s and 2 of 320 tests timed out in one of three
+# measured runs. So under overlap it waits until the lanes have finished (see the end).
+frontend_unit() {
+  ni_stage frontend.unit
+  $compose run --rm --no-deps frontend-test npm test
+}
+[ "$e2e_overlap" = 1 ] || frontend_unit
 ni_stage frontend.typecheck
 $compose run --rm --no-deps frontend-test npm run typecheck
 ni_stage frontend.build
 $compose run --rm --no-deps frontend-test npm run build
 
-for group in search investigations monitors graph; do
-  ni_stage "e2e.$group"
-  NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh --reuse-images "$ni_manifest" "$group"
-done
+if [ "$e2e_jobs" = 1 ] && [ "$e2e_overlap" = 0 ]; then
+  for group in search investigations monitors graph; do
+    ni_stage "e2e.$group"
+    NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" infra/test-e2e.sh --reuse-images "$ni_manifest" "$group"
+  done
+else
+  # The lanes write their own e2e.<group> rows; e2e.join is the time this script spends waiting.
+  ni_stage e2e.join
+  [ "$e2e_overlap" = 1 ] || e2e_start
+  e2e_join
+fi
+[ "$e2e_overlap" = 0 ] || frontend_unit
 
 echo "Docker test gate passed; diagnostics directory: $artifacts"

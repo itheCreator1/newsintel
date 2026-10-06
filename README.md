@@ -189,6 +189,12 @@ Run the maintained whole-repository gate from the repository root:
 
 This is the only gate that counts as a full regression run: it is the sole binding check before merging (see below), and the sole source of the timing/memory baselines this section describes.
 
+By default the four browser groups run in two concurrent lanes that start as soon as the images are built, alongside the backend and frontend stages. Every stage and every spec still runs and still has to pass; only wall-clock time differs (about 7 minutes against 17 on the 12-core/15 GB reference machine, with a sampled memory peak of about 6 GiB). `NEWSINTEL_TEST_E2E_JOBS=1 NEWSINTEL_TEST_E2E_OVERLAP=0` restores the fully sequential gate, for a smaller machine or to rule out contention when a run fails.
+
+`NEWSINTEL_TEST_E2E_JOBS` (1, 2 or 4; default 2) sets the number of lanes. The groups, their specs and their order within a lane are unchanged: each is still its own Compose project with a fresh database and no published ports. In a concurrent run each group's output goes to `e2e-<group>.log` in the artifacts directory (a failed group's log is printed in full at the end), a failing group stops only its own lane, and an interrupt or a failure elsewhere in the gate stops every lane and removes its containers.
+
+`NEWSINTEL_TEST_E2E_OVERLAP` (0 or 1; default 1) decides whether the lanes start right after the image build or only after the backend and frontend stages. A failure in either half fails the gate. Under overlap one stage moves: the frontend unit tests run after the lanes have finished, because their one-second render waits timed out when they shared the machine with two browser stacks.
+
 Faster local loops trade coverage for speed and never replace the full gate:
 
 - `./infra/test-quick.sh` — unit-only backend tests (`classify.py --paths unit`) plus ruff, mypy, the OpenAPI/TypeScript contract checks, and frontend unit/typecheck. No service containers start (`--no-deps` throughout, `network_mode: none`); it does not run integration tests, migrations, the restore rehearsal, `npm run build`, or any browser group.
@@ -198,7 +204,7 @@ Browser workflows can be run separately with `./infra/test-e2e.sh <search|invest
 
 Every script's diagnostics (Compose logs on failure, pytest output, Playwright traces and screenshots, and the reports below) land under `docs/archive/testing/<date>-<label>-<n>/` by default (gitignored; `<label>` is `test`/`quick`/`integration`/`e2e-<group>`/`inventory`), or under `NEWSINTEL_TEST_ARTIFACTS` / `NEWSINTEL_E2E_ARTIFACTS` if set (must be an absolute path — it's bind-mounted into containers). Every run, pass or fail, writes:
 - `environment.txt` — git revision/dirty flag, Docker/Compose versions, `nproc`, total memory, and a cache-state label.
-- `timings.tsv`/`timings.txt` — per-stage start time, elapsed seconds and exit status, plus a slowest-first summary with a `TOTAL`. A stage's status is only known once the *next* stage starts (or the run ends), so an interrupted run's last stage is correctly attributed the interrupting signal's exit status (e.g. 130 for `kill -INT`).
+- `timings.tsv`/`timings.txt` — per-stage start time, elapsed seconds and exit status, plus a slowest-first summary with a `TOTAL` (the wall-clock span from the first stage's start to the last one's end, so concurrent browser groups and the aggregate `build.all`/`e2e.all` rows are not counted twice). A stage's status is only known once the *next* stage starts (or the run ends), so an interrupted run's last stage is correctly attributed the interrupting signal's exit status (e.g. 130 for `kill -INT`).
 - `memory.tsv`/`memory.txt` — `docker stats --no-stream` sampled every `NEWSINTEL_MEM_SAMPLE_SECONDS` (default 10s) against the run's own Compose project, normalized to bytes, with per-container and aggregate sampled peaks. Documented limitations: the sampling interval can miss short spikes between polls, values are per-container cgroup memory (not host or BuildKit peak — `buildkitd` runs outside the Compose project label, so build memory is invisible to this sampler).
 - `test-docker.sh` additionally writes `images.tsv` (every built image's ID) and `image-manifest.env` (the `--reuse-images` manifest described above).
 
