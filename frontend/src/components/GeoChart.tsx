@@ -27,25 +27,36 @@ interface Props {
 
 export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<ECharts | undefined>(undefined)
+  const pendingRef = useRef<Parameters<ECharts['setOption']>[0] | undefined>(undefined)
+  const syncRef = useRef(() => {})
   const stateRef = useRef({ items, onSelect })
   stateRef.current = { items, onSelect }
 
   useEffect(() => {
-    const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
-    chartRef.current = chart
+    const element = elementRef.current!
+    const chart = init(element, undefined, { renderer: 'canvas' })
     chart.on('click', (event: { name?: string }) => {
       if (event.name) stateRef.current.onSelect(event.name)
     })
-    const observer = new ResizeObserver(() => chart.resize())
-    observer.observe(elementRef.current!)
-    return () => { observer.disconnect(); chart.dispose() }
+    // ECharts 6.1 lays a map out by inverting its view transform and throws on the singular one a
+    // box with no width or no height gives. A container reports that size while hidden and for a
+    // moment after it leaves the page, so the chart is drawn and resized only while it has area;
+    // an option that arrives meanwhile waits here.
+    syncRef.current = () => {
+      if (element.clientWidth === 0 || element.clientHeight === 0) return
+      if (chart.getWidth() !== element.clientWidth || chart.getHeight() !== element.clientHeight) chart.resize()
+      if (pendingRef.current) {
+        chart.setOption(pendingRef.current, true)
+        pendingRef.current = undefined
+      }
+    }
+    const observer = new ResizeObserver(() => syncRef.current())
+    observer.observe(element)
+    return () => { observer.disconnect(); syncRef.current = () => {}; chart.dispose() }
   }, [])
 
   useEffect(() => {
-    const chart = chartRef.current
-    if (!chart) return
-    chart.setOption({
+    pendingRef.current = {
       animation: false,
       tooltip: {
         trigger: 'item',
@@ -65,7 +76,8 @@ export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) 
         select: { label: { show: false }, itemStyle: { areaColor: '#ffffff' } },
         data: items.map(item => ({ name: item.code, value: item.value, selected: item.code === selected })),
       }],
-    }, true)
+    }
+    syncRef.current()
   }, [items, selected, unit])
 
   return <div ref={elementRef} className="geo-chart" role="img" aria-label={ariaLabel} />

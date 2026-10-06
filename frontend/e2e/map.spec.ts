@@ -28,6 +28,17 @@ test('map workflow separates the location roles and refines a search from a sele
   await expect(page.getByText(/of \d+ articles in the last 365 days have a source country/)).toBeVisible()
   await expect(page.getByRole('img', { name: /Map of articles by source country/ })).toBeVisible()
   await expect(page.locator('.geo-chart canvas')).toHaveCount(1) // the real map drew, not just the table
+  // Leaving the page detaches the chart's container a moment before its resize observer is
+  // disconnected, and echarts throws when a map is resized into a box with no area. Detaching the
+  // container for two frames delivers that same observation on purpose.
+  await page.locator('.geo-chart').evaluate(async element => {
+    const parent = element.parentNode!
+    const next = element.nextSibling
+    element.remove()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    parent.insertBefore(element, next)
+  })
+  await expect(page.locator('.geo-chart canvas')).toBeVisible()
   const greece = page.getByRole('row', { name: /^Greece/ })
   await expect(greece.getByRole('cell').nth(1)).toHaveText('3')
   await expect(greece.getByRole('cell').nth(3)).toHaveText('1') // one feed
