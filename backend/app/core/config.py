@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "test", "production"] = "development"
     database_url: str = "postgresql+asyncpg://newsintel:newsintel@postgres:5432/newsintel"
+    database_pool_size: int = 10
+    database_pool_overflow: int = 10
     redis_url: str = "redis://redis:6379/0"
     elasticsearch_url: str = "http://elasticsearch:9200"
     session_cookie_name: str = "newsintel_session"
