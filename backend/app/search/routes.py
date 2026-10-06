@@ -377,9 +377,13 @@ async def indexing_status(db: Db, _auth: Auth) -> IndexStatus:
     ).all()
     counts = {name: count for name, count in rows}
     rebuilds = await rebuild_status()
+    current = await db.scalar(
+        select(SearchIndexTarget.id).where(SearchIndexTarget.role == "current").limit(1)
+    )
     return IndexStatus(
         **{name: counts.get(name, 0) for name in ("queued", "running", "retrying", "failed")},
         active_rebuild=next((row for row in rebuilds if row["status"] != "completed"), None),
+        index_ready=current is not None,
     )
 
 

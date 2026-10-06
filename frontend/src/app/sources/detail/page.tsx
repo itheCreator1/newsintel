@@ -13,6 +13,7 @@ import { WatchForm } from '../../../components/WatchForm'
 import { plural } from '../../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
+import { LoadError, Note } from '../../../components/Feedback'
 
 const WINDOWS = [7, 30, 90]
 const DAY_MS = 86_400_000
@@ -28,9 +29,6 @@ const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string
   retry: false,
 })
 
-function Note({ children, error }: { children: string; error?: boolean }) {
-  return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
-}
 
 function SourceContent() {
   const router = useRouter()
@@ -125,7 +123,7 @@ function SourceContent() {
           <GlassPanel className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-foreground">Coverage</h3>
             {coverage.isPending && <p className="text-sm text-muted-foreground">Loading coverage…</p>}
-            {coverage.isError && <p className="error text-sm text-destructive">Could not load coverage.</p>}
+            {coverage.isError && <LoadError query={coverage} message="Could not load coverage." />}
             {coverage.data && (
               <>
                 <div className="flex flex-wrap gap-2">
@@ -143,7 +141,7 @@ function SourceContent() {
           <GlassPanel className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-foreground">Timing in shared stories</h3>
             {timing.isPending && <p className="text-sm text-muted-foreground">Loading timing…</p>}
-            {timing.isError && <p className="error text-sm text-destructive">Could not load timing.</p>}
+            {timing.isError && <LoadError query={timing} message="Could not load timing." />}
             {timing.data && (timing.data.stories === 0
               ? <p className="text-sm text-muted-foreground">No stories shared with another source in this window.</p>
               : (
@@ -164,7 +162,7 @@ function SourceContent() {
           <GlassPanel className="overflow-hidden p-0">
             <h3 className="px-6 pt-4 text-sm font-semibold text-foreground">Stories</h3>
             {clusters.isPending && <Note>Loading stories…</Note>}
-            {clusters.isError && <Note error>Could not load stories.</Note>}
+            {clusters.isError && <LoadError className="px-6 py-4" query={clusters} message="Could not load stories." />}
             {clusters.data && !clusterItems.length && <Note>No stories yet.</Note>}
             {clusterItems.map(cluster => (
               <div key={cluster.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
@@ -179,7 +177,7 @@ function SourceContent() {
           <GlassPanel className="overflow-hidden p-0">
             <h3 className="px-6 pt-4 text-sm font-semibold text-foreground">Articles</h3>
             {articles.isPending && <Note>Loading articles…</Note>}
-            {articles.isError && <Note error>Could not load articles.</Note>}
+            {articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
             {articles.data && !articleItems.length && <Note>No articles yet.</Note>}
             {articleItems.map(article => (
               <div key={article.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
@@ -197,7 +195,7 @@ function SourceContent() {
           <section aria-label="Fetch history">
             <h3 className="px-6 pt-4 text-sm font-semibold text-foreground">Fetch history</h3>
             {fetches.isPending && <Note>Loading fetches…</Note>}
-            {fetches.isError && <Note error>Could not load fetches.</Note>}
+            {fetches.isError && <LoadError className="px-6 py-4" query={fetches} message="Could not load fetches." />}
             {fetches.data && !fetchItems.length && <Note>No fetch attempts.</Note>}
             {fetchItems.map(fetch => (
               <article key={fetch.id} className="grid grid-cols-1 gap-1 border-t border-border px-6 py-3 sm:grid-cols-3">

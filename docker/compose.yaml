@@ -40,11 +40,26 @@ services:
       NEWSINTEL_NLP_NER_MODEL: ${NEWSINTEL_NLP_NER_MODEL:-en_core_web_sm}
     depends_on:
       postgres: { condition: service_healthy }
+      setup: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live')"]
       interval: 10s
       timeout: 3s
       retries: 5
+
+  # One-shot first-run step on every `up`: apply migrations, then create the first account if
+  # NEWSINTEL_ADMIN_USERNAME/PASSWORD are set and no user exists yet. Both are no-ops afterwards.
+  setup:
+    build: ../backend
+    image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
+    restart: "no"
+    command: ["sh", "-c", "alembic upgrade head && python -m app.cli bootstrap-admin"]
+    environment:
+      <<: *backend-env
+      NEWSINTEL_ADMIN_USERNAME: ${NEWSINTEL_ADMIN_USERNAME:-}
+      NEWSINTEL_ADMIN_PASSWORD: ${NEWSINTEL_ADMIN_PASSWORD:-}
+    depends_on:
+      postgres: { condition: service_healthy }
 
   worker:
     build: ../backend
@@ -56,6 +71,7 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
+      setup: { condition: service_completed_successfully }
 
   nlp-worker:
     build: ../backend
@@ -67,6 +83,7 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
+      setup: { condition: service_completed_successfully }
 
   scheduler:
     build: ../backend
@@ -77,6 +94,7 @@ services:
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
+      setup: { condition: service_completed_successfully }
 
   postgres:
     image: postgres:17.6-alpine

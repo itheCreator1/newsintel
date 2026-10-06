@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
-import { api } from '../../lib/api'
+import { LoadError, LoadingState, Note } from '../../components/Feedback'
+import { api, ApiError } from '../../lib/api'
 import type { Feed } from '../../lib/api-types'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
@@ -39,6 +40,9 @@ export default function SourcesPage() {
   })
   const history = useQuery({ queryKey: ['fetches', selected?.id], queryFn: () => api.fetches(selected!.id), enabled: Boolean(selected) })
 
+  const message = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
+  const changeError = update.error ?? poll.error ?? retire.error
+
   function confirmRetire(feed: Feed) { if (window.confirm('Retire this source? Its archive will be preserved.')) retire.mutate(feed.id) }
 
   return (
@@ -64,14 +68,18 @@ export default function SourcesPage() {
               </select>
             </label>
             <label className={labelClass}>Poll interval (minutes)<input className={cn(fieldClass, 'mt-1')} value={pollIntervalMinutes} onChange={event => setPollIntervalMinutes(Number(event.target.value))} type="number" min={5} max={10080} /></label>
-            <button className={cn(primaryButtonClass, 'self-start')}>Add source</button>
+            <button className={cn(primaryButtonClass, 'self-start')} disabled={save.isPending}>{save.isPending ? 'Adding…' : 'Add source'}</button>
+            {save.isError && <p role="alert" className="error text-sm text-destructive">{message(save.error, 'Could not add this source.')}</p>}
+            {save.isSuccess && <p role="status" className="text-sm text-primary">Source added. Its first poll is scheduled now; articles appear under Articles once it has run.</p>}
           </form>
         </GlassPanel>
 
         <GlassPanel className="overflow-hidden p-0">
           <h3 className="px-6 pt-6 text-sm font-semibold text-foreground">Managed sources</h3>
-          {feeds.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading…</p>}
-          {!feeds.isPending && !feeds.data?.items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No sources yet.</p>}
+          {feeds.isPending && <LoadingState label="Loading sources…" />}
+          {feeds.isError && <LoadError className="px-6 py-4" query={feeds} message="Could not load sources." />}
+          {feeds.isSuccess && !feeds.data.items.length && <Note>No sources yet. Add an RSS or Atom feed with the form to start collecting.</Note>}
+          {changeError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(changeError, 'Could not change this source.')}</p>}
           <div className="mt-2 flex flex-col">
             {feeds.data?.items.map(feed => (
               <article key={feed.id} className="source-row flex cursor-pointer flex-col gap-3 border-t border-border px-6 py-4 hover:bg-accent/40" onClick={() => setSelected(feed)}>
@@ -127,7 +135,9 @@ export default function SourcesPage() {
       {selected && (
         <GlassPanel className="overflow-hidden p-0">
           <h3 className="px-6 pt-6 text-sm font-semibold text-foreground">{selected.name} fetch history</h3>
-          {!history.data?.items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No fetch attempts.</p>}
+          {history.isPending && <Note>Loading fetch history…</Note>}
+          {history.isError && <LoadError className="px-6 py-4" query={history} message="Could not load the fetch history." />}
+          {history.isSuccess && !history.data.items.length && <Note>No fetch attempts yet.</Note>}
           <div className="mt-2 flex flex-col">
             {history.data?.items.map(fetch => (
               <article key={fetch.id} className="grid grid-cols-1 gap-1 border-t border-border px-6 py-4 sm:grid-cols-3">

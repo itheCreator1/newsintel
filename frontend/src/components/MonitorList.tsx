@@ -11,8 +11,8 @@ import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../lib/ui-c
 import { cn } from '../lib/utils'
 import { GlassPanel } from './GlassPanel'
 import { PageHeader } from './PageHeader'
+import { LoadError, Note } from './Feedback'
 
-const Note = ({ children, error }: { children: string; error?: boolean }) => <p className={cn('px-6 py-4 text-sm', error ? 'error text-destructive' : 'text-muted-foreground')}>{children}</p>
 
 export function MonitorList() {
   const router = useRouter()
@@ -47,7 +47,7 @@ export function MonitorList() {
       </PageHeader>
       <GlassPanel className="overflow-hidden p-0">
         {pages.isPending && <Note>Loading monitors…</Note>}
-        {!pages.isPending && pages.isError && <Note error>Could not load monitors.</Note>}
+        {!pages.isPending && pages.isError && <LoadError className="px-6 py-4" query={pages} message="Could not load monitors." />}
         {!pages.isPending && !pages.isError && !items.length && <Note>No monitors yet. Watch a search from Search or Saved Searches to see new matches here.</Note>}
         {failure && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(failure, 'Could not change this monitor.')}</p>}
         {items.map(item => {

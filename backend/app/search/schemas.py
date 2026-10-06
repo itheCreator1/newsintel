@@ -47,6 +47,8 @@ class IndexStatus(BaseModel):
     retrying: int = 0
     failed: int = 0
     active_rebuild: dict[str, object] | None = None
+    # False until the first rebuild has cut over; Search has no index to read before then.
+    index_ready: bool = False
 
 
 class IndexFailure(BaseModel):

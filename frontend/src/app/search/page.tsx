@@ -7,6 +7,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { api, ApiError } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
 import { ActiveFilterBar } from '../../components/ActiveFilterBar'
+import { CheckboxPicker } from '../../components/CheckboxPicker'
 import { EmptyState, ErrorNotice, LoadingState } from '../../components/Feedback'
 import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
@@ -31,7 +32,6 @@ function formFromState(current: Investigation) {
   }
 }
 
-const selected = (event: React.ChangeEvent<HTMLSelectElement>) => Array.from(event.target.selectedOptions, option => option.value)
 
 function SearchContent() {
   const router = useRouter()
@@ -96,12 +96,12 @@ function SearchContent() {
   function submit() { navigate(draftState()) }
   // Compared through the same form round trip, so a URL the form cannot represent exactly never reads as an edit.
   const draftDiffers = queryFromState(draftState()).toString() !== queryFromState(draftState(formFromState(state))).toString()
-  const chips = filterChips(state, SEARCH_CHIP_FIELDS, {
+  const pickerLabels = {
     source_id: new Map([...facetLabels('sources'), ...sources.map(source => [source.id, source.name] as const)]),
     entity_id: new Map([...facetLabels('entities'), ...entities.map(entity => [entity.id, entity.text] as const)]),
     keyword_id: new Map([...facetLabels('keywords'), ...keywords.map(keyword => [keyword.id, keyword.text] as const)]),
-    story_cluster_id: new Map(facetLabels('story_clusters')),
-  }, { content: true })
+  }
+  const chips = filterChips(state, SEARCH_CHIP_FIELDS, { ...pickerLabels, story_cluster_id: new Map(facetLabels('story_clusters')) }, { content: true })
   function clearAll() {
     setSourceTerm(''); setEntityTerm(''); setKeywordTerm('')
     navigate(clearCriteria(state))
@@ -145,14 +145,14 @@ function SearchContent() {
           <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced filters{advanced > 0 ? ` (${advanced})` : ''}</summary>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
-            <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selected(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+            <CheckboxPicker legend="Source" options={sources.map(source => ({ value: source.id, label: `${source.name}${source.retired ? ' (retired)' : ''}` }))} selected={form.source_id} labels={pickerLabels.source_id} onChange={values => setForm(f => ({ ...f, source_id: values }))} emptyText="No sources match." />
             <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
             <label className={labelClass}>Detected language<input className={cn(fieldClass, 'mt-1')} value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="en" /></label>
             <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>
-            <label className={labelClass}>Entity<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_id} onChange={e => setForm(f => ({ ...f, entity_id: selected(e) }))}>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.text} ({entity.kind})</option>)}</select></label>
-            <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selected(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
+            <CheckboxPicker legend="Entity" options={entities.map(entity => ({ value: entity.id, label: `${entity.text} (${entity.kind})` }))} selected={form.entity_id} labels={pickerLabels.entity_id} onChange={values => setForm(f => ({ ...f, entity_id: values }))} emptyText="No entities match." />
+            <CheckboxPicker legend="Entity type" options={['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => ({ value: kind, label: kind }))} selected={form.entity_type} onChange={values => setForm(f => ({ ...f, entity_type: values }))} />
             <label className={labelClass}>Keyword search<input className={cn(fieldClass, 'mt-1')} value={keywordTerm} onChange={e => setKeywordTerm(e.target.value)} placeholder="Find a keyword" /></label>
-            <label className={labelClass}>Keyword<select className={cn(fieldClass, 'mt-1')} multiple value={form.keyword_id} onChange={e => setForm(f => ({ ...f, keyword_id: selected(e) }))}>{keywords.map(keyword => <option key={keyword.id} value={keyword.id}>{keyword.text}</option>)}</select></label>
+            <CheckboxPicker legend="Keyword" options={keywords.map(keyword => ({ value: keyword.id, label: keyword.text }))} selected={form.keyword_id} labels={pickerLabels.keyword_id} onChange={values => setForm(f => ({ ...f, keyword_id: values }))} emptyText="No keywords match." />
             <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
             <label className={labelClass}>Mentioned country<input className={cn(fieldClass, 'mt-1')} value={form.mentioned_country} onChange={e => setForm(f => ({ ...f, mentioned_country: e.target.value }))} placeholder="FR" /></label>
             <label className={labelClass}>Content<select className={cn(fieldClass, 'mt-1')} value={form.content_available} onChange={e => setForm(f => ({ ...f, content_available: e.target.value }))}><option value="">Any</option><option value="true">Available</option><option value="false">RSS only</option></select></label>

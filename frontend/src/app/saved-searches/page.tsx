@@ -11,6 +11,7 @@ import { chipClass, fieldClass, ghostButtonClass, primaryButtonClass } from '../
 import { cn } from '../../lib/utils'
 import { fromSaved, queryFromState, toHref } from '../../lib/investigation'
 import { monitorKeys } from '../../lib/monitors'
+import { LoadError } from '../../components/Feedback'
 
 export default function SavedSearchesPage() {
   const client = useQueryClient()
@@ -35,7 +36,7 @@ export default function SavedSearchesPage() {
       </PageHeader>
       <GlassPanel className="overflow-hidden p-0">
         {pages.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading saved searches…</p>}
-        {!pages.isPending && pages.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load saved searches.</p>}
+        {!pages.isPending && pages.isError && <LoadError className="px-6 py-4" query={pages} message="Could not load saved searches." />}
         {!pages.isPending && !pages.isError && !items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No saved searches yet. Save one from Search to reopen the full investigation later.</p>}
         {remove.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(remove.error, 'Could not delete this saved search.')}</p>}
         {watch.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(watch.error, 'Could not watch this saved search.')}</p>}

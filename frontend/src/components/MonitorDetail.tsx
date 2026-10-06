@@ -13,9 +13,9 @@ import { cn, plural } from '../lib/utils'
 import { GlassPanel } from './GlassPanel'
 import { MonitorChanges } from './MonitorChanges'
 import { PageHeader } from './PageHeader'
+import { LoadError, Note } from './Feedback'
 
 const message = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
-const Note = ({ children, error }: { children: string; error?: boolean }) => <p className={cn('px-6 py-4 text-sm', error ? 'error text-destructive' : 'text-muted-foreground')}>{children}</p>
 
 // ponytail: a small row of its own instead of extracting Search's inline result card; share it when a third list needs it.
 function ResultRow({ result, currentHref }: { result: MonitorResult; currentHref: string }) {
@@ -122,7 +122,7 @@ export function MonitorDetail({ id }: { id: string }) {
           </div>
           {markSeen.isError && <p role="alert" className="error px-6 py-4 text-sm text-destructive">{message(markSeen.error, 'Could not mark these as seen.')}</p>}
           {results.isPending && <Note>Loading articles…</Note>}
-          {!results.isPending && results.isError && <Note error>Could not load articles.</Note>}
+          {!results.isPending && results.isError && <LoadError className="px-6 py-4" query={results} message="Could not load articles." />}
           {!results.isPending && !results.isError && !rows.length && <Note>{emptyText}</Note>}
           {rows.map(result => <ResultRow key={result.article_id} result={result} currentHref={currentHref} />)}
           {results.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={results.isFetchingNextPage} onClick={() => results.fetchNextPage()}>{results.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button></div>}

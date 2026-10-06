@@ -8,6 +8,7 @@ import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { fieldClass, primaryButtonClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+import { LoadError } from '../../components/Feedback'
 
 export default function SettingsPage() {
   const client = useQueryClient()
@@ -36,7 +37,7 @@ export default function SettingsPage() {
       <GlassPanel className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold text-foreground">Processor capabilities</h3>
         {nlp.isPending && <p className="text-sm text-muted-foreground">Loading capabilities…</p>}
-        {!nlp.isPending && nlp.isError && <p className="error text-sm text-destructive">Could not load processor capabilities.</p>}
+        {!nlp.isPending && nlp.isError && <LoadError query={nlp} message="Could not load processor capabilities." />}
         {nlp.data?.capabilities.map(capability => (
           <p key={capability.name} className="text-sm text-muted-foreground">{capability.name} · {capability.state}{capability.version && ` · ${capability.version}`}{capability.detail && ` · ${capability.detail}`}</p>
         ))}

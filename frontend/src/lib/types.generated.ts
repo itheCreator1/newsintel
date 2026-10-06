@@ -2661,6 +2661,11 @@ export interface components {
             active_rebuild?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Index Ready
+             * @default false
+             */
+            index_ready: boolean;
         };
         /** IngestionTimelineBucket */
         IngestionTimelineBucket: {

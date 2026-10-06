@@ -14,6 +14,24 @@
 
 News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
 
+## Quickstart
+
+You need Docker with Compose. From the repository root:
+
+```sh
+cp .env.example .env
+# Edit .env: set POSTGRES_PASSWORD, NEWSINTEL_SECRET_KEY (32+ characters),
+# and NEWSINTEL_ADMIN_USERNAME / NEWSINTEL_ADMIN_PASSWORD (12+ characters) for your first account.
+alias dc='docker compose --env-file .env -f docker/compose.yaml'
+dc up -d --build                                  # the setup service applies migrations and creates that account
+dc run --rm api python -m app.cli rebuild-search  # build the search index once
+```
+
+Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed under **Sources**. The Overview page keeps a short checklist until the archive has sources, articles and a search index.
+
+- **Entities are off by default.** The default image leaves out spaCy, so the entity charts, story clusters, events and the graph stay empty. Add `-f docker/compose.ner.yaml` to every `dc` command (and rebuild) to turn named-entity recognition on.
+- **More accounts**, or a first account without the `.env` variables: `dc run --rm api python -m app.cli create-user <name>` asks for a password.
+
 ## Contents
 
 1. [Design principles](#1-design-principles)
@@ -139,7 +157,7 @@ The remaining routes follow the same design language:
 
 ## 6. Operations
 
-**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
+**First run.** See [Quickstart](#quickstart). Migrations run on every `up` through the one-shot `setup` service, which the application services wait for. Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
 
 **What needs Elasticsearch.** Search, facets, the Overview analytics panels, the Graph, the Watchlist's results, "What changed" and evaluation, the investigation Map and Related coverage read the index. While it is down they return an error or say they are unavailable, and ingestion, processing and the recent-window Map keep working. A view that needs a newer index than the current one asks for an upgrade; run `rebuild-search` (then `resume-search-rebuild <rebuild_id>` if it reports `catching_up`), which builds the new index beside the live one and moves the alias once it has caught up. The previous index is kept for rollback.
 
