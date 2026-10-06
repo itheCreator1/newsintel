@@ -16,10 +16,10 @@ export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
 export NEWSINTEL_IMAGE_BACKEND="newsintel-backend:$project"
 export NEWSINTEL_IMAGE_BACKEND_NER="newsintel-backend-ner:$project"
 export NEWSINTEL_IMAGE_FRONTEND="newsintel-frontend:$project"
-# Browser groups run in NEWSINTEL_TEST_E2E_JOBS lanes (1, 2 or 4). They can run side by side
+# Browser groups run in NEWSINTEL_TEST_E2E_JOBS lanes (1, 2 or 4; default 2). They can run side by side
 # because each one is its own Compose project with a fresh database and no published ports
 # (docker/compose.e2e-container.yaml); the lanes only share the read-only images built below.
-e2e_jobs=${NEWSINTEL_TEST_E2E_JOBS:-1}
+e2e_jobs=${NEWSINTEL_TEST_E2E_JOBS:-2}
 case $e2e_jobs in
   1) e2e_lanes="search,investigations,monitors,graph" ;;
   # Paired so both lanes finish together on the measured group times (graph ~213s + monitors
@@ -28,9 +28,10 @@ case $e2e_jobs in
   4) e2e_lanes="search investigations monitors graph" ;;
   *) echo "NEWSINTEL_TEST_E2E_JOBS must be 1, 2 or 4" >&2; exit 2 ;;
 esac
-# NEWSINTEL_TEST_E2E_OVERLAP=1 starts the lanes as soon as the images are built, alongside the
-# backend/frontend stages instead of after them: the groups need only those images.
-e2e_overlap=${NEWSINTEL_TEST_E2E_OVERLAP:-0}
+# NEWSINTEL_TEST_E2E_OVERLAP=1 (the default) starts the lanes as soon as the images are built,
+# alongside the backend/frontend stages instead of after them: the groups need only those images.
+# NEWSINTEL_TEST_E2E_JOBS=1 NEWSINTEL_TEST_E2E_OVERLAP=0 is the fully sequential gate.
+e2e_overlap=${NEWSINTEL_TEST_E2E_OVERLAP:-1}
 case $e2e_overlap in
   0 | 1) ;;
   *) echo "NEWSINTEL_TEST_E2E_OVERLAP must be 0 or 1" >&2; exit 2 ;;
