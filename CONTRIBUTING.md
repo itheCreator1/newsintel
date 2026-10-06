@@ -151,7 +151,7 @@ Every run, pass or fail, writes:
 
 ## 8. Code conventions
 
-- **Backend**: Python 3.12+, SQLAlchemy 2 and Pydantic, with `ruff` (line length 100) and `mypy --strict`. Dependencies are managed with `uv`; change `pyproject.toml` and regenerate `uv.lock` rather than editing the lock. spaCy is pinned separately in `requirements-ner.txt` and only installed in the NER image.
+- **Backend**: Python 3.12+, SQLAlchemy 2 and Pydantic, with `ruff` (line length 100) and `mypy --strict`. Dependencies are managed with `uv`; change `pyproject.toml` and regenerate `uv.lock` rather than editing the lock. spaCy and its model are installed only in the NER image (`docker/compose.ner.yaml`).
 - **Domains own their code.** New behaviour goes in the domain module it belongs to, with its own models, service and routes (README, P5).
 - **Nothing slow in a request** (README, P6). Work that fetches, annotates or indexes is a job row written in the same transaction as the data it depends on, picked up by the scheduler.
 - **Frontend**: TypeScript with `tsc --noEmit`, vitest for unit tests and Playwright for browser workflows. Call the API through the generated types.
