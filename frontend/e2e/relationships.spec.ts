@@ -79,7 +79,7 @@ test('relationships workflow links search, the cluster, article detail, and the 
   const graphNode = page.getByRole('button', { name: /^Barack Obama \(PERSON\)/ })
   await expect(graphNode).toBeVisible({ timeout: 30_000 })
   await graphNode.click()
-  await expect(page).toHaveURL(/focus=/)
+  await expect(page).toHaveURL(/selected=/)
   const panel = page.getByRole('complementary', { name: 'Entity details' })
   await expect(panel.getByRole('heading', { name: 'Barack Obama' })).toBeVisible()
   await expect(panel.getByText('Connected entities')).toBeVisible()

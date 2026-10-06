@@ -19,7 +19,7 @@ const nodes = [
   { id: 'entity-one', text: 'Acme', type: 'ORG', article_count: 4 },
   { id: 'entity-two', text: 'Jane Doe', type: 'PERSON', article_count: 2 },
 ]
-const edges = [{ source: 'entity-one', target: 'entity-two', weight: 3, score: 0.5 }]
+const edges = [{ source: 'entity-one', target: 'entity-two', weight: 3, score: 0.5, recent_weight: 0 }]
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -70,14 +70,17 @@ it('selects a node from the accessible fallback list and shows its side panel', 
   fireEvent.click(screen.getByRole('button', { name: /Acme \(ORG\)/ }))
   rerenderSame()
 
-  expect(navigationHarness.searchParams.get('focus')).toBe('entity-one')
+  // Selecting highlights the entity without narrowing the graph, so you keep your place.
+  expect(navigationHarness.searchParams.get('selected')).toBe('entity-one')
+  expect(navigationHarness.searchParams.get('focus')).toBeNull()
+  expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '30' })
   expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy()
   const panel = screen.getByRole('complementary', { name: 'Entity details' })
   expect(panel.textContent).toContain('4 articles')
   expect(await screen.findByText('Acme partners with Jane Doe')).toBeTruthy()
 })
 
-it('refocuses the graph when a connected entity is clicked', async () => {
+it('selects a connected entity from the side panel and keeps the focus', async () => {
   resetNavigationHarness({ pathname: '/graph/', search: 'focus=entity-one' })
   const { rerenderSame } = renderWithQuery(() => <GraphPage />)
   await screen.findByText('Chart with 2 nodes')
@@ -85,15 +88,78 @@ it('refocuses the graph when a connected entity is clicked', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Jane Doe' }))
   rerenderSame()
 
+  expect(navigationHarness.searchParams.get('selected')).toBe('entity-two')
+  expect(navigationHarness.searchParams.get('focus')).toBe('entity-one')
+  expect(await screen.findByRole('heading', { name: 'Jane Doe' })).toBeTruthy()
+})
+
+it('narrows the graph to a selected entity only when asked', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'selected=entity-two' })
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByRole('heading', { name: 'Jane Doe' })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Only articles with Jane Doe' }))
+  rerenderSame()
+
   expect(navigationHarness.searchParams.get('focus')).toBe('entity-two')
+  expect(navigationHarness.searchParams.get('selected')).toBeNull()
   await vi.waitFor(() => expect(api.entityGraph).toHaveBeenLastCalledWith(expect.objectContaining({ focus_entity_id: 'entity-two' })))
+})
+
+it('adds a selected entity’s connections in place and removes them from its chip', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'selected=entity-two' })
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByRole('heading', { name: 'Jane Doe' })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add its connections' }))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('expand')).toEqual(['entity-two'])
+  await vi.waitFor(() => expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '30', expand: ['entity-two'] }))
+  expect(await screen.findByRole('button', { name: 'Connections added' })).toBeDisabled()
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Remove Expanded: Jane Doe' }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.getAll('expand')).toEqual([])
+  expect(navigationHarness.searchParams.get('selected')).toBe('entity-two')
+})
+
+it('sends a minimum connection strength other than the default', async () => {
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+
+  fireEvent.change(screen.getByLabelText('Min shared articles'), { target: { value: '4' } })
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.get('min_weight')).toBe('4')
+  await vi.waitFor(() => expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '30', min_edge_weight: '4' }))
+})
+
+it('lists the strongest connections first and the rest on request', async () => {
+  const many = Array.from({ length: 25 }, (_, index) => ({ id: `n${index}`, text: `N${index}`, type: 'ORG', article_count: 30 - index }))
+  const links = many.slice(1).map((node, index) => ({ source: 'n0', target: node.id, weight: 2, score: 1 - index / 100, recent_weight: 0 }))
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes: many, edges: links, truncated: false })
+  renderWithQuery(() => <GraphPage />)
+  const list = await screen.findByRole('list', { name: 'Connections in this graph' })
+
+  expect(within(list).getAllByRole('button')).toHaveLength(20)
+  fireEvent.click(screen.getByRole('button', { name: 'Show all 24 connections' }))
+  expect(within(list).getAllByRole('button')).toHaveLength(24)
+})
+
+it('explains new connections when the graph has any', async () => {
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges: [{ ...edges[0], recent_weight: 3 }], truncated: false, recent_since: '2026-09-29T00:00:00Z' })
+  renderWithQuery(() => <GraphPage />)
+
+  expect(await screen.findByText(/Dashed yellow lines are new/)).toBeTruthy()
 })
 
 it('reacts to the mocked chart emitting a selection', async () => {
   renderWithQuery(() => <GraphPage />)
   fireEvent.click(await screen.findByText('Chart with 2 nodes'))
 
-  expect(navigationHarness.searchParams.get('focus')).toBe('entity-two')
+  expect(navigationHarness.searchParams.get('selected')).toBe('entity-two')
 })
 
 it('links from the side panel to search with this entity', async () => {
@@ -162,7 +228,7 @@ it('closes the evidence when another entity is selected and ignores a malformed 
   fireEvent.click(screen.getByRole('button', { name: /Jane Doe \(PERSON\)/ }))
   rerenderSame()
   expect(navigationHarness.searchParams.get('edge')).toBeNull()
-  expect(navigationHarness.searchParams.get('focus')).toBe('entity-two')
+  expect(navigationHarness.searchParams.get('selected')).toBe('entity-two')
   cleanup()
 
   vi.mocked(api.edgeEvidence).mockClear()
