@@ -2,18 +2,26 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from app.clustering.engine import (
+    CLUSTER_MINIMUM_SHARED_TERMS,
     CLUSTER_SCORE_THRESHOLD,
     CLUSTER_TIME_WINDOW,
+    TERM_OVERLAP_CEILING,
+    TERM_OVERLAP_FLOOR,
+    TERM_WEIGHT_MINIMUM_WINDOW,
     ArticleFeatures,
     ClusterSummary,
     RuleClusterer,
     StoryClusterer,
     cluster_statistics,
     jaccard,
+    lede_terms,
     rank_candidates,
     score_articles,
     select_survivor,
     shares_source,
+    stem,
+    term_overlap,
+    term_weights,
     time_proximity,
     title_tokens,
 )
@@ -30,6 +38,7 @@ def article(
     feeds: frozenset[uuid.UUID] = frozenset(),
     article_id: uuid.UUID | None = None,
     title_hash: str = "hash-a",
+    terms: frozenset[str] = frozenset(),
 ) -> ArticleFeatures:
     return ArticleFeatures(
         article_id=article_id or uuid.uuid4(),
@@ -38,6 +47,7 @@ def article(
         effective_date=BASE_TIME + timedelta(hours=hours),
         entity_ids=entities,
         feed_ids=feeds,
+        terms=terms,
     )
 
 
@@ -211,4 +221,150 @@ def test_cluster_statistics_summarise_members_and_pick_a_stable_representative()
 def test_rule_clusterer_satisfies_the_replaceable_interface() -> None:
     clusterer = RuleClusterer()
     assert isinstance(clusterer, StoryClusterer)
-    assert clusterer.version == "rule-1"
+    assert clusterer.version == "rule-2"
+
+
+# Two outlets rewording one story: different headlines, no shared entities, but the same
+# specifics in their opening paragraphs.
+HARBOUR_WIRE = (
+    "Harbour dredging halted after contractor walks off job. Work to deepen the shipping"
+    " channel at the old harbour stopped on Tuesday when the dredging contractor pulled its"
+    " crews and barges, citing unpaid invoices. Port officials said the channel deepening,"
+    " meant to let larger container ships dock, is now weeks behind schedule."
+)
+HARBOUR_DAILY = (
+    "Port deepening project stalls in payment dispute. Barges left the harbour mouth on"
+    " Tuesday as the firm hired to dredge the shipping channel downed tools over unpaid"
+    " bills, leaving the deepening scheme for bigger container vessels behind schedule."
+)
+CYCLE_LANES = (
+    "Council approves new cycle lanes for city centre. The city council on Tuesday approved"
+    " a network of protected cycle lanes through the centre, with work due to start in"
+    " spring. Councillors said the lanes would cut traffic and improve safety."
+)
+LEDE_STOP_WORDS = frozenset({"after", "and", "at", "for", "in", "its", "of", "on", "the", "to"})
+# Words most articles in a window share; every other term is rare there.
+COMMON_TERMS = ("said", "tuesday", "work", "new", "city")
+
+
+def _window_weights(*texts: str, window_articles: int = 1000) -> dict[str, float]:
+    terms = frozenset().union(*(lede_terms(text, LEDE_STOP_WORDS) for text in texts))
+    frequencies = {term: 400 if term in COMMON_TERMS else 2 for term in terms}
+    return term_weights(frequencies, window_articles)
+
+
+def test_stem_folds_common_inflections_onto_one_term() -> None:
+    assert stem("votes") == stem("voted") == stem("voting") == stem("vote")
+    assert stem("deepening") == stem("deepen")
+    assert stem("barges") == stem("barge")
+    assert stem("invoices") == stem("invoice")
+    assert stem("planned") == stem("plan")
+    assert stem("parties") == stem("party")
+    assert stem("called") == "call"
+    assert stem("crisis") == "crisis"
+
+
+def test_lede_terms_keep_the_opening_words_without_stop_words_numbers_or_short_words() -> None:
+    terms = lede_terms("The 3 barges of Harbour: on 2026-09-02 dredging stops", LEDE_STOP_WORDS)
+    assert terms == frozenset({"barg", "harbour", "dredg", "stop"})
+    assert lede_terms("alpha bravo charlie delta", frozenset(), word_limit=2) == frozenset(
+        {"alpha", "bravo"}
+    )
+
+
+def test_term_weights_scale_inverse_document_frequency_into_the_unit_interval() -> None:
+    weights = term_weights({"barg": 1, "port": 30, "said": 1000}, 1000)
+    assert weights["barg"] == 1.0
+    assert weights["said"] == 0.0
+    assert 0.0 < weights["port"] < 1.0
+    # A small window is measured as if it held the minimum, so a pair alone in it still
+    # weighs its shared terms as rare.
+    small = term_weights({"barg": 2}, 3)
+    assert small == term_weights({"barg": 2}, TERM_WEIGHT_MINIMUM_WINDOW)
+    assert small["barg"] > 0.8
+
+
+def test_term_overlap_needs_a_minimum_of_shared_terms() -> None:
+    shared = frozenset(f"term{index}" for index in range(CLUSTER_MINIMUM_SHARED_TERMS - 1))
+    weights = dict.fromkeys(shared, 1.0)
+    assert term_overlap(shared, shared, weights) == 0.0
+
+
+def test_term_overlap_divides_by_the_smaller_set_within_a_floor_and_a_ceiling() -> None:
+    def terms(count: int, prefix: str = "t") -> frozenset[str]:
+        return frozenset(f"{prefix}{index}" for index in range(count))
+
+    weights = dict.fromkeys(terms(60), 1.0)
+    # Two short summaries sharing everything still count against the floor.
+    assert term_overlap(terms(6), terms(6), weights) == 6 / TERM_OVERLAP_FLOOR
+    assert term_overlap(terms(6), terms(40), weights) == 6 / TERM_OVERLAP_FLOOR
+    # Between floor and ceiling, the smaller set is the denominator.
+    assert term_overlap(terms(20), terms(40), weights) == 1.0
+    assert term_overlap(terms(10) | terms(10, "x"), terms(40), weights) == 10 / 20
+    # Long ledes need no more than the ceiling's worth of shared weight.
+    assert term_overlap(terms(50), terms(50), weights) == 1.0
+    assert term_overlap(terms(20) | terms(30, "x"), terms(60), weights) == (
+        20 / TERM_OVERLAP_CEILING
+    )
+
+
+def test_a_reworded_story_clears_the_threshold_on_shared_opening_wording() -> None:
+    weights = _window_weights(HARBOUR_WIRE, HARBOUR_DAILY)
+    wire = article(
+        title="Harbour dredging halted after contractor walks off job",
+        entities=frozenset({uuid.uuid4()}),
+        terms=lede_terms(HARBOUR_WIRE, LEDE_STOP_WORDS),
+    )
+    daily = article(
+        title="Port deepening project stalls in payment dispute",
+        hours=6,
+        entities=frozenset({uuid.uuid4()}),
+        terms=lede_terms(HARBOUR_DAILY, LEDE_STOP_WORDS),
+        title_hash="hash-b",
+    )
+    assert title_tokens(wire.title, STOP_WORDS) & title_tokens(daily.title, STOP_WORDS) == set()
+    # The headline rule alone misses this pair: nothing but time is shared.
+    assert score_articles(wire, daily, stop_words=STOP_WORDS) < CLUSTER_SCORE_THRESHOLD
+    score = score_articles(wire, daily, stop_words=STOP_WORDS, weights=weights)
+    assert score >= CLUSTER_SCORE_THRESHOLD
+    assert score_articles(daily, wire, stop_words=STOP_WORDS, weights=weights) == score
+
+
+def test_a_different_story_sharing_only_common_words_stays_below_the_threshold() -> None:
+    weights = _window_weights(HARBOUR_WIRE, CYCLE_LANES)
+    wire = article(title="Harbour dredging halted", terms=lede_terms(HARBOUR_WIRE, LEDE_STOP_WORDS))
+    lanes = article(
+        title="Council approves new cycle lanes",
+        terms=lede_terms(CYCLE_LANES, LEDE_STOP_WORDS),
+        title_hash="hash-b",
+    )
+    assert len(wire.terms & lanes.terms) >= 1
+    assert score_articles(wire, lanes, stop_words=STOP_WORDS, weights=weights) < (
+        CLUSTER_SCORE_THRESHOLD
+    )
+
+
+def test_wording_never_lowers_the_headline_score() -> None:
+    entities = frozenset({uuid.uuid4(), uuid.uuid4()})
+    left = article(title="Harbor council votes on dredging", entities=entities)
+    right = article(title="Harbor council votes on dredging", entities=entities)
+    headline = score_articles(left, right, stop_words=STOP_WORDS)
+    assert score_articles(left, right, stop_words=STOP_WORDS, weights={"x": 1.0}) == headline
+
+
+def test_rank_candidates_finds_rewordings_only_with_window_weights() -> None:
+    weights = _window_weights(HARBOUR_WIRE, HARBOUR_DAILY)
+    target = article(
+        title="Harbour dredging halted after contractor walks off job",
+        feeds=frozenset({uuid.uuid4()}),
+        terms=lede_terms(HARBOUR_WIRE, LEDE_STOP_WORDS),
+    )
+    reworded = article(
+        title="Port deepening project stalls in payment dispute",
+        hours=2,
+        feeds=frozenset({uuid.uuid4()}),
+        terms=lede_terms(HARBOUR_DAILY, LEDE_STOP_WORDS),
+    )
+    assert rank_candidates(target, [reworded], stop_words=STOP_WORDS) == []
+    ranked = rank_candidates(target, [reworded], stop_words=STOP_WORDS, weights=weights)
+    assert [item.features.article_id for item in ranked] == [reworded.article_id]
