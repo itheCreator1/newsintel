@@ -393,7 +393,19 @@ async def _lookup(
     cursor: str | None,
     limit: int,
 ) -> AnnotationLookupPage:
-    query = select(model).order_by(model.normalized_text, model.id)
+    # A reprocess leaves the row of an annotation no article has any more; picking it finds nothing.
+    # ponytail: keyword links have no index on keyword_id, so this probe scans them; add a partial
+    # index like ix_article_nlp_entities_entity_article when the keyword picker gets slow.
+    link, link_column = (
+        (ArticleEntity, ArticleEntity.entity_id)
+        if model is Entity
+        else (ArticleKeyword, ArticleKeyword.keyword_id)
+    )
+    query = (
+        select(model)
+        .where(select(link.id).where(link_column == model.id, link.is_current).exists())
+        .order_by(model.normalized_text, model.id)
+    )
     if q.strip():
         query = query.where(model.normalized_text.startswith(q.strip().casefold()))
     if cursor:
