@@ -36,9 +36,18 @@ class EventSummary(BaseModel):
     entities: list[EventEntityResponse]
 
 
+class EventSourceResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    article_count: int
+
+
 class EventDetail(EventSummary):
+    """`sources` are the feeds with the most of the event's articles (up to 10)."""
+
     created_at: datetime
     updated_at: datetime
+    sources: list[EventSourceResponse]
 
 
 class EventPage(BaseModel):

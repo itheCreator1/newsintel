@@ -36,9 +36,9 @@ STATUSES = ("active", "closed", "superseded")
 class Event(Base):
     """A happening covered by one or more story clusters, as one algorithm version sees it.
 
-    `started_at`, `ended_at` and `primary_country` are cached, derived values (from the member
-    clusters and the story-role country annotations) so events can be filtered and ordered by
-    index; whoever changes the associations recomputes them.
+    `started_at`, `ended_at`, `primary_country`, `cluster_count` and `article_count` are cached,
+    derived values (from the member clusters and the story-role country annotations) so events
+    can be filtered and ordered by index; whoever changes the associations recomputes them.
     """
 
     __tablename__ = "events"
@@ -48,6 +48,7 @@ class Event(Base):
         Index("ix_events_country_time", "primary_country", "ended_at", "id"),
         Index("ix_events_time", "ended_at", "id"),
         Index("ix_events_algorithm", "algorithm_version", "id"),
+        Index("ix_events_size", "algorithm_version", "article_count", "ended_at", "id"),
         CheckConstraint("status IN ('active', 'closed', 'superseded')", name="ck_events_status"),
         CheckConstraint("ended_at >= started_at", name="ck_events_span"),
     )
@@ -58,6 +59,8 @@ class Event(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     primary_country: Mapped[str | None] = mapped_column(String(2))
+    cluster_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    article_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

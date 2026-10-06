@@ -15,8 +15,11 @@ from app.db.session import session_factory
 from app.events import engine
 from app.events.engine import (
     EVENT_ADVISORY_LOCK,
+    EVENT_CLOSE_AFTER,
     RuleEventAssociator,
     candidate_event_ids,
+    entity_weight,
+    load_entity_weights,
     reconcile_events,
 )
 from app.events.models import Event, EventCluster, EventEntity
@@ -109,6 +112,67 @@ async def test_related_clusters_share_an_event_and_unrelated_ones_do_not() -> No
             select(EventCluster.signals).where(EventCluster.cluster_id == related.id)
         )
         assert signals is not None and signals["entities"] == 1.0 and signals["location"] == 1.0
+
+
+async def test_entity_weights_count_current_articles_and_fill_only_what_is_missing() -> None:
+    async with session_factory() as db, db.begin():
+        common, rare, unseen = await entities(db, 3)
+        await story(db, [common, rare], articles=2)
+        await story(db, [common], articles=3)
+        known = {unseen.id: 0.5}
+        weights = await load_entity_weights(db, [common.id, rare.id, unseen.id], known)
+    assert weights is known
+    assert weights == {common.id: entity_weight(5), rare.id: entity_weight(2), unseen.id: 0.5}
+
+
+async def test_idle_events_close_and_a_late_cluster_that_fits_reopens_them() -> None:
+    item = associator()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 3)
+        first_id = (await story(db, ents, hours=0)).id
+        await story(db, await entities(db, 3), hours=-200)  # an older, unrelated event
+    await run(item)
+    async with session_factory() as db, db.begin():
+        await reconcile_events(db, item.version, now=BASE + EVENT_CLOSE_AFTER)
+    async with session_factory() as db:
+        statuses = dict(
+            (
+                await db.execute(
+                    select(Event.id, Event.status).where(Event.algorithm_version == item.version)
+                )
+            )
+            .tuples()
+            .all()
+        )
+        event = await event_of(db, first_id, item.version)
+        assert event is not None and statuses.pop(event.id) == "active"  # exactly 72h: still open
+        assert list(statuses.values()) == ["closed"]
+    async with session_factory() as db, db.begin():
+        await reconcile_events(db, item.version, now=BASE + EVENT_CLOSE_AFTER + timedelta(hours=1))
+    async with session_factory() as db:
+        event = await event_of(db, first_id, item.version)
+        assert event is not None and event.status == "closed"
+        event_id = event.id
+
+    # A cluster decided later (a backfill, a slow feed) still joins and reopens the event.
+    async with session_factory() as db, db.begin():
+        late_id = (await story(db, ents, hours=2)).id
+    assert (await run(item)).created == 0
+    async with session_factory() as db:
+        event = await event_of(db, late_id, item.version)
+        assert event is not None and event.id == event_id and event.status == "active"
+
+
+async def test_event_sizes_are_cached_for_the_list() -> None:
+    item = associator()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 3)
+        first_id = (await story(db, ents, articles=2)).id
+        await story(db, ents, hours=1, articles=3)
+    await run(item)
+    async with session_factory() as db:
+        event = await event_of(db, first_id, item.version)
+        assert event is not None and (event.cluster_count, event.article_count) == (2, 5)
 
 
 async def test_a_rerun_writes_nothing() -> None:

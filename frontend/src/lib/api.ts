@@ -153,7 +153,7 @@ export const api = {
 }
 
 type Filters = Record<string, string | string[] | undefined>
-export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string }
+export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
 
 export interface CompareSpec { kind: CompareKind; a: string; b: string; role?: CompareRole; days: number }
 

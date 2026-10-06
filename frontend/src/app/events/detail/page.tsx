@@ -11,7 +11,7 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { plural } from '../../../lib/utils'
 import { chipClass, ghostButtonClass } from '../../../lib/ui-classes'
-import { clusterHref, entityHref, toHref } from '../../../lib/investigation'
+import { clusterHref, entityHref, sourceHref, toHref } from '../../../lib/investigation'
 
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
@@ -25,9 +25,24 @@ function Note({ children, error }: { children: string; error?: boolean }) {
   return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
 }
 
-// The stored signals are exactly what the engine scored, shown as-is so a join can be audited.
+// The stored signals are exactly what the engine scored, kept as-is in a tooltip so a join can be audited.
 const signalText = (signals: Record<string, unknown>) =>
   Object.entries(signals).map(([name, value]) => `${name} ${typeof value === 'number' ? value.toFixed(2) : String(value)}`).join(' · ')
+const WINDOW_HOURS = 72  // the engine's time window: the time signal falls to 0 at this gap
+const percent = (value: number) => `${Math.round(value * 100)}%`
+// The same signals in words; a story with none started the event.
+function reasonText(signals: Record<string, unknown>): string {
+  const number = (name: string) => typeof signals[name] === 'number' ? signals[name] as number : 0
+  const reasons = [
+    number('location') === 1 && 'same country',
+    number('time') === 1 ? 'same period' : number('time') > 0 && `${Math.round((1 - number('time')) * WINDOW_HOURS)}h apart`,
+    number('entities') > 0 && `${percent(number('entities'))} of names shared with the closest story`,
+    number('title') > 0 && `${percent(number('title'))} headline overlap`,
+  ].filter(Boolean)
+  if (!reasons.length) return 'Started this event'
+  const text = reasons.join(', ')
+  return text[0].toUpperCase() + text.slice(1)
+}
 
 function EventContent() {
   const pathname = usePathname()
@@ -85,6 +100,12 @@ function EventContent() {
                 {data.entities.map(entity => <Link key={entity.id} className={chipClass} href={entityHref(entity.id)}>{entity.display_name} ({entity.entity_type}) · {plural(entity.article_count, 'article')}</Link>)}
               </div>
             )}
+            {(data.sources ?? []).length > 0 && (
+              <section aria-label="Top sources" className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Top sources</span>
+                {data.sources.map(source => <Link key={source.id} className={chipClass} href={sourceHref(source.id, currentHref)}>{source.name} · {plural(source.article_count, 'article')}</Link>)}
+              </section>
+            )}
           </div>
         )}
       </GlassPanel>
@@ -121,8 +142,7 @@ function EventContent() {
               <div key={cluster.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
                 <Link className="text-[15px] font-semibold text-foreground hover:underline" href={clusterHref(cluster.id, currentHref)}>{cluster.representative_article?.title ?? 'Story'}</Link>
                 <span className="text-xs text-muted-foreground">{plural(cluster.article_count, 'article')} · {plural(cluster.source_count, 'source')}</span>
-                <span className="text-xs text-muted-foreground">Joined with score {cluster.score.toFixed(2)}</span>
-                <span className="text-xs text-muted-foreground">{signalText(cluster.signals ?? {})}</span>
+                <span className="text-xs text-muted-foreground" title={signalText(cluster.signals ?? {})}>{reasonText(cluster.signals ?? {})} · score {cluster.score.toFixed(2)}</span>
               </div>
             ))}
             {clusters.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={clusters.isFetchingNextPage} onClick={() => clusters.fetchNextPage()}>{clusters.isFetchingNextPage ? 'Loading…' : 'Load more stories'}</button></div>}

@@ -19,6 +19,7 @@ const detail = (over = {}) => ({
   id: 'ev-1', algorithm_version: 'rule-1', status: 'active', started_at: '2026-09-17T08:00:00Z', ended_at: '2026-09-18T10:00:00Z',
   primary_country: 'GR', cluster_count: 2, article_count: 5, source_count: 3, headline: 'Wildfire reaches Athens', headline_article_id: 'a1',
   created_at: '2026-09-17T09:00:00Z', updated_at: '2026-09-18T11:00:00Z',
+  sources: [{ id: 'feed-1', name: 'Athens Daily', article_count: 4 }],
   entities: [{ id: 'ent-1', display_name: 'Barack Obama', entity_type: 'PERSON', article_count: 4 }], ...over,
 })
 const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
@@ -107,8 +108,22 @@ it('lists stories with why they joined and links them to the story page', async 
   const link = await screen.findByRole('link', { name: 'Story headline' })
   expect(link.getAttribute('href')).toMatch(/^\/clusters\/\?id=c1&from=/)
   expect(screen.getByText('3 articles · 2 sources')).toBeTruthy()
-  expect(screen.getByText('Joined with score 0.72')).toBeTruthy()
-  expect(screen.getByText('time 0.85 · entities 0.50 · title 0.30 · location 1.00')).toBeTruthy()
+  const reason = screen.getByText('Same country, 11h apart, 50% of names shared with the closest story, 30% headline overlap · score 0.72')
+  expect(reason.getAttribute('title')).toBe('time 0.85 · entities 0.50 · title 0.30 · location 1.00')
+})
+
+it('says a story with no signals started the event', async () => {
+  vi.mocked(api.eventClusters).mockResolvedValue({ items: [{ ...cluster, score: 0, signals: {} }], next_cursor: null })
+  renderWithQuery(() => <EventDetailPage />)
+
+  expect(await screen.findByText('Started this event · score 0.00')).toBeTruthy()
+})
+
+it('lists the top sources and links them to their source page', async () => {
+  renderWithQuery(() => <EventDetailPage />)
+
+  const link = await screen.findByRole('link', { name: 'Athens Daily · 4 articles' })
+  expect(link.getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=feed-1&from=/)
 })
 
 it('lists articles that open the article page and link back to their story', async () => {

@@ -31,6 +31,7 @@ def test_events_are_versioned_and_span_checked() -> None:
         "ix_events_country_time",
         "ix_events_time",
         "ix_events_algorithm",
+        "ix_events_size",
     }
 
 
