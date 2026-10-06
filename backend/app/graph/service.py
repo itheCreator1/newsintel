@@ -44,6 +44,7 @@ class EdgeWeight:
     source: str
     target: str
     weight: int
+    score: float
 
 
 def _holds_entity(entity_id: str) -> dict[str, Any]:
@@ -149,12 +150,33 @@ def edges_body(query: dict[str, Any], node_ids: list[str]) -> dict[str, Any]:
     }
 
 
+def link_strength(weight: int, source_count: int, target_count: int) -> float:
+    """Jaccard: of the articles mentioning either entity, the share that mention both.
+
+    Raw co-occurrence favours whichever entities are mentioned most, so every busy entity looks
+    linked to every other one; this score favours pairs that mostly appear together.
+    """
+    either = source_count + target_count - weight
+    return round(weight / either, 4) if either > 0 else 0.0
+
+
 def parse_edges(
-    response: dict[str, Any], *, node_ids: list[str], min_edge_weight: int
+    response: dict[str, Any],
+    *,
+    node_ids: list[str],
+    min_edge_weight: int,
+    pinned: str | None = None,
 ) -> tuple[list[EdgeWeight], bool]:
+    """Pairs at or above the minimum weight, strongest link first; `pinned`'s edges rank first."""
     order = {node_id: position for position, node_id in enumerate(node_ids)}
-    edges: list[EdgeWeight] = []
     buckets = response.get("aggregations", {}).get("co_occurrence", {}).get("buckets", [])
+    # Single-filter buckets count each entity's articles under the same query as the pairs.
+    counts = {
+        str(bucket["key"]): int(bucket["doc_count"])
+        for bucket in buckets
+        if "&" not in str(bucket["key"])
+    }
+    edges: list[EdgeWeight] = []
     for bucket in buckets:
         pair = str(bucket["key"]).split("&")
         if len(pair) != 2 or any(node_id not in order for node_id in pair):
@@ -164,8 +186,17 @@ def parse_edges(
         if weight < min_edge_weight:
             continue
         source, target = sorted(pair, key=lambda node_id: order[node_id])
-        edges.append(EdgeWeight(source, target, weight))
-    edges.sort(key=lambda edge: (-edge.weight, edge.source, edge.target))
+        score = link_strength(weight, counts.get(source, weight), counts.get(target, weight))
+        edges.append(EdgeWeight(source, target, weight, score))
+    edges.sort(
+        key=lambda edge: (
+            pinned not in (edge.source, edge.target),
+            -edge.score,
+            -edge.weight,
+            edge.source,
+            edge.target,
+        )
+    )
     truncated = len(edges) > MAX_EDGES
     return edges[:MAX_EDGES], truncated
 
@@ -207,7 +238,11 @@ async def entity_graph(
     if len(node_ids) > 1:
         pairs = await adapter.search_index(index_name, edges_body(query, node_ids))
         edges, edges_truncated = parse_edges(
-            pairs, node_ids=node_ids, min_edge_weight=min_edge_weight
+            pairs,
+            node_ids=node_ids,
+            min_edge_weight=min_edge_weight,
+            # Every focused article holds the focus, so its links score low; keep them all drawn.
+            pinned=str(focus_entity_id) if focus_entity_id else None,
         )
         truncated = truncated or edges_truncated
     return GraphResponse(
@@ -222,7 +257,10 @@ async def entity_graph(
         ],
         edges=[
             GraphEdge(
-                source=uuid.UUID(edge.source), target=uuid.UUID(edge.target), weight=edge.weight
+                source=uuid.UUID(edge.source),
+                target=uuid.UUID(edge.target),
+                weight=edge.weight,
+                score=edge.score,
             )
             for edge in edges
         ],

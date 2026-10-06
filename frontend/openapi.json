@@ -11202,13 +11202,18 @@
           "weight": {
             "type": "integer",
             "title": "Weight"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
           }
         },
         "type": "object",
         "required": [
           "source",
           "target",
-          "weight"
+          "weight",
+          "score"
         ],
         "title": "GraphEdge"
       },

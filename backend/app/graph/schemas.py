@@ -16,7 +16,10 @@ class GraphNode(BaseModel):
 class GraphEdge(BaseModel):
     source: uuid.UUID
     target: uuid.UUID
+    # Articles mentioning both entities: the edge's evidence count.
     weight: int
+    # Link strength in [0, 1]: articles mentioning both / articles mentioning either.
+    score: float
 
 
 class GraphResponse(BaseModel):

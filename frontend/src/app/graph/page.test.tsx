@@ -19,7 +19,7 @@ const nodes = [
   { id: 'entity-one', text: 'Acme', type: 'ORG', article_count: 4 },
   { id: 'entity-two', text: 'Jane Doe', type: 'PERSON', article_count: 2 },
 ]
-const edges = [{ source: 'entity-one', target: 'entity-two', weight: 3 }]
+const edges = [{ source: 'entity-one', target: 'entity-two', weight: 3, score: 0.5 }]
 
 beforeEach(() => {
   vi.clearAllMocks()

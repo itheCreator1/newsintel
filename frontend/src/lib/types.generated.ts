@@ -2551,6 +2551,8 @@ export interface components {
             target: string;
             /** Weight */
             weight: number;
+            /** Score */
+            score: number;
         };
         /** GraphNode */
         GraphNode: {

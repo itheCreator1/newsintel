@@ -12,6 +12,7 @@ from app.graph.service import (
     MAX_NODES,
     edges_body,
     focus_query,
+    link_strength,
     nodes_body,
     parse_edges,
     parse_nodes,
@@ -233,6 +234,8 @@ def test_parse_edges_keeps_only_pairs_at_or_above_the_minimum_weight() -> None:
     response = _edges_response(
         [
             {"key": "a", "doc_count": 9},
+            {"key": "b", "doc_count": 6},
+            {"key": "c", "doc_count": 3},
             {"key": "a&b", "doc_count": 4},
             {"key": "a&c", "doc_count": 1},
             {"key": "b&c", "doc_count": 2},
@@ -257,7 +260,7 @@ def test_parse_edges_orients_every_pair_by_the_node_order() -> None:
     assert [(edge.source, edge.target) for edge in edges] == [("a", "b")]
 
 
-def test_parse_edges_keeps_the_heaviest_pairs_within_the_edge_cap() -> None:
+def test_parse_edges_keeps_the_strongest_pairs_within_the_edge_cap() -> None:
     node_ids = [f"n{index}" for index in range(40)]
     buckets = [
         {"key": f"{left}&{right}", "doc_count": weight}
@@ -273,9 +276,52 @@ def test_parse_edges_keeps_the_heaviest_pairs_within_the_edge_cap() -> None:
 
     assert len(edges) == MAX_EDGES
     assert truncated is True
-    assert [edge.weight for edge in edges] == sorted(
-        (bucket["doc_count"] for bucket in buckets), reverse=True
-    )[:MAX_EDGES]
+    scores = [edge.score for edge in edges]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_parse_edges_ranks_a_tight_pair_above_two_busy_entities() -> None:
+    # "a" and "b" appear everywhere, so 40 shared articles say little; "c" and "d" almost
+    # always appear together, so 9 shared articles say a lot.
+    response = _edges_response(
+        [
+            {"key": "a", "doc_count": 400},
+            {"key": "b", "doc_count": 300},
+            {"key": "c", "doc_count": 10},
+            {"key": "d", "doc_count": 11},
+            {"key": "a&b", "doc_count": 40},
+            {"key": "c&d", "doc_count": 9},
+        ]
+    )
+
+    edges, _ = parse_edges(response, node_ids=["a", "b", "c", "d"], min_edge_weight=2)
+
+    assert [(edge.source, edge.target, edge.weight, edge.score) for edge in edges] == [
+        ("c", "d", 9, round(9 / 12, 4)),
+        ("a", "b", 40, round(40 / 660, 4)),
+    ]
+
+
+def test_parse_edges_keeps_every_edge_of_the_pinned_entity_first() -> None:
+    response = _edges_response(
+        [
+            {"key": "f", "doc_count": 100},
+            {"key": "a", "doc_count": 5},
+            {"key": "b", "doc_count": 5},
+            {"key": "a&f", "doc_count": 5},
+            {"key": "a&b", "doc_count": 5},
+        ]
+    )
+
+    edges, _ = parse_edges(response, node_ids=["f", "a", "b"], min_edge_weight=2, pinned="f")
+
+    assert [(edge.source, edge.target) for edge in edges] == [("f", "a"), ("a", "b")]
+
+
+def test_link_strength_is_the_share_of_either_entitys_articles_that_hold_both() -> None:
+    assert link_strength(3, 3, 3) == 1.0
+    assert link_strength(2, 4, 6) == 0.25
+    assert link_strength(0, 0, 0) == 0.0
 
 
 # --- route --------------------------------------------------------------------------
@@ -379,7 +425,9 @@ async def test_graph_labels_nodes_from_the_entity_catalogue(adapter: type[_Adapt
         (left, "Harbour Authority", 6),
         (right, "Ada Reyes", 4),
     ]
-    assert [(edge.source, edge.target, edge.weight) for edge in graph.edges] == [(left, right, 3)]
+    assert [(edge.source, edge.target, edge.weight, edge.score) for edge in graph.edges] == [
+        (left, right, 3, 0.5)
+    ]
     assert graph.truncated is False
     (nodes_index, nodes_request), (edges_index, edges_request) = adapter.bodies
     assert nodes_index == edges_index == "articles-v2-test"

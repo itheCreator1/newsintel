@@ -31,7 +31,8 @@ interface OptionInput {
 export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) {
   const categories = [...new Set(nodes.map(node => node.type))]
   const names = new Map(nodes.map(node => [node.id, node.text]))
-  const maxWeight = Math.max(1, ...edges.map(edge => edge.weight))
+  // Lines are drawn by link strength, not raw count, so busy entities don't swamp the picture.
+  const maxScore = Math.max(Number.EPSILON, ...edges.map(edge => edge.score))
   const labelled = new Set([...nodes].sort((a, b) => b.article_count - a.article_count).slice(0, LABELLED_NODES).map(node => node.id))
   const selected = edges.find(edge => edgeKey(edge.source, edge.target) === selectedEdge)
   const endpoints = new Set(selected ? [selected.source, selected.target] : [])
@@ -46,11 +47,11 @@ export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) 
     // spaCy-extracted entity text that happens to contain HTML-like characters can't be interpreted as markup.
     tooltip: {
       renderMode: 'richText',
-      formatter: (params: { dataType?: string; data?: { name?: string; type?: string; value?: number; source?: string; target?: string } }) => {
+      formatter: (params: { dataType?: string; data?: { name?: string; type?: string; value?: number; score?: number; source?: string; target?: string } }) => {
         const data = params.data
         if (!data) return ''
         if (params.dataType === 'node') return `${data.name} (${data.type}) · ${data.value} articles`
-        if (params.dataType === 'edge') return `${names.get(data.source!)} — ${names.get(data.target!)} · ${data.value} articles`
+        if (params.dataType === 'edge') return `${names.get(data.source!)} — ${names.get(data.target!)} · ${data.value} articles · ${Math.round((data.score ?? 0) * 100)}% overlap`
         return ''
       },
     },
@@ -88,13 +89,14 @@ export function graphOption({ nodes, edges, focus, selectedEdge }: OptionInput) 
         }
       }),
       edges: edges.map(edge => {
-        const ratio = Math.sqrt(edge.weight / maxWeight)
+        const ratio = Math.sqrt(edge.score / maxScore)
         const isSelected = edge === selected
         const faded = neighbourhood && !isSelected && edge.source !== focus && edge.target !== focus
         return {
           source: edge.source,
           target: edge.target,
           value: edge.weight,
+          score: edge.score,
           lineStyle: isSelected
             ? { color: HIGHLIGHT, width: 7, opacity: 1 }
             : { width: 1 + 5 * ratio, opacity: faded ? 0.05 : 0.15 + 0.45 * ratio },
