@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
-from event_fixtures import BASE, annotate, entities, event_of, story
+from event_fixtures import BASE, analyzed_event_tables, annotate, entities, event_of, story
 from sqlalchemy import delete, func, select, text
 
 from app.clustering.models import StoryCluster, StoryClusterMember
@@ -381,6 +381,7 @@ async def test_candidates_are_bounded_recent_and_index_backed(
         )  # fmt: skip
         assert await candidate_event_ids(db, one_entity, version) == []  # needs two shared
 
+        await analyzed_event_tables(db)
         await db.execute(text("SET LOCAL enable_seqscan = off"))
         plan = "\n".join(
             row[0]
@@ -393,7 +394,9 @@ async def test_candidates_are_bounded_recent_and_index_backed(
             )
         )
         assert "ix_event_entities_entity" in plan or "event_entities_pkey" in plan, plan
-        assert "ix_events_status_time" in plan or "events_pkey" in plan, plan
+        # The join reaches an event by its id through either unique index that leads with it.
+        events_by_id = ("events_pkey", "uq_events_id_version")
+        assert "ix_events_status_time" in plan or any(i in plan for i in events_by_id), plan
         await db.rollback()
 
 

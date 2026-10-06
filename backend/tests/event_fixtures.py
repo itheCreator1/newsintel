@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.events.models import Event, EventCluster
@@ -166,3 +166,35 @@ async def event_of(db, cluster_id, version) -> Event | None:  # type: ignore[no-
         .join(EventCluster, EventCluster.event_id == Event.id)
         .where(EventCluster.cluster_id == cluster_id, EventCluster.algorithm_version == version)
     )
+
+
+async def analyzed_event_tables(db) -> None:  # type: ignore[no-untyped-def]
+    """Fill the event tables and analyze them, for a test that asserts which index a query uses.
+
+    On the near-empty tables the suite leaves, every index costs the same and the one EXPLAIN names
+    is settled by leftover statistics: an autoanalyze that happens to catch a table empty flips it.
+    With a couple of thousand rows and fresh statistics the choice follows from the query. The
+    caller rolls back, which removes the rows again.
+    """
+    series = "generate_series(1, 2000) AS n"
+    event, cluster = "md5('plan-event-' || n)::uuid", "md5('plan-cluster-' || n)::uuid"
+    for statement in (
+        "INSERT INTO events (id, algorithm_version, status, started_at, ended_at, primary_country)"
+        f" SELECT {event}, 'plan-statistics', CASE WHEN n % 10 = 0 THEN 'active' ELSE 'closed' END,"
+        " now() - n * interval '1 hour', now() - n * interval '1 hour',"
+        f" CASE WHEN n % 20 = 0 THEN 'GR' ELSE 'US' END FROM {series}",
+        "INSERT INTO story_clusters (id, algorithm_version)"
+        f" SELECT {cluster}, 'plan-statistics' FROM {series}",
+        "INSERT INTO event_clusters (event_id, cluster_id, algorithm_version, score)"
+        f" SELECT {event}, {cluster}, 'plan-statistics', 1 FROM {series}",
+        "INSERT INTO nlp_entities (id, language, entity_type, normalized_text, display_text)"
+        " SELECT md5('plan-entity-' || m)::uuid, 'en', 'ORG', 'plan-statistics-' || m, 'Plan'"
+        " FROM generate_series(0, 199) AS m",
+        "INSERT INTO event_entities (event_id, entity_id, article_count)"
+        f" SELECT {event}, md5('plan-entity-' || (n + k) % 200)::uuid, 1"
+        f" FROM {series}, generate_series(0, 2) AS k",
+        "ANALYZE events",
+        "ANALYZE event_clusters",
+        "ANALYZE event_entities",
+    ):
+        await db.execute(text(statement))
