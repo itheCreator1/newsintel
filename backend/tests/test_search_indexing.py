@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from app.search.documents import (
@@ -10,7 +11,13 @@ from app.search.documents import (
     KeywordDocument,
     ProvenanceDocument,
 )
-from app.search.elasticsearch import BulkDocument, ElasticsearchAdapter, OversizedDocument
+from app.search.elasticsearch import (
+    BulkDocument,
+    ElasticsearchAdapter,
+    OversizedDocument,
+    close_shared_client,
+    open_shared_client,
+)
 from app.search.indexing import result_outcome
 
 
@@ -154,3 +161,36 @@ def test_article_document_serializes_no_cluster_as_null_for_schema_version_three
     payload = document.to_index_payload(schema_version=3)
     assert payload["story_cluster_id"] is None
     assert payload["cluster_source_count"] is None
+
+
+@pytest.mark.asyncio
+async def test_adapter_reuses_the_shared_client_while_one_is_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened: list[httpx.AsyncClient] = []
+    original = httpx.AsyncClient
+
+    def tracking_client(**kwargs: object) -> httpx.AsyncClient:
+        client = original(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={})),
+            **kwargs,  # type: ignore[arg-type]
+        )
+        opened.append(client)
+        return client
+
+    monkeypatch.setattr("app.search.elasticsearch.httpx.AsyncClient", tracking_client)
+    adapter = ElasticsearchAdapter("http://elasticsearch:9200")
+
+    await adapter.refresh("articles")
+    await adapter.refresh("articles")
+    assert len(opened) == 2
+
+    open_shared_client("http://elasticsearch:9200/")
+    try:
+        await adapter.refresh("articles")
+        await adapter.refresh("articles")
+        assert len(opened) == 3
+        assert not opened[2].is_closed
+    finally:
+        await close_shared_client()
+    assert opened[2].is_closed

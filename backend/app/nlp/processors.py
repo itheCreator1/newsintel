@@ -215,6 +215,25 @@ ENTITY_TYPE_MAP = {
 }
 
 
+# Loading a model takes far longer than annotating one article, so each model is loaded once per
+# process. Only the components entities need are kept: the excluded ones never feed the NER
+# component, so the entities are identical to the full pipeline's.
+_NER_EXCLUDED_COMPONENTS = ["tagger", "parser", "attribute_ruler", "lemmatizer", "senter"]
+_ner_pipelines: dict[str, Any] = {}
+
+
+def _ner_pipeline(model: str) -> Any:
+    pipeline = _ner_pipelines.get(model)
+    if pipeline is None:
+        spacy = importlib.import_module("spacy")
+        try:
+            pipeline = spacy.load(model, exclude=_NER_EXCLUDED_COMPONENTS)
+        except OSError as exc:
+            raise ConfigurationError(f"spaCy model {model!r} is not installed") from exc
+        _ner_pipelines[model] = pipeline
+    return pipeline
+
+
 def extract_entities(context: ProcessorContext) -> EntityResult:
     algorithm = "spacy-ner-map-1"
     if context.language != "en":
@@ -223,11 +242,7 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
         return EntityResult("disabled", (), algorithm, None)
     if importlib.util.find_spec("spacy") is None:
         raise ConfigurationError("spaCy is not installed but NLP NER is enabled")
-    spacy = importlib.import_module("spacy")
-    try:
-        pipeline = spacy.load(context.ner_model)
-    except OSError as exc:
-        raise ConfigurationError(f"spaCy model {context.ner_model!r} is not installed") from exc
+    pipeline = _ner_pipeline(context.ner_model)
     document = pipeline(context.text)
     grouped: dict[tuple[str, str, str], list[Occurrence]] = {}
     display: dict[tuple[str, str, str], str] = {}

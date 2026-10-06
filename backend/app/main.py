@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -8,6 +11,7 @@ from app.auth.routes import router as auth_router
 from app.clustering.routes import router as clustering_router
 from app.compare.routes import router as compare_router
 from app.core.config import Settings, get_settings
+from app.db.session import close_request_pool, open_request_pool
 from app.entities.routes import router as entities_router
 from app.events.routes import router as events_router
 from app.feeds.routes import router as feeds_router
@@ -17,13 +21,25 @@ from app.investigations.routes import router as investigations_router
 from app.monitors.routes import router as monitors_router
 from app.nlp.routes import router as nlp_router
 from app.operations.routes import router as operations_router
+from app.search.elasticsearch import close_shared_client, open_shared_client
 from app.search.routes import router as search_router
 from app.sources.routes import router as sources_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings or get_settings()
-    app = FastAPI(title="NewsIntel API", version="0.1.0")
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        open_request_pool(config)
+        open_shared_client(config.elasticsearch_url)
+        try:
+            yield
+        finally:
+            await close_shared_client()
+            await close_request_pool()
+
+    app = FastAPI(title="NewsIntel API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.allowed_hosts)
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")

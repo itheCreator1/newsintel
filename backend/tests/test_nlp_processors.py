@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -133,3 +134,34 @@ def test_country_lexicon_is_checked_in_with_attribution() -> None:
     assert lexicon.exists()
     assert "ISO 3166-1" in lexicon.read_text()
     assert '"code": "ZW"' in lexicon.read_text()
+
+
+def test_enabled_ner_loads_each_model_once_without_unused_components(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loads: list[tuple[str, list[str]]] = []
+
+    class Pipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, text: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[])
+
+    def load(model: str, *, exclude: list[str]) -> Pipeline:
+        loads.append((model, exclude))
+        return Pipeline()
+
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr(
+        "app.nlp.processors.importlib.import_module", lambda _: SimpleNamespace(load=load)
+    )
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+
+    for _ in range(3):
+        assert extract_entities(context(ENGLISH_TEXT, ner_enabled=True)).outcome == "success"
+
+    assert len(loads) == 1
+    model, exclude = loads[0]
+    assert model == "en_core_web_sm"
+    assert {"parser", "lemmatizer"} <= set(exclude)
+    assert "ner" not in exclude and "tok2vec" not in exclude
