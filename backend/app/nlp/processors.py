@@ -239,7 +239,10 @@ def _is_junk_entity(text: str, label: str) -> bool:
     if label in DROPPED_ENTITY_LABELS:
         return True
     cleaned = _LEADING_JUNK.sub("", " ".join(text.casefold().split()))
-    if sum(character.isalpha() for character in cleaned) < 2:
+    # A fragment ("'s", "U") or a bare number; "B-1" and "F1" have one letter but are names.
+    if not any(character.isalpha() for character in cleaned) or (
+        sum(character.isalnum() for character in cleaned) < 2
+    ):
         return True
     return _TIME_PHRASE.fullmatch(cleaned) is not None
 

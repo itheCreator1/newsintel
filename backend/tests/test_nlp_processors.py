@@ -116,6 +116,8 @@ def test_enabled_ner_with_missing_model_is_a_configuration_error(
         ("'s", "ORG"),
         ("--", "PERSON"),
         ("U", "ORG"),
+        ("40%", "ORG"),
+        ("10", "GPE"),
     ],
 )
 def test_junk_entities_are_recognised(text: str, label: str) -> None:
@@ -133,6 +135,10 @@ def test_junk_entities_are_recognised(text: str, label: str) -> None:
         ("Summer Olympics", "EVENT"),
         ("Europeans", "NORP"),
         ("the Week Magazine", "ORG"),
+        # Short designations: one letter, but a digit makes them a name.
+        ("B-1", "PRODUCT"),
+        ("F1", "ORG"),
+        ("Z-10", "PRODUCT"),
     ],
 )
 def test_named_entities_are_kept(text: str, label: str) -> None:
