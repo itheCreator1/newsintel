@@ -5358,6 +5358,27 @@
             }
           },
           {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "maxItems": 5
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expand"
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -11202,13 +11223,23 @@
           "weight": {
             "type": "integer",
             "title": "Weight"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "recent_weight": {
+            "type": "integer",
+            "title": "Recent Weight",
+            "default": 0
           }
         },
         "type": "object",
         "required": [
           "source",
           "target",
-          "weight"
+          "weight",
+          "score"
         ],
         "title": "GraphEdge"
       },
@@ -11260,6 +11291,18 @@
           "truncated": {
             "type": "boolean",
             "title": "Truncated"
+          },
+          "recent_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Since"
           }
         },
         "type": "object",
