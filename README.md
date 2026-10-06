@@ -210,7 +210,7 @@ Every script's diagnostics (Compose logs on failure, pytest output, Playwright t
 
 `infra/test-inventory.sh` (read-only, `--no-deps`, starts nothing but the backend/frontend test images) writes a plain listing of what each gate actually selects — `inventory/backend-full.txt`/`backend-quick.txt` (pytest `--collect-only`), `inventory/frontend-tests.txt` (`npx vitest list`), and per-group `inventory/e2e-<group>-{specs,invocations}.txt` — useful for confirming a change to the test scripts didn't silently add, drop, or rescope a test.
 
-There is no automated pre-merge gate: pushes and pull requests have no automatic test run, nightly regression run, or status check. Run `./infra/test-docker.sh` before merging. The older phase acceptance scripts remain historical records; `./infra/test-docker.sh` is the maintained full-suite entry point.
+GitHub Actions (`.github/workflows/ci.yml`) runs `./infra/test-quick.sh` and the frontend build on every pull request and every push to `main`. That covers the quick loop only, so still run `./infra/test-docker.sh` before merging.
 
 ## 8. Limitations
 
