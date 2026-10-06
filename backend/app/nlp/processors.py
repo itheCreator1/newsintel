@@ -214,25 +214,74 @@ ENTITY_TYPE_MAP = {
     "PRODUCT": "PRODUCT",
 }
 
+# spaCy labels for dates, times and amounts ("Last week", "40%", "two") are never named things.
+DROPPED_ENTITY_LABELS = frozenset(
+    {"DATE", "TIME", "PERCENT", "MONEY", "QUANTITY", "ORDINAL", "CARDINAL"}
+)
+
+_TIME_WORDS = (
+    r"(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|week|month|year|"
+    r"decade|century|day|night|morning|afternoon|evening|quarter|season|spring|summer|autumn|"
+    r"fall|winter)s?"
+)
+# Time phrases the model sometimes mislabels as ORG/PERSON/EVENT, e.g. "Last week" or "Tuesday".
+_TIME_PHRASE = re.compile(
+    r"(?:today|tonight|yesterday|tomorrow|now|recently|"
+    r"(?:(?:the|this|last|next|past|previous|coming|early|late|earlier|later|every|each)\s+)*"
+    r"(?:(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|few|several|many)\s+)?"
+    + _TIME_WORDS
+    + r"(?:\s+(?:ago|earlier|later))?)"
+)
+_LEADING_JUNK = re.compile(r"^[\W_]+|[\W_]+$")
+
+
+def _is_junk_entity(text: str, label: str) -> bool:
+    if label in DROPPED_ENTITY_LABELS:
+        return True
+    cleaned = _LEADING_JUNK.sub("", " ".join(text.casefold().split()))
+    # A fragment ("'s", "U") or a bare number; "B-1" and "F1" have one letter but are names.
+    if not any(character.isalpha() for character in cleaned) or (
+        sum(character.isalnum() for character in cleaned) < 2
+    ):
+        return True
+    return _TIME_PHRASE.fullmatch(cleaned) is not None
+
+
+# Loading a model takes far longer than annotating one article, so each model is loaded once per
+# process. The excluded components never feed the NER component, so the entities are identical to
+# the full pipeline's. The parser stays: NER never lets an entity cross a sentence boundary it set.
+_NER_EXCLUDED_COMPONENTS = ["tagger", "attribute_ruler", "lemmatizer"]
+_ner_pipelines: dict[str, Any] = {}
+
+
+def _ner_pipeline(model: str) -> Any:
+    pipeline = _ner_pipelines.get(model)
+    if pipeline is None:
+        spacy = importlib.import_module("spacy")
+        try:
+            pipeline = spacy.load(model, exclude=_NER_EXCLUDED_COMPONENTS)
+        except OSError as exc:
+            raise ConfigurationError(f"spaCy model {model!r} is not installed") from exc
+        _ner_pipelines[model] = pipeline
+    return pipeline
+
 
 def extract_entities(context: ProcessorContext) -> EntityResult:
-    algorithm = "spacy-ner-map-1"
+    algorithm = "spacy-ner-map-2"
     if context.language != "en":
         return EntityResult("unsupported_language", (), algorithm, None)
     if not context.ner_enabled:
         return EntityResult("disabled", (), algorithm, None)
     if importlib.util.find_spec("spacy") is None:
         raise ConfigurationError("spaCy is not installed but NLP NER is enabled")
-    spacy = importlib.import_module("spacy")
-    try:
-        pipeline = spacy.load(context.ner_model)
-    except OSError as exc:
-        raise ConfigurationError(f"spaCy model {context.ner_model!r} is not installed") from exc
+    pipeline = _ner_pipeline(context.ner_model)
     document = pipeline(context.text)
     grouped: dict[tuple[str, str, str], list[Occurrence]] = {}
     display: dict[tuple[str, str, str], str] = {}
     for entity in document.ents:
         original_label = str(entity.label_)
+        if _is_junk_entity(str(entity.text), original_label):
+            continue
         mapped = ENTITY_TYPE_MAP.get(original_label, "OTHER")
         text = str(entity.text)
         normalized = " ".join(text.casefold().split())

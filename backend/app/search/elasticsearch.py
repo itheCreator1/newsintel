@@ -1,8 +1,27 @@
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+# The API's lifespan opens one client so requests reuse keep-alive connections to Elasticsearch.
+# Workers and the CLI run each job in a fresh event loop, which a pooled client cannot outlive,
+# so without a shared client each call opens its own as before.
+_shared_client: httpx.AsyncClient | None = None
+
+
+def open_shared_client(base_url: str) -> None:
+    global _shared_client
+    _shared_client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=30)
+
+
+async def close_shared_client() -> None:
+    global _shared_client
+    client, _shared_client = _shared_client, None
+    if client is not None:
+        await client.aclose()
 
 
 class ElasticsearchUnavailable(RuntimeError):
@@ -40,6 +59,15 @@ class ElasticsearchAdapter:
         self.base_url = base_url.rstrip("/")
         self.max_documents = max_documents
         self.max_bytes = max_bytes
+
+    @asynccontextmanager
+    async def _client(self) -> AsyncIterator[httpx.AsyncClient]:
+        shared = _shared_client
+        if shared is not None and str(shared.base_url).rstrip("/") == self.base_url:
+            yield shared
+            return
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=30) as client:
+            yield client
 
     def _encoded(self, index_name: str, document: BulkDocument) -> bytes:
         action = {
@@ -80,7 +108,7 @@ class ElasticsearchAdapter:
 
     async def bulk(self, batch: BulkBatch) -> list[BulkResult]:
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=30) as client:
+            async with self._client() as client:
                 response = await client.post(
                     "/_bulk", content=batch.body, headers={"content-type": "application/x-ndjson"}
                 )
@@ -105,7 +133,7 @@ class ElasticsearchAdapter:
         self, method: str, path: str, *, json_body: dict[str, Any] | None = None
     ) -> httpx.Response:
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=30) as client:
+            async with self._client() as client:
                 response = await client.request(method, path, json=json_body)
                 response.raise_for_status()
                 return response

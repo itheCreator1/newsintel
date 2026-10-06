@@ -92,3 +92,21 @@ class ClusterJob(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ArticleClusterTerm(Base):
+    """A stemmed term from an article's opening words, the clusterer's own wording index.
+
+    Keyed by term and date, so finding articles that share wording inside the clustering
+    window is a range scan per term rather than a scan of every article that ever used it.
+    """
+
+    __tablename__ = "article_cluster_terms"
+    __table_args__ = (
+        Index("ix_article_cluster_terms_term_date", "term", "effective_at", "article_id"),
+    )
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("articles.id", ondelete="CASCADE"), primary_key=True
+    )
+    term: Mapped[str] = mapped_column(String(64), primary_key=True)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

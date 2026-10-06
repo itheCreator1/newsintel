@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quick:
+    # Same checks as the local fast loop: ruff, mypy, unit pytest, OpenAPI/TS contract,
+    # vitest, tsc. Runs inside the repo's own test images via Docker Compose.
+    name: Quick gate (infra/test-quick.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEWSINTEL_TEST_ARTIFACTS: ${{ github.workspace }}/test-artifacts
+      NEWSINTEL_CACHE_STATE: initial
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./infra/test-quick.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-quick-artifacts
+          path: test-artifacts
+          if-no-files-found: ignore
+
+  frontend-build:
+    # test-quick.sh skips `npm run build`; the static export is checked here.
+    name: Frontend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
