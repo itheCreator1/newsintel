@@ -216,9 +216,9 @@ ENTITY_TYPE_MAP = {
 
 
 # Loading a model takes far longer than annotating one article, so each model is loaded once per
-# process. Only the components entities need are kept: the excluded ones never feed the NER
-# component, so the entities are identical to the full pipeline's.
-_NER_EXCLUDED_COMPONENTS = ["tagger", "parser", "attribute_ruler", "lemmatizer", "senter"]
+# process. The excluded components never feed the NER component, so the entities are identical to
+# the full pipeline's. The parser stays: NER never lets an entity cross a sentence boundary it set.
+_NER_EXCLUDED_COMPONENTS = ["tagger", "attribute_ruler", "lemmatizer"]
 _ner_pipelines: dict[str, Any] = {}
 
 

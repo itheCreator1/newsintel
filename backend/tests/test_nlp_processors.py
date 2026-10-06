@@ -163,5 +163,6 @@ def test_enabled_ner_loads_each_model_once_without_unused_components(
     assert len(loads) == 1
     model, exclude = loads[0]
     assert model == "en_core_web_sm"
-    assert {"parser", "lemmatizer"} <= set(exclude)
-    assert "ner" not in exclude and "tok2vec" not in exclude
+    assert {"tagger", "lemmatizer"} <= set(exclude)
+    # The parser stays: NER never lets an entity cross a sentence boundary the parser set.
+    assert not {"ner", "tok2vec", "parser", "senter"} & set(exclude)
