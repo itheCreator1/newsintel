@@ -169,9 +169,10 @@ def test_extract_entities_drops_junk_before_grouping(monkeypatch: pytest.MonkeyP
         def __call__(self, value: str) -> SimpleNamespace:
             return SimpleNamespace(ents=[_FakeSpan(span, value, label) for span, label in spans])
 
-    fake_spacy = SimpleNamespace(load=lambda _: FakePipeline())
+    fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
     monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
 
     result = extract_entities(context(text, ner_enabled=True))
 
