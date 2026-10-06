@@ -56,7 +56,7 @@ export function MonitorList() {
             <article key={item.id} aria-label={item.name} data-unseen={item.unseen_article_count > 0} className="flex flex-wrap items-center justify-between gap-4 border-border px-6 py-4 last:border-b-0 data-[unseen=true]:border-l-2 data-[unseen=true]:border-l-primary">
               <div className="flex flex-col gap-1">
                 <strong className="text-[15px] font-semibold text-foreground">{item.name}</strong>
-                <span className={cn('w-fit rounded-full px-2.5 py-1 text-xs font-medium', item.unseen_article_count > 0 ? 'bg-primary/15 text-primary' : 'bg-white/8 text-muted-foreground')}>
+                <span className={cn('w-fit rounded-full px-2.5 py-1 text-xs font-medium', item.unseen_article_count > 0 ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
                   {item.unseen_article_count > 0 ? countsLabel(item) : 'Nothing new'}
                 </span>
                 {status && <p className={cn('text-sm', item.error_category || !item.state ? 'error text-destructive' : 'text-muted-foreground')}>{status}</p>}

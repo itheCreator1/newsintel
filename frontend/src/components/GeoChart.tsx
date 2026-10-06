@@ -6,6 +6,7 @@ import { init, registerMap, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import world from '../lib/world.geo.json'
+import { chartTheme } from '../lib/chart-theme'
 
 use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
 // The outline is bundled with the app (Natural Earth, public domain), so nothing is fetched.
@@ -67,13 +68,13 @@ export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) 
       },
       visualMap: {
         min: 0, max: Math.max(1, ...items.map(item => item.value)), calculable: false, orient: 'horizontal', left: 'center', bottom: 0,
-        text: [unit, ''], textStyle: { color: '#8891ab' }, inRange: { color: ['rgba(79, 125, 251, 0.25)', '#7ba0ff'] },
+        text: [unit, ''], textStyle: { color: chartTheme.axisLabel }, inRange: { color: [chartTheme.mapLow, chartTheme.highlight] },
       },
       series: [{
         type: 'map', map: 'world', nameProperty: 'code', roam: false, selectedMode: 'single', label: { show: false },
-        itemStyle: { areaColor: 'rgba(140, 165, 255, 0.06)', borderColor: 'rgba(140, 165, 255, 0.28)' },
-        emphasis: { label: { show: false }, itemStyle: { areaColor: '#7ba0ff' } },
-        select: { label: { show: false }, itemStyle: { areaColor: '#ffffff' } },
+        itemStyle: { areaColor: chartTheme.mapArea, borderColor: chartTheme.mapBorder },
+        emphasis: { label: { show: false }, itemStyle: { areaColor: chartTheme.mapHover } },
+        select: { label: { show: false }, itemStyle: { areaColor: chartTheme.mapSelected } },
         data: items.map(item => ({ name: item.code, value: item.value, selected: item.code === selected })),
       }],
     }

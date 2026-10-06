@@ -35,6 +35,6 @@ it('dims everything outside the focused node’s neighbourhood', () => {
 
 it('highlights the selected edge and labels its endpoints', () => {
   const s = series({ selectedEdge: 'c:z0' })
-  expect(s.edges.find(e => e.target === 'z0')!.lineStyle).toMatchObject({ color: '#7ba0ff', width: 7 })
+  expect(s.edges.find(e => e.target === 'z0')!.lineStyle).toMatchObject({ color: '#0f6cbd', width: 7 })
   expect(item(s, 'z0').label.show).toBe(true)
 })

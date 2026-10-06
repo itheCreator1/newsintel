@@ -5,11 +5,12 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { init, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
+import { chartTheme } from '../lib/chart-theme'
 
 use([EchartsBarChart, GridComponent, TooltipComponent, CanvasRenderer])
 
-const COLOR = 'rgba(79, 125, 251, 0.38)'
-const HIGHLIGHT_COLOR = '#7ba0ff'
+const COLOR = chartTheme.bar
+const HIGHLIGHT_COLOR = chartTheme.highlight
 
 export interface BarChartItem {
   id: string
@@ -51,8 +52,8 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
     const chart = chartRef.current
     if (!chart) return
     const horizontal = orientation === 'horizontal'
-    const categoryAxis = { type: 'category' as const, data: items.map(item => item.label), axisLabel: { color: '#8891ab' }, axisLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.16)' } } }
-    const valueAxis = { type: 'value' as const, minInterval: 1, axisLabel: { color: '#8891ab' }, splitLine: { lineStyle: { color: 'rgba(140, 165, 255, 0.08)' } } }
+    const categoryAxis = { type: 'category' as const, data: items.map(item => item.label), axisLabel: { color: chartTheme.axisLabel }, axisLine: { lineStyle: { color: chartTheme.axisLine } } }
+    const valueAxis = { type: 'value' as const, minInterval: 1, axisLabel: { color: chartTheme.axisLabel }, splitLine: { lineStyle: { color: chartTheme.splitLine } } }
     chart.setOption({
       animation: false,
       grid: { left: horizontal ? 130 : 44, right: 16, top: 16, bottom: horizontal ? 16 : 32, containLabel: horizontal },
@@ -64,7 +65,7 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
         data: items.map(item => ({
           value: item.value,
           itemStyle: item.highlight
-            ? { color: HIGHLIGHT_COLOR, shadowBlur: 16, shadowColor: 'rgba(123, 160, 255, 0.55)' }
+            ? { color: HIGHLIGHT_COLOR, shadowBlur: 8, shadowColor: chartTheme.highlightShadow }
             : { color: COLOR },
         })),
         barMaxWidth: 28,
