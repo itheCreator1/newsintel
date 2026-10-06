@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from alembic import command
 from alembic.config import Config
+from event_fixtures import analyzed_event_tables
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
@@ -247,6 +248,7 @@ async def test_lookups_use_their_indexes() -> None:
         "ix_event_entities_entity": "SELECT event_id FROM event_entities WHERE entity_id = :id",
     }
     async with session_factory() as db:
+        await analyzed_event_tables(db)
         await db.execute(text("SET LOCAL enable_seqscan = off"))
         for index, query in queries.items():
             plan = "\n".join(
