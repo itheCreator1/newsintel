@@ -3,9 +3,9 @@ import { cn } from '../lib/utils'
 
 export type BadgeTone = 'healthy' | 'pending' | 'degraded' | 'error'
 const TONES: Record<BadgeTone, string> = {
-  healthy: 'bg-primary/15 text-primary',
-  pending: 'bg-white/8 text-muted-foreground',
-  degraded: 'bg-yellow-500/15 text-yellow-400',
+  healthy: 'bg-success-muted text-success',
+  pending: 'bg-muted text-muted-foreground',
+  degraded: 'bg-warning-muted text-warning',
   error: 'bg-destructive/15 text-destructive',
 }
 

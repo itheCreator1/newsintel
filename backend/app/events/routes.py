@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
@@ -18,7 +19,6 @@ from app.events.schemas import (
     EventPage,
     EventTimelinePage,
 )
-from app.feeds.service import decode_cursor
 
 router = APIRouter(tags=["events"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -31,15 +31,6 @@ async def _event_or_404(db: AsyncSession, event_id: uuid.UUID) -> Event:
     if event is None:
         raise HTTPException(404, "Event not found")
     return event
-
-
-def _cursor_or_400(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
-    if cursor is None:
-        return None
-    try:
-        return decode_cursor(cursor)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(400, "Invalid cursor") from None
 
 
 @router.get("/events", response_model=EventPage)
@@ -65,14 +56,14 @@ async def list_events(
     cursor: str | None = None,
     limit: Limit = 30,
 ) -> EventPage:
-    try:
-        decoded = (
-            (queries.decode_size_cursor(cursor) if sort == "biggest" else decode_cursor(cursor))
-            if cursor
-            else None
-        )
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(400, "Invalid cursor") from None
+    decoded: queries.Cursor | queries.SizeCursor | None
+    if sort == "biggest":
+        try:
+            decoded = queries.decode_size_cursor(cursor) if cursor else None
+        except (ValueError, UnicodeDecodeError):
+            raise HTTPException(400, "Invalid cursor") from None
+    else:
+        decoded = cursor_or_400(cursor)
     return await queries.events(
         db,
         version=algorithm_version or EVENT_ALGORITHM_VERSION,
@@ -98,7 +89,7 @@ async def get_event_clusters(
     event_id: uuid.UUID, db: Db, _auth: Auth, cursor: str | None = None, limit: Limit = 30
 ) -> EventClusterPage:
     await _event_or_404(db, event_id)
-    return await queries.clusters(db, event_id, limit, _cursor_or_400(cursor))
+    return await queries.clusters(db, event_id, limit, cursor_or_400(cursor))
 
 
 @router.get("/events/{event_id}/articles", response_model=EventArticlePage)
@@ -106,7 +97,7 @@ async def get_event_articles(
     event_id: uuid.UUID, db: Db, _auth: Auth, cursor: str | None = None, limit: Limit = 30
 ) -> EventArticlePage:
     await _event_or_404(db, event_id)
-    return await queries.articles(db, event_id, limit, _cursor_or_400(cursor))
+    return await queries.articles(db, event_id, limit, cursor_or_400(cursor))
 
 
 @router.get("/events/{event_id}/timeline", response_model=EventTimelinePage)

@@ -1,11 +1,11 @@
 import re
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.compare import queries
@@ -20,7 +20,6 @@ from app.compare.schemas import (
     Subject,
 )
 from app.db.session import get_db
-from app.feeds.service import decode_cursor
 
 router = APIRouter(tags=["compare"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -64,15 +63,6 @@ def spec(
 Compared = Annotated[Spec, Depends(spec)]
 
 
-def _cursor_or_400(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
-    if cursor is None:
-        return None
-    try:
-        return decode_cursor(cursor)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(400, "Invalid cursor") from None
-
-
 async def _subjects(db: AsyncSession, compared: Spec) -> tuple[Subject, Subject]:
     first = await queries.resolve(db, compared, compared.a)
     second = await queries.resolve(db, compared, compared.b)
@@ -96,7 +86,7 @@ async def compare_articles(
     cursor: str | None = None,
     limit: Limit = 30,
 ) -> CompareArticlePage:
-    cursor_value = _cursor_or_400(cursor)
+    cursor_value = cursor_or_400(cursor)
     await _subjects(db, compared)
     return await queries.articles(db, compared, part, limit, cursor_value)
 
@@ -110,6 +100,6 @@ async def compare_stories(
     cursor: str | None = None,
     limit: Limit = 30,
 ) -> CompareClusterPage:
-    cursor_value = _cursor_or_400(cursor)
+    cursor_value = cursor_or_400(cursor)
     await _subjects(db, compared)
     return await queries.clusters(db, compared, part, limit, cursor_value)

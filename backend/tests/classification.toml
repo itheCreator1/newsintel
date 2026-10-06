@@ -18,6 +18,7 @@
 "test_analytics_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
 "test_analytics_routes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_analytics_timeline.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_annotation_lookup_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_api_surface.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_article_maintenance.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Postgres-gated despite no _postgres suffix (filename convention exception)." }
 "test_article_processing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }

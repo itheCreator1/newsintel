@@ -3,11 +3,11 @@ RUN groupadd --system --gid 10001 newsintel && useradd --system --uid 10001 --gi
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
 ARG NEWSINTEL_INSTALL_SPACY=false
-COPY requirements-ner.txt ./
 RUN if [ "$NEWSINTEL_INSTALL_SPACY" = "true" ]; then \
-      uv pip install --python /app/.venv/bin/python -r requirements-ner.txt; \
+      uv sync --frozen --no-dev --group ner; \
+    else \
+      uv sync --frozen --no-dev; \
     fi
 COPY app ./app
 COPY migrations ./migrations

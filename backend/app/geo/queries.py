@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Select, and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +24,7 @@ from app.geo.schemas import (
 from app.nlp.models import ArticleCountryAnnotation
 
 
-def _located(role: ArticleRole, start: datetime) -> Select:  # type: ignore[type-arg]
+def _located(role: ArticleRole, start: datetime) -> Select[Any]:
     """`(article_id, code, feed_id)` for every article in the window that has a country in `role`.
 
     The same predicates as `subject_articles`, so a country's count is its evidence set's size.

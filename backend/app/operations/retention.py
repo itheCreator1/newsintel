@@ -7,7 +7,9 @@ and so is the newest row each reader depends on:
 - search deliveries: only those of `retained` targets (past rebuilds), the rest are indexing state.
 """
 
+import uuid
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy import Select, delete, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +28,7 @@ BATCH = 5000
 _DONE = ("succeeded", "superseded")
 
 
-def _candidates(cutoff: datetime) -> dict[str, tuple[type, Select]]:  # type: ignore[type-arg]
+def _candidates(cutoff: datetime) -> dict[str, tuple[Any, Select[tuple[uuid.UUID]]]]:
     newer_article = aliased(ArticleProcessingJob)
     newer_nlp = aliased(NlpJob)
     newer_cluster = aliased(ClusterJob)
@@ -92,7 +94,7 @@ async def prune_history(db: AsyncSession, now: datetime) -> dict[str, int]:
     for name, (model, ids) in _candidates(now - JOB_RETENTION).items():
         result = await db.execute(
             delete(model)
-            .where(model.id.in_(ids.limit(BATCH)))  # type: ignore[attr-defined]
+            .where(model.id.in_(ids.limit(BATCH)))
             .execution_options(synchronize_session=False)
         )
         deleted[name] = result.rowcount  # type: ignore[attr-defined]

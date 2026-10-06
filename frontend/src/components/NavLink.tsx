@@ -18,7 +18,7 @@ export function NavLink({ href, className, children, ...rest }: ComponentProps<t
       className={cn(
         isActive ? 'router-link-active' : undefined,
         'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-        isActive && 'bg-primary/12 text-foreground shadow-[inset_0_0_0_1px_rgb(140_165_255/18%)]',
+        isActive && 'bg-accent font-semibold text-accent-foreground shadow-[inset_3px_0_0_0_var(--primary)]',
         className,
       )}
       {...rest}
