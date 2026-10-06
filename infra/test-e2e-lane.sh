@@ -18,13 +18,15 @@ shift 2
 
 # The gate's TERM reaches the running group as well (same process group). That group tears its
 # own Compose project down, and this trap only runs once it has exited -- so the lane neither
-# returns before that cleanup finishes nor starts its next group.
+# returns before that cleanup finishes nor starts its next group. A TERM that lands between two
+# groups reaches no group at all, hence the check right before each one starts.
 stopped=0
 trap 'stopped=1' TERM
 
 for group in "$@"; do
   start=$(date +%s)
   status=0
+  [ "$stopped" = 0 ] || exit 143
   NEWSINTEL_E2E_ARTIFACTS="$artifacts/e2e-$group" "$root/infra/test-e2e.sh" --reuse-images "$manifest" "$group" \
     > "$artifacts/e2e-$group.log" 2>&1 || status=$?
   # A group interrupted between two of its own commands can still exit 0; it did not pass.
