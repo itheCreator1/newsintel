@@ -10,8 +10,10 @@ from app.events.engine import (
     EventFacts,
     RuleEventAssociator,
     choose_event,
+    entity_weight,
     score_cluster,
     time_gap,
+    weighted_jaccard,
 )
 
 BASE = datetime(2026, 9, 10, 12, tzinfo=UTC)
@@ -28,11 +30,13 @@ def cluster(
 
 
 def event(
-    *, id=E1, hours=0.0, hours_to=None, entities=frozenset(), titles=(), country=None
+    *, id=E1, hours=0.0, hours_to=None, entities=frozenset(), members=(), titles=(), country=None
 ) -> EventFacts:
+    """`entities` is one member cluster's entity set; `members` lists several."""
     start = BASE + timedelta(hours=hours)
     end = BASE + timedelta(hours=hours if hours_to is None else hours_to)
-    return EventFacts(id, start, end, frozenset(entities), tuple(titles), country)
+    member_entities = tuple(members) or ((frozenset(entities),) if entities else ())
+    return EventFacts(id, start, end, member_entities, tuple(titles), country)
 
 
 def ids(*n: int) -> frozenset[uuid.UUID]:
@@ -40,11 +44,11 @@ def ids(*n: int) -> frozenset[uuid.UUID]:
 
 
 def test_the_version_is_recorded_and_the_engine_is_replaceable() -> None:
-    assert EVENT_ALGORITHM_VERSION == "rule-1"
+    assert EVENT_ALGORITHM_VERSION == "rule-2"
     assert RuleEventAssociator().version == EVENT_ALGORITHM_VERSION
 
     class Other:
-        version = "rule-2"
+        version = "rule-3"
 
         async def run_batch(self, db, limit):  # type: ignore[no-untyped-def]
             raise NotImplementedError
@@ -81,6 +85,38 @@ def test_each_signal_is_scored_on_its_own() -> None:
     assert score_cluster(cluster(title=FIRE), e_two).signals["title"] == 1.0
 
 
+def test_entities_match_the_closest_member_so_a_growing_event_keeps_attracting() -> None:
+    c = cluster(entities=ids(1, 2, 3), title=FIRE, country="GR")
+    # Ten members with mostly their own entities: their union shares little with the cluster.
+    members = [ids(1, 2, 3)] + [ids(1, 10 * i, 10 * i + 1, 10 * i + 2) for i in range(1, 10)]
+    grown = event(members=members, titles=[FIRE], country="GR")
+    union = frozenset().union(*members)
+    assert weighted_jaccard(c.entity_ids, union, {}) < 0.15
+    assert score_cluster(c, grown).signals["entities"] == 1.0
+    assert choose_event(c, [grown]) is not None
+
+
+def test_widely_reported_entities_count_less() -> None:
+    assert entity_weight(0) == 1.0
+    assert 1.0 > entity_weight(10) > entity_weight(10_000) > 0.0
+
+    country, person, place = ids(1, 2, 3)
+    common_only = weighted_jaccard(
+        frozenset({country, person}),
+        frozenset({country, place}),
+        {country: entity_weight(50_000), person: entity_weight(3), place: entity_weight(3)},
+    )
+    rare_only = weighted_jaccard(
+        frozenset({country, person}),
+        frozenset({place, person}),
+        {country: entity_weight(50_000), person: entity_weight(3), place: entity_weight(3)},
+    )
+    # Unweighted both are 1/3; sharing the rare entity now means more than sharing the common one.
+    assert common_only < 1 / 3 < rare_only
+    # An entity without a weight counts as 1, so no weights is plain Jaccard.
+    assert weighted_jaccard(frozenset({country, person}), frozenset({country}), {}) == 0.5
+
+
 def test_an_unknown_or_different_country_is_never_a_reward_and_unknown_is_not_a_penalty() -> None:
     e = event(country="GR")
     assert score_cluster(cluster(country="GR"), e).signals["location"] == 1.0
@@ -95,7 +131,7 @@ def test_an_unknown_or_different_country_is_never_a_reward_and_unknown_is_not_a_
 
 
 def test_an_event_without_a_span_scores_no_time() -> None:
-    empty = EventFacts(E1, None, None, ids(1), (), None)
+    empty = EventFacts(E1, None, None, (ids(1),), (), None)
     assert score_cluster(cluster(entities=ids(1)), empty).signals["time"] == 0.0
     assert time_gap(cluster(), empty) is None
 

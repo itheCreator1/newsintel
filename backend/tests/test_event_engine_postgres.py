@@ -17,6 +17,8 @@ from app.events.engine import (
     EVENT_ADVISORY_LOCK,
     RuleEventAssociator,
     candidate_event_ids,
+    entity_weight,
+    load_entity_weights,
     reconcile_events,
 )
 from app.events.models import Event, EventCluster, EventEntity
@@ -109,6 +111,17 @@ async def test_related_clusters_share_an_event_and_unrelated_ones_do_not() -> No
             select(EventCluster.signals).where(EventCluster.cluster_id == related.id)
         )
         assert signals is not None and signals["entities"] == 1.0 and signals["location"] == 1.0
+
+
+async def test_entity_weights_count_current_articles_and_fill_only_what_is_missing() -> None:
+    async with session_factory() as db, db.begin():
+        common, rare, unseen = await entities(db, 3)
+        await story(db, [common, rare], articles=2)
+        await story(db, [common], articles=3)
+        known = {unseen.id: 0.5}
+        weights = await load_entity_weights(db, [common.id, rare.id, unseen.id], known)
+    assert weights is known
+    assert weights == {common.id: entity_weight(5), rare.id: entity_weight(2), unseen.id: 0.5}
 
 
 async def test_a_rerun_writes_nothing() -> None:
