@@ -47,6 +47,20 @@ async def create_user(username: str, password: str | None = None) -> None:
     print(f"Created user {normalized}")
 
 
+async def bootstrap_admin() -> None:
+    """First-run account from the environment; never touches an install that already has users."""
+    username = os.environ.get("NEWSINTEL_ADMIN_USERNAME", "").strip()
+    password = os.environ.get("NEWSINTEL_ADMIN_PASSWORD") or ""
+    if not username or not password:
+        print("No first-run account configured (NEWSINTEL_ADMIN_USERNAME/NEWSINTEL_ADMIN_PASSWORD)")
+        return
+    async with session_factory() as db:
+        if await db.scalar(select(User.id).limit(1)):
+            print("Users already exist; first-run account skipped")
+            return
+    await create_user(username, password)
+
+
 async def reset_password(username: str) -> None:
     normalized = normalize_username(username)
     password = getpass.getpass("New password (minimum 12 characters): ")
@@ -163,6 +177,7 @@ def main() -> None:
         "command",
         choices=[
             "create-user",
+            "bootstrap-admin",
             "reset-password",
             "cleanup-article-storage",
             "rebuild-search",
@@ -186,6 +201,11 @@ def main() -> None:
     parser.add_argument("--to-date")
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
+    if args.command == "bootstrap-admin":
+        if args.username:
+            parser.error("bootstrap-admin does not accept an argument")
+        asyncio.run(bootstrap_admin())
+        return
     if args.command == "nlp-status":
         if args.username:
             parser.error("nlp-status does not accept an argument")

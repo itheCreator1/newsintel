@@ -11452,6 +11452,11 @@
               }
             ],
             "title": "Active Rebuild"
+          },
+          "index_ready": {
+            "type": "boolean",
+            "title": "Index Ready",
+            "default": false
           }
         },
         "type": "object",

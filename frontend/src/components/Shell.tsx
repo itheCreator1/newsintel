@@ -49,6 +49,10 @@ export function Shell({ children }: { children: ReactNode }) {
             {error && <p role="alert" className="error text-destructive">{error}</p>}
             <button type="submit" className="rounded-xl bg-primary font-sans text-primary-foreground shadow-glow-sm transition-shadow hover:shadow-glow">Sign in</button>
           </form>
+          <p className="mt-6 text-xs leading-relaxed text-muted-foreground">
+            First time here? Accounts are created on the server: set NEWSINTEL_ADMIN_USERNAME and NEWSINTEL_ADMIN_PASSWORD in .env before the first start,
+            or run <code className="font-mono text-foreground">python -m app.cli create-user &lt;name&gt;</code> in the api container.
+          </p>
         </section>
       </main>
     )
