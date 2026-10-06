@@ -162,15 +162,15 @@ describe('application shell', () => {
   })
 
   it('signs out even when the server session already ended', async () => {
-    let expired = false
+    // Only the sign-out itself finds the session gone; any other 401 would end the session before the click.
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
       if (path.endsWith('/auth/csrf')) return new Response(JSON.stringify({ csrf_token: 't' }))
-      if (expired) return new Response(JSON.stringify({ detail: 'Not authenticated' }), { status: 401 })
-      return new Response(JSON.stringify({ id: '1', username: 'analyst' }))
+      if (path.endsWith('/auth/logout')) return new Response(JSON.stringify({ detail: 'Not authenticated' }), { status: 401 })
+      if (path.endsWith('/auth/me')) return new Response(JSON.stringify({ id: '1', username: 'analyst' }))
+      return new Response('{}')
     }))
     renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
-    expired = true
     fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByLabelText('Username')).toBeTruthy()
