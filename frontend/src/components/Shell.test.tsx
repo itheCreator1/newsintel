@@ -9,10 +9,11 @@ import { Shell } from './Shell'
 describe('application shell', () => {
   beforeEach(() => { vi.restoreAllMocks(); resetNavigationHarness() })
 
-  it('shows the product identity and sign-in form', () => {
+  it('shows the product identity and sign-in form', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ detail: 'Not authenticated' }), { status: 401 })))
     renderWithQuery(() => <AuthProvider><Shell>content</Shell></AuthProvider>)
 
-    expect(screen.getByRole('heading', { name: 'NewsIntel' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'NewsIntel' })).toBeTruthy()
     expect(screen.getByLabelText('Username')).toBeTruthy()
     expect(screen.getByLabelText('Password')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy()
@@ -124,5 +125,55 @@ describe('application shell', () => {
     expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
     await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
     expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
+  })
+
+  it('shows neither the sign-in form nor the app until the session check answers', async () => {
+    let answer: (response: Response) => void = () => {}
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { answer = resolve })))
+    renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+
+    expect(screen.queryByLabelText('Username')).toBeNull()
+    expect(screen.queryByText('content')).toBeNull()
+    expect(screen.getByRole('status').textContent).toBe('Loading NewsIntel…')
+
+    answer(new Response(JSON.stringify({ id: '1', username: 'analyst' })))
+    expect(await screen.findByText('content')).toBeTruthy()
+  })
+
+  it('returns to sign-in with one notice when a request finds the session expired', async () => {
+    let expired = false
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (expired && !path.endsWith('/auth/csrf')) return new Response(JSON.stringify({ detail: 'Not authenticated' }), { status: 401 })
+      if (path.endsWith('/auth/me')) return new Response(JSON.stringify({ id: '1', username: 'analyst' }))
+      return new Response('{}')
+    }))
+    const { api } = await import('../lib/api')
+    renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+    expect(await screen.findByText('content')).toBeTruthy()
+
+    expired = true
+    await Promise.allSettled([api.status(), api.feeds()])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your session has expired. Sign in again.')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByLabelText('Username')).toBeTruthy()
+    expect(screen.queryByText('content')).toBeNull()
+  })
+
+  it('signs out even when the server session already ended', async () => {
+    let expired = false
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/auth/csrf')) return new Response(JSON.stringify({ csrf_token: 't' }))
+      if (expired) return new Response(JSON.stringify({ detail: 'Not authenticated' }), { status: 401 })
+      return new Response(JSON.stringify({ id: '1', username: 'analyst' }))
+    }))
+    renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
+    expired = true
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByLabelText('Username')).toBeTruthy()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

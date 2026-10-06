@@ -17,7 +17,7 @@ const NAV_GROUPS: [string, [string, string][]][] = [
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { user, error, signIn, signOut } = useAuth()
+  const { user, loading, error, signIn, signOut } = useAuth()
   const pathname = usePathname()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -25,6 +25,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
+
+  // Until the session check answers, show nothing rather than flashing the sign-in form at a signed-in user.
+  if (loading) return <main className={`${fontVars} login-page font-sans`} role="status"><span className="sr-only">Loading NewsIntel…</span></main>
 
   if (!user) {
     return (
