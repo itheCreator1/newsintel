@@ -7,7 +7,6 @@
 # built and recorded in <manifest> (a shell env file, sourced in). Standalone invocations without
 # the flag are unaffected: they always build from current source using Docker's cache, as before.
 # Each group gets a fresh Compose project because the specs share fixture feeds and assert exact counts.
-# The phase scripts stay as historical records; this one tracks the current migration head.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
