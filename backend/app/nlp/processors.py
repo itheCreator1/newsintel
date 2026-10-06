@@ -1,3 +1,4 @@
+import functools
 import importlib
 import importlib.metadata
 import importlib.util
@@ -247,6 +248,108 @@ def _is_junk_entity(text: str, label: str) -> bool:
     return _TIME_PHRASE.fullmatch(cleaned) is not None
 
 
+# Names NER gives a country beyond the matcher's lexicon. "US" or "UK" can't be matched in free
+# text ("us" is a pronoun), but as a place name spaCy found they are unambiguous.
+_ENTITY_COUNTRY_ALIASES = {
+    "us": "US",
+    "usa": "US",
+    "america": "US",
+    "uk": "GB",
+    "uae": "AE",
+    "prc": "CN",
+    "drc": "CD",
+}
+# How news names a country where the lexicon's first ISO short name reads oddly.
+_COUNTRY_DISPLAY = {
+    "BN": "Brunei",
+    "CD": "DR Congo",
+    "GB": "United Kingdom",
+    "KP": "North Korea",
+    "KR": "South Korea",
+    "LA": "Laos",
+    "SY": "Syria",
+    "US": "United States",
+    "VA": "Vatican City",
+    "VG": "British Virgin Islands",
+    "VI": "US Virgin Islands",
+    "VN": "Vietnam",
+}
+_PLACE_LABELS = frozenset({"GPE", "LOC"})
+_LEADING_THE = re.compile(r"^the\s+", re.IGNORECASE)
+_POSSESSIVE = re.compile(r"[\'’]s?$")
+_DOTTED_ACRONYM = re.compile(r"(?:[A-Za-z]\.){2,}")
+
+
+@functools.cache
+def _entity_countries() -> dict[str, tuple[str, str]]:
+    """Every country name or alias, normalized, to the country's (code, display name)."""
+    _, lexicon = _country_lexicon()
+    display = {
+        code: _COUNTRY_DISPLAY.get(code, names[0].split(",")[0]) for code, names in lexicon.items()
+    }
+    names = {
+        _normalized_name(name): code
+        for code, values in lexicon.items()
+        for name in values
+        if name.casefold() not in _AMBIGUOUS_COUNTRY_NAMES
+    }
+    names.update(_ENTITY_COUNTRY_ALIASES)
+    return {name: (code, display[code]) for name, code in names.items()}
+
+
+def _normalized_name(text: str) -> str:
+    """One key per name: "The U.S.", "U.S.'s" and "US" all become "us"."""
+    text = _POSSESSIVE.sub("", " ".join(text.split())) or text
+    text = _LEADING_THE.sub("", text) or text
+    if _DOTTED_ACRONYM.fullmatch(text):
+        text = text.replace(".", "")
+    return text.casefold()
+
+
+def canonical_entity(text: str, label: str, mapped: str) -> tuple[str, str, str]:
+    """The (entity type, normalized text, display text) that identify an extracted name.
+
+    The display keeps the article's own spelling ("The Hague"); only the identity is folded.
+    """
+    display = _POSSESSIVE.sub("", " ".join(text.split())) or text
+    normalized = _normalized_name(text)
+    if label in _PLACE_LABELS:
+        country = _entity_countries().get(normalized)
+        if country is not None:
+            return "GPE", country[1].casefold(), country[1]
+    return mapped, normalized, display
+
+
+def _merge_short_person_names(
+    grouped: dict[tuple[str, str, str], list[Occurrence]],
+    display: dict[tuple[str, str, str], str],
+) -> None:
+    """Fold "Trump" into "Donald Trump" when the article names only one Trump in full.
+
+    A surname alone is merged only when every longer name ending in it shares a first name, so
+    "Trump" beside both "Donald Trump" and "Melania Trump" stays as it is.
+    """
+    people = sorted(
+        (key for key in grouped if key[0] == "PERSON"), key=lambda key: -len(key[1].split())
+    )
+    for key in people:
+        tokens = key[1].split()
+        longer = [
+            other
+            for other in people
+            if other in grouped
+            and len(other[1].split()) > len(tokens)
+            and other[1].split()[-len(tokens) :] == tokens
+        ]
+        if not longer or len({other[1].split()[0] for other in longer}) != 1:
+            continue
+        target = max(longer, key=lambda other: (len(grouped[other]), other[1]))
+        grouped[target] = sorted(
+            [*grouped[target], *grouped.pop(key)], key=lambda item: item.input_start
+        )
+        del display[key]
+
+
 # Loading a model takes far longer than annotating one article, so each model is loaded once per
 # process. The excluded components never feed the NER component, so the entities are identical to
 # the full pipeline's. The parser stays: NER never lets an entity cross a sentence boundary it set.
@@ -267,7 +370,7 @@ def _ner_pipeline(model: str) -> Any:
 
 
 def extract_entities(context: ProcessorContext) -> EntityResult:
-    algorithm = "spacy-ner-map-2"
+    algorithm = "spacy-ner-map-3"
     if context.language != "en":
         return EntityResult("unsupported_language", (), algorithm, None)
     if not context.ner_enabled:
@@ -282,12 +385,13 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
         original_label = str(entity.label_)
         if _is_junk_entity(str(entity.text), original_label):
             continue
-        mapped = ENTITY_TYPE_MAP.get(original_label, "OTHER")
-        text = str(entity.text)
-        normalized = " ".join(text.casefold().split())
+        mapped, normalized, text = canonical_entity(
+            str(entity.text), original_label, ENTITY_TYPE_MAP.get(original_label, "OTHER")
+        )
         key = (mapped, normalized, original_label)
         grouped.setdefault(key, []).append(_occurrence(context, entity.start_char, entity.end_char))
         display.setdefault(key, text)
+    _merge_short_person_names(grouped, display)
     values = [
         EntityValue(
             display[key],

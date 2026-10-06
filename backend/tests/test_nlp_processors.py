@@ -9,6 +9,7 @@ from app.nlp.processors import (
     InputTooLarge,
     ProcessorContext,
     _is_junk_entity,
+    canonical_entity,
     detect_countries,
     detect_language,
     extract_entities,
@@ -180,6 +181,97 @@ def test_extract_entities_drops_junk_before_grouping(monkeypatch: pytest.MonkeyP
     assert {(entity.normalized_text, entity.entity_type) for entity in result.entities} == {
         ("microsoft", "ORG"),
         ("london", "GPE"),
+    }
+
+
+def _extract_with_spans(
+    monkeypatch: pytest.MonkeyPatch, text: str, spans: list[tuple[str, str]]
+) -> set[tuple[str, str, str, int]]:
+    class FakePipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, value: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[_FakeSpan(span, value, label) for span, label in spans])
+
+    fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+    result = extract_entities(context(text, ner_enabled=True))
+    return {
+        (entity.entity_type, entity.normalized_text, entity.text, entity.occurrence_count)
+        for entity in result.entities
+    }
+
+
+@pytest.mark.parametrize(
+    ("text", "label", "expected"),
+    [
+        ("U.S.", "GPE", ("GPE", "united states", "United States")),
+        ("US", "GPE", ("GPE", "united states", "United States")),
+        ("the United States", "GPE", ("GPE", "united states", "United States")),
+        ("America", "GPE", ("GPE", "united states", "United States")),
+        ("Britain", "GPE", ("GPE", "united kingdom", "United Kingdom")),
+        ("Russian Federation", "GPE", ("GPE", "russia", "Russia")),
+        ("Viet Nam", "LOC", ("GPE", "vietnam", "Vietnam")),
+        # Only place labels are folded into countries: "US" as an organisation stays itself.
+        ("US", "ORG", ("ORG", "us", "US")),
+        # Ambiguous names are left alone, as the country matcher leaves them.
+        ("Georgia", "GPE", ("GPE", "georgia", "Georgia")),
+        ("The White House", "ORG", ("ORG", "white house", "The White House")),
+        ("White House", "ORG", ("ORG", "white house", "White House")),
+        ("Reuters'", "ORG", ("ORG", "reuters", "Reuters")),
+        ("U.N.", "ORG", ("ORG", "un", "U.N.")),
+        ("The Hague", "GPE", ("GPE", "hague", "The Hague")),
+    ],
+)
+def test_canonical_entity_folds_spellings_of_one_name(
+    text: str, label: str, expected: tuple[str, str, str]
+) -> None:
+    mapped = {"GPE": "GPE", "LOC": "LOCATION", "ORG": "ORG"}[label]
+    assert canonical_entity(text, label, mapped) == expected
+
+
+def test_extract_entities_merges_spellings_of_one_country(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "The U.S. and the United States, or simply US, are one country."
+    spans = [("U.S.", "GPE"), ("United States", "GPE"), ("US", "GPE")]
+
+    entities = _extract_with_spans(monkeypatch, text, spans)
+
+    assert entities == {("GPE", "united states", "United States", 3)}
+
+
+def test_extract_entities_folds_a_surname_into_the_one_full_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    text = "Donald Trump spoke. Trump later left. Joe Biden replied; Biden smiled."
+    spans = [
+        ("Donald Trump", "PERSON"),
+        ("Trump", "PERSON"),
+        ("Joe Biden", "PERSON"),
+        ("Biden", "PERSON"),
+    ]
+
+    entities = _extract_with_spans(monkeypatch, text, spans)
+
+    assert entities == {
+        ("PERSON", "donald trump", "Donald Trump", 2),
+        ("PERSON", "joe biden", "Joe Biden", 2),
+    }
+
+
+def test_extract_entities_keeps_a_surname_shared_by_two_people(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    text = "Donald Trump and Melania Trump arrived. Trump waved."
+    spans = [("Donald Trump", "PERSON"), ("Melania Trump", "PERSON"), ("Trump", "PERSON")]
+
+    entities = _extract_with_spans(monkeypatch, text, spans)
+
+    assert {normalized for _, normalized, _, _ in entities} == {
+        "donald trump",
+        "melania trump",
+        "trump",
     }
 
 
