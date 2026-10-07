@@ -19,6 +19,10 @@ test('event workflow moves from the list to stories, articles and entities', asy
 
   await page.getByRole('link', { name: 'Events', exact: true }).click()
   await expect(page).toHaveURL(/\/events\//)
+  // The fixture's events hold one story each, which the list hides until asked.
+  await expect(page.getByText('No events with two or more stories match these filters.')).toBeVisible()
+  await page.getByRole('checkbox', { name: 'Show one-story events', exact: true }).click()
+  await expect(page).toHaveURL(/all=1/)
   await expect(page.locator('a[href^="/events/detail/"]').first()).toBeVisible()
 
   // Filters live in the URL and reach the API: nothing is superseded, and clearing the filter restores the list.
@@ -33,7 +37,7 @@ test('event workflow moves from the list to stories, articles and entities', asy
   await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible()
   await expect(page.getByRole('region', { name: 'Day details' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Stories' })).toBeVisible()
-  await expect(page.getByText(/^Joined with score /).first()).toBeVisible()
+  await expect(page.getByText(/^Started this event/).first()).toBeVisible()
 
   // Story, then back to the same dossier.
   await page.locator('a[href^="/clusters/?id="]').first().click()
@@ -52,5 +56,6 @@ test('event workflow moves from the list to stories, articles and entities', asy
   await expect(page).toHaveURL(/\/entities\/\?id=/)
   await page.getByRole('link', { name: 'Events with this entity' }).click()
   await expect(page).toHaveURL(/\/events\/\?entity_id=/)
+  await page.getByRole('checkbox', { name: 'Show one-story events', exact: true }).click()
   await expect(page.locator('a[href^="/events/detail/"]').first()).toBeVisible()
 })
