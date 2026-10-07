@@ -118,7 +118,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
 
-A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
+Neither workflow starts for a pull request or a push that changes nothing but Markdown files, `assets/` or `LICENSE` (`paths-ignore`); a change that touches anything else as well runs as usual. A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
 
 ## 7. Test-harness reference
 
