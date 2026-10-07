@@ -278,6 +278,7 @@ _PLACE_LABELS = frozenset({"GPE", "LOC"})
 _LEADING_THE = re.compile(r"^the\s+", re.IGNORECASE)
 _POSSESSIVE = re.compile(r"[\'’]s?$")
 _DOTTED_ACRONYM = re.compile(r"(?:[A-Za-z]\.){2,}")
+_UNFINISHED_ACRONYM = re.compile(r"(?:[a-z]\.)+[a-z]")
 
 
 @functools.cache
@@ -323,9 +324,12 @@ def canonical_entity(text: str, label: str, mapped: str) -> tuple[str, str, str]
 def country_entity_names(prefix: str) -> frozenset[str]:
     """Normalized texts of the country entities one of whose names starts with `prefix`.
 
-    Lets a lookup for "US" or "U.S." reach the entity those spellings were folded into.
+    Lets a lookup for "US" or "U.S." reach the entity those spellings were folded into, and keeps
+    it there while the acronym is still being typed ("U.S").
     """
     key = _normalized_name(prefix)
+    if _UNFINISHED_ACRONYM.fullmatch(key):
+        key = key.replace(".", "")
     return frozenset(
         display.casefold()
         for name, (_, display) in _entity_countries().items()
