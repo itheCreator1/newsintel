@@ -29,7 +29,7 @@ dc run --rm api python -m app.cli rebuild-search  # build the search index once
 
 Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed under **Sources**. The Overview page keeps a short checklist until the archive has sources, articles and a search index.
 
-- **Entities are off by default.** The default image leaves out spaCy, so the entity charts, story clusters, events and the graph stay empty. Add `-f docker/compose.ner.yaml` to every `dc` command (and rebuild) to turn named-entity recognition on.
+- **Entities are off by default.** The default image leaves out spaCy, so the entity charts, the graph and the entity dossiers stay empty, and story clustering and event association work without their entity signal. Add `-f docker/compose.ner.yaml` to every `dc` command (and rebuild) to turn named-entity recognition on.
 - **More accounts**, or a first account without the `.env` variables: `dc run --rm api python -m app.cli create-user <name>` asks for a password.
 
 ## Contents
@@ -59,7 +59,7 @@ Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed u
 
 ## 2. System architecture
 
-Five application services and three data services run under Docker Compose, each doing one job.
+Five application services and three data services run under Docker Compose, each doing one job. A sixth, one-shot `setup` service applies the migrations and creates the first account before the others start; it is left out of the figure.
 
 ```mermaid
 flowchart TB
@@ -137,7 +137,7 @@ Two details make the index trustworthy. Each article carries a *revision* bumped
 
 The remaining routes follow the same design language:
 - **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
-- **Compare**: sources side by side.
+- **Compare**: two entities, two sources or two countries side by side, with the articles and stories only one has and those both share.
 - **Clusters**, **Articles** and **Jobs**.
 - **Operations**: dependency health, pipeline backlogs, feed health and storage.
 - **Settings**.
@@ -198,7 +198,7 @@ The system is typed and tested end to end, and everything runs in containers: de
 - `./infra/test-quick.sh` is the fast loop: unit tests, linting, type checks and the OpenAPI/TypeScript contract, with no service containers.
 - `./infra/test-docker.sh` is the full gate: it builds dedicated test images, runs backend and frontend checks, rejects skipped tests and stale generated contracts, rehearses backup/restore, and runs every browser workflow against disposable Compose stacks.
 
-GitHub Actions runs the quick loop, the frontend build and a workflow lint on every pull request and every push to `main` (`.github/workflows/ci.yml`). It runs the full gate after every merge to `main`, nightly, on demand, and on pull requests that change `infra/`, `docker/` or the Dockerfiles (`.github/workflows/full-gate.yml`). A green pull request therefore usually covers the quick loop only, so run the full gate before merging a change to application behaviour.
+GitHub Actions runs the quick loop, the frontend build and a workflow lint on every pull request and every push to `main` (`.github/workflows/ci.yml`). It runs the full gate after every merge to `main`, nightly, on demand, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself (`.github/workflows/full-gate.yml`). A green pull request therefore usually covers the quick loop only, so run the full gate before merging a change to application behaviour.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers running the stack locally, the integration and browser loops, regenerating the OpenAPI spec and TypeScript types, writing migrations, and the test harness's options and reports.
 
