@@ -9,13 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.models import Article, Feed, FeedArticle
-from app.feeds.service import decode_cursor, encode_cursor
+from app.feeds.service import encode_cursor
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
@@ -296,7 +297,7 @@ async def nlp_failures(
         .order_by(NlpJob.created_at.desc(), NlpJob.id.desc())
     )
     if cursor:
-        created, item_id = decode_cursor(cursor)
+        created, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 NlpJob.created_at < created, and_(NlpJob.created_at == created, NlpJob.id < item_id)

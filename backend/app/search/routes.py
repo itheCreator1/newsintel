@@ -11,13 +11,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.models import Feed
-from app.feeds.service import decode_cursor, encode_cursor
+from app.feeds.service import encode_cursor
 from app.search.aggregations import date_histogram
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
@@ -398,7 +399,7 @@ async def indexing_failures(
         .order_by(SearchDelivery.updated_at.desc(), SearchDelivery.id.desc())
     )
     if cursor:
-        updated, item_id = decode_cursor(cursor)
+        updated, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 SearchDelivery.updated_at < updated,

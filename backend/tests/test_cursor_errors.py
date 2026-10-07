@@ -59,6 +59,8 @@ class _NoQueries:
         "/jobs",
         "/clustering/failures",
         f"/clusters/{uuid.uuid4()}",
+        "/nlp/failures",
+        "/search/indexing/failures",
     ],
 )
 @pytest.mark.parametrize("cursor", MALFORMED)
