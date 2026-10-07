@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,8 +15,10 @@ from app.nlp.processors import (
     country_entity_names,
     detect_countries,
     detect_language,
+    entity_lookup_prefixes,
     extract_entities,
     extract_keywords,
+    greek_name_key,
     validate_input_size,
 )
 
@@ -24,7 +28,13 @@ ENGLISH_TEXT = (
 )
 
 
-def context(text: str, *, language: str = "en", ner_enabled: bool = False) -> ProcessorContext:
+def context(
+    text: str,
+    *,
+    language: str = "en",
+    ner_enabled: bool = False,
+    ner_model_el: str | None = None,
+) -> ProcessorContext:
     return ProcessorContext(
         text=text,
         input_fingerprint="a" * 64,
@@ -33,6 +43,7 @@ def context(text: str, *, language: str = "en", ner_enabled: bool = False) -> Pr
         stop_words=frozenset({"after", "and", "the"}),
         ner_enabled=ner_enabled,
         ner_model="en_core_web_sm",
+        ner_model_el=ner_model_el,
     )
 
 
@@ -186,7 +197,11 @@ def test_extract_entities_drops_junk_before_grouping(monkeypatch: pytest.MonkeyP
 
 
 def _extract_with_spans(
-    monkeypatch: pytest.MonkeyPatch, text: str, spans: list[tuple[str, str]]
+    monkeypatch: pytest.MonkeyPatch,
+    text: str,
+    spans: list[tuple[str, str]],
+    *,
+    language: str = "en",
 ) -> set[tuple[str, str, str, int]]:
     class FakePipeline:
         meta = {"version": "test"}
@@ -198,7 +213,17 @@ def _extract_with_spans(
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
     monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
-    result = extract_entities(context(text, ner_enabled=True))
+    loaded: list[str] = []
+
+    def load(model: str, **_: object) -> FakePipeline:
+        loaded.append(model)
+        return FakePipeline()
+
+    fake_spacy.load = load
+    result = extract_entities(
+        context(text, language=language, ner_enabled=True, ner_model_el="el_core_news_sm")
+    )
+    assert loaded == [{"en": "en_core_web_sm", "el": "el_core_news_sm"}[language]]
     return {
         (entity.entity_type, entity.normalized_text, entity.text, entity.occurrence_count)
         for entity in result.entities
@@ -361,3 +386,100 @@ def test_country_entity_names_follow_the_folded_spellings() -> None:
     assert country_entity_names("u.s. n") == frozenset()
     assert country_entity_names("zzz") == frozenset()
     assert country_entity_names("  ") == frozenset()
+
+
+def test_greek_ner_is_off_until_a_greek_model_is_named() -> None:
+    text = "Ο Αλέξης Τσίπρας μίλησε στην Αθήνα."
+
+    result = extract_entities(context(text, language="el", ner_enabled=True))
+
+    assert result.outcome == "unsupported_language"
+    assert result.algorithm_version == "spacy-ner-el-1"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Τσίπρας", "τσιπρα"),
+        ("ΤΣΙΠΡΑΣ", "τσιπρα"),
+        ("Τσιπρας", "τσιπρα"),
+        ("Τσίπρα", "τσιπρα"),
+        ("Αλέξη Τσίπρα", "αλεξη τσιπρα"),
+        ("Παπαδόπουλος", "παπαδοπουλο"),
+        ("Παπαδόπουλου", "παπαδοπουλο"),
+        ("Ελλάδας", "ελλαδα"),
+        ("Ευρωπαϊκής Ένωσης", "ευρωπαικη ενωση"),
+        ("ΣΥΡΙΖΑ", "συριζα"),
+        # Latin words in a Greek article keep their endings.
+        ("Google", "google"),
+        ("News", "news"),
+    ],
+)
+def test_greek_name_key_folds_accents_capitals_and_case_endings(text: str, expected: str) -> None:
+    assert greek_name_key(text) == expected
+
+
+def test_canonical_entity_keeps_the_greek_spelling_for_display() -> None:
+    assert canonical_entity("Τσίπρα", "PERSON", "PERSON", "el") == ("PERSON", "τσιπρα", "Τσίπρα")
+    # English names are folded exactly as before.
+    assert canonical_entity("U.S.", "GPE", "GPE") == ("GPE", "united states", "United States")
+
+
+def test_extract_entities_folds_inflected_greek_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Συνάντηση με τον Αλέξη Τσίπρα. Ο Αλέξης Τσίπρας είπε. Ο Τσίπρας έφυγε από την Αθήνα."
+    spans = [
+        ("Αλέξη Τσίπρα", "PERSON"),
+        ("Αλέξης Τσίπρας", "PERSON"),
+        ("Τσίπρας", "PERSON"),
+        ("Αθήνα", "GPE"),
+    ]
+
+    entities = _extract_with_spans(monkeypatch, text, spans, language="el")
+
+    # One person, shown in the subject case even though the object case came first.
+    assert entities == {
+        ("PERSON", "αλεξη τσιπρα", "Αλέξης Τσίπρας", 3),
+        ("GPE", "αθηνα", "Αθήνα", 1),
+    }
+
+
+def test_entity_lookup_prefixes_match_greek_names_as_typed() -> None:
+    assert entity_lookup_prefixes("Τσίπρας") == {"τσιπρα", "τσιπρασ"}
+    # Mid-word, the accent-free spelling keeps matching "κουτσουμπα".
+    assert "κουτσου" in entity_lookup_prefixes("Κουτσού")
+    assert entity_lookup_prefixes(" Barack ") == {"barack"}
+
+
+def test_greek_model_changes_the_entity_fingerprint_only_when_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+    from app.nlp import service
+
+    def fingerprint(settings: Settings) -> dict[str, str]:
+        monkeypatch.setattr(service, "get_settings", lambda: settings)
+        return {name: service.configuration_fingerprint(name) for name in service.PROCESSORS}
+
+    base = Settings(nlp_ner_enabled=True)
+    expected = hashlib.sha256(
+        json.dumps(
+            {
+                "processor": "entities",
+                "version": "1",
+                "stop_words": None,
+                "ner_enabled": True,
+                "ner_model": "en_core_web_sm",
+                "max_input_characters": base.nlp_max_input_characters,
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    without = fingerprint(base)
+    with_greek = fingerprint(Settings(nlp_ner_enabled=True, nlp_ner_model_el="el_core_news_sm"))
+
+    # An install that leaves Greek off keeps the fingerprints its articles were processed with.
+    assert without["entities"] == expected
+    assert with_greek["entities"] != expected
+    assert {k: v for k, v in with_greek.items() if k != "entities"} == {
+        k: v for k, v in without.items() if k != "entities"
+    }

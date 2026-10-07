@@ -87,6 +87,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             stop_words=frozenset(stop_words.words),
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
+            ner_model_el=settings.nlp_ner_model_el,
         )
         validate_input_size(initial_context, settings.nlp_max_input_characters)
         language = None
@@ -100,6 +101,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             stop_words=frozenset(stop_words.words),
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
+            ner_model_el=settings.nlp_ner_model_el,
         )
         return LoadedJob(
             job.id,
@@ -268,7 +270,8 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                 entity_id = await db.scalar(
                     insert(Entity)
                     .values(
-                        language="en",
+                        # Entities are extracted only for languages with a model ("en", "el").
+                        language=loaded.context.language or "en",
                         entity_type=entity_value.entity_type,
                         normalized_text=entity_value.normalized_text,
                         display_text=entity_value.text,

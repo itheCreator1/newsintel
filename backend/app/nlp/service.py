@@ -42,6 +42,9 @@ def configuration_fingerprint(
         "ner_model": settings.nlp_ner_model if processor_name == "entities" else None,
         "max_input_characters": settings.nlp_max_input_characters,
     }
+    if processor_name == "entities" and settings.nlp_ner_model_el:
+        # Added only when set, so an install without Greek NER keeps its fingerprints.
+        data["ner_model_el"] = settings.nlp_ner_model_el
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 

@@ -168,6 +168,8 @@ def _selection_from(args: argparse.Namespace, parser: argparse.ArgumentParser) -
             selection["from_date"] = args.from_date
         if args.to_date:
             selection["to_date"] = args.to_date
+    if args.language:
+        selection["language"] = args.language
     return selection
 
 
@@ -200,6 +202,9 @@ def main() -> None:
     parser.add_argument("--from-date")
     parser.add_argument("--to-date")
     parser.add_argument("--all", action="store_true")
+    parser.add_argument(
+        "--language", help="reprocess-nlp: narrow the selection to one detected language, e.g. el"
+    )
     args = parser.parse_args()
     if args.command == "bootstrap-admin":
         if args.username:
@@ -254,6 +259,8 @@ def main() -> None:
         )
         if selection_modes != 1:
             parser.error("recluster requires exactly one of --article-id, a date range, or --all")
+        if args.language:
+            parser.error("--language applies to reprocess-nlp only")
         if args.batch_size < 1 or args.batch_size > MAX_RECLUSTER_BATCH:
             parser.error(f"recluster batch size must be between 1 and {MAX_RECLUSTER_BATCH}")
         selection = _selection_from(args, parser)

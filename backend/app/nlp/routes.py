@@ -28,7 +28,7 @@ from app.nlp.models import (
     NlpJob,
     NlpProcessorRun,
 )
-from app.nlp.processors import country_entity_names
+from app.nlp.processors import country_entity_names, entity_lookup_prefixes
 from app.nlp.reprocessing import reprocessing_status
 from app.nlp.schemas import (
     AnnotationLookupItem,
@@ -65,18 +65,23 @@ Config = Annotated[Settings, Depends(get_settings)]
 
 def _capabilities(settings: Settings) -> list[CapabilityResponse]:
     ner_installed = importlib.util.find_spec("spacy") is not None
-    model_installed = ner_installed and importlib.util.find_spec(settings.nlp_ner_model) is not None
+    models = [settings.nlp_ner_model]
+    if settings.nlp_ner_model_el:
+        models.append(settings.nlp_ner_model_el)
+    missing = [
+        model for model in models if not ner_installed or importlib.util.find_spec(model) is None
+    ]
     if not settings.nlp_ner_enabled:
         ner_state, detail = "disabled", "Enable the optional local spaCy image to run NER"
     elif not ner_installed:
         ner_state, detail = "configuration_failure", "spaCy is enabled but not installed"
-    elif not model_installed:
+    elif missing:
         ner_state, detail = (
             "configuration_failure",
-            f"spaCy model {settings.nlp_ner_model!r} is not installed",
+            f"spaCy model {missing[0]!r} is not installed",
         )
     else:
-        ner_state, detail = "available", settings.nlp_ner_model
+        ner_state, detail = "available", ", ".join(models)
     return [
         CapabilityResponse(
             name="language",
@@ -409,7 +414,11 @@ async def _lookup(
     )
     rank: ColumnElement[int] = literal(1)
     if q.strip():
-        matches = model.normalized_text.startswith(q.strip().casefold())
+        matches = (
+            or_(*(Entity.normalized_text.startswith(key) for key in entity_lookup_prefixes(q)))
+            if model is Entity
+            else model.normalized_text.startswith(q.strip().casefold())
+        )
         if model is Entity and (countries := country_entity_names(q)):
             # A country is stored under one name; its other spellings ("US") have no row to match.
             country = and_(Entity.entity_type == "GPE", Entity.normalized_text.in_(countries))

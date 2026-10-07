@@ -13,8 +13,9 @@ from app.nlp.models import (
     ArticleLanguageAnnotation,
     ArticleNlpState,
     NlpJob,
+    NlpProcessorRun,
 )
-from app.nlp.reprocessing import create_reprocessing_run, scan_reprocessing
+from app.nlp.reprocessing import count_selection, create_reprocessing_run, scan_reprocessing
 from app.nlp.service import claim_job, current_stop_words, request_article_nlp, update_stop_words
 
 pytestmark = [
@@ -289,6 +290,94 @@ async def test_reprocessing_run_resumes_with_a_bounded_keyset_cursor() -> None:
             ).all()
         )
     assert len(jobs) == 2
+
+
+async def test_reprocessing_can_select_only_articles_in_one_language() -> None:
+    async with session_factory() as db, db.begin():
+        articles = [
+            Article(
+                original_url=f"https://example.test/{uuid.uuid4()}",
+                normalized_url=f"https://example.test/{uuid.uuid4()}",
+                title=f"Language selection article {number}",
+                normalized_title_hash=uuid.uuid4().hex,
+            )
+            for number in range(3)
+        ]
+        db.add_all(articles)
+        await db.flush()
+        jobs: dict[uuid.UUID, NlpJob] = {}
+        for article in articles:
+            state = ArticleNlpState(
+                article_id=article.id,
+                processor_name="language",
+                input_fingerprint="a" * 64,
+                processor_version="test",
+                configuration_fingerprint="a" * 64,
+            )
+            db.add(state)
+            await db.flush()
+            jobs[article.id] = NlpJob(
+                state_id=state.id,
+                article_id=article.id,
+                processor_name="language",
+                generation=1,
+                input_fingerprint="a" * 64,
+                processor_version="test",
+                configuration_fingerprint="a" * 64,
+            )
+            db.add(jobs[article.id])
+        await db.flush()
+        # Greek now, Greek only in the past, English now.
+        for article, language, is_current in (
+            (articles[0], "el", True),
+            (articles[1], "el", False),
+            (articles[1], "en", True),
+            (articles[2], "en", True),
+        ):
+            run = NlpProcessorRun(
+                job_id=jobs[article.id].id,
+                article_id=article.id,
+                processor_name="language",
+                processor_version="test",
+                algorithm_version="test",
+                configuration_fingerprint="a" * 64,
+                input_fingerprint="a" * 64,
+                generation=1,
+                outcome="success",
+            )
+            db.add(run)
+            await db.flush()
+            db.add(
+                ArticleLanguageAnnotation(
+                    article_id=article.id,
+                    run_id=run.id,
+                    language=language,
+                    confidence=0.99,
+                    margin=0.9,
+                    input_fingerprint="a" * 64,
+                    is_current=is_current,
+                )
+            )
+    selection: dict[str, object] = {
+        "article_ids": [str(article.id) for article in articles],
+        "language": "el",
+    }
+
+    assert await count_selection(selection) == 1
+    run_id = await create_reprocessing_run(processor_names=("entities",), selection=selection)
+    assert await scan_reprocessing(run_id) == 1
+    async with session_factory() as db:
+        queued = set(
+            (
+                await db.scalars(
+                    select(NlpJob.article_id).where(
+                        NlpJob.article_id.in_([article.id for article in articles]),
+                        NlpJob.processor_name == "entities",
+                    )
+                )
+            ).all()
+        )
+    assert queued == {articles[0].id}
 
 
 async def test_stop_word_revision_requeues_keywords_without_touching_other_processors() -> None:

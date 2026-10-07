@@ -559,6 +559,14 @@ redis = [
 ]
 
 [[package]]
+name = "el-core-news-sm"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-3.8.0/el_core_news_sm-3.8.0-py3-none-any.whl" }
+wheels = [
+    { url = "https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-3.8.0/el_core_news_sm-3.8.0-py3-none-any.whl", hash = "sha256:18df59b7f099a20d6f7cc1f964a57408a4c1663b73b5110932c1ea24f66e3027" },
+]
+
+[[package]]
 name = "en-core-web-sm"
 version = "3.8.0"
 source = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
@@ -1312,6 +1320,7 @@ dev = [
     { name = "ruff" },
 ]
 ner = [
+    { name = "el-core-news-sm" },
     { name = "en-core-web-sm" },
     { name = "spacy" },
 ]
@@ -1343,6 +1352,7 @@ dev = [
     { name = "ruff", specifier = ">=0.9,<1" },
 ]
 ner = [
+    { name = "el-core-news-sm", url = "https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-3.8.0/el_core_news_sm-3.8.0-py3-none-any.whl" },
     { name = "en-core-web-sm", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },
     { name = "spacy", specifier = "==3.8.16" },
 ]

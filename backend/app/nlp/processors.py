@@ -4,6 +4,7 @@ import importlib.metadata
 import importlib.util
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -48,6 +49,8 @@ class ProcessorContext:
     stop_words: frozenset[str]
     ner_enabled: bool
     ner_model: str
+    # The Greek model; None leaves Greek articles without entities.
+    ner_model_el: str | None = None
 
 
 @dataclass(frozen=True)
@@ -307,11 +310,59 @@ def _normalized_name(text: str) -> str:
     return text.casefold()
 
 
-def canonical_entity(text: str, label: str, mapped: str) -> tuple[str, str, str]:
+_GREEK_LETTER = re.compile(r"[\u0370-\u03ff\u1f00-\u1fff]")
+
+
+def is_greek(text: str) -> bool:
+    return _GREEK_LETTER.search(text) is not None
+
+
+def _without_accents(text: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFD", text)
+        if not unicodedata.combining(character)
+    )
+
+
+def greek_name_key(text: str) -> str:
+    """One key per Greek name across accents, capitals and the commonest case endings.
+
+    Greek inflects names, so "Τσίπρας", "ΤΣΙΠΡΑΣ" and "Τσίπρα" all become "τσιπρα", and
+    "Παπαδόπουλος" and "Παπαδόπουλου" both become "παπαδοπουλο". Only Greek endings are touched.
+    """
+    words = []
+    for word in _without_accents(text).casefold().split():
+        # casefold turns a final "ς" (or a capital "Σ") into "σ".
+        if len(word) > 2 and word.endswith("σ"):
+            word = word[:-1]
+        if len(word) > 4 and word.endswith("ου"):
+            word = word[:-2] + "ο"
+        words.append(word)
+    return " ".join(words)
+
+
+def entity_lookup_prefixes(query: str) -> frozenset[str]:
+    """The normalized-text prefixes a typed entity name can match.
+
+    A Greek query matches by its full key ("Τσίπρας" finds "τσιπρα") and, while a word is still
+    being typed, by its accent-free spelling ("Κουτσού" finds "κουτσουμπα"). Others are unchanged.
+    """
+    query = query.strip()
+    if not is_greek(query):
+        return frozenset({query.casefold()})
+    return frozenset({greek_name_key(query), _without_accents(query).casefold()})
+
+
+def canonical_entity(
+    text: str, label: str, mapped: str, language: str = "en"
+) -> tuple[str, str, str]:
     """The (entity type, normalized text, display text) that identify an extracted name.
 
     The display keeps the article's own spelling ("The Hague"); only the identity is folded.
     """
+    if language == "el":
+        return mapped, greek_name_key(text), " ".join(text.split())
     display = _POSSESSIVE.sub("", " ".join(text.split())) or text
     normalized = _normalized_name(text)
     if label in _PLACE_LABELS:
@@ -386,15 +437,34 @@ def _ner_pipeline(model: str) -> Any:
     return pipeline
 
 
+# Greek articles have their own algorithm version, so English runs keep theirs unchanged.
+_NER_ALGORITHMS = {"en": "spacy-ner-map-3", "el": "spacy-ner-el-1"}
+
+
+def _ner_model(context: ProcessorContext) -> str | None:
+    if context.language == "en":
+        return context.ner_model
+    if context.language == "el":
+        return context.ner_model_el or None
+    return None
+
+
+def _nominative(text: str) -> bool:
+    """A Greek name whose last word ends in "ς" reads as the subject ("Τσίπρας", not "Τσίπρα")."""
+    return text.endswith(("ς", "Σ"))
+
+
 def extract_entities(context: ProcessorContext) -> EntityResult:
-    algorithm = "spacy-ner-map-3"
-    if context.language != "en":
+    language = context.language or ""
+    algorithm = _NER_ALGORITHMS.get(language, _NER_ALGORITHMS["en"])
+    model = _ner_model(context)
+    if model is None:
         return EntityResult("unsupported_language", (), algorithm, None)
     if not context.ner_enabled:
         return EntityResult("disabled", (), algorithm, None)
     if importlib.util.find_spec("spacy") is None:
         raise ConfigurationError("spaCy is not installed but NLP NER is enabled")
-    pipeline = _ner_pipeline(context.ner_model)
+    pipeline = _ner_pipeline(model)
     document = pipeline(context.text)
     grouped: dict[tuple[str, str, str], list[Occurrence]] = {}
     display: dict[tuple[str, str, str], str] = {}
@@ -403,11 +473,19 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
         if _is_junk_entity(str(entity.text), original_label):
             continue
         mapped, normalized, text = canonical_entity(
-            str(entity.text), original_label, ENTITY_TYPE_MAP.get(original_label, "OTHER")
+            str(entity.text),
+            original_label,
+            ENTITY_TYPE_MAP.get(original_label, "OTHER"),
+            language,
         )
         key = (mapped, normalized, original_label)
         grouped.setdefault(key, []).append(_occurrence(context, entity.start_char, entity.end_char))
-        display.setdefault(key, text)
+        if language == "el" and key in display:
+            # "Τσίπρα" (object case) may come first; show "Τσίπρας" when the article has it.
+            if _nominative(text) and not _nominative(display[key]):
+                display[key] = text
+        else:
+            display.setdefault(key, text)
     _merge_short_person_names(grouped, display)
     values = [
         EntityValue(
