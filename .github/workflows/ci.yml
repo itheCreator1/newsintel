@@ -1,10 +1,20 @@
 name: CI
 
+# A change to nothing but the Markdown docs, the README's images or the licence starts no run:
+# no check reads them.
 on:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - assets/**
+      - LICENSE
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
+      - assets/**
+      - LICENSE
 
 permissions:
   contents: read

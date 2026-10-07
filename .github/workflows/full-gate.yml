@@ -3,11 +3,16 @@ name: Full gate
 # infra/test-docker.sh end to end: integration pytest against Postgres, Redis and
 # Elasticsearch, migrations, the restore rehearsal, the frontend build and every
 # Playwright browser group. Too slow for every PR, so it runs after each merge to main,
-# nightly, on demand, and on PRs that change the test or container setup itself.
+# nightly, on demand, and on PRs that change the test or container setup itself. A push that
+# changes nothing but the Markdown docs, the README's images or the licence starts no run.
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
+      - assets/**
+      - LICENSE
   pull_request:
     paths:
       - .github/workflows/full-gate.yml
