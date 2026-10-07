@@ -182,3 +182,67 @@ async def test_entity_lookup_finds_a_country_by_its_other_spellings() -> None:
         assert country.id in await found(Entity, q), q
     assert country.id not in await found(Entity, "France")
     assert country.id not in await found(Keyword, "US")
+
+
+async def test_entity_lookup_lists_a_matching_country_first_across_pages() -> None:
+    language = f"t{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Country ranking evidence",
+            normalized_title_hash=uuid.uuid4().hex,
+            published_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+            first_discovered_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+        )
+        entities = [
+            Entity(
+                language=language,
+                entity_type=entity_type,
+                normalized_text=name.casefold(),
+                display_text=name,
+            )
+            for entity_type, name in (
+                ("ORG", "U.S. Bombers"),
+                ("ORG", "U.S. Navy"),
+                # Not the country: only the GPE row is the one the spellings were folded into.
+                ("ORG", "United States"),
+                ("GPE", "United States"),
+            )
+        ]
+        db.add_all([article, *entities])
+        await db.flush()
+        run = await _run(db, article.id, "entities")
+        db.add_all(
+            ArticleEntity(
+                article_id=article.id,
+                entity_id=entity.id,
+                run_id=run.id,
+                occurrence_count=1,
+                relevance=1,
+                occurrences=[{"start": 0, "end": 2}],
+                input_fingerprint=DIGEST,
+                is_current=True,
+            )
+            for entity in entities
+        )
+    bombers, navy, organisation, country = (entity.id for entity in entities)
+
+    async def walk(q: str) -> list[uuid.UUID]:
+        # Other tests' rows share the table; a page of one puts a cursor between every pair.
+        ids: list[uuid.UUID] = []
+        cursor = None
+        async with session_factory() as db:
+            while True:
+                page = await _lookup(db, Entity, q=q, cursor=cursor, limit=1)
+                ids.extend(item.id for item in page.items if item.id in {e.id for e in entities})
+                cursor = page.next_cursor
+                if cursor is None:
+                    return ids
+
+    # A half-typed "U.S." keeps the country, ahead of the names that merely start that way.
+    for q in ("U.S.", "u.s"):
+        assert await walk(q) == [country, bombers, navy], q
+    assert await walk("the U.S") == [country]
+    assert await walk("U.S. N") == [navy]
+    assert await walk("united") == [country, organisation]

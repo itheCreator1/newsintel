@@ -355,5 +355,9 @@ def test_country_entity_names_follow_the_folded_spellings() -> None:
     assert "united states" in country_entity_names("U.S.")
     assert "united states" in country_entity_names("the US")
     assert "united kingdom" in country_entity_names("uk")
+    # Still being typed: the closing dot is what makes "U.S." an acronym.
+    assert "united states" in country_entity_names("u.s")
+    assert "united states" in country_entity_names("the U.S.A")
+    assert country_entity_names("u.s. n") == frozenset()
     assert country_entity_names("zzz") == frozenset()
     assert country_entity_names("  ") == frozenset()
