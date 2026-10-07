@@ -60,8 +60,8 @@ it('restores annotation criteria and explains annotation syntax', async () => {
   const { rerenderSame } = renderSearch('language=en&story_country=DE&entity_id=entity-one')
   expect(await screen.findByDisplayValue('en')).toBeTruthy()
   expect(screen.getByDisplayValue('DE')).toBeTruthy()
-  expect(await screen.findByRole('option', { name: 'Acme (ORG)' })).toBeTruthy()
-  fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'keyword-one' } })
+  expect(await screen.findByRole('checkbox', { name: 'Acme (ORG)' })).toBeChecked()
+  fireEvent.click(within(screen.getByRole('group', { name: 'Keyword' })).getByRole('checkbox', { name: 'climate policy' }))
   await fireEvent.submit(screen.getByRole('search'))
   rerenderSame()
 
@@ -77,8 +77,8 @@ it('preserves repeated picker selections as OR values in the URL', async () => {
   ], next_cursor: null })
   const { rerenderSame } = renderSearch('entity_id=entity-one&entity_id=entity-two')
 
-  const picker = await screen.findByLabelText('Entity') as HTMLSelectElement
-  await vi.waitFor(() => expect([...picker.selectedOptions].map(option => option.value)).toEqual(['entity-one', 'entity-two']))
+  expect(await screen.findByRole('checkbox', { name: 'Jane Doe (PERSON)' })).toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Acme (ORG)' })).toBeChecked()
   await fireEvent.submit(screen.getByRole('search'))
   rerenderSame()
 

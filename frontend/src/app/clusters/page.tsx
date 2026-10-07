@@ -10,6 +10,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
 import { chipClass, ghostButtonClass } from '../../lib/ui-classes'
 import { emptyInvestigation, parseHref, queryFromState, refine, stateFromQuery, toHref } from '../../lib/investigation'
+import { LoadError } from '../../components/Feedback'
 
 function ClusterContent() {
   const router = useRouter()
@@ -37,7 +38,7 @@ function ClusterContent() {
       <PageHeader eyebrow="Story" title="Cluster" />
       <GlassPanel className="overflow-hidden p-0">
         {cluster.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading story…</p>}
-        {!cluster.isPending && cluster.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load this story.</p>}
+        {!cluster.isPending && cluster.isError && <LoadError className="px-6 py-4" query={cluster} message="Could not load this story." />}
         {!cluster.isPending && !cluster.isError && header && (
           <>
             <div className="flex flex-col gap-2 px-6 py-4">

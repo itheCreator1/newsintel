@@ -2042,7 +2042,10 @@ export interface components {
              */
             joined_at: string;
         };
-        /** EventDetail */
+        /**
+         * EventDetail
+         * @description `sources` are the feeds with the most of the event's articles (up to 10).
+         */
         EventDetail: {
             /**
              * Id
@@ -2081,6 +2084,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Sources */
+            sources: components["schemas"]["EventSourceResponse"][];
         };
         /** EventEntityResponse */
         EventEntityResponse: {
@@ -2129,6 +2134,18 @@ export interface components {
             /** Failed Clusters In Window */
             failed_clusters_in_window: number;
             last_error: components["schemas"]["RunError"] | null;
+        };
+        /** EventSourceResponse */
+        EventSourceResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Article Count */
+            article_count: number;
         };
         /**
          * EventSummary
@@ -2551,6 +2568,13 @@ export interface components {
             target: string;
             /** Weight */
             weight: number;
+            /** Score */
+            score: number;
+            /**
+             * Recent Weight
+             * @default 0
+             */
+            recent_weight: number;
         };
         /** GraphNode */
         GraphNode: {
@@ -2574,6 +2598,8 @@ export interface components {
             edges: components["schemas"]["GraphEdge"][];
             /** Truncated */
             truncated: boolean;
+            /** Recent Since */
+            recent_since?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2661,6 +2687,11 @@ export interface components {
             active_rebuild?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Index Ready
+             * @default false
+             */
+            index_ready: boolean;
         };
         /** IngestionTimelineBucket */
         IngestionTimelineBucket: {
@@ -5026,6 +5057,10 @@ export interface operations {
                 entity_id?: string | null;
                 from?: string | null;
                 to?: string | null;
+                /** @description Only events with at least this many stories. */
+                min_stories?: number;
+                /** @description latest: newest end first; biggest: most articles first. */
+                sort?: "latest" | "biggest";
                 cursor?: string | null;
                 limit?: number;
             };
@@ -6041,6 +6076,7 @@ export interface operations {
                 focus_entity_id?: string | null;
                 nodes?: number;
                 min_edge_weight?: number;
+                expand?: string[] | null;
                 q?: string;
                 source_id?: string[] | null;
                 source_country?: string[] | null;

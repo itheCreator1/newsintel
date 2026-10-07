@@ -15,6 +15,14 @@ function validationMessage(problems: unknown[]): string | undefined {
   return messages.join('; ') || undefined
 }
 
+const unauthorizedListeners = new Set<() => void>()
+
+/** Called whenever a request other than sign-in comes back 401, so the app can end the session in one place. */
+export function onUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener)
+  return () => { unauthorizedListeners.delete(listener) }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     credentials: 'same-origin',
@@ -26,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const detail = typeof payload.detail === 'string' ? payload.detail : Array.isArray(payload.detail) ? validationMessage(payload.detail) : payload.detail && typeof payload.detail === 'object' && 'message' in payload.detail ? String(payload.detail.message) : undefined
     // A 401 anywhere but the sign-in itself means the session ended, not that credentials were wrong.
     const unauthorized = path === '/auth/login' ? 'Invalid username or password' : 'Your session has expired. Sign in again.'
+    if (response.status === 401 && path !== '/auth/login') unauthorizedListeners.forEach(listener => listener())
     throw new ApiError(response.status === 401 ? unauthorized : detail || 'Request failed', response.status, payload.detail)
   }
   return response.status === 204 ? undefined as T : response.json()
@@ -144,7 +153,7 @@ export const api = {
 }
 
 type Filters = Record<string, string | string[] | undefined>
-export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string }
+export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
 
 export interface CompareSpec { kind: CompareKind; a: string; b: string; role?: CompareRole; days: number }
 

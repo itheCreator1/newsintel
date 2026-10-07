@@ -5,15 +5,16 @@ time overlap, shared entities, headline overlap and story country. The choice fo
 a pure function of the facts loaded here, so a fixed database state gives a fixed result.
 """
 
+import math
 import uuid
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
 import structlog
-from sqlalchemy import Select, and_, distinct, func, or_, select, text
+from sqlalchemy import Select, and_, distinct, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.engine import CLUSTER_ENTITY_TYPES, jaccard, title_tokens
@@ -26,7 +27,8 @@ from app.nlp.service import current_stop_words
 
 log = structlog.get_logger()
 
-EVENT_ALGORITHM_VERSION = "rule-1"
+# rule-2: entities match the closest member cluster, weighted so widely reported ones count less.
+EVENT_ALGORITHM_VERSION = "rule-2"
 EVENT_TIME_WINDOW = timedelta(hours=72)
 EVENT_SCORE_THRESHOLD = 0.5
 EVENT_MIN_SHARED_ENTITIES = 2
@@ -34,6 +36,8 @@ EVENT_CANDIDATE_LIMIT = 50
 EVENT_BATCH = 100
 EVENT_RECONCILE_WINDOW = timedelta(days=7)
 EVENT_RECONCILE_LIMIT = 500
+# An event with no new article for this long is closed; a late cluster that still fits reopens it.
+EVENT_CLOSE_AFTER = EVENT_TIME_WINDOW
 TIME_WEIGHT = 0.25
 ENTITY_WEIGHT = 0.4
 TITLE_WEIGHT = 0.2
@@ -58,7 +62,7 @@ class EventFacts:
     id: uuid.UUID
     started_at: datetime | None
     ended_at: datetime | None
-    entity_ids: frozenset[uuid.UUID]
+    member_entities: tuple[frozenset[uuid.UUID], ...]
     member_titles: tuple[frozenset[str], ...]
     country: str | None
 
@@ -89,12 +93,34 @@ def time_gap(cluster: ClusterFacts, event: EventFacts) -> timedelta | None:
     return max(gap, timedelta(0))
 
 
-def score_cluster(cluster: ClusterFacts, event: EventFacts) -> Score:
+def entity_weight(article_count: int) -> float:
+    """Below 1 and falling with how many articles mention the entity, so "US" counts less."""
+    return 1.0 / math.log(math.e + article_count)
+
+
+def weighted_jaccard[T](
+    left: frozenset[T], right: frozenset[T], weights: Mapping[T, float]
+) -> float:
+    """Jaccard with each item counted at its weight; an item without one weighs 1."""
+    if not left or not right:
+        return 0.0
+    shared = sum(weights.get(item, 1.0) for item in left & right)
+    return shared / sum(weights.get(item, 1.0) for item in left | right)
+
+
+def score_cluster(
+    cluster: ClusterFacts, event: EventFacts, weights: Mapping[uuid.UUID, float] | None = None
+) -> Score:
     gap = time_gap(cluster, event)
+    weights = weights or {}
     signals = {
         "time": 0.0 if gap is None else max(0.0, 1.0 - gap / EVENT_TIME_WINDOW),
-        "entities": jaccard(cluster.entity_ids, event.entity_ids),
-        # The closest member headline, so a growing event does not dilute its own match.
+        # Entities and headline both match the closest member cluster, so a growing event does
+        # not dilute its own match.
+        "entities": max(
+            (weighted_jaccard(cluster.entity_ids, e, weights) for e in event.member_entities),
+            default=0.0,
+        ),
         "title": max((jaccard(cluster.title_tokens, t) for t in event.member_titles), default=0.0),
         # Unknown or different never rewards; unknown is not a penalty either.
         "location": float(cluster.country is not None and cluster.country == event.country),
@@ -109,21 +135,25 @@ def score_cluster(cluster: ClusterFacts, event: EventFacts) -> Score:
 
 
 def choose_event(
-    cluster: ClusterFacts, candidates: Sequence[EventFacts], *, current: EventFacts | None = None
+    cluster: ClusterFacts,
+    candidates: Sequence[EventFacts],
+    *,
+    current: EventFacts | None = None,
+    weights: Mapping[uuid.UUID, float] | None = None,
 ) -> tuple[EventFacts, Score] | None:
     """Stay in the current event while it still qualifies, else the best candidate, else none.
 
     Candidates rank by score, then the smaller time gap, then the smaller event id.
     """
     if current is not None:
-        score = score_cluster(cluster, current)
+        score = score_cluster(cluster, current, weights)
         if score.total >= EVENT_SCORE_THRESHOLD:
             return current, score
     ranked = []
     for event in candidates:
         if current is not None and event.id == current.id:
             continue
-        score = score_cluster(cluster, event)
+        score = score_cluster(cluster, event, weights)
         if score.total >= EVENT_SCORE_THRESHOLD:
             ranked.append(
                 (-score.total, time_gap(cluster, event) or timedelta(0), event.id, event, score)
@@ -206,24 +236,21 @@ async def load_cluster_facts(
 async def load_event_facts(
     db: AsyncSession, event_ids: Sequence[uuid.UUID], stop_words: frozenset[str]
 ) -> dict[uuid.UUID, EventFacts]:
+    """Each event with its member clusters' facts; span and country are the event's cached ones."""
     if not event_ids:
         return {}
-    entities: dict[uuid.UUID, set[uuid.UUID]] = {}
-    for event_id, entity_id in await db.execute(
-        select(EventEntity.event_id, EventEntity.entity_id).where(
-            EventEntity.event_id.in_(event_ids)
+    members = (
+        await db.execute(
+            select(EventCluster.event_id, StoryCluster)
+            .join(StoryCluster, StoryCluster.id == EventCluster.cluster_id)
+            .where(EventCluster.event_id.in_(event_ids))
+            .order_by(EventCluster.cluster_id)
         )
-    ):
-        entities.setdefault(event_id, set()).add(entity_id)
-    titles: dict[uuid.UUID, list[frozenset[str]]] = {}
-    for event_id, title in await db.execute(
-        select(EventCluster.event_id, Article.title)
-        .join(StoryCluster, StoryCluster.id == EventCluster.cluster_id)
-        .join(Article, Article.id == StoryCluster.representative_article_id)
-        .where(EventCluster.event_id.in_(event_ids))
-        .order_by(EventCluster.cluster_id)
-    ):
-        titles.setdefault(event_id, []).append(title_tokens(title, stop_words))
+    ).all()
+    facts = await load_cluster_facts(db, [c for _, c in members], stop_words) if members else {}
+    by_event: dict[uuid.UUID, list[ClusterFacts]] = {}
+    for event_id, member in members:
+        by_event.setdefault(event_id, []).append(facts[member.id])
     rows = await db.execute(
         select(Event.id, Event.started_at, Event.ended_at, Event.primary_country).where(
             Event.id.in_(event_ids)
@@ -234,12 +261,36 @@ async def load_event_facts(
             event_id,
             started_at,
             ended_at,
-            frozenset(entities.get(event_id, ())),
-            tuple(titles.get(event_id, ())),
+            tuple(f.entity_ids for f in by_event.get(event_id, ())),
+            tuple(f.title_tokens for f in by_event.get(event_id, ())),
             country,
         )
         for event_id, started_at, ended_at, country in rows
     }
+
+
+async def load_entity_weights(
+    db: AsyncSession, entity_ids: Iterable[uuid.UUID], known: dict[uuid.UUID, float]
+) -> dict[uuid.UUID, float]:
+    """Fill `known` with `entity_weight` for the entities it lacks, counted over current articles.
+
+    ponytail: counts the whole archive; window it if counting a very common entity gets slow.
+    """
+    missing = set(entity_ids) - known.keys()
+    if missing:
+        counts = dict(
+            (
+                await db.execute(
+                    select(ArticleEntity.entity_id, func.count(distinct(ArticleEntity.article_id)))
+                    .where(ArticleEntity.entity_id.in_(missing), ArticleEntity.is_current.is_(True))
+                    .group_by(ArticleEntity.entity_id)
+                )
+            )
+            .tuples()
+            .all()
+        )
+        known.update({i: entity_weight(counts.get(i, 0)) for i in missing})
+    return known
 
 
 async def event_facts_without(
@@ -266,7 +317,7 @@ async def event_facts_without(
         event_id,
         min(f.first_published_at for f in facts),
         max(f.last_published_at for f in facts),
-        frozenset().union(*(f.entity_ids for f in facts)),
+        tuple(f.entity_ids for f in facts),
         tuple(f.title_tokens for f in facts),
         min(countries, key=lambda code: (-countries[code], code)) if countries else None,
     )
@@ -275,7 +326,11 @@ async def event_facts_without(
 async def candidate_event_ids(
     db: AsyncSession, cluster: ClusterFacts, version: str
 ) -> list[uuid.UUID]:
-    """Recent active events sharing entities with the cluster, newest first; never all pairs."""
+    """Recent events sharing entities with the cluster, newest first; never all pairs.
+
+    Closed events are candidates too: closing follows the clock, and a backfill decides clusters
+    long after they were published.
+    """
     if not cluster.entity_ids:
         return []
     query = (
@@ -283,7 +338,7 @@ async def candidate_event_ids(
         .join(EventEntity, EventEntity.event_id == Event.id)
         .where(
             Event.algorithm_version == version,
-            Event.status == "active",
+            Event.status.in_(("active", "closed")),
             Event.ended_at >= cluster.first_published_at - EVENT_TIME_WINDOW,
             Event.started_at <= cluster.last_published_at + EVENT_TIME_WINDOW,
             EventEntity.entity_id.in_(cluster.entity_ids),
@@ -361,11 +416,12 @@ class RuleEventAssociator:
             return result
         stop_words = frozenset((await current_stop_words(db)).words)
         facts = await load_cluster_facts(db, [c for c, _ in rows], stop_words)
+        weights: dict[uuid.UUID, float] = {}  # per batch: counts move as articles arrive
         for cluster, current_id in rows:
             try:
                 async with db.begin_nested():
                     created, deleted = await self._decide(
-                        db, facts[cluster.id], cluster.updated_at, current_id, stop_words
+                        db, facts[cluster.id], cluster.updated_at, current_id, stop_words, weights
                     )
                 result.created += created
                 result.deleted += deleted
@@ -387,6 +443,7 @@ class RuleEventAssociator:
         cluster_updated_at: datetime,
         current_id: uuid.UUID | None,
         stop_words: frozenset[str],
+        weights: dict[uuid.UUID, float],
     ) -> tuple[int, int]:
         candidate_ids = [
             i for i in await candidate_event_ids(db, cluster, self.version) if i != current_id
@@ -397,9 +454,16 @@ class RuleEventAssociator:
             if current_id
             else None
         )
-        chosen = choose_event(
-            cluster, [loaded[i] for i in candidate_ids if i in loaded], current=current
+        candidates = [loaded[i] for i in candidate_ids if i in loaded]
+        # Only shared entities move a score up, but the union needs every weight.
+        await load_entity_weights(
+            db,
+            cluster.entity_ids.union(
+                *(e for event in [*candidates, current] if event for e in event.member_entities)
+            ),
+            weights,
         )
+        chosen = choose_event(cluster, candidates, current=current, weights=weights)
         created = 0
         event: Event
         if chosen is None:
@@ -412,6 +476,7 @@ class RuleEventAssociator:
         else:
             event = await db.get(Event, chosen[0].id)  # type: ignore[assignment]
             score, signals = chosen[1].total, chosen[1].signals
+            event.status = "active"  # reopens a closed event; the next sweep closes it if idle
         await associate_cluster(
             db, event, cluster.id, score, signals, cluster_updated_at=cluster_updated_at
         )
@@ -423,8 +488,11 @@ class RuleEventAssociator:
         return created, deleted
 
 
-async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
-    """Refresh recent events, which loses members when clusters merge or dissolve.
+async def reconcile_events(
+    db: AsyncSession, version: str, now: datetime | None = None
+) -> BatchResult:
+    """Refresh recent events, which loses members when clusters merge or dissolve, then close the
+    events with no new article for `EVENT_CLOSE_AFTER`.
 
     ponytail: bounded to the newest `EVENT_RECONCILE_LIMIT` events of the last week; an event that
     loses a member later, or beyond that limit, stays stale until its next cluster decision.
@@ -437,7 +505,7 @@ async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
         select(Event)
         .where(
             Event.algorithm_version == version,
-            Event.status == "active",
+            Event.status.in_(("active", "closed")),
             or_(
                 Event.ended_at.is_(None),
                 Event.ended_at >= datetime.now(UTC) - EVENT_RECONCILE_WINDOW,
@@ -450,6 +518,16 @@ async def reconcile_events(db: AsyncSession, version: str) -> BatchResult:
         result.evaluated += 1
         if not await refresh_event(db, event):
             result.deleted += 1
+    await db.execute(
+        update(Event)
+        .where(
+            Event.algorithm_version == version,
+            Event.status == "active",
+            Event.ended_at < (now or datetime.now(UTC)) - EVENT_CLOSE_AFTER,
+        )
+        .values(status="closed")
+        .execution_options(synchronize_session=False)
+    )
     return result
 
 

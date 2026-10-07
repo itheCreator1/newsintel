@@ -16,13 +16,20 @@ class GraphNode(BaseModel):
 class GraphEdge(BaseModel):
     source: uuid.UUID
     target: uuid.UUID
+    # Articles mentioning both entities: the edge's evidence count.
     weight: int
+    # Link strength in [0, 1]: articles mentioning both / articles mentioning either.
+    score: float
+    # Articles mentioning both within the window's last days (see GraphResponse.recent_since).
+    recent_weight: int = 0
 
 
 class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     truncated: bool
+    # Start of the "recent" span edges' recent_weight counts; None when the window is too short.
+    recent_since: datetime | None = None
 
 
 class EdgeEntity(BaseModel):

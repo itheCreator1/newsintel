@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
@@ -8,13 +9,18 @@ from app.core.config import Settings
 from app.graph.routes import entity_graph
 from app.graph.schemas import GraphResponse
 from app.graph.service import (
+    EXPAND_NEIGHBOURS,
     MAX_EDGES,
+    MAX_EXPANDED,
     MAX_NODES,
     edges_body,
     focus_query,
+    link_strength,
     nodes_body,
     parse_edges,
+    parse_expansion,
     parse_nodes,
+    recent_since,
 )
 from app.main import create_app
 from app.nlp.models import Entity
@@ -233,6 +239,8 @@ def test_parse_edges_keeps_only_pairs_at_or_above_the_minimum_weight() -> None:
     response = _edges_response(
         [
             {"key": "a", "doc_count": 9},
+            {"key": "b", "doc_count": 6},
+            {"key": "c", "doc_count": 3},
             {"key": "a&b", "doc_count": 4},
             {"key": "a&c", "doc_count": 1},
             {"key": "b&c", "doc_count": 2},
@@ -257,14 +265,12 @@ def test_parse_edges_orients_every_pair_by_the_node_order() -> None:
     assert [(edge.source, edge.target) for edge in edges] == [("a", "b")]
 
 
-def test_parse_edges_keeps_the_heaviest_pairs_within_the_edge_cap() -> None:
+def test_parse_edges_keeps_the_strongest_pairs_within_the_edge_cap() -> None:
     node_ids = [f"n{index}" for index in range(40)]
     buckets = [
         {"key": f"{left}&{right}", "doc_count": weight}
         for weight, (left, right) in enumerate(
-            (left, right)
-            for index, left in enumerate(node_ids)
-            for right in node_ids[index + 1 :]
+            (left, right) for index, left in enumerate(node_ids) for right in node_ids[index + 1 :]
         )
     ]
     assert len(buckets) > MAX_EDGES
@@ -273,9 +279,129 @@ def test_parse_edges_keeps_the_heaviest_pairs_within_the_edge_cap() -> None:
 
     assert len(edges) == MAX_EDGES
     assert truncated is True
-    assert [edge.weight for edge in edges] == sorted(
-        (bucket["doc_count"] for bucket in buckets), reverse=True
-    )[:MAX_EDGES]
+    scores = [edge.score for edge in edges]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_parse_edges_ranks_a_tight_pair_above_two_busy_entities() -> None:
+    # "a" and "b" appear everywhere, so 40 shared articles say little; "c" and "d" almost
+    # always appear together, so 9 shared articles say a lot.
+    response = _edges_response(
+        [
+            {"key": "a", "doc_count": 400},
+            {"key": "b", "doc_count": 300},
+            {"key": "c", "doc_count": 10},
+            {"key": "d", "doc_count": 11},
+            {"key": "a&b", "doc_count": 40},
+            {"key": "c&d", "doc_count": 9},
+        ]
+    )
+
+    edges, _ = parse_edges(response, node_ids=["a", "b", "c", "d"], min_edge_weight=2)
+
+    assert [(edge.source, edge.target, edge.weight, edge.score) for edge in edges] == [
+        ("c", "d", 9, round(9 / 12, 4)),
+        ("a", "b", 40, round(40 / 660, 4)),
+    ]
+
+
+def test_parse_edges_keeps_every_edge_of_the_pinned_entity_first() -> None:
+    response = _edges_response(
+        [
+            {"key": "f", "doc_count": 100},
+            {"key": "a", "doc_count": 5},
+            {"key": "b", "doc_count": 5},
+            {"key": "a&f", "doc_count": 5},
+            {"key": "a&b", "doc_count": 5},
+        ]
+    )
+
+    edges, _ = parse_edges(response, node_ids=["f", "a", "b"], min_edge_weight=2, pinned={"f"})
+
+    assert [(edge.source, edge.target) for edge in edges] == [("f", "a"), ("a", "b")]
+
+
+def test_link_strength_is_the_share_of_either_entitys_articles_that_hold_both() -> None:
+    assert link_strength(3, 3, 3) == 1.0
+    assert link_strength(2, 4, 6) == 0.25
+    assert link_strength(0, 0, 0) == 0.0
+
+
+def _expansion(entity_id: str, articles: int, neighbours: list[tuple[str, int]]) -> dict[str, Any]:
+    buckets = [_bucket(entity_id, articles, articles)] + [
+        _bucket(key, count, count) for key, count in neighbours
+    ]
+    return {"doc_count": articles, "entities": {"filtered": {"top": {"buckets": buckets}}}}
+
+
+def test_nodes_body_asks_for_each_expanded_entitys_neighbours_up_to_the_cap() -> None:
+    expand = [uuid.uuid4() for _ in range(MAX_EXPANDED + 2)]
+
+    body = nodes_body(
+        {"match_all": {}}, entity_types=[], nodes=10, focus_entity_id=None, expand=expand
+    )
+
+    expansions = [key for key in body["aggs"] if key.startswith("expand_")]
+    assert len(expansions) == MAX_EXPANDED
+    first = body["aggs"]["expand_0"]
+    assert first["filter"]["nested"]["query"] == {"term": {"entities.id": str(expand[0])}}
+    top = first["aggs"]["entities"]["aggs"]["filtered"]["aggs"]["top"]["terms"]
+    assert top["size"] == EXPAND_NEIGHBOURS + 1
+
+
+def test_parse_expansion_adds_the_neighbours_the_graph_does_not_draw_yet() -> None:
+    entity = uuid.uuid4()
+    neighbours = [("drawn", 9)] + [(f"n{index}", 8 - index) for index in range(EXPAND_NEIGHBOURS)]
+    response = {"aggregations": {"expand_0": _expansion(str(entity), 12, neighbours)}}
+
+    added = parse_expansion(response, expand=[entity], drawn=["drawn"])
+
+    # The expanded entity itself, then its busiest neighbours; "drawn" is already on the graph and
+    # still uses one of the EXPAND_NEIGHBOURS slots.
+    assert [item.entity_id for item in added] == [str(entity)] + [
+        f"n{index}" for index in range(EXPAND_NEIGHBOURS - 1)
+    ]
+    assert added[0].article_count == 12
+
+
+def test_parse_expansion_adds_nothing_for_an_entity_without_articles() -> None:
+    entity = uuid.uuid4()
+    response = {"aggregations": {"expand_0": {"doc_count": 0}}}
+
+    assert parse_expansion(response, expand=[entity], drawn=[]) == []
+
+
+def test_recent_span_is_the_last_week_of_the_window() -> None:
+    now = datetime(2026, 10, 6, 12, tzinfo=UTC)
+
+    assert recent_since(None, None, now) == datetime(2026, 9, 29, 12, tzinfo=UTC)
+    assert recent_since(date(2026, 1, 1), date(2026, 3, 1), now) == datetime(
+        2026, 2, 22, tzinfo=UTC
+    )
+    # A window of a week or less has no older span to compare against.
+    assert recent_since(date(2026, 10, 1), None, now) is None
+
+
+def test_edges_body_counts_recent_pairs_under_the_same_filters() -> None:
+    since = datetime(2026, 9, 29, tzinfo=UTC)
+
+    body = edges_body({"match_all": {}}, ["a", "b"], since)
+
+    recent = body["aggs"]["recent"]
+    assert recent["filter"] == {"range": {"effective_date": {"gte": since.isoformat()}}}
+    assert recent["aggs"]["co_occurrence"] == body["aggs"]["co_occurrence"]
+    assert "recent" not in edges_body({"match_all": {}}, ["a", "b"])["aggs"]
+
+
+def test_parse_edges_reads_each_pairs_recent_weight() -> None:
+    response = _edges_response([{"key": "a&b", "doc_count": 4}, {"key": "a&c", "doc_count": 3}])
+    response["aggregations"]["recent"] = {
+        "co_occurrence": {"buckets": [{"key": "a&b", "doc_count": 4}]}
+    }
+
+    edges, _ = parse_edges(response, node_ids=["a", "b", "c"], min_edge_weight=2)
+
+    assert {(edge.target, edge.recent_weight) for edge in edges} == {("b", 4), ("c", 0)}
 
 
 # --- route --------------------------------------------------------------------------
@@ -379,7 +505,9 @@ async def test_graph_labels_nodes_from_the_entity_catalogue(adapter: type[_Adapt
         (left, "Harbour Authority", 6),
         (right, "Ada Reyes", 4),
     ]
-    assert [(edge.source, edge.target, edge.weight) for edge in graph.edges] == [(left, right, 3)]
+    assert [(edge.source, edge.target, edge.weight, edge.score) for edge in graph.edges] == [
+        (left, right, 3, 0.5)
+    ]
     assert graph.truncated is False
     (nodes_index, nodes_request), (edges_index, edges_request) = adapter.bodies
     assert nodes_index == edges_index == "articles-v2-test"
@@ -462,6 +590,55 @@ async def test_graph_caps_the_payload_when_elasticsearch_offers_more(
     assert len(graph.edges) == MAX_EDGES
     assert graph.truncated is True
     assert len(adapter.bodies[1][1]["aggs"]["co_occurrence"]["adjacency_matrix"]["filters"]) == 25
+
+
+@pytest.mark.asyncio
+async def test_graph_expands_an_entity_in_place_with_its_own_article_counts(
+    adapter: type[_Adapter],
+) -> None:
+    drawn, expanded, neighbour = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    nodes = _nodes_response([_bucket(str(drawn), 6, 6), _bucket(str(expanded), 4, 4)])
+    nodes["aggregations"]["expand_0"] = _expansion(str(expanded), 4, [(str(neighbour), 2)])
+    adapter.responses = [
+        nodes,
+        _edges_response(
+            [
+                {"key": str(drawn), "doc_count": 6},
+                {"key": str(expanded), "doc_count": 4},
+                {"key": str(neighbour), "doc_count": 9},
+                {"key": f"{expanded}&{neighbour}", "doc_count": 2},
+            ]
+        ),
+    ]
+    database = _Database(
+        entities=[
+            _entity(drawn, "Harbour Authority"),
+            _entity(expanded, "Ada Reyes"),
+            _entity(neighbour, "Port Trust"),
+        ]
+    )
+
+    graph = await entity_graph(
+        database,  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        Settings(),
+        _criteria(),
+        None,
+        30,
+        2,
+        [expanded],
+    )
+
+    # The neighbour is drawn with its own article count, not its co-occurrence with Ada Reyes.
+    assert [(node.text, node.article_count) for node in graph.nodes] == [
+        ("Harbour Authority", 6),
+        ("Ada Reyes", 4),
+        ("Port Trust", 9),
+    ]
+    assert [(edge.source, edge.target) for edge in graph.edges] == [(expanded, neighbour)]
+    assert len(adapter.bodies[1][1]["aggs"]["co_occurrence"]["adjacency_matrix"]["filters"]) == 3
+    assert graph.recent_since is not None
+    assert "recent" in adapter.bodies[1][1]["aggs"]
 
 
 @pytest.mark.asyncio

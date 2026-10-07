@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 import { BarChart, type BarChartItem } from '../components/BarChart'
 import { EmptyState, ErrorNotice, LoadingState } from '../components/Feedback'
+import { EntityExtractionNotice, GettingStarted } from '../components/GettingStarted'
 import { GlassPanel } from '../components/GlassPanel'
 import { PageHeader } from '../components/PageHeader'
 import { api, ApiError } from '../lib/api'
@@ -64,6 +65,9 @@ export default function OverviewPage() {
   return (
     <div className="flex flex-col gap-8 font-sans">
       <PageHeader eyebrow="System overview" title="Archive operations" description="See recent collection activity and explore the archive." />
+
+      <GettingStarted />
+      <EntityExtractionNotice />
 
       <GlassPanel className="flex w-fit min-w-[280px] items-center gap-4 px-6 py-5">
         <span className="relative mt-0.5 flex h-2.5 w-2.5 shrink-0">

@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import cursor_or_400
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
@@ -15,7 +15,6 @@ from app.entities.schemas import (
     EntityDossierResponse,
     EntityRelationshipsResponse,
 )
-from app.feeds.service import decode_cursor
 from app.nlp.models import Entity
 
 router = APIRouter(tags=["entities"])
@@ -28,15 +27,6 @@ async def _entity_or_404(db: AsyncSession, entity_id: uuid.UUID) -> Entity:
     if entity is None:
         raise HTTPException(404, "Entity not found")
     return entity
-
-
-def _cursor_or_400(cursor: str | None) -> tuple[datetime, uuid.UUID] | None:
-    if cursor is None:
-        return None
-    try:
-        return decode_cursor(cursor)
-    except (ValueError, UnicodeDecodeError):
-        raise HTTPException(400, "Invalid cursor") from None
 
 
 @router.get("/entities/{entity_id}", response_model=EntityDossierResponse)
@@ -56,7 +46,7 @@ async def get_entity_articles(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> EntityArticlePage:
     await _entity_or_404(db, entity_id)
-    return await queries.articles(db, entity_id, limit, _cursor_or_400(cursor))
+    return await queries.articles(db, entity_id, limit, cursor_or_400(cursor))
 
 
 @router.get("/entities/{entity_id}/clusters", response_model=EntityClusterPage)
@@ -68,7 +58,7 @@ async def get_entity_clusters(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> EntityClusterPage:
     await _entity_or_404(db, entity_id)
-    return await queries.clusters(db, entity_id, limit, _cursor_or_400(cursor))
+    return await queries.clusters(db, entity_id, limit, cursor_or_400(cursor))
 
 
 @router.get("/entities/{entity_id}/relationships", response_model=EntityRelationshipsResponse)

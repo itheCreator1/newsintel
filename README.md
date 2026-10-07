@@ -14,6 +14,24 @@
 
 News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
 
+## Quickstart
+
+You need Docker with Compose. From the repository root:
+
+```sh
+cp .env.example .env
+# Edit .env: set POSTGRES_PASSWORD, NEWSINTEL_SECRET_KEY (32+ characters),
+# and NEWSINTEL_ADMIN_USERNAME / NEWSINTEL_ADMIN_PASSWORD (12+ characters) for your first account.
+alias dc='docker compose --env-file .env -f docker/compose.yaml'
+dc up -d --build                                  # the setup service applies migrations and creates that account
+dc run --rm api python -m app.cli rebuild-search  # build the search index once
+```
+
+Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed under **Sources**. The Overview page keeps a short checklist until the archive has sources, articles and a search index.
+
+- **Entities are off by default.** The default image leaves out spaCy, so the entity charts, story clusters, events and the graph stay empty. Add `-f docker/compose.ner.yaml` to every `dc` command (and rebuild) to turn named-entity recognition on.
+- **More accounts**, or a first account without the `.env` variables: `dc run --rm api python -m app.cli create-user <name>` asks for a password.
+
 ## Contents
 
 1. [Design principles](#1-design-principles)
@@ -35,7 +53,7 @@ News arrives as a stream of near-duplicates: the same event, rewritten by a doze
 
 **P4. Descriptive, not judgemental.** Source dossiers report health, coverage and timing, each metric shown against its denominator. There is no "quality score": the system describes what a source did, not what it is worth.
 
-**P5. One domain, one module.** The backend is not a god-object API. `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations` and `jobs` are separate modules under `backend/app`, each owning its models, service layer and routes.
+**P5. One domain, one module.** The backend is not a god-object API. `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations`, `auth` and `jobs` are separate modules under `backend/app`, each owning its models, service layer and routes.
 
 **P6. Nothing slow happens in a request.** Feed polling, extraction, annotation, clustering and indexing run as background jobs; the API only reads what they have committed.
 
@@ -132,14 +150,14 @@ The remaining routes follow the same design language:
 | Background jobs | Dramatiq, Redis, PostgreSQL job tables with leases |
 | Canonical storage | PostgreSQL |
 | Search | Elasticsearch (versioned indices behind an alias, zero-downtime reindexing): full text, facets, investigation analytics and map, related coverage |
-| NLP | spaCy NER, pluggable/versioned processors |
+| NLP | spaCy NER (optional image, off by default; enable with `docker/compose.ner.yaml`), YAKE keywords, Lingua language detection, pluggable/versioned processors |
 | Extraction | Trafilatura, behind a replaceable extractor interface |
 | Frontend | Next.js (App Router, static export), React, TypeScript, TanStack Query, Apache ECharts |
 | Deployment | Docker Compose |
 
 ## 6. Operations
 
-**First run.** Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
+**First run.** See [Quickstart](#quickstart). Migrations run on every `up` through the one-shot `setup` service, which the application services wait for. Elasticsearch starts empty; run `docker compose --env-file .env -f docker/compose.yaml run --rm api python -m app.cli rebuild-search` once before Search or the Overview analytics panels have anything to show. It prints `status=completed` once the alias points at the new index; if articles changed during the scan it prints `status=catching_up`, so run `python -m app.cli resume-search-rebuild <rebuild_id>` until it completes (`search-index-status` lists rebuilds).
 
 **What needs Elasticsearch.** Search, facets, the Overview analytics panels, the Graph, the Watchlist's results, "What changed" and evaluation, the investigation Map and Related coverage read the index. While it is down they return an error or say they are unavailable, and ingestion, processing and the recent-window Map keep working. A view that needs a newer index than the current one asks for an upgrade; run `rebuild-search` (then `resume-search-rebuild <rebuild_id>` if it reports `catching_up`), which builds the new index beside the live one and moves the alias once it has caught up. The previous index is kept for rollback.
 
@@ -175,51 +193,21 @@ dc run --rm api python -m app.cli rebuild-search   # the index no longer matches
 
 ## 7. Development checks
 
-The system is typed and tested end to end. Development and validation require Docker, Docker Compose, Git, and ordinary POSIX shell utilities; Python, Node, browsers, databases, and test tools run in containers.
+The system is typed and tested end to end, and everything runs in containers: development and validation need only Docker with Compose, Git and ordinary POSIX shell utilities. The backend is checked with `ruff` and strict `mypy`; the frontend is TypeScript, using API types generated from the checked-in OpenAPI spec.
 
-- **Backend:** SQLAlchemy 2 and Pydantic, checked with `ruff` and `mypy`.
-- **Frontend:** TypeScript, using API types generated from the checked-in OpenAPI spec.
-- **Full gate:** `./infra/test-docker.sh` builds dedicated test images, runs backend and frontend checks, rejects skipped tests and stale generated contracts, rehearses backup/restore, and runs every browser workflow against disposable Compose stacks.
+- `./infra/test-quick.sh` is the fast loop: unit tests, linting, type checks and the OpenAPI/TypeScript contract, with no service containers.
+- `./infra/test-docker.sh` is the full gate: it builds dedicated test images, runs backend and frontend checks, rejects skipped tests and stale generated contracts, rehearses backup/restore, and runs every browser workflow against disposable Compose stacks.
 
-Run the maintained whole-repository gate from the repository root:
+GitHub Actions runs the quick loop, the frontend build and a workflow lint on every pull request and every push to `main` (`.github/workflows/ci.yml`). It runs the full gate after every merge to `main`, nightly, on demand, and on pull requests that change `infra/`, `docker/` or the Dockerfiles (`.github/workflows/full-gate.yml`). A green pull request therefore usually covers the quick loop only, so run the full gate before merging a change to application behaviour.
 
-```sh
-./infra/test-docker.sh
-```
-
-This is the only gate that counts as a full regression run: it is the sole binding check before merging (see below), and the sole source of the timing/memory baselines this section describes.
-
-By default the four browser groups run in two concurrent lanes that start as soon as the images are built, alongside the backend and frontend stages. Every stage and every spec still runs and still has to pass; only wall-clock time differs (about 7 minutes against 17 on the 12-core/15 GB reference machine, with a sampled memory peak of about 6 GiB). `NEWSINTEL_TEST_E2E_JOBS=1 NEWSINTEL_TEST_E2E_OVERLAP=0` restores the fully sequential gate, for a smaller machine or to rule out contention when a run fails.
-
-`NEWSINTEL_TEST_E2E_JOBS` (1, 2 or 4; default 2) sets the number of lanes. The groups, their specs and their order within a lane are unchanged: each is still its own Compose project with a fresh database and no published ports. In a concurrent run each group's output goes to `e2e-<group>.log` in the artifacts directory (a failed group's log is printed in full at the end), a failing group stops only its own lane, and an interrupt or a failure elsewhere in the gate stops every lane and removes its containers.
-
-`NEWSINTEL_TEST_E2E_OVERLAP` (0 or 1; default 1) decides whether the lanes start right after the image build or only after the backend and frontend stages. A failure in either half fails the gate. Under overlap one stage moves: the frontend unit tests run after the lanes have finished, because their one-second render waits timed out when they shared the machine with two browser stacks.
-
-GitHub Actions runs `./infra/test-quick.sh`, the frontend build and a workflow lint on every PR (`.github/workflows/ci.yml`), and the full gate after every merge to `main`, nightly, on demand, and on PRs that change `infra/`, `docker/` or the Dockerfiles (`.github/workflows/full-gate.yml`). A green PR check therefore covers the quick loop only; a PR that touches application behaviour still needs the full gate run locally before merging.
-
-Faster local loops trade coverage for speed and never replace the full gate:
-
-- `./infra/test-quick.sh` — unit-only backend tests (`classify.py --paths unit`) plus ruff, mypy, the OpenAPI/TypeScript contract checks, and frontend unit/typecheck. No service containers start (`--no-deps` throughout, `network_mode: none`); it does not run integration tests, migrations, the restore rehearsal, `npm run build`, or any browser group.
-- `./infra/test-integration.sh <pytest-node-id>...` — runs exactly the integration modules named on the command line, starting only the services `backend/tests/classification.toml` says that selection actually needs (never Postgres/Redis/Elasticsearch/the fixture server unconditionally). Resolves the selection before starting anything: an unknown or empty selection, or a unit-kind module (unit tests belong in `test-quick.sh`), fails before any container starts.
-
-Browser workflows can be run separately with `./infra/test-e2e.sh <search|investigations|monitors|graph>`. Each command uses a fresh database and isolated Compose network. Containers and volumes are always removed. Passing `--reuse-images <manifest>` (the form `test-docker.sh` itself uses internally, dispatching each of the four groups against the images it just built) skips that group's own image build and trusts the images recorded in `<manifest>` — a `image-manifest.env` file written by a `test-docker.sh` run, naming each image tag/ID plus the git revision and a working-tree hash it was built from. Before using them, `test-e2e.sh` re-checks all of it: the manifest's revision must equal current `HEAD`, its tree hash must still match the working tree (`git status --porcelain` + `git diff HEAD`, hashed — catches even uncommitted changes), and each named image ID must still match what `docker image inspect` reports. Any mismatch — wrong revision, a tree that changed since the images were built, or an image that's missing or stale — exits 2 before starting a single container, naming exactly which check failed.
-
-Every script's diagnostics (Compose logs on failure, pytest output, Playwright traces and screenshots, and the reports below) land under `docs/archive/testing/<date>-<label>-<n>/` by default (gitignored; `<label>` is `test`/`quick`/`integration`/`e2e-<group>`/`inventory`), or under `NEWSINTEL_TEST_ARTIFACTS` / `NEWSINTEL_E2E_ARTIFACTS` if set (must be an absolute path — it's bind-mounted into containers). Every run, pass or fail, writes:
-- `environment.txt` — git revision/dirty flag, Docker/Compose versions, `nproc`, total memory, and a cache-state label.
-- `timings.tsv`/`timings.txt` — per-stage start time, elapsed seconds and exit status, plus a slowest-first summary with a `TOTAL` (the wall-clock span from the first stage's start to the last one's end, so concurrent browser groups and the aggregate `build.all`/`e2e.all` rows are not counted twice). A stage's status is only known once the *next* stage starts (or the run ends), so an interrupted run's last stage is correctly attributed the interrupting signal's exit status (e.g. 130 for `kill -INT`).
-- `memory.tsv`/`memory.txt` — `docker stats --no-stream` sampled every `NEWSINTEL_MEM_SAMPLE_SECONDS` (default 10s) against the run's own Compose project, normalized to bytes, with per-container and aggregate sampled peaks. Documented limitations: the sampling interval can miss short spikes between polls, values are per-container cgroup memory (not host or BuildKit peak — `buildkitd` runs outside the Compose project label, so build memory is invisible to this sampler).
-- `test-docker.sh` additionally writes `images.tsv` (every built image's ID) and `image-manifest.env` (the `--reuse-images` manifest described above).
-
-`infra/test-inventory.sh` (read-only, `--no-deps`, starts nothing but the backend/frontend test images) writes a plain listing of what each gate actually selects — `inventory/backend-full.txt`/`backend-quick.txt` (pytest `--collect-only`), `inventory/frontend-tests.txt` (`npx vitest list`), and per-group `inventory/e2e-<group>-{specs,invocations}.txt` — useful for confirming a change to the test scripts didn't silently add, drop, or rescope a test.
-
-There is no automated pre-merge gate: pushes and pull requests have no automatic test run, nightly regression run, or status check. Run `./infra/test-docker.sh` before merging. The older phase acceptance scripts remain historical records; `./infra/test-docker.sh` is the maintained full-suite entry point.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers running the stack locally, the integration and browser loops, regenerating the OpenAPI spec and TypeScript types, writing migrations, and the test harness's options and reports.
 
 ## 8. Limitations
 
 In the tradition of papers that are honest about their methods:
 
 - **No summarisation or "insight" generation.** NewsIntel groups, counts and links; it does not paraphrase. This is a choice: every output can be traced to its articles (P2), which a generated summary cannot promise.
-- **Entity quality is spaCy's quality.** NER mislabels things (the graph in Figure 5 has met a "Last week" it believes is an entity). Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
+- **Entity quality is spaCy's quality.** NER mislabels things. Dates, times, amounts and time phrases it tags as names (the graph in Figure 5 met a "Last week" it believed was an entity) are now filtered out, but other mislabels get through. Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
 - **Story country is conservative.** It is only assigned when a country is named alone in the title and repeated in the text, and mainly for English-language articles, so most articles have none. The map says so rather than guessing.
 - **Rule-based clustering and events.** They are deterministic and explainable. Story clustering also matches articles whose opening words share rare specifics (stemmed, and weighted by how rare each term is in the 48-hour window), so a reworded headline no longer hides a story. A true paraphrase in different vocabulary is still missed, and event association still relies on entities and headline terms. Articles clustered before the wording rule have no terms until they are reclustered (`python -m app.cli recluster --from-date … --to-date …`).
 - **Related coverage is wording, not meaning.** It needs at least five shared terms, so a paraphrase in different words is missed, and a short or text-poor article gets no related coverage rather than a guess.

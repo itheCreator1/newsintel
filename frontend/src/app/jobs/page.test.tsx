@@ -5,7 +5,8 @@ import { resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import JobsPage from './page'
 
-vi.mock('../../lib/api', () => ({
+vi.mock('../../lib/api', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../lib/api')>()),
   api: { jobs: vi.fn(), backlog: vi.fn(), retryJob: vi.fn(), indexingStatus: vi.fn(), indexingFailures: vi.fn(), retryIndexing: vi.fn(), nlpStatus: vi.fn(), nlpFailures: vi.fn(), retryNlpJob: vi.fn() },
 }))
 
@@ -22,7 +23,7 @@ beforeEach(() => {
   resetNavigationHarness()
   vi.mocked(api.jobs).mockResolvedValue({ items: [failedJob], next_cursor: null })
   vi.mocked(api.backlog).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 1 })
-  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 2, running: 0, retrying: 1, failed: 1, active_rebuild: null })
+  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 2, running: 0, retrying: 1, failed: 1, active_rebuild: null, index_ready: true })
   vi.mocked(api.indexingFailures).mockResolvedValue({ items: [{ id: 'failure-one', article_id: 'article-one', index_name: 'articles-v1', attempt_count: 3, error_category: 'document', error_message: 'too large', updated_at: '2026-09-14T12:00:00Z' }], next_cursor: null })
   vi.mocked(api.nlpStatus).mockResolvedValue({ queued: 3, running: 1, retrying: 2, failed: 1, capabilities: [{ name: 'entities', state: 'disabled', detail: 'NER is disabled', version: null }], reprocessing: [{ id: 'run-one', status: 'running', scanned: 100 }] })
   vi.mocked(api.nlpFailures).mockResolvedValue({ items: [{ id: 'nlp-failure', article_id: 'article-one', processor: 'keywords', attempt_count: 5, error_category: 'input_too_large', error_message: 'Input exceeds limit', created_at: '2026-09-14T12:00:00Z' }], next_cursor: null })

@@ -5,7 +5,7 @@ import { resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import SettingsPage from './page'
 
-vi.mock('../../lib/api', () => ({ api: { stopWords: vi.fn(), updateStopWords: vi.fn(), nlpStatus: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { stopWords: vi.fn(), updateStopWords: vi.fn(), nlpStatus: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()

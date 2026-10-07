@@ -18,12 +18,14 @@
 "test_analytics_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
 "test_analytics_routes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_analytics_timeline.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_annotation_lookup_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_api_surface.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_article_maintenance.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Postgres-gated despite no _postgres suffix (filename convention exception)." }
 "test_article_processing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_article_processing_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
 "test_auth_helpers.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_classification.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_cli_bootstrap.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_clustering_cli.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_clustering_engine.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_clustering_postgres.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false, note = "Named _postgres but its tail makes real ElasticsearchAdapter calls; needs live ES." }

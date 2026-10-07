@@ -14,7 +14,7 @@ import { entityHref, eventHref, mapHref, toHref } from '../../lib/investigation'
 
 const STATUSES = ['active', 'closed', 'superseded'] as const
 // Fixed order keeps a filtered list's URL stable and bookmarkable.
-const KEYS = ['status', 'country', 'entity_id', 'from', 'to'] as const
+const KEYS = ['status', 'country', 'entity_id', 'from', 'to', 'sort', 'all'] as const
 type Key = typeof KEYS[number]
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
@@ -38,6 +38,9 @@ function EventsContent() {
     ...(value('entity_id') && { entity_id: value('entity_id') }),
     ...(day('from') && { from: `${day('from')}T00:00:00Z` }),
     ...(day('to') && { to: `${day('to')}T23:59:59Z` }),
+    // One-story events repeat the stories list, so they stay hidden until asked for.
+    ...(value('all') !== '1' && { min_stories: '2' }),
+    ...(value('sort') === 'biggest' && { sort: 'biggest' }),
   }
   const events = useInfiniteQuery({
     queryKey: ['events', filters], initialPageParam: undefined as string | undefined,
@@ -74,6 +77,16 @@ function EventsContent() {
           <label className={labelClass}>To
             <input className={fieldClass} type="date" value={value('to')} onChange={event => setFilter('to', event.target.value)} />
           </label>
+          <label className={labelClass}>Sort
+            <select className={fieldClass} value={value('sort') === 'biggest' ? 'biggest' : ''} onChange={event => setFilter('sort', event.target.value)}>
+              <option value="">Latest first</option>
+              <option value="biggest">Biggest first</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" checked={value('all') === '1'} onChange={event => setFilter('all', event.target.checked ? '1' : '')} />
+            Show one-story events
+          </label>
         </div>
       </PageHeader>
 
@@ -88,7 +101,12 @@ function EventsContent() {
       <GlassPanel className="overflow-hidden p-0">
         {events.isPending && <Note>Loading events…</Note>}
         {events.isError && <Note error>Could not load events.</Note>}
-        {events.data && !items.length && <Note>No events match these filters.</Note>}
+        {events.data && !items.length && (value('all') === '1'
+          ? <Note>No events match these filters.</Note>
+          : <div className="flex flex-wrap items-center gap-3 px-6 py-4 text-sm text-muted-foreground">
+              <span>No events with two or more stories match these filters.</span>
+              <button className={ghostButtonClass} onClick={() => setFilter('all', '1')}>Show one-story events</button>
+            </div>)}
         {items.map(event => (
           <div key={event.id} className="flex flex-col gap-1.5 border-border px-6 py-4">
             <div className="flex items-start justify-between gap-3">

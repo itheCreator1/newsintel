@@ -6,7 +6,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import require_csrf
@@ -27,6 +27,7 @@ from app.nlp.models import (
     NlpJob,
     NlpProcessorRun,
 )
+from app.nlp.processors import country_entity_names
 from app.nlp.reprocessing import reprocessing_status
 from app.nlp.schemas import (
     AnnotationLookupItem,
@@ -377,10 +378,11 @@ async def put_stop_words(
     return StopWordsResponse.model_validate(value, from_attributes=True)
 
 
-def _lookup_cursor(value: str) -> tuple[str, uuid.UUID]:
+def _lookup_cursor(value: str) -> tuple[int, str, uuid.UUID]:
     try:
-        text_value, raw_id = base64.urlsafe_b64decode(value).decode().split("|", 1)
-        return text_value, uuid.UUID(raw_id)
+        rank, rest = base64.urlsafe_b64decode(value).decode().split("|", 1)
+        text_value, raw_id = rest.rsplit("|", 1)
+        return int(rank), text_value, uuid.UUID(raw_id)
     except (binascii.Error, ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(422, "Invalid annotation lookup cursor") from exc
 
@@ -393,23 +395,49 @@ async def _lookup(
     cursor: str | None,
     limit: int,
 ) -> AnnotationLookupPage:
-    query = select(model).order_by(model.normalized_text, model.id)
+    # A reprocess leaves the row of an annotation no article has any more; picking it finds nothing.
+    # ponytail: keyword links have no index on keyword_id, so this probe scans them; add a partial
+    # index like ix_article_nlp_entities_entity_article when the keyword picker gets slow.
+    link, link_column = (
+        (ArticleEntity, ArticleEntity.entity_id)
+        if model is Entity
+        else (ArticleKeyword, ArticleKeyword.keyword_id)
+    )
+    query = select(model).where(
+        select(link.id).where(link_column == model.id, link.is_current).exists()
+    )
+    rank: ColumnElement[int] = literal(1)
     if q.strip():
-        query = query.where(model.normalized_text.startswith(q.strip().casefold()))
+        matches = model.normalized_text.startswith(q.strip().casefold())
+        if model is Entity and (countries := country_entity_names(q)):
+            # A country is stored under one name; its other spellings ("US") have no row to match.
+            country = and_(Entity.entity_type == "GPE", Entity.normalized_text.in_(countries))
+            matches = or_(matches, country)
+            # Name order alone puts "United States" after every "U.S. ..." organisation.
+            rank = case((country, 0), else_=1)
+        query = query.where(matches)
     if cursor:
-        text_value, item_id = _lookup_cursor(cursor)
+        rank_value, text_value, item_id = _lookup_cursor(cursor)
         query = query.where(
             or_(
-                model.normalized_text > text_value,
-                and_(model.normalized_text == text_value, model.id > item_id),
+                rank > rank_value,
+                and_(
+                    rank == rank_value,
+                    or_(
+                        model.normalized_text > text_value,
+                        and_(model.normalized_text == text_value, model.id > item_id),
+                    ),
+                ),
             )
         )
-    rows = list((await db.scalars(query.limit(limit + 1))).all())
+    query = query.add_columns(rank).order_by(rank, model.normalized_text, model.id)
+    found = (await db.execute(query.limit(limit + 1))).all()
+    rows = [row for row, _ in found]
     next_cursor = None
-    if len(rows) > limit:
-        last = rows[limit - 1]
+    if len(found) > limit:
+        last, last_rank = found[limit - 1]
         next_cursor = base64.urlsafe_b64encode(
-            f"{last.normalized_text}|{last.id}".encode()
+            f"{last_rank}|{last.normalized_text}|{last.id}".encode()
         ).decode()
     return AnnotationLookupPage(
         items=[

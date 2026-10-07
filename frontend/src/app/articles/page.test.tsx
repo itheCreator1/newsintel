@@ -6,7 +6,8 @@ import { renderWithQuery } from '../../test/render'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
 import ArticlesPage from './page'
 
-vi.mock('../../lib/api', () => ({
+vi.mock('../../lib/api', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../lib/api')>()),
   api: {
     feeds: vi.fn(),
     articles: vi.fn(),

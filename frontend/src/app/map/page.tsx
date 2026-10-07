@@ -16,6 +16,7 @@ import { errorCode, filterChips, removeFilter, SEARCH_CHIP_FIELDS } from '../../
 import { compareHref, emptyInvestigation, eventHref, mapHref, mapStateFromQuery, normalize, queryFromState, refine, searchParams as criteriaOf, toHref, type Investigation, type ListField } from '../../lib/investigation'
 import { countryName, plural } from '../../lib/utils'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
+import { LoadError, Note } from '../../components/Feedback'
 
 // One role per map: the four location roles mean different things and are never added together.
 const ROLES: { value: GeoRole; label: string; note: string }[] = [
@@ -40,9 +41,6 @@ const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string
 // A map applies every criterion; sort orders a result list and means nothing here.
 const mapCriteria = (state: Investigation) => Object.fromEntries(Object.entries(criteriaOf(state)).filter(([key]) => key !== 'sort'))
 
-function Note({ children, error }: { children: string; error?: boolean }) {
-  return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>
-}
 
 /** An investigation's story and source counts are cardinality estimates: `≈` on screen, "estimated" to a screen reader. */
 function Count({ value, estimated }: { value: number | null; estimated: boolean }) {
@@ -150,7 +148,7 @@ function MapContent() {
       </GlassPanel>
 
       {map.isPending && <GlassPanel className="p-0"><Note>Loading the map…</Note></GlassPanel>}
-      {map.isError && <GlassPanel className="p-0"><Note error>{errorCode(map.error) === 'search_upgrade_required' ? 'Search upgrade required. Rebuild the search index to map an investigation.' : 'Could not load the map.'}</Note></GlassPanel>}
+      {map.isError && <GlassPanel className="p-0"><LoadError className="px-6 py-4" query={map} message={errorCode(map.error) === 'search_upgrade_required' ? 'Search upgrade required. Rebuild the search index to map an investigation.' : 'Could not load the map.'} /></GlassPanel>}
 
       {data && data.items.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -207,7 +205,7 @@ function MapContent() {
           {found && articleRole && (
             <>
               {articles.isPending && <Note>Loading articles…</Note>}
-              {articles.isError && <Note error>{errorCode(articles.error) === 'restart_search' ? 'The article list expired. Select the country again to start over.' : 'Could not load articles.'}</Note>}
+              {articles.isError && <LoadError className="px-6 py-4" query={articles} message={errorCode(articles.error) === 'restart_search' ? 'The article list expired. Select the country again to start over.' : 'Could not load articles.'} />}
               {articleItems.map(article => (
                 <div key={article.id} className="flex flex-col gap-0.5 px-6 py-3">
                   <Link className="text-[15px] font-semibold text-foreground hover:underline" href={openArticle(article.id)}>{article.title}</Link>
@@ -221,7 +219,7 @@ function MapContent() {
           {found && !articleRole && (
             <>
               {events.isPending && <Note>Loading events…</Note>}
-              {events.isError && <Note error>Could not load events.</Note>}
+              {events.isError && <LoadError className="px-6 py-4" query={events} message="Could not load events." />}
               {eventItems.map(event => (
                 <div key={event.id} className="flex flex-col gap-0.5 px-6 py-3">
                   <Link className="text-[15px] font-semibold text-foreground hover:underline" href={eventHref(event.id, currentHref)}>{event.headline ?? 'Event'}</Link>

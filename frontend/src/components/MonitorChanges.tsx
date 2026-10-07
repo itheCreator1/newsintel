@@ -8,6 +8,7 @@ import { clusterHref, entityHref, fromSaved, queryFromState, refine, toHref } fr
 import { describeChanges, monitorKeys, monitorStatus, type ChangeLine, when } from '../lib/monitors'
 import { chipClass } from '../lib/ui-classes'
 import { GlassPanel } from './GlassPanel'
+import { LoadError } from './Feedback'
 
 const emptyText = (item: Monitor) => {
   const status = monitorStatus(item)
@@ -30,7 +31,7 @@ export function MonitorChanges({ id, item, currentHref }: { id: string; item: Mo
     <GlassPanel aria-label="What changed" className="flex flex-col gap-3 py-4">
       <h3 className="text-sm font-semibold text-foreground">What changed</h3>
       {changes.isPending && <p className="text-sm text-muted-foreground">Loading changes…</p>}
-      {changes.isError && <p className="error text-sm text-destructive">Could not load the changes.</p>}
+      {changes.isError && <LoadError query={changes} message="Could not load the changes." />}
       {changes.data?.window_end && <p className="text-xs text-muted-foreground">Counted through {when(changes.data.window_end)}</p>}
       {changes.data && !lines.length && <p className="text-sm text-muted-foreground">{emptyText(item)}</p>}
       {lines.length > 0 && (

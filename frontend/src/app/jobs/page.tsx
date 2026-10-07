@@ -9,6 +9,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge, type BadgeTone } from '../../components/StatusBadge'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+import { LoadError } from '../../components/Feedback'
 
 const JOB_TONES: Record<string, BadgeTone> = { succeeded: 'healthy', failed: 'error', retrying: 'degraded' }
 
@@ -48,7 +49,7 @@ export default function JobsPage() {
       </PageHeader>
 
       {backlog.isPending && <p className="text-sm text-muted-foreground">Loading backlog…</p>}
-      {!backlog.isPending && backlog.isError && <p className="error text-sm text-destructive">Could not load backlog.</p>}
+      {!backlog.isPending && backlog.isError && <LoadError query={backlog} message="Could not load backlog." />}
       {!backlog.isPending && !backlog.isError && <BacklogStrip data={backlog.data} />}
 
       <div className="flex flex-wrap gap-4">
@@ -58,7 +59,7 @@ export default function JobsPage() {
 
       <GlassPanel className="overflow-hidden p-0">
         {jobs.isPending && <p className="px-6 py-4 text-sm text-muted-foreground">Loading processing jobs…</p>}
-        {!jobs.isPending && jobs.isError && <p className="error px-6 py-4 text-sm text-destructive">Could not load processing jobs.</p>}
+        {!jobs.isPending && jobs.isError && <LoadError className="px-6 py-4" query={jobs} message="Could not load processing jobs." />}
         {!jobs.isPending && !jobs.isError && !jobs.data?.items.length && <p className="px-6 py-4 text-sm text-muted-foreground">No processing jobs.</p>}
         {retry.isPending && <p className="px-6 pt-4 text-sm text-muted-foreground">Retrying job…</p>}
         {retry.isSuccess && <p className="px-6 pt-4 text-sm text-primary">Retry scheduled.</p>}
@@ -90,13 +91,13 @@ export default function JobsPage() {
       <GlassPanel className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">Search indexing</h3>
         {indexing.isPending && <p className="text-sm text-muted-foreground">Loading indexing status…</p>}
-        {!indexing.isPending && indexing.isError && <p className="error text-sm text-destructive">Could not load indexing status.</p>}
+        {!indexing.isPending && indexing.isError && <LoadError query={indexing} message="Could not load indexing status." />}
         {!indexing.isPending && !indexing.isError && <BacklogStrip data={indexing.data} />}
         {indexing.data?.active_rebuild && <p className="text-sm text-muted-foreground">An index rebuild is active.</p>}
         {retryIndexing.isPending && <p className="text-sm text-muted-foreground">Scheduling indexing retry…</p>}
         {retryIndexing.isSuccess && <p className="text-sm text-primary">Indexing retry scheduled.</p>}
         {retryIndexing.isError && <p className="error text-sm text-destructive">Could not retry indexing.</p>}
-        {failures.isError && <p className="error text-sm text-destructive">Could not load indexing failures.</p>}
+        {failures.isError && <LoadError query={failures} message="Could not load indexing failures." />}
         {failures.data?.items.map(failure => (
           <article key={failure.id} className="job-row flex flex-col gap-2 border-t border-border pt-3">
             <div className="flex flex-col gap-0.5">
@@ -112,7 +113,7 @@ export default function JobsPage() {
       <GlassPanel className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">NLP processing</h3>
         {nlp.isPending && <p className="text-sm text-muted-foreground">Loading NLP status…</p>}
-        {!nlp.isPending && nlp.isError && <p className="error text-sm text-destructive">Could not load NLP status.</p>}
+        {!nlp.isPending && nlp.isError && <LoadError query={nlp} message="Could not load NLP status." />}
         {!nlp.isPending && !nlp.isError && (
           <>
             <BacklogStrip data={nlp.data} />
@@ -127,7 +128,7 @@ export default function JobsPage() {
         {retryNlp.isPending && <p className="text-sm text-muted-foreground">Scheduling NLP retry…</p>}
         {retryNlp.isSuccess && <p className="text-sm text-primary">NLP retry scheduled.</p>}
         {retryNlp.isError && <p className="error text-sm text-destructive">Could not retry NLP processing.</p>}
-        {nlpFailures.isError && <p className="error text-sm text-destructive">Could not load NLP failures.</p>}
+        {nlpFailures.isError && <LoadError query={nlpFailures} message="Could not load NLP failures." />}
         {nlpFailures.data?.items.map(failure => (
           <article key={failure.id} className="job-row flex flex-col gap-2 border-t border-border pt-3">
             <div className="flex flex-col gap-0.5">

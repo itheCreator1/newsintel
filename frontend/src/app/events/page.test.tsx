@@ -33,7 +33,7 @@ it('lists events with headline, counts, country, entities and a link to the doss
   expect(screen.getByText('active', { selector: 'span' })).toBeTruthy()
   expect(screen.getByText(/ · GR$/)).toBeTruthy()
   expect(screen.getByRole('link', { name: /Barack Obama/ }).getAttribute('href')).toBe('/entities/?id=ent-1')
-  expect(api.events).toHaveBeenCalledWith({}, undefined)
+  expect(api.events).toHaveBeenCalledWith({ min_stories: '2' }, undefined)
 })
 
 it('falls back to a placeholder when an event has no headline', async () => {
@@ -46,7 +46,9 @@ it('falls back to a placeholder when an event has no headline', async () => {
 it('says so when nothing matches and when loading fails', async () => {
   vi.mocked(api.events).mockResolvedValueOnce(page([]))
   const first = renderWithQuery(() => <EventsPage />)
-  expect(await screen.findByText('No events match these filters.')).toBeTruthy()
+  expect(await screen.findByText('No events with two or more stories match these filters.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Show one-story events' }))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?all=1')
   first.unmount()
 
   vi.mocked(api.events).mockRejectedValueOnce(new Error('boom'))
@@ -59,7 +61,7 @@ it('sends URL filters to the API', async () => {
   renderWithQuery(() => <EventsPage />)
 
   await screen.findByRole('link', { name: 'Headline ev-1' })
-  expect(api.events).toHaveBeenCalledWith({ status: 'closed', country: 'GR', entity_id: 'ent-1', from: '2026-09-01T00:00:00Z', to: '2026-09-30T23:59:59Z' }, undefined)
+  expect(api.events).toHaveBeenCalledWith({ status: 'closed', country: 'GR', entity_id: 'ent-1', from: '2026-09-01T00:00:00Z', to: '2026-09-30T23:59:59Z', min_stories: '2' }, undefined)
 })
 
 it('writes changed filters back to the URL and drops emptied ones', async () => {
@@ -109,6 +111,18 @@ it('loads more events with the cursor until the last page', async () => {
 
   expect(await screen.findByRole('link', { name: 'Headline ev-2' })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Headline ev-1' })).toBeTruthy()
-  expect(api.events).toHaveBeenLastCalledWith({}, 'cursor-1')
+  expect(api.events).toHaveBeenLastCalledWith({ min_stories: '2' }, 'cursor-1')
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Load more events' })).toBeNull())
+})
+
+it('hides one-story events unless asked and sorts biggest first on request', async () => {
+  resetNavigationHarness({ pathname: '/events/', search: 'sort=biggest&all=1' })
+  renderWithQuery(() => <EventsPage />)
+  await screen.findByRole('link', { name: 'Headline ev-1' })
+  expect(api.events).toHaveBeenCalledWith({ sort: 'biggest' }, undefined)
+
+  fireEvent.click(screen.getByLabelText('Show one-story events'))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?sort=biggest')
+  fireEvent.change(screen.getByLabelText('Sort'), { target: { value: '' } })
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?all=1')
 })

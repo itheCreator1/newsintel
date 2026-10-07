@@ -6,7 +6,7 @@ import { navigationHarness, resetNavigationHarness } from '../test/navigation-ha
 import { renderWithQuery } from '../test/render'
 import OverviewPage from './page'
 
-vi.mock('../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../lib/api')>()), api: { status: vi.fn(), ingestionTimeline: vi.fn(), topEntities: vi.fn(), topCountries: vi.fn() } }))
+vi.mock('../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../lib/api')>()), api: { status: vi.fn(), ingestionTimeline: vi.fn(), topEntities: vi.fn(), topCountries: vi.fn(), feeds: vi.fn(), articles: vi.fn(), indexingStatus: vi.fn(), nlpStatus: vi.fn() } }))
 // ECharts needs a canvas, so each chart is replaced by a control that emits its first item on click.
 vi.mock('../components/BarChart', () => ({
   BarChart: (props: { items: { id: string }[]; ariaLabel: string; onSelect: (item: { id: string }) => void }) =>
@@ -23,6 +23,11 @@ beforeEach(() => {
   ] })
   vi.mocked(api.topEntities).mockResolvedValue({ entities: [{ entity_id: 'entity-one', display_text: 'Acme', entity_type: 'ORG', count: 5 }] })
   vi.mocked(api.topCountries).mockResolvedValue({ countries: [{ country_code: 'GR', count: 4 }] })
+  // A set-up archive: the getting-started checklist and the entity notice stay hidden.
+  vi.mocked(api.feeds).mockResolvedValue({ items: [{} as never], next_cursor: null })
+  vi.mocked(api.articles).mockResolvedValue({ items: [{} as never], next_cursor: null })
+  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: true })
+  vi.mocked(api.nlpStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, capabilities: [{ name: 'entities', state: 'available', detail: null, version: '3.8' }], reprocessing: [] })
 })
 afterEach(cleanup)
 

@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import or_, select, text, update
+from sqlalchemy import ColumnElement, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -218,7 +218,7 @@ async def request_article_nlp(
     return requested
 
 
-def job_due(now: datetime):  # type: ignore[no-untyped-def]
+def job_due(now: datetime) -> ColumnElement[bool]:
     return (
         NlpJob.status.in_(("queued", "running", "retrying"))
         & (NlpJob.next_attempt_at <= now)
