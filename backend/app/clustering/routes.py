@@ -6,6 +6,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.cursors import cursor_or_400
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
@@ -24,7 +25,7 @@ from app.clustering.schemas import (
 from app.clustering.service import request_clustering
 from app.db.session import get_db
 from app.feeds.models import Article, FeedArticle
-from app.feeds.service import decode_cursor, encode_cursor
+from app.feeds.service import encode_cursor
 
 router = APIRouter(tags=["clustering"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -63,7 +64,7 @@ async def clustering_failures(
         .order_by(ClusterJob.created_at.desc(), ClusterJob.id.desc())
     )
     if cursor:
-        created, item_id = decode_cursor(cursor)
+        created, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 ClusterJob.created_at < created,
@@ -111,7 +112,7 @@ async def get_cluster(
         .order_by(effective_date.desc(), StoryClusterMember.article_id.desc())
     )
     if cursor:
-        cursor_date, cursor_id = decode_cursor(cursor)
+        cursor_date, cursor_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 effective_date < cursor_date,

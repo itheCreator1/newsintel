@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.cursors import cursor_or_400
 from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
@@ -29,7 +30,6 @@ from app.feeds.service import (
     article_detail_response,
     article_response,
     claim_feed,
-    decode_cursor,
     encode_cursor,
 )
 from app.search.service import request_source_refresh
@@ -61,7 +61,7 @@ async def list_feeds(
         .order_by(Feed.created_at.desc(), Feed.id.desc())
     )
     if cursor:
-        created, item_id = decode_cursor(cursor)
+        created, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(Feed.created_at < created, and_(Feed.created_at == created, Feed.id < item_id))
         )
@@ -158,7 +158,7 @@ async def list_fetches(
         .order_by(FeedFetch.started_at.desc(), FeedFetch.id.desc())
     )
     if cursor:
-        started, item_id = decode_cursor(cursor)
+        started, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 FeedFetch.started_at < started,
@@ -188,7 +188,7 @@ async def list_articles(
     if feed_id:
         query = query.join(FeedArticle).where(FeedArticle.feed_id == feed_id)
     if cursor:
-        discovered, item_id = decode_cursor(cursor)
+        discovered, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 Article.first_discovered_at < discovered,
