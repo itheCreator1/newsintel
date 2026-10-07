@@ -18,16 +18,17 @@ Everything runs in containers. You need Docker with Compose v2, Git and ordinary
 ## 1. Running it locally
 
 ```sh
-cp .env.example .env    # then set POSTGRES_PASSWORD and NEWSINTEL_SECRET_KEY (32+ characters)
+cp .env.example .env    # then set POSTGRES_PASSWORD, NEWSINTEL_SECRET_KEY (32+ characters) and
+                        # NEWSINTEL_ADMIN_USERNAME / NEWSINTEL_ADMIN_PASSWORD (12+ characters)
 alias dc='docker compose --env-file .env -f docker/compose.yaml -f docker/compose.dev.yaml'
 
-dc up -d --build
-dc run --rm api alembic upgrade head            # create the schema
-dc run --rm api python -m app.cli create-user <username>
+dc up -d --build        # the setup service applies migrations and creates that account
 dc run --rm api python -m app.cli rebuild-search
 ```
 
 The app is then on `http://127.0.0.1:8080` (`NEWSINTEL_PORT`). The API is served under `/api/v1`, and nginx in the frontend image proxies to it.
+
+The one-shot `setup` service runs `alembic upgrade head` and `bootstrap-admin` on every `up`, and the application services wait for it. It creates the account only while no user exists, so later runs leave existing users alone. Because it migrates on every `up`, back up a database you care about before `dc up -d --build` on a branch with a new migration.
 
 `docker/compose.dev.yaml` mounts `backend/app` read-only into the `api` container and runs uvicorn with `--reload`, so backend route changes show up without a rebuild. The workers and scheduler do not reload: `dc restart worker nlp-worker scheduler` after changing job code, and rebuild the frontend image (`dc up -d --build frontend`) after changing the UI.
 
@@ -38,6 +39,7 @@ Other useful commands, all run as `dc run --rm api python -m app.cli <command>`:
 | Command | What it does |
 | --- | --- |
 | `create-user <name>`, `reset-password <name>` | Manage logins; passwords need at least 12 characters. Resetting revokes the user's sessions. |
+| `bootstrap-admin` | Create the first account from `NEWSINTEL_ADMIN_USERNAME`/`NEWSINTEL_ADMIN_PASSWORD` while no user exists. The `setup` service runs it on every `up`. |
 | `rebuild-search`, `resume-search-rebuild <id>`, `search-index-status` | Build a new search index beside the live one and move the alias (see README §6). |
 | `reprocess-nlp`, `resume-nlp-reprocessing <id>`, `nlp-status` | Rerun NLP processors over a selection (`--article-id`, `--from-date`/`--to-date`, or `--all`; dry run unless `--apply`). |
 | `recluster` | Recluster a selection of articles, chosen the same way. |
@@ -68,7 +70,7 @@ Pick the smallest loop that covers your change, and finish with the full gate be
 | Browser | `./infra/test-e2e.sh <search\|investigations\|monitors\|graph>` | One Playwright group against a fresh Compose stack. |
 | Full gate | `./infra/test-docker.sh` | Everything: all of the above, migrations, the single-head check, `npm run build`, the backup/restore rehearsal and all four browser groups. |
 
-`./infra/test-docker.sh` is the only run that counts as a full regression run. It rejects skipped tests and stale generated contracts, and it is the sole source of the timing and memory baselines in §7. Run it before merging; CI does not run it (see §6).
+`./infra/test-docker.sh` is the only run that counts as a full regression run. It rejects skipped tests and stale generated contracts, and it is the sole source of the timing and memory baselines in §7. Run it before merging: on most pull requests CI runs it only after the merge (see §6).
 
 The quick loop starts nothing but the backend and frontend test images (`--no-deps` throughout, `network_mode: none`). It does not run integration tests, migrations, the restore rehearsal, `npm run build` or any browser group.
 
@@ -114,7 +116,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 - **Frontend build**: `npm ci && npm run build` in `frontend/`, because the quick loop skips the static export.
 - **Workflow lint**: `actionlint` over the workflow files.
 
-A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
+A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
 
 A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
 
