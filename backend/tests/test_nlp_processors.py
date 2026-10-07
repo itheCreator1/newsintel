@@ -10,6 +10,7 @@ from app.nlp.processors import (
     ProcessorContext,
     _is_junk_entity,
     canonical_entity,
+    country_entity_names,
     detect_countries,
     detect_language,
     extract_entities,
@@ -348,3 +349,11 @@ def test_enabled_ner_loads_each_model_once_without_unused_components(
     assert {"tagger", "lemmatizer"} <= set(exclude)
     # The parser stays: NER never lets an entity cross a sentence boundary the parser set.
     assert not {"ner", "tok2vec", "parser", "senter"} & set(exclude)
+
+
+def test_country_entity_names_follow_the_folded_spellings() -> None:
+    assert "united states" in country_entity_names("U.S.")
+    assert "united states" in country_entity_names("the US")
+    assert "united kingdom" in country_entity_names("uk")
+    assert country_entity_names("zzz") == frozenset()
+    assert country_entity_names("  ") == frozenset()

@@ -320,6 +320,19 @@ def canonical_entity(text: str, label: str, mapped: str) -> tuple[str, str, str]
     return mapped, normalized, display
 
 
+def country_entity_names(prefix: str) -> frozenset[str]:
+    """Normalized texts of the country entities one of whose names starts with `prefix`.
+
+    Lets a lookup for "US" or "U.S." reach the entity those spellings were folded into.
+    """
+    key = _normalized_name(prefix)
+    return frozenset(
+        display.casefold()
+        for name, (_, display) in _entity_countries().items()
+        if key and name.startswith(key)
+    )
+
+
 def _merge_short_person_names(
     grouped: dict[tuple[str, str, str], list[Occurrence]],
     display: dict[tuple[str, str, str], str],

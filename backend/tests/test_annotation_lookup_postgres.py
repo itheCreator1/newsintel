@@ -131,3 +131,54 @@ async def test_lookup_lists_only_annotations_an_article_currently_has() -> None:
 
     assert [item.text for item in entity_page.items] == ["current"]
     assert [item.text for item in keyword_page.items] == ["current"]
+
+
+async def test_entity_lookup_finds_a_country_by_its_other_spellings() -> None:
+    # Its own language keeps the row clear of other tests' "united states".
+    language = f"t{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Country lookup evidence",
+            normalized_title_hash=uuid.uuid4().hex,
+            published_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+            first_discovered_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+        )
+        country = Entity(
+            language=language,
+            entity_type="GPE",
+            normalized_text="united states",
+            display_text="United States",
+        )
+        db.add_all([article, country])
+        await db.flush()
+        run = await _run(db, article.id, "entities")
+        db.add(
+            ArticleEntity(
+                article_id=article.id,
+                entity_id=country.id,
+                run_id=run.id,
+                occurrence_count=1,
+                relevance=1,
+                occurrences=[{"start": 0, "end": 2}],
+                input_fingerprint=DIGEST,
+                is_current=True,
+            )
+        )
+
+    async def found(model, q: str) -> set[uuid.UUID]:  # type: ignore[no-untyped-def]
+        ids: set[uuid.UUID] = set()
+        cursor = None
+        async with session_factory() as db:
+            while True:
+                page = await _lookup(db, model, q=q, cursor=cursor, limit=50)
+                ids.update(item.id for item in page.items)
+                cursor = page.next_cursor
+                if cursor is None:
+                    return ids
+
+    for q in ("US", "U.S.", "the us", "USA", "Amer", "united"):
+        assert country.id in await found(Entity, q), q
+    assert country.id not in await found(Entity, "France")
+    assert country.id not in await found(Keyword, "US")
