@@ -6,6 +6,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.cursors import cursor_or_400
 from app.articles.schemas import (
     BacklogResponse,
     JobPage,
@@ -19,7 +20,7 @@ from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
 from app.feeds.models import Article, ArticleProcessingJob
-from app.feeds.service import decode_cursor, encode_cursor
+from app.feeds.service import encode_cursor
 
 router = APIRouter(tags=["article processing"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -80,7 +81,7 @@ async def list_jobs(
     if job_status:
         query = query.where(ArticleProcessingJob.status == job_status)
     if cursor:
-        created, item_id = decode_cursor(cursor)
+        created, item_id = cursor_or_400(cursor)
         query = query.where(
             or_(
                 ArticleProcessingJob.created_at < created,
