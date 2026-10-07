@@ -27,6 +27,7 @@ from app.nlp.models import (
     NlpJob,
     NlpProcessorRun,
 )
+from app.nlp.processors import country_entity_names
 from app.nlp.reprocessing import reprocessing_status
 from app.nlp.schemas import (
     AnnotationLookupItem,
@@ -407,7 +408,14 @@ async def _lookup(
         .order_by(model.normalized_text, model.id)
     )
     if q.strip():
-        query = query.where(model.normalized_text.startswith(q.strip().casefold()))
+        matches = model.normalized_text.startswith(q.strip().casefold())
+        if model is Entity and (countries := country_entity_names(q)):
+            # A country is stored under one name; its other spellings ("US") have no row to match.
+            matches = or_(
+                matches,
+                and_(Entity.entity_type == "GPE", Entity.normalized_text.in_(countries)),
+            )
+        query = query.where(matches)
     if cursor:
         text_value, item_id = _lookup_cursor(cursor)
         query = query.where(
