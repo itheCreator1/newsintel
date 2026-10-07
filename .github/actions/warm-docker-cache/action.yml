@@ -1,0 +1,27 @@
+name: Warm Docker build cache
+description: >-
+  Pre-builds the given Compose services into the current Buildx builder, reading and writing
+  layers through the GitHub Actions cache. Run docker/setup-buildx-action once earlier in the
+  job: the test scripts' own `docker compose build` then runs on that same builder and finds
+  every layer already built.
+inputs:
+  files:
+    description: Compose files under docker/, one per line, in the order the test script passes them.
+    required: true
+  targets:
+    description: Compose services to build, one per line.
+    required: true
+  scope:
+    description: Cache scope; services that share a Dockerfile and build args share a scope.
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: docker/bake-action@v7
+      with:
+        source: ./docker
+        files: ${{ inputs.files }}
+        targets: ${{ inputs.targets }}
+        set: |
+          *.cache-from=type=gha,scope=${{ inputs.scope }}
+          *.cache-to=type=gha,mode=max,scope=${{ inputs.scope }}

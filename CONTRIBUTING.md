@@ -112,8 +112,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 - **Quick gate**: `./infra/test-quick.sh`, inside the repository's own test images. Its diagnostics are uploaded as the `test-quick-artifacts` artifact on every run, so a failure can be read without rerunning it.
 - **Frontend build**: `npm ci && npm run build` in `frontend/`, because the quick loop skips the static export.
+- **Workflow lint**: `actionlint` over the workflow files.
 
-A newer push to the same pull request cancels the run in progress. CI does not run integration tests, migrations, the restore rehearsal or the browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
+A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
+
+A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
 
 ## 7. Test-harness reference
 
