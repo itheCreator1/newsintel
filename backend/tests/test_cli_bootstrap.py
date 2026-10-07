@@ -1,4 +1,3 @@
-import asyncio
 from types import TracebackType
 
 import pytest
@@ -45,17 +44,19 @@ def _setup(
 FIRST_ACCOUNT = {"NEWSINTEL_ADMIN_USERNAME": "admin", "NEWSINTEL_ADMIN_PASSWORD": "a-long-password"}
 
 
-def test_bootstrap_admin_creates_the_first_account(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_bootstrap_admin_creates_the_first_account(monkeypatch: pytest.MonkeyPatch) -> None:
     created = _setup(monkeypatch, existing_user=None, env=FIRST_ACCOUNT)
-    asyncio.run(cli.bootstrap_admin())
+    await cli.bootstrap_admin()
     assert created == [("admin", "a-long-password")]
 
 
-def test_bootstrap_admin_leaves_an_install_with_users_alone(
+@pytest.mark.asyncio
+async def test_bootstrap_admin_leaves_an_install_with_users_alone(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     created = _setup(monkeypatch, existing_user="user-id", env=FIRST_ACCOUNT)
-    asyncio.run(cli.bootstrap_admin())
+    await cli.bootstrap_admin()
     assert created == []
     assert "Users already exist" in capsys.readouterr().out
 
@@ -64,10 +65,11 @@ def test_bootstrap_admin_leaves_an_install_with_users_alone(
     "env",
     [{}, {"NEWSINTEL_ADMIN_USERNAME": "admin"}, {"NEWSINTEL_ADMIN_PASSWORD": "a-long-password"}],
 )
-def test_bootstrap_admin_skips_without_both_variables(
+@pytest.mark.asyncio
+async def test_bootstrap_admin_skips_without_both_variables(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], env: dict[str, str]
 ) -> None:
     created = _setup(monkeypatch, existing_user=None, env=env)
-    asyncio.run(cli.bootstrap_admin())
+    await cli.bootstrap_admin()
     assert created == []
     assert "No first-run account configured" in capsys.readouterr().out
