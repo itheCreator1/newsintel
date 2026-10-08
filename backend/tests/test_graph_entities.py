@@ -24,6 +24,7 @@ from app.graph.service import (
 )
 from app.main import create_app
 from app.nlp.models import Entity
+from app.search.aggregations import ROOT_ORDER
 from app.search.criteria import SearchCriteria, build_query
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
@@ -89,8 +90,10 @@ def test_nodes_body_counts_articles_per_entity_within_the_requested_types() -> N
     assert entities["nested"] == {"path": "entities"}
     filtered = entities["aggs"]["filtered"]
     assert filtered["filter"] == {"terms": {"entities.type": ["ORG", "PERSON"]}}
+    # Ranked by articles, not by nested records: an entity named in many articles beats one
+    # recorded many times in a single article.
     assert filtered["aggs"]["top"] == {
-        "terms": {"field": "entities.id", "size": 12},
+        "terms": {"field": "entities.id", "size": 12, "order": ROOT_ORDER},
         "aggs": {"articles": {"reverse_nested": {}}},
     }
     assert "focus" not in body["aggs"]
@@ -347,6 +350,7 @@ def test_nodes_body_asks_for_each_expanded_entitys_neighbours_up_to_the_cap() ->
     assert first["filter"]["nested"]["query"] == {"term": {"entities.id": str(expand[0])}}
     top = first["aggs"]["entities"]["aggs"]["filtered"]["aggs"]["top"]["terms"]
     assert top["size"] == EXPAND_NEIGHBOURS + 1
+    assert top["order"] == ROOT_ORDER
 
 
 def test_parse_expansion_adds_the_neighbours_the_graph_does_not_draw_yet() -> None:

@@ -289,3 +289,40 @@ async def test_greek_entities_are_found_with_or_without_accents_and_endings() ->
             assert person.id in {item.id for item in page.items}, q
         resolved = await _resolve_annotations(db, ["Κουτσούμπα", "ΚΟΥΤΣΟΥΜΠΑΣ"], Entity)
     assert resolved == [str(person.id)]
+
+
+async def _stored_entity(normalized_text: str, display_text: str, entity_type: str) -> Entity:
+    # Its own language keeps the row apart from other tests' entities of the same name.
+    language = f"t{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db, db.begin():
+        entity = Entity(
+            language=language,
+            entity_type=entity_type,
+            normalized_text=normalized_text,
+            display_text=display_text,
+        )
+        db.add(entity)
+    return entity
+
+
+async def test_entity_search_finds_a_country_by_its_other_spellings() -> None:
+    country = await _stored_entity("united states", "United States", "GPE")
+
+    async with session_factory() as db:
+        for value in ("US", "U.S.", "USA", "the United States", "America"):
+            resolved = await _resolve_annotations(db, [value], Entity)
+            assert str(country.id) in resolved, value
+
+
+async def test_entity_search_ignores_a_leading_the_and_a_possessive() -> None:
+    # Extraction stores "The Hague" under "hague" (canonical_entity); entity:"The Hague" must
+    # reach it.
+    hague = await _stored_entity("hague", "The Hague", "GPE")
+    reuters = await _stored_entity("reuters", "Reuters", "ORG")
+
+    async with session_factory() as db:
+        for value in ("The Hague", "the hague", "Hague's", "hague"):
+            assert str(hague.id) in await _resolve_annotations(db, [value], Entity), value
+        assert str(reuters.id) in await _resolve_annotations(db, ["Reuters'"], Entity)
+        # Keywords keep their own exact match.
+        assert str(hague.id) not in await _resolve_annotations(db, ["The Hague"], Keyword)
