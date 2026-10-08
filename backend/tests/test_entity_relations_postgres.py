@@ -169,9 +169,8 @@ async def test_edit_and_remove_are_recorded_in_the_history() -> None:
 
 
 async def test_merge_moves_relations_and_drops_duplicates() -> None:
-    from app.entities.relations import see_also
-
     from app.entities.authority import merge
+    from app.entities.relations import see_also
 
     language = _language()
     ids = await _entities(

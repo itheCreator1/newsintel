@@ -3,6 +3,9 @@
 import uuid
 
 import pytest
+from test_entity_authority import _ref
+
+from app.entities.authority import merge_problem
 from app.entities.relations import (
     LABELS,
     RelationError,
@@ -12,9 +15,6 @@ from app.entities.relations import (
     resolve_label,
     type_problem,
 )
-from test_entity_authority import _ref
-
-from app.entities.authority import merge_problem
 
 
 def test_every_label_names_one_type_and_a_direction() -> None:
