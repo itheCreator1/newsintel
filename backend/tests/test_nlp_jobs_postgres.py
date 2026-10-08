@@ -671,6 +671,8 @@ async def test_one_current_row_per_article_and_entity(monkeypatch: pytest.Monkey
         ),
         spans=[("US", "GPE"), ("U.S.", "LOC")],
     )
+    # The route reports the real spaCy install; drop the fake one before asking it.
+    monkeypatch.undo()
 
     assert await _current_entity_rows(article_id) == [("en", "GPE", "united states")]
     async with session_factory() as db:
