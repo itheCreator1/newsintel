@@ -34,7 +34,9 @@
 "test_compare_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_csrf.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_cursor_errors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_entity_authority.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_entity_authority_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_entity_authority_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_entity_dossier.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_entity_dossier_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_event_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
