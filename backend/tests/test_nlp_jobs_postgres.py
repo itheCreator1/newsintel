@@ -519,25 +519,24 @@ async def test_greek_switch_queues_the_greek_archive_once_and_refuses_without_th
     assert setting is not None and not setting.ner_enabled
 
 
-async def test_greek_article_entities_are_stored_with_language_el(
+async def _run_entities_job(
     monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A Greek article goes through a whole entities job, from detection to the database.
+    *,
+    title: str,
+    description: str,
+    spans: list[tuple[str, str]],
+    greek: bool = False,
+) -> tuple[uuid.UUID, uuid.UUID, list[str]]:
+    """Run one whole entities job for a new article; returns (job id, article id, loaded models).
 
     spaCy is faked (the test image has none; the ner-model gate stage runs the real model), but
-    language detection, the Greek model choice, the name key and the upsert are all real.
+    language detection, the model choice, the name keys and the upsert are all real.
     """
     from types import SimpleNamespace
 
     from app.core.config import Settings
-    from app.nlp.models import ArticleEntity, Entity, NlpLanguageSetting
+    from app.nlp.models import NlpLanguageSetting
 
-    title = "Ο Αλέξης Τσίπρας μίλησε στην Αθήνα για την οικονομία και την ενέργεια"
-    description = (
-        "Ο Τσίπρας είπε ότι η κυβέρνηση πρέπει να στηρίξει τα νοικοκυριά, "
-        "ενώ ο ΣΥΡΙΖΑ ζήτησε νέα μέτρα για τις τιμές της ενέργειας στην Ελλάδα."
-    )
-    spans = [("Αλέξης Τσίπρας", "PERSON"), ("Τσίπρας", "PERSON"), ("Αθήνα", "GPE")]
     loaded_models: list[str] = []
 
     class FakeSpan:
@@ -567,7 +566,8 @@ async def test_greek_article_entities_are_stored_with_language_el(
     monkeypatch.setattr("app.nlp.service.get_settings", lambda: settings)
 
     async with session_factory() as db, db.begin():
-        await db.merge(NlpLanguageSetting(language="el", ner_enabled=True))
+        if greek:
+            await db.merge(NlpLanguageSetting(language="el", ner_enabled=True))
         article = Article(
             original_url=f"https://example.test/{uuid.uuid4()}",
             normalized_url=f"https://example.test/{uuid.uuid4()}",
@@ -575,7 +575,7 @@ async def test_greek_article_entities_are_stored_with_language_el(
             normalized_title_hash=uuid.uuid4().hex,
         )
         feed = Feed(
-            name="Greek NLP source",
+            name="Entities job source",
             url=f"https://example.test/{uuid.uuid4()}.xml",
             tags=[],
             enabled=True,
@@ -607,27 +607,79 @@ async def test_greek_article_entities_are_stored_with_language_el(
             claimed = await claim_job(db, job_id, lease_seconds=60)
         assert claimed is not None
         await process_job(job_id, claimed[1])
-
         async with session_factory() as db:
-            job = await db.get(NlpJob, job_id)
-            rows = (
-                await db.execute(
-                    select(Entity.language, Entity.entity_type, Entity.normalized_text)
-                    .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
-                    .where(
-                        ArticleEntity.article_id == article_id,
-                        ArticleEntity.is_current.is_(True),
-                    )
-                )
-            ).all()
+            finished = await db.get(NlpJob, job_id)
+        assert finished is not None and finished.status == "succeeded"
     finally:
-        async with session_factory() as db, db.begin():
-            await db.merge(NlpLanguageSetting(language="el", ner_enabled=False))
+        if greek:
+            async with session_factory() as db, db.begin():
+                await db.merge(NlpLanguageSetting(language="el", ner_enabled=False))
+    return job_id, article_id, loaded_models
 
-    assert job is not None and job.status == "succeeded"
+
+async def _current_entity_rows(article_id: uuid.UUID) -> list[tuple[str, str, str]]:
+    from app.nlp.models import ArticleEntity, Entity
+
+    async with session_factory() as db:
+        rows = (
+            await db.execute(
+                select(Entity.language, Entity.entity_type, Entity.normalized_text)
+                .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
+                .where(
+                    ArticleEntity.article_id == article_id,
+                    ArticleEntity.is_current.is_(True),
+                )
+            )
+        ).all()
+    return [tuple(row) for row in rows]
+
+
+async def test_greek_article_entities_are_stored_with_language_el(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Greek article goes through a whole entities job, from detection to the database."""
+    _, article_id, loaded_models = await _run_entities_job(
+        monkeypatch,
+        title="Ο Αλέξης Τσίπρας μίλησε στην Αθήνα για την οικονομία και την ενέργεια",
+        description=(
+            "Ο Τσίπρας είπε ότι η κυβέρνηση πρέπει να στηρίξει τα νοικοκυριά, "
+            "ενώ ο ΣΥΡΙΖΑ ζήτησε νέα μέτρα για τις τιμές της ενέργειας στην Ελλάδα."
+        ),
+        spans=[("Αλέξης Τσίπρας", "PERSON"), ("Τσίπρας", "PERSON"), ("Αθήνα", "GPE")],
+        greek=True,
+    )
+
     assert loaded_models == ["el_core_news_sm"]
     # "Τσίπρας" folds into the one full name, and the key drops accents and the final "ς".
-    assert set(rows) == {("el", "PERSON", "αλεξη τσιπρα"), ("el", "GPE", "αθηνα")}
+    assert set(await _current_entity_rows(article_id)) == {
+        ("el", "PERSON", "αλεξη τσιπρα"),
+        ("el", "GPE", "αθηνα"),
+    }
+
+
+async def test_one_current_row_per_article_and_entity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The model tagging one country GPE once and LOC once still gives the article one row."""
+    from app.core.config import get_settings
+    from app.nlp.routes import article_annotations
+
+    _, article_id, _ = await _run_entities_job(
+        monkeypatch,
+        title="US officials met European ministers about energy prices and supply this week",
+        description=(
+            "The meeting in the U.S. capital ended without an agreement on energy prices, "
+            "officials said after several hours of talks about winter supply."
+        ),
+        spans=[("US", "GPE"), ("U.S.", "LOC")],
+    )
+    # The route reports the real spaCy install; drop the fake one before asking it.
+    monkeypatch.undo()
+
+    assert await _current_entity_rows(article_id) == [("en", "GPE", "united states")]
+    async with session_factory() as db:
+        annotations = await article_annotations(article_id, db, None, get_settings())  # type: ignore[arg-type]
+    listed = [(item.entity_type, item.normalized_text) for item in annotations.entities]
+    assert listed == [("GPE", "united states")]
+    assert annotations.entities[0].occurrence_count == 2
 
 
 async def test_downgrade_to_0016_removes_only_the_language_settings() -> None:

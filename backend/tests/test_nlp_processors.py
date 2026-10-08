@@ -8,6 +8,7 @@ import pytest
 from app.nlp.input import InputSection
 from app.nlp.processors import (
     ConfigurationError,
+    EntityValue,
     InputTooLarge,
     ProcessorContext,
     _is_junk_entity,
@@ -258,6 +259,41 @@ def test_canonical_entity_folds_spellings_of_one_name(
     assert canonical_entity(text, label, mapped) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "label"),
+    [
+        ("U.S.", "GPE"),
+        ("US", "GPE"),
+        ("the United States", "GPE"),
+        ("America", "GPE"),
+        ("Britain", "GPE"),
+        ("Russian Federation", "GPE"),
+        ("Viet Nam", "LOC"),
+        ("US", "ORG"),
+        ("Georgia", "GPE"),
+        ("The White House", "ORG"),
+        ("White House", "ORG"),
+        ("Reuters'", "ORG"),
+        ("U.N.", "ORG"),
+        ("The Hague", "GPE"),
+        ("Hague's", "GPE"),
+    ],
+)
+def test_entity_name_keys_match_the_stored_identity(text: str, label: str) -> None:
+    """A search for any spelling reaches the key extraction stored it under."""
+    from app.nlp.processors import entity_name_keys
+
+    mapped = {"GPE": "GPE", "LOC": "LOCATION", "ORG": "ORG"}[label]
+    assert canonical_entity(text, label, mapped)[1] in entity_name_keys(text)
+
+
+def test_entity_name_keys_keep_greek_keys() -> None:
+    from app.nlp.processors import entity_name_keys
+
+    assert "τσιπρα" in entity_name_keys("Τσίπρας")
+    assert "τσιπρα" in entity_name_keys("ΤΣΙΠΡΑ")
+
+
 def test_extract_entities_merges_spellings_of_one_country(monkeypatch: pytest.MonkeyPatch) -> None:
     text = "The U.S. and the United States, or simply US, are one country."
     spans = [("U.S.", "GPE"), ("United States", "GPE"), ("US", "GPE")]
@@ -265,6 +301,113 @@ def test_extract_entities_merges_spellings_of_one_country(monkeypatch: pytest.Mo
     entities = _extract_with_spans(monkeypatch, text, spans)
 
     assert entities == {("GPE", "united states", "United States", 3)}
+
+
+def test_extract_entities_stores_one_row_when_a_country_is_both_gpe_and_loc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    text = "US troops left. The U.S. said so."
+    spans = [("US", "GPE"), ("U.S.", "LOC")]
+
+    entities = _extract_with_spans(monkeypatch, text, spans)
+
+    assert entities == {("GPE", "united states", "United States", 2)}
+
+
+def test_extract_entities_merges_loc_and_fac_of_one_place(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Crowds filled Harbor Bridge. Police closed Harbor Bridge at noon."
+    spans = [("Harbor Bridge", "LOC"), ("Harbor Bridge", "FAC")]
+
+    entities = _extract_with_spans(monkeypatch, text, spans)
+
+    assert entities == {("LOCATION", "harbor bridge", "Harbor Bridge", 2)}
+
+
+def _extracted(
+    monkeypatch: pytest.MonkeyPatch, text: str, spans: list[tuple[str, str]], language: str = "en"
+) -> list[EntityValue]:
+    class FakePipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, value: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[_FakeSpan(span, value, label) for span, label in spans])
+
+    fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+    result = extract_entities(
+        context(text, language=language, ner_enabled=True, ner_model_el="el_core_news_sm")
+    )
+    return list(result.entities)
+
+
+@pytest.mark.parametrize(
+    ("spans", "expected"),
+    [
+        # Two of three mentions are FAC.
+        ([("Harbor Bridge", "LOC"), ("Harbor Bridge", "FAC"), ("Harbor Bridge", "FAC")], "FAC"),
+        ([("Harbor Bridge", "LOC"), ("Harbor Bridge", "LOC"), ("Harbor Bridge", "FAC")], "LOC"),
+        # A tie goes to the label first in the alphabet.
+        ([("Harbor Bridge", "LOC"), ("Harbor Bridge", "FAC")], "FAC"),
+    ],
+)
+def test_extract_entities_keeps_the_commonest_original_label(
+    monkeypatch: pytest.MonkeyPatch, spans: list[tuple[str, str]], expected: str
+) -> None:
+    entities = _extracted(monkeypatch, "They met on Harbor Bridge.", spans)
+
+    assert [(entity.original_label, entity.occurrence_count) for entity in entities] == [
+        (expected, len(spans))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"), [("en", "spacy-ner-map-4"), ("el", "spacy-ner-el-2")]
+)
+def test_entity_algorithm_version_marks_the_one_row_per_entity_rule(
+    monkeypatch: pytest.MonkeyPatch, language: str, expected: str
+) -> None:
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+    monkeypatch.setattr(
+        "app.nlp.processors.importlib.import_module",
+        lambda _: SimpleNamespace(load=lambda *_, **__: _NoEntities()),
+    )
+
+    result = extract_entities(
+        context("Text.", language=language, ner_enabled=True, ner_model_el="el_core_news_sm")
+    )
+
+    assert result.algorithm_version == expected
+
+
+class _NoEntities:
+    meta = {"version": "test"}
+
+    def __call__(self, _: str) -> SimpleNamespace:
+        return SimpleNamespace(ents=[])
+
+
+def test_extract_entities_merges_greek_rows_with_one_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Πορεία προς την Ακρόπολη. Ο χώρος της Ακρόπολης έκλεισε."
+    spans = [("Ακρόπολη", "LOC"), ("Ακρόπολης", "FAC")]
+
+    entities = _extract_with_spans(monkeypatch, text, spans, language="el")
+
+    # Which form is shown is the nominative rule's business; here only the identity counts.
+    assert {(kind, key, count) for kind, key, _, count in entities} == {("LOCATION", "ακροπολη", 2)}
+
+
+def test_extract_entities_orders_merged_occurrences_by_position(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    text = "The U.S. said so. US troops left."
+    entities = _extracted(monkeypatch, text, [("US", "GPE"), ("U.S.", "LOC")])
+
+    assert len(entities) == 1
+    starts = [item.input_start for item in entities[0].occurrences]
+    assert starts == sorted(starts)
 
 
 def test_extract_entities_folds_a_surname_into_the_one_full_name(
@@ -394,7 +537,7 @@ def test_greek_ner_is_off_until_a_greek_model_is_named() -> None:
     result = extract_entities(context(text, language="el", ner_enabled=True))
 
     assert result.outcome == "unsupported_language"
-    assert result.algorithm_version == "spacy-ner-el-1"
+    assert result.algorithm_version == "spacy-ner-el-2"
 
 
 @pytest.mark.parametrize(

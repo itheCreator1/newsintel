@@ -372,6 +372,24 @@ def canonical_entity(
     return mapped, normalized, display
 
 
+def entity_name_keys(text: str) -> frozenset[str]:
+    """Every normalized text `canonical_entity` could have stored this name under.
+
+    A search does not know the label the model gave, so it asks for the place key ("united
+    states" for "US") beside the plain one ("us"), and keeps the bare casefolded text too.
+    """
+    keys = {" ".join(text.casefold().split())}
+    if is_greek(text):
+        keys.add(greek_name_key(text))
+        return frozenset(keys)
+    normalized = _normalized_name(text)
+    keys.add(normalized)
+    country = _entity_countries().get(normalized)
+    if country is not None:
+        keys.add(country[1].casefold())
+    return frozenset(keys)
+
+
 def country_entity_names(prefix: str) -> frozenset[str]:
     """Normalized texts of the country entities one of whose names starts with `prefix`.
 
@@ -389,8 +407,9 @@ def country_entity_names(prefix: str) -> frozenset[str]:
 
 
 def _merge_short_person_names(
-    grouped: dict[tuple[str, str, str], list[Occurrence]],
-    display: dict[tuple[str, str, str], str],
+    grouped: dict[tuple[str, str], list[Occurrence]],
+    display: dict[tuple[str, str], str],
+    labels: dict[tuple[str, str], dict[str, int]],
 ) -> None:
     """Fold "Trump" into "Donald Trump" when the article names only one Trump in full.
 
@@ -416,6 +435,8 @@ def _merge_short_person_names(
             [*grouped[target], *grouped.pop(key)], key=lambda item: item.input_start
         )
         del display[key]
+        for label, count in labels.pop(key).items():
+            labels[target][label] = labels[target].get(label, 0) + count
 
 
 # Loading a model takes far longer than annotating one article, so each model is loaded once per
@@ -438,7 +459,8 @@ def _ner_pipeline(model: str) -> Any:
 
 
 # Greek articles have their own algorithm version, so English runs keep theirs unchanged.
-_NER_ALGORITHMS = {"en": "spacy-ner-map-3", "el": "spacy-ner-el-1"}
+# map-4 / el-2: one value per (type, key), whichever spaCy labels the mentions had.
+_NER_ALGORITHMS = {"en": "spacy-ner-map-4", "el": "spacy-ner-el-2"}
 
 
 def _ner_model(context: ProcessorContext) -> str | None:
@@ -466,8 +488,10 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
         raise ConfigurationError("spaCy is not installed but NLP NER is enabled")
     pipeline = _ner_pipeline(model)
     document = pipeline(context.text)
-    grouped: dict[tuple[str, str, str], list[Occurrence]] = {}
-    display: dict[tuple[str, str, str], str] = {}
+    # One value per stored identity: a country tagged GPE once and LOC once is still one row.
+    grouped: dict[tuple[str, str], list[Occurrence]] = {}
+    display: dict[tuple[str, str], str] = {}
+    labels: dict[tuple[str, str], dict[str, int]] = {}
     for entity in document.ents:
         original_label = str(entity.label_)
         if _is_junk_entity(str(entity.text), original_label):
@@ -478,24 +502,27 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
             ENTITY_TYPE_MAP.get(original_label, "OTHER"),
             language,
         )
-        key = (mapped, normalized, original_label)
+        key = (mapped, normalized)
         grouped.setdefault(key, []).append(_occurrence(context, entity.start_char, entity.end_char))
+        counts = labels.setdefault(key, {})
+        counts[original_label] = counts.get(original_label, 0) + 1
         if language == "el" and key in display:
             # "Τσίπρα" (object case) may come first; show "Τσίπρας" when the article has it.
             if _nominative(text) and not _nominative(display[key]):
                 display[key] = text
         else:
             display.setdefault(key, text)
-    _merge_short_person_names(grouped, display)
+    _merge_short_person_names(grouped, display, labels)
     values = [
         EntityValue(
             display[key],
             key[1],
             key[0],
-            key[2],
+            # original_label is one column: keep the commonest, the first alphabetically on a tie.
+            min(labels[key].items(), key=lambda item: (-item[1], item[0]))[0],
             len(occurrences),
             min(1.0, len(occurrences) / 5),
-            tuple(occurrences),
+            tuple(sorted(occurrences, key=lambda item: item.input_start)),
         )
         for key, occurrences in grouped.items()
     ]

@@ -60,7 +60,7 @@ def test_pinned_greek_model_extracts_real_greek_entities() -> None:
     )
 
     assert result.outcome == "success"
-    assert result.algorithm_version == "spacy-ner-el-1"
+    assert result.algorithm_version == "spacy-ner-el-2"
     found = {(entity.normalized_text, entity.entity_type) for entity in result.entities}
     # "τον Αλέξη Τσίπρα" and "Ο Τσίπρας" are one person.
     assert ("αλεξη τσιπρα", "PERSON") in found

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.nlp.models import Entity, Keyword
-from app.nlp.processors import greek_name_key, is_greek
+from app.nlp.processors import entity_name_keys
 from app.search.models import SearchIndexTarget
 from app.search.query import ParsedQuery, SearchSyntaxError, parse_query
 from app.search.rebuild import ALIAS
@@ -102,10 +102,11 @@ async def _resolve_annotations(
         try:
             resolved.add(str(uuid.UUID(value)))
         except ValueError:
-            names.append(" ".join(value.casefold().split()))
-            if model is Entity and is_greek(value):
-                # A Greek name is stored under its accent- and ending-free key ("τσιπρα").
-                names.append(greek_name_key(value))
+            if model is Entity:
+                # The keys extraction stores a name under: "τσιπρα", "hague", "united states".
+                names.extend(entity_name_keys(value))
+            else:
+                names.append(" ".join(value.casefold().split()))
     if names:
         resolved.update(
             str(value)
