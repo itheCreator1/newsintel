@@ -1,5 +1,6 @@
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -427,6 +428,30 @@ def test_extract_entities_folds_a_surname_into_the_one_full_name(
         ("PERSON", "donald trump", "Donald Trump", 2),
         ("PERSON", "joe biden", "Joe Biden", 2),
     }
+
+
+def test_merge_short_person_names_skips_ambiguous_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Donald Trump spoke. Trump later left."
+    spans = [("Donald Trump", "PERSON"), ("Trump", "PERSON")]
+
+    class FakePipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, value: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[_FakeSpan(span, value, label) for span, label in spans])
+
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr(
+        "app.nlp.processors.importlib.import_module",
+        lambda _: SimpleNamespace(load=lambda *_, **__: FakePipeline()),
+    )
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+    ambiguous = replace(context(text, ner_enabled=True), ambiguous_names=frozenset({"trump"}))
+
+    result = extract_entities(ambiguous)
+
+    # The user marked "Trump" ambiguous, so the surname alone is not folded into a full name.
+    assert {entity.normalized_text for entity in result.entities} == {"donald trump", "trump"}
 
 
 def test_extract_entities_keeps_a_surname_shared_by_two_people(
