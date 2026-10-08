@@ -12,6 +12,7 @@ from app.clustering.service import claim_job as claim_cluster_job
 from app.clustering.service import job_due as cluster_job_due
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.authority import scan_authority_runs
 from app.feeds.models import ArticleProcessingJob, Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
@@ -301,6 +302,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             schedule_due_articles,
             schedule_due_nlp,
             scan_active_reprocessing,
+            scan_authority_runs,
             schedule_due_clustering,
             schedule_due_search,
             schedule_due_monitors,

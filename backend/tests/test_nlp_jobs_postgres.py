@@ -841,3 +841,52 @@ async def test_ambiguous_surname_is_not_folded(monkeypatch: pytest.MonkeyPatch) 
         f"ivo {surname.casefold()}",
         surname.casefold(),
     }
+
+
+async def test_ner_stores_two_names_of_one_root_as_one_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.nlp.models import ArticleEntity, Entity
+
+    token = uuid.uuid4().hex[:8]
+    async with session_factory() as db, db.begin():
+        root = Entity(
+            language="en",
+            entity_type="PERSON",
+            normalized_text=f"teodor vane {token}",
+            display_text=f"Teodor Vane {token}",
+        )
+        db.add(root)
+        await db.flush()
+        variant = Entity(
+            language="en",
+            entity_type="PERSON",
+            normalized_text=f"t. vane {token}",
+            display_text=f"T. Vane {token}",
+            authority_id=root.id,
+        )
+        db.add(variant)
+        await db.flush()
+        root_id, variant_id = root.id, variant.id
+
+    _, article_id, _ = await _run_entities_job(
+        monkeypatch,
+        title=f"Teodor Vane {token} announced a new wage plan for public sector workers",
+        description=f"T. Vane {token} said so. " + ENGLISH_DESCRIPTION,
+        spans=[(f"Teodor Vane {token}", "PERSON"), (f"T. Vane {token}", "PERSON")],
+    )
+
+    async with session_factory() as db:
+        rows = list(
+            await db.scalars(
+                select(ArticleEntity).where(
+                    ArticleEntity.article_id == article_id, ArticleEntity.is_current.is_(True)
+                )
+            )
+        )
+    # The root's own name and its variant are one entity in this article.
+    assert [(row.entity_id, row.occurrence_count) for row in rows] == [(root_id, 2)]
+    # Each mention remembers the name it came from, so a later split can take it back.
+    assert sorted(str(item.get("entity_id")) for item in rows[0].occurrences) == sorted(
+        ["None", str(variant_id)]
+    )
