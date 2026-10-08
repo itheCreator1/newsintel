@@ -1,13 +1,14 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.entities.relations import expand
 from app.entities.resolver import expand_for_search
 from app.feeds.models import Feed
 from app.nlp.models import Entity, Keyword
@@ -36,6 +37,8 @@ class SearchCriteria:
     story_cluster_ids: list[str]
     # entity_ids widened to every name of their roots; what the index is filtered on.
     entity_match_ids: list[str] = field(default_factory=list)
+    # Which see-also links entity_match_ids followed: "names", "parts", or none.
+    entity_expand: list[str] = field(default_factory=list)
 
     @property
     def annotation_search(self) -> bool:
@@ -60,6 +63,8 @@ class SearchCriteria:
         return all(value in ("", [], None) for value in self.fingerprint().values())
 
     def fingerprint(self) -> dict[str, Any]:
+        # A key only when set, so every criteria fingerprint made before see-also stays the same.
+        expanded = {"entity_expand": self.entity_expand} if self.entity_expand else {}
         return {
             "q": self.q,
             "sources": self.sources,
@@ -75,6 +80,7 @@ class SearchCriteria:
             "story_countries": self.story_countries,
             "mentioned_countries": self.mentioned_countries,
             "story_clusters": self.story_cluster_ids,
+            **expanded,
         }
 
 
@@ -136,6 +142,7 @@ async def search_criteria(
     story_country: Annotated[list[str] | None, Query()] = None,
     mentioned_country: Annotated[list[str] | None, Query()] = None,
     story_cluster_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    entity_expand: Annotated[list[Literal["names", "parts"]] | None, Query()] = None,
 ) -> SearchCriteria:
     try:
         parsed = parse_query(q)
@@ -163,7 +170,10 @@ async def search_criteria(
         processing=sorted(processing_status or []),
         languages=sorted({value.casefold() for value in language or []} | set(parsed.languages)),
         entity_ids=entity_ids,
-        entity_match_ids=await expand_for_search(db, entity_ids),
+        entity_match_ids=await expand_for_search(
+            db, await expand(db, entity_ids, set(entity_expand or []))
+        ),
+        entity_expand=sorted(set(entity_expand or [])),
         entity_types=sorted({value.upper() for value in entity_type or []}),
         keyword_ids=sorted(
             {

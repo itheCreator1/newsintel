@@ -1,5 +1,5 @@
 import { ApiError } from './api'
-import { emptyInvestigation, queryFromState, toHref, type Investigation, type ListField } from './investigation'
+import { emptyInvestigation, queryFromState, toHref, type Expansion, type Investigation, type ListField } from './investigation'
 
 export type FilterChip = { key: string; label: string }
 /** Display names already loaded by the page, per ID field; a missing name falls back to the full ID. */
@@ -9,6 +9,10 @@ const FIELD_NAMES: Record<ListField, string> = {
   source_id: 'Source', source_country: 'Source country', processing_status: 'Processing', language: 'Language', entity_id: 'Entity',
   entity_type: 'Entity type', keyword_id: 'Keyword', story_country: 'Story country', mentioned_country: 'Mentioned country', story_cluster_id: 'Story',
 }
+
+const EXPANSION_NAMES: Record<Expansion, string> = { names: 'earlier and later names', parts: 'parts' }
+/** See-also expansions only mean something where the entity filter applies. */
+const expansions = (state: Investigation, fields: ListField[]) => fields.includes('entity_id') ? state.entity_expand : []
 
 /** The fields each page tucks under Advanced filters; `content` counts as one when set explicitly. */
 export const SEARCH_ADVANCED: ListField[] = ['source_id', 'source_country', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'processing_status']
@@ -20,7 +24,7 @@ export const GRAPH_CHIP_FIELDS = GRAPH_ADVANCED
 const unique = (values: string[]) => [...new Set(values)]
 
 export function advancedCount(state: Investigation, fields: ListField[], { content = false } = {}): number {
-  return fields.reduce((total, field) => total + unique(state[field]).length, 0) + (content && state.content_available !== null ? 1 : 0)
+  return fields.reduce((total, field) => total + unique(state[field]).length, 0) + expansions(state, fields).length + (content && state.content_available !== null ? 1 : 0)
 }
 
 export function filterChips(state: Investigation, fields: ListField[], labels: FilterLabels = {}, { content = false } = {}): FilterChip[] {
@@ -31,6 +35,7 @@ export function filterChips(state: Investigation, fields: ListField[], labels: F
   for (const field of fields) {
     for (const value of unique(state[field])) chips.push({ key: `${field}:${value}`, label: `${FIELD_NAMES[field]}: ${labels[field]?.get(value) ?? value}` })
   }
+  for (const option of expansions(state, fields)) chips.push({ key: `entity_expand:${option}`, label: `Entity links: ${EXPANSION_NAMES[option]}` })
   if (content && state.content_available !== null) chips.push({ key: 'content_available', label: `Content: ${state.content_available ? 'Available' : 'RSS only'}` })
   return chips
 }
@@ -41,6 +46,7 @@ export function removeFilter(state: Investigation, key: string): Investigation {
   if (key === 'after' || key === 'before' || key === 'content_available') return { ...state, [key]: null }
   const split = key.indexOf(':')
   const field = key.slice(0, split) as ListField, value = key.slice(split + 1)
+  if (key.slice(0, split) === 'entity_expand') return { ...state, entity_expand: state.entity_expand.filter(option => option !== value) }
   return field in FIELD_NAMES ? { ...state, [field]: state[field].filter(item => item !== value) } : state
 }
 

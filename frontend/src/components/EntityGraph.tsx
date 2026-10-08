@@ -5,10 +5,11 @@ import { LegendComponent, TooltipComponent } from 'echarts/components'
 import { init, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
-import type { GraphEdge, GraphNode } from '../lib/api-types'
+import type { GraphEdge, GraphNode, StatedEdge } from '../lib/api-types'
 import { chartTheme, entityColors, groupColors } from '../lib/chart-theme'
 import { communities } from '../lib/graph-communities'
 import { isNewEdge } from '../lib/graph-edges'
+import { statedText } from '../lib/see-also'
 
 use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
@@ -20,6 +21,8 @@ const GROUP_COLORS = groupColors
 const OTHER_GROUPS = 'Other groups'
 /** Connections whose every article falls in the recent span. */
 const NEW_EDGE = chartTheme.newEdge
+/** See-also links the user stated, drawn beside co-occurrence. */
+const STATED_EDGE = chartTheme.statedEdge
 /** Only the busiest nodes carry a permanent label; hovering reveals the rest. */
 const LABELLED_NODES = 12
 
@@ -35,7 +38,23 @@ interface OptionInput {
   selectedEdge?: string
   colourBy?: ColourBy
   recentSince?: string | null
+  stated?: StatedEdge[]
 }
+
+/** One drawn line: a co-occurrence edge, or a stated see-also link. */
+interface GraphLine {
+  source: string
+  target: string
+  value?: number
+  weight?: number
+  isNew?: boolean
+  stated?: boolean
+  text?: string
+  ignoreForceLayout?: boolean
+  label?: { show: boolean; formatter: string; color: string; fontSize: number }
+  lineStyle: { color?: string; width?: number; opacity?: number; type?: 'dashed' | 'dotted'; curveness?: number }
+}
+
 
 function colouring(nodes: GraphNode[], edges: GraphEdge[], colourBy: ColourBy) {
   if (colourBy === 'type') {
@@ -52,7 +71,7 @@ function colouring(nodes: GraphNode[], edges: GraphEdge[], colourBy: ColourBy) {
   }
 }
 
-export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'type', recentSince }: OptionInput) {
+export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'type', recentSince, stated = [] }: OptionInput) {
   const { names: categories, colours, of: categoryOf } = colouring(nodes, edges, colourBy)
   // Fewer nodes get more room; a crowded graph is pulled tighter so it still fits the panel.
   const crowded = nodes.length > 40
@@ -73,9 +92,10 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
     // spaCy-extracted entity text that happens to contain HTML-like characters can't be interpreted as markup.
     tooltip: {
       renderMode: 'richText',
-      formatter: (params: { dataType?: string; data?: { name?: string; type?: string; value?: number; weight?: number; isNew?: boolean; source?: string; target?: string } }) => {
+      formatter: (params: { dataType?: string; data?: { name?: string; type?: string; value?: number; weight?: number; isNew?: boolean; stated?: boolean; text?: string; source?: string; target?: string } }) => {
         const data = params.data
         if (!data) return ''
+        if (params.dataType === 'edge' && data.stated) return `${names.get(data.source!)} · ${data.text} · ${names.get(data.target!)} (stated link)`
         if (params.dataType === 'node') return `${data.name} (${data.type}) · ${data.value} articles`
         if (params.dataType === 'edge') return `${names.get(data.source!)} — ${names.get(data.target!)} · ${data.weight} articles · ${Math.round((data.value ?? 0) * 100)}% overlap${data.isNew ? ' · new' : ''}`
         return ''
@@ -115,7 +135,7 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
             : { opacity: dimmed(node.id) ? 0.25 : 1 },
         }
       }),
-      edges: edges.map(edge => {
+      edges: edges.map((edge): GraphLine => {
         const ratio = Math.sqrt(edge.score / maxScore)
         const isSelected = edge === selected
         const faded = neighbourhood && !isSelected && edge.source !== focus && edge.target !== focus
@@ -130,7 +150,20 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
             ? { color: HIGHLIGHT, width: 7, opacity: 1 }
             : { width: 1 + 5 * ratio, opacity: faded ? 0.05 : isNew ? 0.55 + 0.4 * ratio : 0.15 + 0.45 * ratio, ...(isNew ? { color: NEW_EDGE, type: 'dashed' as const } : {}) },
         }
-      }),
+      }).concat(stated.filter(link => names.has(link.source) && names.has(link.target)).map((link): GraphLine => {
+        const faded = neighbourhood && link.source !== focus && link.target !== focus
+        const text = statedText(link)
+        // Curved apart from any co-occurrence line between the same pair, and kept out of the layout's pull.
+        return {
+          source: link.source,
+          target: link.target,
+          stated: true,
+          text,
+          ignoreForceLayout: true,
+          label: { show: true, formatter: text, color: STATED_EDGE, fontSize: 11 },
+          lineStyle: { color: STATED_EDGE, type: 'dotted' as const, width: 2, curveness: 0.3, opacity: faded ? 0.1 : 0.9 },
+        }
+      })),
     }],
   }
 }
@@ -142,11 +175,12 @@ interface Props {
   selectedEdge?: string
   colourBy?: ColourBy
   recentSince?: string | null
+  stated?: StatedEdge[]
   onSelect(id: string): void
   onSelectEdge(source: string, target: string): void
 }
 
-export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recentSince, onSelect, onSelectEdge }: Props) {
+export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, onSelect, onSelectEdge }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const onSelectRef = useRef(onSelect)
@@ -158,9 +192,10 @@ export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recen
     const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
     chartRef.current = chart
     chart.on('click', (event: unknown) => {
-      const params = event as { dataType?: string; data?: { id?: string; source?: string; target?: string } }
+      const params = event as { dataType?: string; data?: { id?: string; source?: string; target?: string; stated?: boolean } }
       if (params.dataType === 'node' && params.data?.id) onSelectRef.current(params.data.id)
-      if (params.dataType === 'edge' && params.data?.source && params.data.target) onSelectEdgeRef.current(params.data.source, params.data.target)
+      // A stated link has no co-occurrence evidence to open.
+      if (params.dataType === 'edge' && !params.data?.stated && params.data?.source && params.data.target) onSelectEdgeRef.current(params.data.source, params.data.target)
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(elementRef.current!)
@@ -170,8 +205,8 @@ export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recen
   useEffect(() => {
     // Merge rather than replace: the series model keeps its node positions by id, so selecting a node
     // restyles the graph in place, and expanding one adds its neighbours around the nodes already drawn.
-    chartRef.current?.setOption(graphOption({ nodes, edges, focus, selectedEdge, colourBy, recentSince }))
-  }, [nodes, edges, focus, selectedEdge, colourBy, recentSince])
+    chartRef.current?.setOption(graphOption({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated }))
+  }, [nodes, edges, focus, selectedEdge, colourBy, recentSince, stated])
 
   return <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity and connection lists below to select one.`} />
 }

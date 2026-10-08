@@ -20,6 +20,8 @@ export const chartTheme = {
   nodeBorder: '#ffffff',
   // Fluent dark yellow: a dashed new connection stands out from the grey edges and still reads on white.
   newEdge: '#c19c00',
+  // Fluent purple: a dotted stated link reads apart from both co-occurrence greys and the new-edge yellow.
+  statedEdge: '#8764b8',
 } as const
 
 /** Entity-type node colors from Fluent's shared palette: distinct hues, all dark enough to read on white. */

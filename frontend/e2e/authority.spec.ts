@@ -93,3 +93,68 @@ test('authority file workflow approves and rejects suggested duplicates', async 
   await expect(history.getByRole('listitem').first()).toContainText(/(J\. Tarr and Jon Tarr|Jon Tarr and J\. Tarr) recorded as different/)
   await expect(history.getByRole('listitem').nth(1)).toContainText('NAC merged into North Atlantic Council')
 })
+
+// Runs after `authority merge workflow` (a see-also link would block its merge) and removes both
+// links it adds, so the specs after it see the same data. The fixture has no renamed company, so
+// Microsoft stands in for an earlier name of the United Nations: what is checked is the mechanics.
+test('see also workflow links entities and follows the link in search and the graph', async ({ page }) => {
+  test.setTimeout(120_000)
+  await login(page, 'phase14d')
+  const microsoft = await entityId(page, 'Microsoft')
+  const nations = await entityId(page, 'United Nations')
+  const brussels = await entityId(page, 'Brussels')
+  expect(microsoft && nations && brussels).toBeTruthy()
+
+  // From an article: two of its entities, with the article recorded as the source.
+  const summit = (await json<{ items: { id: string; title: string }[] }>(page, '/articles?limit=100')).items
+    .find(item => item.title === 'United Nations envoy visits Brussels for a climate summit')!
+  await page.goto(`/articles?article=${summit.id}`)
+  await page.getByRole('button', { name: 'Link two entities' }).click()
+  const form = page.getByRole('form', { name: 'Link entities from this article' })
+  await form.getByLabel('Entity', { exact: true }).selectOption(nations)
+  await form.getByLabel('Link type').selectOption('related')
+  await form.getByLabel('Linked entity').selectOption(brussels)
+  await form.getByRole('button', { name: 'Save link' }).click()
+  await expect(page.getByRole('status')).toHaveText('Linked United Nations to Brussels, with this article as the source.')
+
+  // From the dossier: a later name, found through the linked-entity picker.
+  await page.goto(`/entities?id=${microsoft}`)
+  await page.getByRole('button', { name: 'Add link' }).click()
+  await page.getByLabel('Link type').selectOption('later_name')
+  await page.getByLabel('Find the linked entity').fill('United Nations')
+  await page.getByRole('button', { name: 'United Nations (ORG)', exact: true }).click()
+  await page.getByRole('button', { name: 'Save link' }).click()
+  await expect(page.getByRole('list', { name: 'See also' })).toHaveText(/Later name: United Nations/)
+
+  await page.goto(`/entities?id=${nations}`)
+  const links = page.getByRole('list', { name: 'See also' })
+  await expect(links.getByRole('listitem')).toHaveCount(2)
+  await expect(links).toContainText('Earlier name: Microsoft')
+  await expect(links).toContainText('Related: Brussels · Source: United Nations envoy visits Brussels for a climate summit')
+
+  // Search follows the link only when asked: the earlier name's articles join the later name's.
+  await page.goto(`/search?entity_id=${nations}`)
+  await expect(page.locator('.search-result')).toHaveCount(2, { timeout: 30_000 })
+  await page.getByRole('group', { name: /^Follow see-also links/ }).getByRole('checkbox', { name: 'Earlier and later names' }).check()
+  await page.getByRole('button', { name: 'Search archive' }).click()
+  await expect(page).toHaveURL(/entity_expand=names/)
+  await expect(page.locator('.search-result')).toHaveCount(4)
+  await expect(page.locator('.search-result').filter({ hasText: 'Barack Obama meets Microsoft executives in Washington' })).toHaveCount(2)
+  await expect(page.getByRole('button', { name: 'Remove Entity links: earlier and later names' })).toBeVisible()
+
+  // The graph draws stated links only when switched on, beside co-occurrence.
+  await page.goto('/graph')
+  const toggle = page.getByRole('button', { name: 'Stated links' })
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('list', { name: 'Stated links in this graph' })).toHaveCount(0)
+  await toggle.click()
+  await expect(page).toHaveURL(/stated=1/)
+  await expect(page.getByRole('list', { name: 'Stated links in this graph' })).toContainText('Microsoft · later name · United Nations')
+  await expect(page.getByText('Dotted purple lines are see-also links you stated; they never count as co-occurrence.')).toBeVisible()
+
+  // Clean up, so later specs see no links.
+  await page.goto(`/entities?id=${nations}`)
+  await page.getByRole('button', { name: 'Remove link to Microsoft' }).click()
+  await page.getByRole('button', { name: 'Remove link to Brussels' }).click()
+  await expect(page.getByText('No see-also links yet.')).toBeVisible()
+})

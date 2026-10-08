@@ -14,6 +14,7 @@ import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass
 import { advancedCount, errorCode, filterChips, GRAPH_ADVANCED, GRAPH_CHIP_FIELDS, isTransient, removeFilter } from '../../lib/filter-ui'
 import { cn } from '../../lib/utils'
 import { isNewEdge } from '../../lib/graph-edges'
+import { statedText } from '../../lib/see-also'
 import { api, ApiError } from '../../lib/api'
 import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 
@@ -51,6 +52,8 @@ function GraphContent() {
     // A hand-edited URL or bookmark can carry any value; the backend rejects anything over MAX_NODES with a 422.
     return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), MAX_NODES) : 30
   })()
+  // Stated see-also links are drawn only when asked for, and the choice is in the URL with the rest.
+  const showStated = searchParams.get('stated') === '1'
   const minWeight = (() => {
     const raw = Number(searchParams.get('min_weight'))
     return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : DEFAULT_MIN_WEIGHT
@@ -88,10 +91,12 @@ function GraphContent() {
   const graphFilters: Record<string, string | string[] | undefined> = { ...evidenceFilters, nodes: String(nodeCount) }
   if (expand.length) graphFilters.expand = expand
   if (minWeight !== DEFAULT_MIN_WEIGHT) graphFilters.min_edge_weight = String(minWeight)
+  if (showStated) graphFilters.stated = 'true'
 
   const graph = useQuery({ queryKey: ['entity-graph', graphFilters], queryFn: () => api.entityGraph(graphFilters), retry: false })
   const nodes = graph.data?.nodes ?? []
   const edges = graph.data?.edges ?? []
+  const stated = showStated ? graph.data?.stated_edges ?? [] : []
   const nodeById = new Map(nodes.map(node => [node.id, node]))
   const focusNode = nodeById.get(focus) ?? null
   // The panel follows the selected entity, or the focused one when nothing else is selected.
@@ -114,7 +119,7 @@ function GraphContent() {
   const graphError = graph.error instanceof ApiError ? graph.error : null
   const upgradeRequired = graphError?.status === 409 && errorCode(graphError) === 'search_upgrade_required'
 
-  function navigate(next: Investigation, extra: { focus?: string; selected?: string; expand?: string[]; nodes?: number; minWeight?: number; edge?: string } = {}) {
+  function navigate(next: Investigation, extra: { focus?: string; selected?: string; expand?: string[]; nodes?: number; minWeight?: number; edge?: string; stated?: boolean } = {}) {
     const query = queryFromState(next)
     const nextFocus = extra.focus !== undefined ? extra.focus : focus
     const nextSelected = extra.selected !== undefined ? extra.selected : selected
@@ -127,6 +132,7 @@ function GraphContent() {
     if (extra.edge) query.set('edge', extra.edge)
     if (nextNodes !== 30) query.set('nodes', String(nextNodes))
     if (nextMinWeight !== DEFAULT_MIN_WEIGHT) query.set('min_weight', String(nextMinWeight))
+    if (extra.stated !== undefined ? extra.stated : showStated) query.set('stated', '1')
     router.push(toHref('/graph', query))
   }
   function draftState(draft = form): Investigation {
@@ -207,12 +213,27 @@ function GraphContent() {
                 {([['type', 'Type'], ['group', 'Group']] as const).map(([value, label]) => (
                   <button key={value} type="button" className={cn(chipClass, colourBy === value && 'border-primary/60 bg-primary/12 text-foreground')} aria-pressed={colourBy === value} onClick={() => setColourBy(value)}>{label}</button>
                 ))}
+                <button type="button" className={cn(chipClass, showStated && 'border-primary/60 bg-primary/12 text-foreground')} aria-pressed={showStated} onClick={() => navigate(state, { stated: !showStated })}>Stated links</button>
               </div>
-              <EntityGraph nodes={nodes} edges={edges} focus={panelNode?.id ?? ''} selectedEdge={selectedEdge} colourBy={colourBy} recentSince={recentSince} onSelect={selectEntity} onSelectEdge={selectEdge} />
+              <EntityGraph nodes={nodes} edges={edges} stated={stated} focus={panelNode?.id ?? ''} selectedEdge={selectedEdge} colourBy={colourBy} recentSince={recentSince} onSelect={selectEntity} onSelectEdge={selectEdge} />
               <p className="mt-2 text-xs text-muted-foreground">
                 Thicker, closer lines link entities that mostly appear together.
                 {newEdges > 0 && ` Dashed yellow lines are new: all ${newEdges === 1 ? 'of that connection’s' : 'their'} articles date from the last week.`}
               </p>
+              {showStated && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {stated.length ? 'Dotted purple lines are see-also links you stated; they never count as co-occurrence.' : 'No stated see-also links between these entities.'}
+                </p>
+              )}
+              {stated.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2" aria-label="Stated links in this graph">
+                  {stated.map(link => (
+                    <li key={`${link.source}:${link.label}:${link.target}`} className={chipClass}>
+                      {`${nodeById.get(link.source)?.text ?? link.source} · ${statedText(link)} · ${nodeById.get(link.target)?.text ?? link.target}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
               <ul className="mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
                 {nodes.map(node => (

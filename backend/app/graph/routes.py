@@ -18,6 +18,7 @@ from app.graph.service import (
     decode_after,
     focus_query,
     recent_since,
+    stated_links,
 )
 from app.graph.service import edge_evidence as collect_edge_evidence
 from app.graph.service import entity_graph as collect_entity_graph
@@ -52,12 +53,13 @@ async def entity_graph(
     nodes: Annotated[int, Query(ge=1, le=MAX_NODES)] = 30,
     min_edge_weight: Annotated[int, Query(ge=1)] = 2,
     expand: Annotated[list[uuid.UUID] | None, Query(max_length=MAX_EXPANDED)] = None,
+    stated: bool = False,
 ) -> GraphResponse:
     focus_entity_id, focus_ids = await _focus(db, focus_entity_id)
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
         index_name, schema_version = await current_search_target(db, criteria, minimum=2)
-        return await collect_entity_graph(
+        graph = await collect_entity_graph(
             db,
             adapter,
             index_name,
@@ -72,6 +74,11 @@ async def entity_graph(
         )
     except ElasticsearchUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    if not stated:
+        return graph
+    # Stated links are drawn beside co-occurrence and never change its edges or weights.
+    drawn = [str(node.id) for node in graph.nodes]
+    return graph.model_copy(update={"stated_edges": await stated_links(db, drawn)})
 
 
 @router.get("/graph/edges/evidence", response_model=EdgeEvidenceResponse)

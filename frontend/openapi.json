@@ -4480,6 +4480,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -4853,6 +4876,29 @@
                 }
               ],
               "title": "Story Cluster Id"
+            }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
             }
           }
         ],
@@ -5470,6 +5516,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -5775,6 +5844,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -6075,6 +6167,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -6368,6 +6483,16 @@
             }
           },
           {
+            "name": "stated",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Stated"
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -6619,6 +6744,29 @@
                 }
               ],
               "title": "Story Cluster Id"
+            }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
             }
           }
         ],
@@ -6972,6 +7120,29 @@
                 }
               ],
               "title": "Story Cluster Id"
+            }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
             }
           }
         ],
@@ -8027,6 +8198,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -8328,6 +8522,29 @@
               ],
               "title": "Story Cluster Id"
             }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
+            }
           }
         ],
         "responses": {
@@ -8628,6 +8845,29 @@
                 }
               ],
               "title": "Story Cluster Id"
+            }
+          },
+          {
+            "name": "entity_expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "names",
+                      "parts"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Expand"
             }
           }
         ],
@@ -12977,6 +13217,14 @@
               }
             ],
             "title": "Recent Since"
+          },
+          "stated_edges": {
+            "items": {
+              "$ref": "#/components/schemas/StatedEdge"
+            },
+            "type": "array",
+            "title": "Stated Edges",
+            "default": []
           }
         },
         "type": "object",
@@ -13422,6 +13670,18 @@
             "type": "array",
             "maxItems": 50,
             "title": "Story Cluster Id"
+          },
+          "entity_expand": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "names",
+                "parts"
+              ]
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Entity Expand"
           },
           "sort": {
             "type": "string",
@@ -16429,6 +16689,43 @@
         ],
         "title": "SourceTiming",
         "description": "Over stories in the window that this source and at least one other source published.\n\n`first` counts stories where this source's article is the earliest (ties: lowest article id; an\narticle that several feeds carry counts for each of them). The two minute values describe the\nremaining stories: how far behind the earliest article this source's own article was."
+      },
+      "StatedEdge": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target"
+          },
+          "label": {
+            "type": "string",
+            "enum": [
+              "later_name",
+              "earlier_name",
+              "part_of",
+              "has_part",
+              "member_of",
+              "has_member",
+              "leader_of",
+              "led_by",
+              "related"
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "label"
+        ],
+        "title": "StatedEdge",
+        "description": "A see-also link the user stated, read from `source`'s side: source <label> target."
       },
       "StopWordsResponse": {
         "properties": {

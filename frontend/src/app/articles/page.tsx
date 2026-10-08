@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
+import { ArticleEntityLink } from '../../components/ArticleEntityLink'
 import { ArticleReader } from '../../components/ArticleReader'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
@@ -226,6 +227,7 @@ function ArticlesContent() {
                         </span>
                       ))}</div>
                     )}
+                    {selectedId && <ArticleEntityLink key={selectedId} articleId={selectedId} entities={annotations.data.entities} />}
                     <div className="flex flex-col gap-1">
                       {annotations.data.processors.map(outcome => (
                         <p key={outcome.processor} className={cn('text-sm', outcome.status === 'failed' ? 'error text-destructive' : 'text-muted-foreground')}>
