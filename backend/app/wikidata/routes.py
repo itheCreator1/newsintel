@@ -9,7 +9,15 @@ from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
 from app.wikidata import links
-from app.wikidata.schemas import WikidataItemResponse, WikidataLinkRequest, WikidataLinkResponse
+from app.wikidata.names import Name
+from app.wikidata.schemas import (
+    WikidataItemResponse,
+    WikidataLinkRequest,
+    WikidataLinkResponse,
+    WikidataName,
+    WikidataNameResponse,
+    WikidataNamesRequest,
+)
 
 router = APIRouter(tags=["wikidata"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -30,7 +38,21 @@ def _response(found: links.LinkState) -> WikidataLinkResponse:
         if found.item is not None
         else None,
         fetch_pending=found.fetch_pending,
+        names=[
+            WikidataNameResponse(
+                language=state.name.language,
+                text=state.name.text,
+                kind=state.name.kind,
+                status=state.status,
+                entity_id=str(state.entity_id) if state.entity_id else None,
+            )
+            for state in found.names
+        ],
     )
+
+
+def _names(values: list[WikidataName]) -> list[Name]:
+    return [Name(value.language, value.text, "alias") for value in values]
 
 
 @router.get("/entities/{entity_id}/wikidata", response_model=WikidataLinkResponse)
@@ -48,7 +70,7 @@ async def link_wikidata(
 ) -> WikidataLinkResponse:
     """Link the root to a Wikidata item. A QID another root holds is refused with that root."""
     try:
-        found = await links.link(db, entity_id, payload.qid)
+        found = await links.link(db, entity_id, payload.qid, _names(payload.aliases))
     except links.LinkError as error:
         raise _refused(error) from None
     response = _response(found)
@@ -65,3 +87,17 @@ async def unlink_wikidata(entity_id: uuid.UUID, db: Db, _session: Mutation) -> R
         raise _refused(error) from None
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/entities/{entity_id}/wikidata/names", response_model=WikidataLinkResponse)
+async def add_wikidata_names(
+    entity_id: uuid.UUID, payload: WikidataNamesRequest, db: Db, _session: Mutation
+) -> WikidataLinkResponse:
+    """Add more of the linked item's names as variants: only names the item has."""
+    try:
+        found = await links.add_item_names(db, entity_id, _names(payload.names))
+    except links.LinkError as error:
+        raise _refused(error) from None
+    response = _response(found)
+    await db.commit()
+    return response

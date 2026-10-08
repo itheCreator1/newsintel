@@ -16,6 +16,7 @@ from app.entities.authority import AuthorityError, record
 from app.nlp.models import Entity
 from app.wikidata.cache import cached_items
 from app.wikidata.models import EntityExternalId, WikidataCandidate, WikidataItem, WikidataRun
+from app.wikidata.names import Name, NameState, add_names, item_names, name_states
 from app.wikidata.parsing import is_qid
 
 ID_SCHEMES = ("viaf", "isni", "lcnaf")
@@ -43,6 +44,7 @@ class LinkState:
     identifiers: dict[str, str]
     item: WikidataItem | None
     fetch_pending: bool
+    names: list[NameState]
 
 
 async def _root(db: AsyncSession, entity_id: uuid.UUID, *, lock: bool = False) -> Entity:
@@ -99,8 +101,29 @@ async def queue_fetch(db: AsyncSession, root_id: uuid.UUID) -> None:
         await db.flush()
 
 
-async def link(db: AsyncSession, entity_id: uuid.UUID, qid: str) -> LinkState:
-    """Link the entity's root to `qid`, following a redirect the cache knows about."""
+def _offered(item: WikidataItem | None, chosen: list[Name]) -> list[Name]:
+    """The chosen names, each checked against the item's own labels and aliases."""
+    if not chosen:
+        return []
+    if item is None:
+        raise LinkError(422, "The item has not been fetched yet; add its names once it is")
+    offered = {(name.language, name.text): name for name in item_names(item)}
+    picked = []
+    for name in chosen:
+        found = offered.get((name.language, name.text))
+        if found is None:
+            raise LinkError(422, f"{name.text!r} ({name.language}) is not a name of {item.qid}")
+        picked.append(found)
+    return picked
+
+
+async def link(
+    db: AsyncSession, entity_id: uuid.UUID, qid: str, aliases: list[Name] | None = None
+) -> LinkState:
+    """Link the entity's root to `qid`, following a redirect the cache knows about.
+
+    The item's labels become variants of the root, with the aliases the user ticked.
+    """
     if not is_qid(qid):
         raise LinkError(422, f"Not a Wikidata item id: {qid!r}")
     root = await _root(db, entity_id, lock=True)
@@ -112,9 +135,12 @@ async def link(db: AsyncSession, entity_id: uuid.UUID, qid: str) -> LinkState:
         item = (await cached_items(db, [qid])).get(qid)
     if item is not None and item.state == "missing":
         raise LinkError(409, f"Wikidata no longer has the item {qid}")
+    chosen = _offered(item, aliases or [])
     current = await _row(db, root.id)
     if current is not None:
         if current.value == qid:
+            if item is not None and chosen:
+                await add_names(db, root, item, chosen)
             return await state(db, root.id)
         raise LinkError(409, f"This entity is already linked to {current.value}; unlink it first")
     holder_id = await db.scalar(
@@ -139,7 +165,22 @@ async def link(db: AsyncSession, entity_id: uuid.UUID, qid: str) -> LinkState:
     # The choice is made: the other suggestions for this root are spent.
     await db.execute(delete(WikidataCandidate).where(WikidataCandidate.entity_id == root.id))
     record(db, "wikidata_linked", root.id, after={"qid": qid})
+    if item is not None:
+        await add_names(db, root, item, chosen)
     await db.flush()
+    return await state(db, root.id)
+
+
+async def add_item_names(db: AsyncSession, entity_id: uuid.UUID, names: list[Name]) -> LinkState:
+    """Add more of the linked item's names (an alias ticked later, a label it gained)."""
+    root = await _root(db, entity_id, lock=True)
+    current = await _row(db, root.id)
+    if current is None:
+        raise LinkError(409, "This entity is not linked to Wikidata")
+    item = (await cached_items(db, [current.value])).get(current.value)
+    chosen = _offered(item, names)
+    if item is not None:
+        await add_names(db, root, item, chosen)
     return await state(db, root.id)
 
 
@@ -185,4 +226,5 @@ async def state(db: AsyncSession, entity_id: uuid.UUID) -> LinkState:
         identifiers={row.scheme: row.value for row in rows if row.scheme != "wikidata"},
         item=item,
         fetch_pending=pending,
+        names=await name_states(db, root, item) if item is not None else [],
     )

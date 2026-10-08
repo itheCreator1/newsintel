@@ -56,6 +56,7 @@ __all__ = [
     "set_status",
     "split",
     "split_occurrences",
+    "start_reindex",
     "variants",
 ]
 
@@ -394,6 +395,11 @@ async def _start_run(
     db.add(run)
     await db.flush()
     return run
+
+
+async def start_reindex(db: AsyncSession, root_id: uuid.UUID) -> EntityAuthorityRun:
+    """Reindex a root's articles in batches, after its names changed outside a rename."""
+    return await _start_run(db, "reindex", root_id, root_id)
 
 
 async def _root_only(db: AsyncSession, entity_id: uuid.UUID) -> Entity:

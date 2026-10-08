@@ -24,6 +24,11 @@ pytestmark = [
 ]
 
 
+# Linking adds an item's labels as names: a word of this run's own keeps them apart from the
+# names other tests use.
+RUN = uuid.uuid4().hex[:8]
+
+
 def _qid() -> str:
     """A QID no other test uses."""
     return f"Q{random.randrange(10**9, 10**10)}"
@@ -39,7 +44,7 @@ def _full(qid: str, label: str, **values: object) -> Item:
         qid=qid,
         state="ok",
         revision=11,
-        labels={"en": label},
+        labels={"en": f"{label} {RUN}"},
         descriptions={"en": f"{label}, for the tests"},
         instance_of=["Q5"],
         ids={"viaf": "4711", "lcnaf": "n0000001"},
@@ -93,7 +98,7 @@ async def test_linking_writes_the_qid_its_identifiers_and_the_history() -> None:
     assert await _actions(ids["ada lovelace"]) == [("wikidata_linked", {"qid": qid})]
     assert shown["qid"] == qid
     assert shown["identifiers"] == {"viaf": "4711", "lcnaf": "n0000001"}
-    assert shown["item"]["labels"] == {"en": "Ada Lovelace"}
+    assert shown["item"]["labels"] == {"en": f"Ada Lovelace {RUN}"}
     assert shown["item"]["descriptions"] == {"en": "Ada Lovelace, for the tests"}
     assert shown["item"]["state"] == "ok"
     assert shown["fetch_pending"] is False
@@ -181,14 +186,14 @@ async def test_an_item_not_fetched_in_full_is_linked_and_its_fetch_queued_once()
     ids = await _roots(language, "mary somerville", "caroline herschel")
     light, unknown = _qid(), _qid()
     # A candidate's light fetch: names, no claims.
-    await _cache(Item(qid=light, state="ok", revision=3, labels={"en": "Mary Somerville"}))
+    await _cache(Item(qid=light, state="ok", revision=3, labels={"en": f"Mary Somerville {RUN}"}))
     async with _client() as client:
         first = await client.post(
             f"/entities/{ids['mary somerville']}/wikidata", json={"qid": light}, headers=CSRF
         )
         assert first.status_code == 200
         assert first.json()["fetch_pending"] is True
-        assert first.json()["item"]["labels"] == {"en": "Mary Somerville"}
+        assert first.json()["item"]["labels"] == {"en": f"Mary Somerville {RUN}"}
         # Typed by hand: nothing cached yet.
         typed = await client.post(
             f"/entities/{ids['caroline herschel']}/wikidata", json={"qid": unknown}, headers=CSRF
