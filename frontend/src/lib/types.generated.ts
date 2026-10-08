@@ -756,6 +756,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/wikidata/names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Wikidata Names
+         * @description Add more of the linked item's names as variants: only names the item has.
+         */
+        post: operations["add_wikidata_names_api_v1_entities__entity_id__wikidata_names_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -4610,6 +4630,8 @@ export interface components {
         WikidataLinkRequest: {
             /** Qid */
             qid: string;
+            /** Aliases */
+            aliases?: components["schemas"]["WikidataName"][];
         };
         /** WikidataLinkResponse */
         WikidataLinkResponse: {
@@ -4624,6 +4646,39 @@ export interface components {
             item: components["schemas"]["WikidataItemResponse"] | null;
             /** Fetch Pending */
             fetch_pending: boolean;
+            /** Names */
+            names: components["schemas"]["WikidataNameResponse"][];
+        };
+        /** WikidataName */
+        WikidataName: {
+            /** Language */
+            language: string;
+            /** Text */
+            text: string;
+        };
+        /** WikidataNameResponse */
+        WikidataNameResponse: {
+            /** Language */
+            language: string;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "label" | "alias";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "this_entity" | "other_entity" | "absent";
+            /** Entity Id */
+            entity_id: string | null;
+        };
+        /** WikidataNamesRequest */
+        WikidataNamesRequest: {
+            /** Names */
+            names: components["schemas"]["WikidataName"][];
         };
     };
     responses: never;
@@ -6253,6 +6308,43 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_wikidata_names_api_v1_entities__entity_id__wikidata_names_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WikidataNamesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataLinkResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

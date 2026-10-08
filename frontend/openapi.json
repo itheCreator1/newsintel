@@ -2877,6 +2877,76 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/wikidata/names": {
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Add Wikidata Names",
+        "description": "Add more of the linked item's names as variants: only names the item has.",
+        "operationId": "add_wikidata_names_api_v1_entities__entity_id__wikidata_names_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikidataNamesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clustering/status": {
       "get": {
         "tags": [
@@ -17521,6 +17591,14 @@
             "maxLength": 16,
             "pattern": "^Q[1-9][0-9]*$",
             "title": "Qid"
+          },
+          "aliases": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataName"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Aliases"
           }
         },
         "type": "object",
@@ -17566,6 +17644,13 @@
           "fetch_pending": {
             "type": "boolean",
             "title": "Fetch Pending"
+          },
+          "names": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataNameResponse"
+            },
+            "type": "array",
+            "title": "Names"
           }
         },
         "type": "object",
@@ -17574,9 +17659,98 @@
           "qid",
           "identifiers",
           "item",
-          "fetch_pending"
+          "fetch_pending",
+          "names"
         ],
         "title": "WikidataLinkResponse"
+      },
+      "WikidataName": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "maxLength": 16,
+            "title": "Language"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "text"
+        ],
+        "title": "WikidataName"
+      },
+      "WikidataNameResponse": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "label",
+              "alias"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "this_entity",
+              "other_entity",
+              "absent"
+            ],
+            "title": "Status"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "text",
+          "kind",
+          "status",
+          "entity_id"
+        ],
+        "title": "WikidataNameResponse"
+      },
+      "WikidataNamesRequest": {
+        "properties": {
+          "names": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataName"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "names"
+        ],
+        "title": "WikidataNamesRequest"
       }
     }
   }

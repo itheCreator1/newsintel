@@ -2,8 +2,12 @@
 
 Nothing here changes data. A pair is two roots of the same language and type (a GPE and a
 LOCATION count as one type), never two names already joined, never a pair the user said is
-different, and never a name marked ambiguous. Each rule that matches adds a reason; the score is
-the strongest rule's weight plus a little for every article both names appear in.
+different, never two roots linked to different Wikidata items, and never a name marked
+ambiguous. Each rule that matches adds a reason; the score is the strongest rule's weight plus a
+little for every article both names appear in.
+
+The strongest rule, "wikidata name", crosses languages: a root whose name is a label or alias of
+the item another root is linked to ("Τσίπρας" and the item linked to "Alexis Tsipras").
 """
 
 import re
@@ -19,10 +23,19 @@ from sqlalchemy.orm import aliased
 
 from app.entities.authority import PLACE_TYPES
 from app.nlp.models import ArticleEntity, Entity, EntityDistinct
+from app.wikidata.cache import cached_items
+from app.wikidata.models import EntityExternalId
+from app.wikidata.names import identity, item_names
 
 __all__ = ["Suggestion", "suggest"]
 
-WEIGHTS = {"acronym": 0.8, "initials": 0.8, "surname": 0.6, "similar spelling": 0.6}
+WEIGHTS = {
+    "wikidata name": 0.9,
+    "acronym": 0.8,
+    "initials": 0.8,
+    "surname": 0.6,
+    "similar spelling": 0.6,
+}
 SIMILARITY = 0.6
 # Each shared article adds this much, up to SHARED_CAP: context backs a rule, it is not one.
 SHARED_STEP = 0.05
@@ -233,6 +246,59 @@ async def _shared(
     return shared
 
 
+async def _linked(db: AsyncSession) -> dict[uuid.UUID, str]:
+    rows = await db.execute(
+        select(EntityExternalId.entity_id, EntityExternalId.value).where(
+            EntityExternalId.scheme == "wikidata"
+        )
+    )
+    return {row[0]: row[1] for row in rows}
+
+
+async def _wikidata_pairs(
+    db: AsyncSession, linked: dict[uuid.UUID, str], language: str | None
+) -> set[tuple[uuid.UUID, uuid.UUID]]:
+    """Roots named like a label or alias of the item another root is linked to."""
+    if not linked:
+        return set()
+    items = await cached_items(db, linked.values())
+    roots = {
+        entity.id: entity
+        for entity in await db.scalars(
+            select(Entity).where(Entity.id.in_(list(linked)), Entity.ambiguous.is_(False))
+        )
+    }
+    wanted: dict[tuple[str, str], set[tuple[uuid.UUID, str]]] = defaultdict(set)
+    for root_id, qid in linked.items():
+        root, item = roots.get(root_id), items.get(qid)
+        if root is None or item is None or item.state != "ok":
+            continue
+        for name in item_names(item):
+            entity_type, normalized, _ = identity(root, name)
+            wanted[(name.language, normalized)].add((root_id, _group(entity_type)))
+    found: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    keys = sorted(wanted)
+    for chunk in _chunks(keys):
+        rows = await db.execute(
+            select(Entity.id, Entity.language, Entity.entity_type, Entity.normalized_text).where(
+                tuple_(Entity.language, Entity.normalized_text).in_(chunk),
+                Entity.authority_id.is_(None),
+                Entity.ambiguous.is_(False),
+            )
+        )
+        for row in rows:
+            for root_id, group in wanted[(row.language, row.normalized_text)]:
+                if row.id == root_id or _group(row.entity_type) != group:
+                    continue
+                if language is not None and language not in (
+                    row.language,
+                    roots[root_id].language,
+                ):
+                    continue
+                found.add((min(root_id, row.id), max(root_id, row.id)))
+    return found
+
+
 async def suggest(
     db: AsyncSession, *, language: str | None = None, limit: int = 50
 ) -> list[Suggestion]:
@@ -246,14 +312,29 @@ async def suggest(
         pairs.update(_rule_pairs(group))
     for key in await _similar(db, language):
         pairs.setdefault(key, _Pair()).reasons.add("similar spelling")
+    linked = await _linked(db)
+    for key in await _wikidata_pairs(db, linked, language):
+        pairs.setdefault(key, _Pair()).reasons.add("wikidata name")
 
-    keys = sorted(set(pairs) - await _rejected(db, sorted(pairs)))
+    # Two roots linked to different items cannot merge: Wikidata keeps them apart.
+    apart = {
+        key
+        for key in pairs
+        if key[0] in linked and key[1] in linked and linked[key[0]] != linked[key[1]]
+    }
+    keys = sorted(set(pairs) - apart - await _rejected(db, sorted(pairs)))
     if not keys:
         return []
     ids = sorted({item for key in keys for item in key})
     articles = await _article_counts(db, ids)
     shared = await _shared(db, keys)
     texts = {name.id: name.text for name in names}
+    missing = [item for item in ids if item not in texts]
+    for chunk in _chunks(missing):
+        rows = await db.execute(
+            select(Entity.id, Entity.normalized_text).where(Entity.id.in_(chunk))
+        )
+        texts.update((row[0], row[1]) for row in rows)
 
     ranked = []
     for key in keys:
