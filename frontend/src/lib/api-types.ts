@@ -44,6 +44,11 @@ export type EntityAuthorityUpdate = components['schemas']['EntityAuthorityUpdate
 export type EntityAuthorityRun = components['schemas']['EntityAuthorityRunResponse']
 export type EntityVariantList = components['schemas']['EntityVariantList']
 export type EntityHistory = components['schemas']['EntityHistory']
+export type AuthorityRootPage = components['schemas']['AuthorityRootPage']
+export type AuthoritySuggestionList = components['schemas']['AuthoritySuggestionList']
+export type AuthorityHistoryPage = components['schemas']['AuthorityHistoryPage']
+/** Filters on the authority file; an absent key is not sent. */
+export type AuthorityFilters = { q?: string; status?: 'provisional' | 'established'; language?: string }
 export type Monitor = components['schemas']['MonitorResponse']
 export type MonitorKind = Monitor['kind']
 export type MonitorPage = components['schemas']['MonitorPage']

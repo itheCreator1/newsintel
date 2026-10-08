@@ -12,7 +12,7 @@ const fontVars = `${displayFont.variable} ${monoFont.variable}`
 
 const NAV_GROUPS: [string, [string, string][]][] = [
   ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
-  ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles']]],
+  ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles'], ['/authorities', 'Authority file']]],
   ['Investigations', [['/saved-searches', 'Saved Searches'], ['/monitors', 'Watchlist']]],
   ['System', [['/jobs', 'Jobs'], ['/operations', 'Operations'], ['/settings', 'Settings']]],
 ]

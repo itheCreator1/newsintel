@@ -31,6 +31,7 @@ describe('application shell', () => {
     renderWithQuery(() => <AuthProvider><Shell>content</Shell></AuthProvider>)
     expect(await screen.findByRole('link', { name: 'Sources' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Articles' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Authority file' })).toHaveAttribute('href', '/authorities/')
     expect(screen.getByRole('link', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Graph' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Events' })).toHaveAttribute('href', '/events/')
@@ -54,7 +55,7 @@ describe('application shell', () => {
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
     const groups = ['Explore', 'Archive', 'Investigations', 'System'].map(name => within(nav).getByText(name).parentElement!)
     expect(groups.map(group => within(group).getAllByRole('link').map(link => link.textContent))).toEqual([
-      ['Overview', 'Search', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles'], ['Saved Searches', 'Watchlist'], ['Jobs', 'Operations', 'Settings'],
+      ['Overview', 'Search', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Saved Searches', 'Watchlist'], ['Jobs', 'Operations', 'Settings'],
     ])
     expect(within(nav).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page').map(link => link.textContent)).toEqual(['Search'])
   })

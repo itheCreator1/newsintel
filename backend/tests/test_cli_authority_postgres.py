@@ -52,7 +52,7 @@ async def test_seed_countries_is_idempotent() -> None:
     from app.nlp.authority import seed_countries
 
     async with session_factory() as db, db.begin():
-        await seed_countries(db)
+        first = await seed_countries(db)
     async with session_factory() as db:
         before = await db.scalar(select(func.count()).select_from(Entity))
         linked_before = await db.scalar(
@@ -72,4 +72,5 @@ async def test_seed_countries_is_idempotent() -> None:
         )
     assert report.created == 0
     assert report.linked == 0
-    assert report.already_linked == linked_before
+    # Only the seed's own links: other tests may have joined names of their own.
+    assert report.already_linked == first.linked + first.already_linked

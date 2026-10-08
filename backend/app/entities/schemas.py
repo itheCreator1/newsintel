@@ -146,3 +146,51 @@ class EntityHistoryItem(BaseModel):
 
 class EntityHistory(BaseModel):
     items: list[EntityHistoryItem]
+
+
+class AuthorityRootResponse(BaseModel):
+    """A root of the authority file, with how many other names point at it."""
+
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+    language: str
+    status: EntityStatus
+    ambiguous: bool
+    variant_count: int
+
+
+class AuthorityRootPage(BaseModel):
+    items: list[AuthorityRootResponse]
+    next_cursor: str | None
+
+
+class AuthorityNameResponse(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+    article_count: int
+
+
+class AuthoritySuggestionResponse(BaseModel):
+    """Maybe the same: approve by merging the variant into the root, reject by marking distinct."""
+
+    root: AuthorityNameResponse
+    variant: AuthorityNameResponse
+    score: float
+    reasons: list[str]
+    shared_articles: int
+
+
+class AuthoritySuggestionList(BaseModel):
+    items: list[AuthoritySuggestionResponse]
+
+
+class AuthorityHistoryItem(EntityHistoryItem):
+    entity_name: str | None
+    other_name: str | None
+
+
+class AuthorityHistoryPage(BaseModel):
+    items: list[AuthorityHistoryItem]
+    next_cursor: str | None
