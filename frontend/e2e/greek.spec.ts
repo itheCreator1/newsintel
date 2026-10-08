@@ -34,7 +34,7 @@ test('greek entities workflow finds names in a Greek article', async ({ page }) 
   await expect(page.getByText(/^Greek entities are on\./)).toBeVisible({ timeout: 30_000 })
   await expect(greekSwitch).toBeChecked()
 
-  await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Greek Wire', url: 'http://fixture/greek-wire.xml', source_country: 'GR' } })
+  await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Greek Wire', url: 'http://fixture/greek-wire.xml' } })
   let articleId = ''
   await expect.poll(async () => {
     const result = await apiJson<{ items: { id: string; title: string }[] }>(page, '/articles?limit=100')
