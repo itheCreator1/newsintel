@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -120,7 +122,62 @@ class Entity(Base):
     language: Mapped[str] = mapped_column(String(16))
     entity_type: Mapped[str] = mapped_column(String(32))
     normalized_text: Mapped[str] = mapped_column(Text)
+    # The latest spelling NLP saw; the user's own choice goes in preferred_text, which NLP
+    # never writes.
     display_text: Mapped[str] = mapped_column(Text)
+    # NULL: this entity is a root. Otherwise the root it is a variant of, never another variant.
+    authority_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("nlp_entities.id", ondelete="RESTRICT")
+    )
+    preferred_text: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(16), default="provisional", server_default=text("'provisional'")
+    )
+    # A name that may stand for several people: NER never folds it into a longer name.
+    ambiguous: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class EntityDistinct(Base):
+    """Two entities the user said are different, so duplicate suggestions skip the pair."""
+
+    __tablename__ = "entity_distinct"
+    __table_args__ = (CheckConstraint("a_id < b_id", name="ck_entity_distinct_ordered"),)
+    a_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("nlp_entities.id", ondelete="CASCADE"), primary_key=True
+    )
+    b_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("nlp_entities.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EntityAuthorityChange(Base):
+    """What changed in the authority file and when."""
+
+    __tablename__ = "entity_authority_changes"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    action: Mapped[str] = mapped_column(String(32))
+    entity_id: Mapped[uuid.UUID]
+    other_id: Mapped[uuid.UUID | None]
+    before: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    after: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EntityAuthorityRun(Base):
+    """A merge or split that rewrites article rows in batches and can resume from `cursor`."""
+
+    __tablename__ = "entity_authority_runs"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(16))
+    entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))
+    cursor: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(16), default="running", server_default=text("'running'")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class NlpLanguageSetting(Base):
@@ -159,7 +216,12 @@ class ArticleEntity(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    # Always a root: search, the graph and the dossiers count this one.
     entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))
+    # The variant the article actually named, when it is not the root itself.
+    observed_entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("nlp_entities.id", ondelete="RESTRICT")
+    )
     run_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
     )

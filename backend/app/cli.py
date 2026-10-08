@@ -20,6 +20,7 @@ from app.clustering.service import (
 )
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.nlp.authority import seed_countries
 from app.nlp.reprocessing import (
     count_selection,
     create_reprocessing_run,
@@ -131,6 +132,25 @@ async def run_nlp_reprocessing(
     print(f"run_id={active_id} status=succeeded")
 
 
+AUTHORITY_ACTIONS = ("seed-countries",)
+
+
+async def run_seed_countries(*, apply: bool) -> None:
+    async with session_factory() as db:
+        report = await seed_countries(db)
+        if apply:
+            await db.commit()
+        else:
+            await db.rollback()
+    mode = "applied" if apply else "dry run (use --apply to write)"
+    print(
+        f"seed-countries {mode}: {report.created} created, {report.linked} linked, "
+        f"{report.already_linked} already linked, {len(report.skipped)} skipped"
+    )
+    for item in report.skipped:
+        print(f"  skipped {item}")
+
+
 async def print_nlp_status() -> None:
     rows = await reprocessing_status()
     if not rows:
@@ -189,6 +209,7 @@ def main() -> None:
             "nlp-status",
             "resume-nlp-reprocessing",
             "recluster",
+            "authority",
         ],
     )
     parser.add_argument("username", nargs="?")
@@ -206,6 +227,11 @@ def main() -> None:
         "--language", help="reprocess-nlp: narrow the selection to one detected language, e.g. el"
     )
     args = parser.parse_args()
+    if args.command == "authority":
+        if args.username not in AUTHORITY_ACTIONS:
+            parser.error("authority requires an action: " + ", ".join(AUTHORITY_ACTIONS))
+        asyncio.run(run_seed_countries(apply=args.apply))
+        return
     if args.command == "bootstrap-admin":
         if args.username:
             parser.error("bootstrap-admin does not accept an argument")

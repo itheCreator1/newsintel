@@ -99,6 +99,19 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
         language = None
         if job.processor_name != "language":
             language = detect_language(initial_context).language
+        ambiguous: frozenset[str] = frozenset()
+        if job.processor_name == "entities" and language is not None:
+            ambiguous = frozenset(
+                (
+                    await db.scalars(
+                        select(Entity.normalized_text).where(
+                            Entity.ambiguous.is_(True),
+                            Entity.language == language,
+                            Entity.entity_type == "PERSON",
+                        )
+                    )
+                ).all()
+            )
         context = ProcessorContext(
             text=document.text,
             input_fingerprint=document.fingerprint,
@@ -108,6 +121,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
             ner_model_el=greek_model,
+            ambiguous_names=ambiguous,
         )
         return LoadedJob(
             job.id,
@@ -273,25 +287,31 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                 .values(is_current=False)
             )
             for entity_value in result.entities:
-                entity_id = await db.scalar(
-                    insert(Entity)
-                    .values(
-                        # Entities are extracted only for languages with a model ("en", "el").
-                        language=loaded.context.language or "en",
-                        entity_type=entity_value.entity_type,
-                        normalized_text=entity_value.normalized_text,
-                        display_text=entity_value.text,
+                # preferred_text is the user's and never written here.
+                observed_id, authority_id = (
+                    await db.execute(
+                        insert(Entity)
+                        .values(
+                            # Entities are extracted only for languages with a model ("en", "el").
+                            language=loaded.context.language or "en",
+                            entity_type=entity_value.entity_type,
+                            normalized_text=entity_value.normalized_text,
+                            display_text=entity_value.text,
+                        )
+                        .on_conflict_do_update(
+                            constraint="uq_nlp_entity_identity",
+                            set_={"display_text": entity_value.text},
+                        )
+                        .returning(Entity.id, Entity.authority_id)
                     )
-                    .on_conflict_do_update(
-                        constraint="uq_nlp_entity_identity",
-                        set_={"display_text": entity_value.text},
-                    )
-                    .returning(Entity.id)
-                )
+                ).one()
                 db.add(
                     ArticleEntity(
                         article_id=job.article_id,
-                        entity_id=entity_id,
+                        # A known variant is counted under its root; the row keeps which
+                        # variant the article used.
+                        entity_id=authority_id or observed_id,
+                        observed_entity_id=observed_id if authority_id else None,
                         run_id=run.id,
                         original_label=entity_value.original_label,
                         occurrence_count=entity_value.occurrence_count,

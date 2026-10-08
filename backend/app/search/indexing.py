@@ -74,7 +74,7 @@ async def _load_document(
         entity_rows = (
             await db.execute(
                 select(ArticleEntity, Entity)
-                .join(Entity)
+                .join(Entity, Entity.id == ArticleEntity.entity_id)
                 .where(
                     ArticleEntity.article_id == article.id,
                     ArticleEntity.is_current.is_(True),
