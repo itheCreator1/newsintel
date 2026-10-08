@@ -28,8 +28,15 @@ class ProvenanceDocument:
 class EntityDocument:
     entity_id: uuid.UUID
     entity_type: str
+    # The authorized name; other_names are the entity's other spellings and its variants', which
+    # free text matches too but the nested entity does not carry (the mapping stays as it is).
     text: str
     normalized_text: str
+    other_names: tuple[str, ...] = ()
+
+    @property
+    def names(self) -> list[str]:
+        return [self.text, *self.other_names]
 
     def to_payload(self) -> dict[str, str]:
         return {
@@ -97,7 +104,7 @@ class ArticleDocument:
                 {
                     "detected_language": self.detected_language,
                     "entities": [item.to_payload() for item in entities],
-                    "entity_text": [item.text for item in entities],
+                    "entity_text": [name for item in entities for name in item.names],
                     "keywords": [item.to_payload() for item in keywords],
                     "keyword_ids": [str(item.keyword_id) for item in keywords],
                     "keyword_text": [item.text for item in keywords],

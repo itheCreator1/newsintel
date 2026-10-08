@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.clustering.models import StoryCluster, StoryClusterMember
@@ -45,6 +46,27 @@ def result_outcome(status: int) -> Outcome:
     return "permanent"
 
 
+async def _other_names(db: AsyncSession, roots: list[Entity]) -> dict[uuid.UUID, tuple[str, ...]]:
+    """Each root's names besides its authorized one: its own latest spelling when a preferred
+    name replaced it, then its variants' spellings, without repeats."""
+    names: dict[uuid.UUID, list[str]] = {
+        root.id: [root.display_text] if root.preferred_text else [] for root in roots
+    }
+    if roots:
+        variants = await db.execute(
+            select(Entity.authority_id, Entity.display_text)
+            .where(Entity.authority_id.in_(list(names)))
+            .order_by(Entity.normalized_text, Entity.id)
+        )
+        for root_id, text_value in variants:
+            names[root_id].append(text_value)
+    shown = {root.id: root.name for root in roots}
+    return {
+        root_id: tuple(dict.fromkeys(name for name in values if name != shown[root_id]))
+        for root_id, values in names.items()
+    }
+
+
 async def _load_document(
     delivery_id: uuid.UUID,
 ) -> tuple[SearchDelivery, str, int, ArticleDocument] | None:
@@ -81,6 +103,7 @@ async def _load_document(
                 )
             )
         ).all()
+        other_names = await _other_names(db, [value for _, value in entity_rows])
         keyword_rows = (
             await db.execute(
                 select(ArticleKeyword, Keyword)
@@ -126,8 +149,9 @@ async def _load_document(
                 EntityDocument(
                     value.id,
                     value.entity_type,
-                    value.display_text,
+                    value.name,
                     value.normalized_text,
+                    other_names=other_names.get(value.id, ()),
                 )
                 for _, value in entity_rows
             ],
