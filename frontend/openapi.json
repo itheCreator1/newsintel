@@ -2714,6 +2714,169 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/wikidata": {
+      "get": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Get Wikidata Link",
+        "description": "The root's Wikidata link, identifiers and cached item; read locally, never from Wikidata.",
+        "operationId": "get_wikidata_link_api_v1_entities__entity_id__wikidata_get",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Link Wikidata",
+        "description": "Link the root to a Wikidata item. A QID another root holds is refused with that root.",
+        "operationId": "link_wikidata_api_v1_entities__entity_id__wikidata_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WikidataLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Unlink Wikidata",
+        "description": "Remove the link and the identifiers read off the item; the names it brought stay.",
+        "operationId": "unlink_wikidata_api_v1_entities__entity_id__wikidata_delete",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clustering/status": {
       "get": {
         "tags": [
@@ -17243,6 +17406,177 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WikidataItemResponse": {
+        "properties": {
+          "qid": {
+            "type": "string",
+            "title": "Qid"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "redirect_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect To"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Labels"
+          },
+          "aliases": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Aliases"
+          },
+          "descriptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Descriptions"
+          },
+          "instance_of": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Instance Of"
+          },
+          "different_from": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Different From"
+          },
+          "sitelinks": {
+            "type": "integer",
+            "title": "Sitelinks"
+          },
+          "claims_fetched": {
+            "type": "boolean",
+            "title": "Claims Fetched"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "qid",
+          "state",
+          "redirect_to",
+          "revision",
+          "labels",
+          "aliases",
+          "descriptions",
+          "instance_of",
+          "different_from",
+          "sitelinks",
+          "claims_fetched",
+          "fetched_at",
+          "checked_at"
+        ],
+        "title": "WikidataItemResponse"
+      },
+      "WikidataLinkRequest": {
+        "properties": {
+          "qid": {
+            "type": "string",
+            "maxLength": 16,
+            "pattern": "^Q[1-9][0-9]*$",
+            "title": "Qid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "qid"
+        ],
+        "title": "WikidataLinkRequest"
+      },
+      "WikidataLinkResponse": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "qid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qid"
+          },
+          "identifiers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Identifiers"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WikidataItemResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fetch_pending": {
+            "type": "boolean",
+            "title": "Fetch Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_id",
+          "qid",
+          "identifiers",
+          "item",
+          "fetch_pending"
+        ],
+        "title": "WikidataLinkResponse"
       }
     }
   }
