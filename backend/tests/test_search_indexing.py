@@ -121,6 +121,42 @@ def test_article_document_serializes_annotations_only_for_schema_version_two() -
     assert "story_cluster_id" not in payload
 
 
+def test_document_lists_authorized_name_and_variants() -> None:
+    entity_id = uuid.uuid4()
+    document = ArticleDocument(
+        article_id=uuid.uuid4(),
+        title="Harbour board meets",
+        descriptions=[],
+        body=None,
+        published_at=None,
+        first_discovered_at=datetime(2026, 9, 14, tzinfo=UTC),
+        content_available=False,
+        processing_status=None,
+        provenance=[],
+        entities=[
+            EntityDocument(
+                entity_id,
+                "ORG",
+                "Quill Harbour Board",
+                "quill harbour board",
+                other_names=("QHB", "Harbour Board of Quill"),
+            )
+        ],
+    )
+
+    payload = document.to_index_payload(schema_version=3)
+    # Free text finds the article by any name; the nested entity shows the authorized one.
+    assert payload["entity_text"] == ["Quill Harbour Board", "QHB", "Harbour Board of Quill"]
+    assert payload["entities"] == [
+        {
+            "id": str(entity_id),
+            "type": "ORG",
+            "text": "Quill Harbour Board",
+            "normalized_text": "quill harbour board",
+        }
+    ]
+
+
 def test_article_document_serializes_cluster_membership_only_for_schema_version_three() -> None:
     cluster_id = uuid.uuid4()
     document = ArticleDocument(

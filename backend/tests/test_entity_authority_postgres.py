@@ -225,8 +225,9 @@ async def test_merge_run_moves_links_in_batches_and_merges_rows_of_one_article()
         run = await merge(db, variant_id=variant_id, target_id=root_id)
         run_id = run.id
 
-    # Four articles, two per batch, then one empty batch that finishes the run.
-    assert await _finish(run_id, batch_size=2) == 3
+    # Four articles move two per batch. The batch that finds nothing left to move starts
+    # reindexing the root's five articles, two per batch; an empty batch finishes the run.
+    assert await _finish(run_id, batch_size=2) == 6
     for article_id in only_variant:
         assert await _rows(article_id) == [(root_id, variant_id, 2)]
     # One row per article and root: its own mention and the variant's two.
@@ -264,29 +265,87 @@ async def test_merge_run_refreshes_the_events_of_moved_articles() -> None:
     assert counts == {root_id: 3}
 
 
-async def test_merge_run_requests_indexing_only_for_affected_articles() -> None:
+async def _revision(article_id: uuid.UUID) -> int:
+    async with session_factory() as db:
+        state = await db.get(ArticleSearchState, article_id)
+        return state.requested_revision if state else 0
+
+
+async def test_merge_run_reindexes_the_roots_articles_once_and_nothing_else() -> None:
+    """Moved articles carry the root now; the root's own ones gain the variant's name."""
     from app.entities.authority import merge
 
     async with session_factory() as db, db.begin():
         root = await _entity(db, "Ada Reyes")
         variant = await _entity(db, "A. Reyes")
+        bystander = await _entity(db, "Cyd Faro")
         moved = await _article(db, [(variant, [0])])
-        other = await _article(db, [(root, [0])])
+        own = await _article(db, [(root, [0])])
+        unrelated = await _article(db, [(bystander, [0])])
         root_id, variant_id = root.id, variant.id
 
-    async def revision(article_id: uuid.UUID) -> int:
-        async with session_factory() as db:
-            state = await db.get(ArticleSearchState, article_id)
-            return state.requested_revision if state else 0
-
-    before = await revision(moved), await revision(other)
+    articles = moved, own, unrelated
+    before = [await _revision(value) for value in articles]
     async with session_factory() as db, db.begin():
         run = await merge(db, variant_id=variant_id, target_id=root_id)
         run_id = run.id
     await _finish(run_id)
 
-    assert await revision(moved) == before[0] + 1
-    assert await revision(other) == before[1]
+    after = [await _revision(value) for value in articles]
+    assert [b - a for a, b in zip(before, after, strict=True)] == [1, 1, 0]
+
+
+async def test_rename_reindexes_only_the_entitys_articles() -> None:
+    from app.entities.authority import rename
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Dara Voss")
+        other = await _entity(db, "Eli Brook")
+        first = await _article(db, [(root, [0])])
+        second = await _article(db, [(root, [4]), (other, [9])])
+        unrelated = await _article(db, [(other, [0])])
+        root_id = root.id
+
+    articles = first, second, unrelated
+    before = [await _revision(value) for value in articles]
+    async with session_factory() as db, db.begin():
+        run = await rename(db, root_id, "Voss, Dara")
+        run_id = run.id
+    assert run is not None
+    assert await _finish(run_id, batch_size=1) == 3  # one per article, then an empty one
+
+    after = [await _revision(value) for value in articles]
+    assert [b - a for a, b in zip(before, after, strict=True)] == [1, 1, 0]
+    async with session_factory() as db, db.begin():
+        # The same name again changes nothing, so nothing is reindexed.
+        assert await rename(db, root_id, "Voss,  Dara") is None
+
+
+async def test_split_run_reindexes_the_root_and_the_given_back_articles() -> None:
+    from app.entities.authority import merge, split
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Fen Marlo")
+        variant = await _entity(db, "F. Marlo")
+        bystander = await _entity(db, "Gil Ondo")
+        own = await _article(db, [(root, [0])])
+        given_back = await _article(db, [(variant, [0])])
+        unrelated = await _article(db, [(bystander, [0])])
+        root_id, variant_id = root.id, variant.id
+    async with session_factory() as db, db.begin():
+        run = await merge(db, variant_id=variant_id, target_id=root_id)
+        run_id = run.id
+    await _finish(run_id)
+
+    articles = own, given_back, unrelated
+    before = [await _revision(value) for value in articles]
+    async with session_factory() as db, db.begin():
+        run = await split(db, variant_id)
+        run_id = run.id
+    await _finish(run_id)
+
+    after = [await _revision(value) for value in articles]
+    assert [b - a for a, b in zip(before, after, strict=True)] == [1, 1, 0]
 
 
 async def test_split_restores_the_observed_links() -> None:

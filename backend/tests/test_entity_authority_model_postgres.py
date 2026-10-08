@@ -131,3 +131,38 @@ async def test_downgrade_to_0017_removes_only_the_authority_schema() -> None:
 
     async with session_factory() as db:
         assert set(AUTHORITY_COLUMNS) <= await _columns(db, "nlp_entities")
+
+
+async def _run(db, kind: str) -> uuid.UUID:  # type: ignore[no-untyped-def]
+    entity_id = await _insert_old_style_entity(db, f"run-{uuid.uuid4().hex}")
+    run_id = uuid.uuid4()
+    await db.execute(
+        text(
+            # Finished, so the scheduler in other tests never picks it up.
+            "INSERT INTO entity_authority_runs (id, kind, entity_id, cursor, status)"
+            " VALUES (:id, :kind, :entity, '{}', 'finished')"
+        ),
+        {"id": run_id, "kind": kind, "entity": entity_id},
+    )
+    return run_id
+
+
+async def test_downgrade_to_0018_keeps_merge_and_split_runs_only() -> None:
+    async with session_factory() as db, db.begin():
+        kept = [await _run(db, "merge"), await _run(db, "split")]
+        dropped = await _run(db, "reindex")
+
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0018")
+    try:
+        async with session_factory() as db:
+            found = set((await db.scalars(text("SELECT id FROM entity_authority_runs"))).all())
+            assert set(kept) <= found and dropped not in found
+        with pytest.raises(IntegrityError):
+            async with session_factory() as db, db.begin():
+                await _run(db, "reindex")
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+
+    async with session_factory() as db, db.begin():
+        await _run(db, "reindex")
