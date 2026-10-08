@@ -623,6 +623,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/authorities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Authorities
+         * @description The authority file: every root by name; `q` finds one by any of its names.
+         */
+        get: operations["list_authorities_api_v1_authorities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authorities/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Authority Suggestions
+         * @description Maybe the same? Approve with a merge of the variant, reject with a distinct pair.
+         */
+        get: operations["list_authority_suggestions_api_v1_authorities_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authorities/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Authority History
+         * @description Every change to the authority file, newest first.
+         */
+        get: operations["list_authority_history_api_v1_authorities_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -1627,6 +1687,111 @@ export interface components {
             started_at: string;
             /** Completed At */
             completed_at: string | null;
+        };
+        /** AuthorityHistoryItem */
+        AuthorityHistoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Action */
+            action: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Other Id */
+            other_id: string | null;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Entity Name */
+            entity_name: string | null;
+        };
+        /** AuthorityHistoryPage */
+        AuthorityHistoryPage: {
+            /** Items */
+            items: components["schemas"]["AuthorityHistoryItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** AuthorityNameResponse */
+        AuthorityNameResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /** AuthorityRootPage */
+        AuthorityRootPage: {
+            /** Items */
+            items: components["schemas"]["AuthorityRootResponse"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * AuthorityRootResponse
+         * @description A root of the authority file, with how many other names point at it.
+         */
+        AuthorityRootResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Language */
+            language: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "provisional" | "established";
+            /** Ambiguous */
+            ambiguous: boolean;
+            /** Variant Count */
+            variant_count: number;
+        };
+        /** AuthoritySuggestionList */
+        AuthoritySuggestionList: {
+            /** Items */
+            items: components["schemas"]["AuthoritySuggestionResponse"][];
+        };
+        /**
+         * AuthoritySuggestionResponse
+         * @description Maybe the same: approve by merging the variant into the root, reject by marking distinct.
+         */
+        AuthoritySuggestionResponse: {
+            root: components["schemas"]["AuthorityNameResponse"];
+            variant: components["schemas"]["AuthorityNameResponse"];
+            /** Score */
+            score: number;
+            /** Reasons */
+            reasons: string[];
+            /** Shared Articles */
+            shared_articles: number;
         };
         /** BacklogResponse */
         BacklogResponse: {
@@ -5503,6 +5668,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_authorities_api_v1_authorities_get: {
+        parameters: {
+            query?: {
+                language?: string | null;
+                status?: ("provisional" | "established") | null;
+                q?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorityRootPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_authority_suggestions_api_v1_authorities_suggestions_get: {
+        parameters: {
+            query?: {
+                language?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoritySuggestionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_authority_history_api_v1_authorities_history_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorityHistoryPage"];
+                };
             };
             /** @description Validation Error */
             422: {

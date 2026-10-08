@@ -10,8 +10,15 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
-from app.entities import authority, queries
+from app.entities import authority, catalogue, queries
 from app.entities.schemas import (
+    AuthorityHistoryItem,
+    AuthorityHistoryPage,
+    AuthorityNameResponse,
+    AuthorityRootPage,
+    AuthorityRootResponse,
+    AuthoritySuggestionList,
+    AuthoritySuggestionResponse,
     EntityArticlePage,
     EntityAuthorityResponse,
     EntityAuthorityRunResponse,
@@ -22,9 +29,11 @@ from app.entities.schemas import (
     EntityHistoryItem,
     EntityMergeRequest,
     EntityRelationshipsResponse,
+    EntityStatus,
     EntityVariantList,
     EntityVariantResponse,
 )
+from app.entities.suggestions import suggest
 from app.nlp.models import Entity, EntityAuthorityRun
 
 router = APIRouter(tags=["entities"])
@@ -227,3 +236,95 @@ async def remove_entity_distinct(
         raise _refused(error) from None
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/authorities", response_model=AuthorityRootPage)
+async def list_authorities(
+    db: Db,
+    _auth: Auth,
+    language: Annotated[str | None, Query(max_length=16)] = None,
+    status_filter: Annotated[EntityStatus | None, Query(alias="status")] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> AuthorityRootPage:
+    """The authority file: every root by name; `q` finds one by any of its names."""
+    try:
+        after = None if cursor is None else catalogue.decode_name_cursor(cursor)
+    except ValueError:
+        raise HTTPException(400, "Invalid cursor") from None
+    page, next_cursor = await catalogue.roots(
+        db, language=language, status=status_filter, q=q, limit=limit, cursor=after
+    )
+    return AuthorityRootPage(
+        items=[
+            AuthorityRootResponse(
+                id=entity.id,
+                display_name=entity.name,
+                entity_type=entity.entity_type,
+                language=entity.language,
+                status=entity.status,
+                ambiguous=entity.ambiguous,
+                variant_count=count,
+            )
+            for entity, count in page
+        ],
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/authorities/suggestions", response_model=AuthoritySuggestionList)
+async def list_authority_suggestions(
+    db: Db,
+    _auth: Auth,
+    language: Annotated[str | None, Query(max_length=16)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> AuthoritySuggestionList:
+    """Maybe the same? Approve with a merge of the variant, reject with a distinct pair."""
+    found = await suggest(db, language=language, limit=limit)
+    return AuthoritySuggestionList(
+        items=[
+            AuthoritySuggestionResponse(
+                root=AuthorityNameResponse(
+                    id=item.root.id,
+                    display_name=item.root.name,
+                    entity_type=item.root.entity_type,
+                    article_count=item.root_articles,
+                ),
+                variant=AuthorityNameResponse(
+                    id=item.variant.id,
+                    display_name=item.variant.name,
+                    entity_type=item.variant.entity_type,
+                    article_count=item.variant_articles,
+                ),
+                score=item.score,
+                reasons=item.reasons,
+                shared_articles=item.shared_articles,
+            )
+            for item in found
+        ]
+    )
+
+
+@router.get("/authorities/history", response_model=AuthorityHistoryPage)
+async def list_authority_history(
+    db: Db,
+    _auth: Auth,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> AuthorityHistoryPage:
+    """Every change to the authority file, newest first."""
+    after = cursor_or_400(cursor)  # a malformed cursor is a 400 before any query
+    page, next_cursor = await catalogue.recent_changes(db, limit=limit, cursor=after)
+    return AuthorityHistoryPage(
+        items=[
+            AuthorityHistoryItem.model_validate(
+                {
+                    **EntityHistoryItem.model_validate(change, from_attributes=True).model_dump(),
+                    "entity_name": name,
+                }
+            )
+            for change, name in page
+        ],
+        next_cursor=next_cursor,
+    )

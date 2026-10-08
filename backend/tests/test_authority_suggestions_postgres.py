@@ -36,8 +36,7 @@ async def _named(db, language: str, entity_type: str, name: str, **values: objec
 
 def _pairs(suggestions) -> set[frozenset[str]]:  # type: ignore[no-untyped-def]
     return {
-        frozenset((item.root.normalized_text, item.variant.normalized_text))
-        for item in suggestions
+        frozenset((item.root.normalized_text, item.variant.normalized_text)) for item in suggestions
     }
 
 
@@ -95,9 +94,7 @@ async def test_places_of_both_place_types_are_paired() -> None:
         await _named(db, language, "LOCATION", "uk")
 
     async with session_factory() as db:
-        assert _pairs(await suggest(db, language=language)) == {
-            frozenset(("united kingdom", "uk"))
-        }
+        assert _pairs(await suggest(db, language=language)) == {frozenset(("united kingdom", "uk"))}
 
 
 async def test_never_suggests_a_rejected_pair_or_a_variant() -> None:
@@ -153,3 +150,20 @@ async def test_similar_spellings_of_the_same_type_are_suggested() -> None:
 
     assert _pairs(found) == {frozenset(("gazprom neft", "gazpromneft"))}
     assert "similar spelling" in found[0].reasons
+
+
+async def test_an_acronym_may_skip_or_keep_the_connecting_words() -> None:
+    from app.entities.suggestions import suggest
+
+    language = _language()
+    async with session_factory() as db, db.begin():
+        await _named(db, language, "GPE", "united states of america")
+        await _named(db, language, "GPE", "usa")
+        await _named(db, language, "ORG", "bank of england")
+        await _named(db, language, "ORG", "boe")
+
+    async with session_factory() as db:
+        assert _pairs(await suggest(db, language=language)) == {
+            frozenset(("united states of america", "usa")),
+            frozenset(("bank of england", "boe")),
+        }

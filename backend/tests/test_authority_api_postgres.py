@@ -30,7 +30,9 @@ async def test_the_authority_file_lists_roots_with_their_variants_and_filters_by
         provisional = (
             await client.get("/authorities", params={"language": language, "status": "provisional"})
         ).json()
-        by_name = (await client.get("/authorities", params={"language": language, "q": "hug"})).json()
+        by_name = (
+            await client.get("/authorities", params={"language": language, "q": "hug"})
+        ).json()
         paged = (await client.get("/authorities", params={"language": language, "limit": 1})).json()
         rest = (
             await client.get(
@@ -40,7 +42,9 @@ async def test_the_authority_file_lists_roots_with_their_variants_and_filters_by
         ).json()
 
     # Roots only, by name; a variant is listed under its root.
-    assert [(item["id"], item["display_name"], item["variant_count"]) for item in every["items"]] == [
+    assert [
+        (item["id"], item["display_name"], item["variant_count"]) for item in every["items"]
+    ] == [
         (str(ids[1]), "Brandt, Hugo", 2),
         (str(ids[0]), "Ines Alvar", 0),
     ]
@@ -60,7 +64,9 @@ async def test_suggestions_are_offered_until_approved_or_rejected() -> None:
         await _named(db, language, "ORG", "nac")
 
     async with _client() as client:
-        offered = (await client.get("/authorities/suggestions", params={"language": language})).json()
+        offered = (
+            await client.get("/authorities/suggestions", params={"language": language})
+        ).json()
         by_root = {item["root"]["display_name"]: item for item in offered["items"]}
         assert set(by_root) == {"Jon Tarr", "North Atlantic Council"}
         person, org = by_root["Jon Tarr"], by_root["North Atlantic Council"]
@@ -90,7 +96,9 @@ async def test_the_authority_history_is_newest_first() -> None:
 
     async with _client() as client:
         await client.patch(f"/entities/{entity_id}", json={"status": "established"}, headers=CSRF)
-        await client.patch(f"/entities/{entity_id}", json={"preferred_text": "Lund, Kai"}, headers=CSRF)
+        await client.patch(
+            f"/entities/{entity_id}", json={"preferred_text": "Lund, Kai"}, headers=CSRF
+        )
         latest = (await client.get("/authorities/history", params={"limit": 2})).json()
         older = (
             await client.get(
