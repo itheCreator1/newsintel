@@ -683,6 +683,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/see-also": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get See Also
+         * @description The links the user stated, both ways, labelled from this entity's side.
+         */
+        get: operations["get_see_also_api_v1_entities__entity_id__see_also_get"];
+        put?: never;
+        /**
+         * Add See Also
+         * @description Link this entity to another; an inverse label ("earlier_name") is stored the other way.
+         */
+        post: operations["add_see_also_api_v1_entities__entity_id__see_also_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entity-relations/{relation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove See Also */
+        delete: operations["remove_see_also_api_v1_entity_relations__relation_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update See Also
+         * @description Change a link's dates, note or source; it is answered from its subject's side.
+         */
+        patch: operations["update_see_also_api_v1_entity_relations__relation_id__patch"];
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -3970,6 +4015,94 @@ export interface components {
             /** Buckets */
             buckets: components["schemas"]["TimelineBucket"][];
         };
+        /** SeeAlsoCreate */
+        SeeAlsoCreate: {
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "later_name" | "earlier_name" | "part_of" | "has_part" | "member_of" | "has_member" | "leader_of" | "led_by" | "related";
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Source Article Id */
+            source_article_id?: string | null;
+        };
+        /** SeeAlsoEntity */
+        SeeAlsoEntity: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+        };
+        /**
+         * SeeAlsoItem
+         * @description One link, labelled from the side of the entity asked about ("earlier_name": Facebook).
+         */
+        SeeAlsoItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "later_name" | "earlier_name" | "part_of" | "has_part" | "member_of" | "has_member" | "leader_of" | "led_by" | "related";
+            entity: components["schemas"]["SeeAlsoEntity"];
+            /** Valid From */
+            valid_from: string | null;
+            /** Valid To */
+            valid_to: string | null;
+            /** Note */
+            note: string | null;
+            source_article: components["schemas"]["SeeAlsoSource"] | null;
+        };
+        /** SeeAlsoResponse */
+        SeeAlsoResponse: {
+            /** Labels */
+            labels: ("later_name" | "earlier_name" | "part_of" | "has_part" | "member_of" | "has_member" | "leader_of" | "led_by" | "related")[];
+            /** Items */
+            items: components["schemas"]["SeeAlsoItem"][];
+        };
+        /** SeeAlsoSource */
+        SeeAlsoSource: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * SeeAlsoUpdate
+         * @description Only the fields sent change; null clears one.
+         */
+        SeeAlsoUpdate: {
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Source Article Id */
+            source_article_id?: string | null;
+        };
         /** SourceArticlePage */
         SourceArticlePage: {
             /** Items */
@@ -5768,6 +5901,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthorityHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_see_also_api_v1_entities__entity_id__see_also_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeeAlsoResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_see_also_api_v1_entities__entity_id__see_also_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeeAlsoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeeAlsoItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_see_also_api_v1_entity_relations__relation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                relation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_see_also_api_v1_entity_relations__relation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                relation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeeAlsoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeeAlsoItem"];
                 };
             };
             /** @description Validation Error */

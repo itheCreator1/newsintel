@@ -9,7 +9,7 @@ import { entityHref } from '../lib/investigation'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../lib/ui-classes'
 
 type Change = EntityHistory['items'][number]
-interface Picked { id: string; text: string }
+export interface Picked { id: string; text: string }
 
 const failure = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback
 
@@ -23,12 +23,15 @@ function describe(change: Change): string {
     case 'ambiguous_changed': return after.ambiguous ? 'Marked as an ambiguous name' : 'No longer marked as ambiguous'
     case 'distinct_added': return 'Recorded a different entity'
     case 'distinct_removed': return 'Removed a different-entity record'
+    case 'relation_added': return 'Added a see-also link'
+    case 'relation_changed': return 'Changed a see-also link'
+    case 'relation_removed': return 'Removed a see-also link'
     default: return change.action
   }
 }
 
 /** Finds another entity by any of its names; the picker lists roots only. */
-function EntityPicker({ label, exclude, onPick }: { label: string; exclude: string; onPick(entity: Picked): void }) {
+export function EntityPicker({ label, exclude, onPick }: { label: string; exclude: string; onPick(entity: Picked): void }) {
   const [text, setText] = useState('')
   const term = text.trim()
   const lookup = useQuery({ queryKey: ['authority-entities', term], queryFn: () => api.nlpEntities(term), enabled: term.length >= 2, retry: false })

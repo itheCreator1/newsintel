@@ -28,6 +28,7 @@ from app.nlp.models import (
     EntityAuthorityChange,
     EntityAuthorityRun,
     EntityDistinct,
+    EntityRelation,
 )
 from app.search.service import request_indexing
 
@@ -44,6 +45,7 @@ __all__ = [
     "history",
     "merge",
     "merge_problem",
+    "record",
     "remove_distinct",
     "rename",
     "resolve_root",
@@ -77,8 +79,13 @@ class EntityRef:
     authority_id: uuid.UUID | None
 
 
-def merge_problem(variant: EntityRef, root: EntityRef, *, distinct: bool) -> tuple[int, str] | None:
-    """Why `variant` may not join `root` (already resolved to a root), or None."""
+def merge_problem(
+    variant: EntityRef, root: EntityRef, *, distinct: bool, linked: bool = False
+) -> tuple[int, str] | None:
+    """Why `variant` may not join `root` (already resolved to a root), or None.
+
+    Two entities with a see-also link are two things by the user's own word (Facebook, Meta).
+    """
     if variant.id == root.id:
         return 422, "An entity cannot be merged into itself"
     if variant.authority_id is not None:
@@ -87,6 +94,8 @@ def merge_problem(variant: EntityRef, root: EntityRef, *, distinct: bool) -> tup
         return 409, "This entity is a variant of another; split it first"
     if distinct:
         return 409, "These entities are marked as different"
+    if linked:
+        return 409, "These entities are linked by a see-also relation; remove it first"
     if (
         variant.entity_type != root.entity_type
         and not {
@@ -168,6 +177,55 @@ async def _is_distinct(db: AsyncSession, a: uuid.UUID, b: uuid.UUID) -> bool:
     )
 
 
+async def _is_linked(db: AsyncSession, a: uuid.UUID, b: uuid.UUID) -> bool:
+    return bool(
+        await db.scalar(
+            select(
+                exists().where(
+                    or_(
+                        (EntityRelation.subject_id == a) & (EntityRelation.object_id == b),
+                        (EntityRelation.subject_id == b) & (EntityRelation.object_id == a),
+                    )
+                )
+            )
+        )
+    )
+
+
+async def _move_relations(db: AsyncSession, variant_id: uuid.UUID, root_id: uuid.UUID) -> None:
+    """The variant's see-also links become the root's; one the root already has is dropped."""
+    moving = list(
+        await db.scalars(
+            select(EntityRelation)
+            .where(
+                or_(EntityRelation.subject_id == variant_id, EntityRelation.object_id == variant_id)
+            )
+            .with_for_update()
+        )
+    )
+    for relation in moving:
+        subject = root_id if relation.subject_id == variant_id else relation.subject_id
+        obj = root_id if relation.object_id == variant_id else relation.object_id
+        if relation.relation_type == "related" and obj < subject:
+            subject, obj = obj, subject
+        same = await db.scalar(
+            select(
+                exists().where(
+                    EntityRelation.id != relation.id,
+                    EntityRelation.subject_id == subject,
+                    EntityRelation.relation_type == relation.relation_type,
+                    EntityRelation.object_id == obj,
+                    func.coalesce(EntityRelation.valid_from, "") == (relation.valid_from or ""),
+                )
+            )
+        )
+        if same:
+            await db.delete(relation)
+        else:
+            relation.subject_id, relation.object_id = subject, obj
+        await db.flush()
+
+
 def _record(
     db: AsyncSession,
     action: str,
@@ -190,6 +248,10 @@ def _record(
     )
 
 
+# The history writer, for the see-also links that live in their own module.
+record = _record
+
+
 async def merge(
     db: AsyncSession, *, variant_id: uuid.UUID, target_id: uuid.UUID
 ) -> EntityAuthorityRun:
@@ -197,10 +259,14 @@ async def merge(
     variant = await _locked(db, variant_id)
     root = await _root_of(db, await _get(db, target_id))
     problem = merge_problem(
-        _ref(variant), _ref(root), distinct=await _is_distinct(db, variant.id, root.id)
+        _ref(variant),
+        _ref(root),
+        distinct=await _is_distinct(db, variant.id, root.id),
+        linked=await _is_linked(db, variant.id, root.id),
     )
     if problem is not None:
         raise AuthorityError(*problem)
+    await _move_relations(db, variant.id, root.id)
     # The variant's own variants follow it to the new root: never a chain.
     await db.execute(
         update(Entity).where(Entity.authority_id == variant.id).values(authority_id=root.id)
@@ -225,7 +291,10 @@ async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) 
     variant = await _locked(db, variant_id)
     root = await _get(db, root_id)
     problem = merge_problem(
-        _ref(variant), _ref(root), distinct=await _is_distinct(db, variant.id, root.id)
+        _ref(variant),
+        _ref(root),
+        distinct=await _is_distinct(db, variant.id, root.id),
+        linked=await _is_linked(db, variant.id, root.id),
     )
     if problem is not None:
         raise AuthorityError(*problem)
@@ -242,6 +311,7 @@ async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) 
     )
     if in_use:
         raise AuthorityError(409, "This entity has articles or variants; merge it instead")
+    await _move_relations(db, variant.id, root.id)
     variant.authority_id = root.id
     _record(
         db,

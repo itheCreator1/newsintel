@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
+import type { SeeAlsoLabel } from '../../lib/api-types'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import EntitiesPage from './page'
@@ -254,7 +255,7 @@ it('lists the authority history, oldest first', async () => {
   expect(items[3]).toContain('Removed a see-also link')
 })
 
-const link = (id: string, label: string, name: string, over = {}) => ({
+const link = (id: string, label: SeeAlsoLabel, name: string, over = {}) => ({
   id, label, entity: { id: `ent-${name}`, display_name: name, entity_type: 'ORG' }, valid_from: null, valid_to: null, note: null, source_article: null, ...over,
 })
 

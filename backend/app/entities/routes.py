@@ -10,7 +10,7 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
-from app.entities import authority, catalogue, queries
+from app.entities import authority, catalogue, queries, relations
 from app.entities.schemas import (
     AuthorityHistoryItem,
     AuthorityHistoryPage,
@@ -32,9 +32,16 @@ from app.entities.schemas import (
     EntityStatus,
     EntityVariantList,
     EntityVariantResponse,
+    SeeAlsoCreate,
+    SeeAlsoEntity,
+    SeeAlsoItem,
+    SeeAlsoResponse,
+    SeeAlsoSource,
+    SeeAlsoUpdate,
 )
 from app.entities.suggestions import suggest
-from app.nlp.models import Entity, EntityAuthorityRun
+from app.feeds.models import Article
+from app.nlp.models import Entity, EntityAuthorityRun, EntityRelation
 
 router = APIRouter(tags=["entities"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -329,3 +336,101 @@ async def list_authority_history(
         ],
         next_cursor=next_cursor,
     )
+
+
+def _see_also_item(item: relations.SeeAlso) -> SeeAlsoItem:
+    return SeeAlsoItem(
+        id=item.relation.id,
+        label=item.label,
+        entity=SeeAlsoEntity(
+            id=item.entity.id, display_name=item.entity.name, entity_type=item.entity.entity_type
+        ),
+        valid_from=item.relation.valid_from,
+        valid_to=item.relation.valid_to,
+        note=item.relation.note,
+        source_article=SeeAlsoSource(id=item.source.id, title=item.source.title)
+        if item.source
+        else None,
+    )
+
+
+async def _seen_from(
+    db: AsyncSession, relation: EntityRelation, asking_id: uuid.UUID
+) -> SeeAlsoItem:
+    other_id = relation.object_id if relation.subject_id == asking_id else relation.subject_id
+    other = await db.get(Entity, other_id)
+    assert other is not None
+    source = (
+        await db.get(Article, relation.source_article_id) if relation.source_article_id else None
+    )
+    return _see_also_item(
+        relations.SeeAlso(
+            relation=relation,
+            label=relations.label_for(relation, asking_id),
+            entity=other,
+            source=source,
+        )
+    )
+
+
+@router.get("/entities/{entity_id}/see-also", response_model=SeeAlsoResponse)
+async def get_see_also(entity_id: uuid.UUID, db: Db, _auth: Auth) -> SeeAlsoResponse:
+    """The links the user stated, both ways, labelled from this entity's side."""
+    root = await _entity_or_404(db, entity_id)
+    return SeeAlsoResponse(
+        labels=relations.labels_for(root.entity_type),
+        items=[_see_also_item(item) for item in await relations.see_also(db, root.id)],
+    )
+
+
+@router.post(
+    "/entities/{entity_id}/see-also",
+    response_model=SeeAlsoItem,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_see_also(
+    entity_id: uuid.UUID, payload: SeeAlsoCreate, db: Db, _session: Mutation
+) -> SeeAlsoItem:
+    """Link this entity to another; an inverse label ("earlier_name") is stored the other way."""
+    try:
+        relation, root_id = await relations.add_relation(
+            db,
+            entity_id,
+            label=payload.label,
+            target_id=payload.target_id,
+            valid_from=payload.valid_from,
+            valid_to=payload.valid_to,
+            note=payload.note,
+            source_article_id=payload.source_article_id,
+        )
+    except authority.AuthorityError as error:
+        raise _refused(error) from None
+    response = await _seen_from(db, relation, root_id)
+    await db.commit()
+    return response
+
+
+@router.patch("/entity-relations/{relation_id}", response_model=SeeAlsoItem)
+async def update_see_also(
+    relation_id: uuid.UUID, payload: SeeAlsoUpdate, db: Db, _session: Mutation
+) -> SeeAlsoItem:
+    """Change a link's dates, note or source; it is answered from its subject's side."""
+    try:
+        relation = await relations.update_relation(
+            db, relation_id, {key: getattr(payload, key) for key in payload.model_fields_set}
+        )
+    except authority.AuthorityError as error:
+        raise _refused(error) from None
+    response = await _seen_from(db, relation, relation.subject_id)
+    await db.commit()
+    return response
+
+
+@router.delete("/entity-relations/{relation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_see_also(relation_id: uuid.UUID, db: Db, _session: Mutation) -> Response:
+    try:
+        await relations.remove_relation(db, relation_id)
+    except authority.AuthorityError as error:
+        raise _refused(error) from None
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
