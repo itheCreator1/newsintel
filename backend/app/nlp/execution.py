@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.clustering.service import request_clustering
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.nlp.authority import RowPart, combine_rows
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
@@ -286,6 +287,8 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                 )
                 .values(is_current=False)
             )
+            # Two names of one root are one row, as an authority merge run leaves them.
+            parts: dict[uuid.UUID, list[RowPart]] = {}
             for entity_value in result.entities:
                 # preferred_text is the user's and never written here.
                 observed_id, authority_id = (
@@ -305,18 +308,28 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                         .returning(Entity.id, Entity.authority_id)
                     )
                 ).one()
+                # A known variant is counted under its root; the row keeps which variant the
+                # article used.
+                parts.setdefault(authority_id or observed_id, []).append(
+                    RowPart(
+                        observed_id if authority_id else None,
+                        entity_value.original_label,
+                        [asdict(item) for item in entity_value.occurrences],
+                        entity_value.occurrence_count,
+                    )
+                )
+            for entity_id, entity_parts in parts.items():
+                combined = combine_rows(entity_id, entity_parts)
                 db.add(
                     ArticleEntity(
                         article_id=job.article_id,
-                        # A known variant is counted under its root; the row keeps which
-                        # variant the article used.
-                        entity_id=authority_id or observed_id,
-                        observed_entity_id=observed_id if authority_id else None,
+                        entity_id=entity_id,
+                        observed_entity_id=combined.observed_entity_id,
                         run_id=run.id,
-                        original_label=entity_value.original_label,
-                        occurrence_count=entity_value.occurrence_count,
-                        relevance=entity_value.relevance,
-                        occurrences=[asdict(item) for item in entity_value.occurrences],
+                        original_label=combined.original_label,
+                        occurrence_count=combined.occurrence_count,
+                        relevance=combined.relevance,
+                        occurrences=combined.occurrences,
                         input_fingerprint=job.input_fingerprint,
                     )
                 )
