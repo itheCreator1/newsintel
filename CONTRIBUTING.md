@@ -132,6 +132,15 @@ Run on demand ("Run workflow", on any branch), it can instead run one targeted l
 | `e2e` | `search`, `investigations`, `monitors` or `graph` | `./infra/test-e2e.sh <target>`, with `--stop-after` when `stop_after` is set |
 | `integration` | pytest node ids, separated by spaces | `./infra/test-integration.sh <target>` |
 
+A third workflow (`.github/workflows/targeted.yml`) runs the same loops from a push, for a session that can push but can neither run Docker nor start a workflow by hand. On a push to any branch but `main`, it reads a trailer on the head commit:
+
+```text
+ci-run: e2e graph
+ci-stop-after: map workflow
+```
+
+`ci-run:` takes the same `run` and `target` as the table above (`ci-run: integration backend/tests/test_x.py`, `ci-run: full`); `ci-stop-after:` is optional and only for `e2e`. Put the trailer on the commit that carries the fix. A push without it skips the job. A newer push to the same branch cancels the run in progress, so wait for it before pushing again.
+
 A targeted run never stands in for the full gate before a merge.
 
 Neither workflow starts for a pull request or a push that changes nothing but Markdown files, `assets/` or `LICENSE` (`paths-ignore`); a change that touches anything else as well runs as usual. A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.

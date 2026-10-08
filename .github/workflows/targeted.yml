@@ -27,7 +27,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - id: select
+      - name: Read the ci-run trailer
+        id: select
         env:
           MESSAGE: ${{ github.event.head_commit.message }}
         run: |
