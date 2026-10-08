@@ -119,3 +119,4 @@
 "test_wikidata_names_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_wikidata_candidates.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_wikidata_candidates_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_wikidata_refresh_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }

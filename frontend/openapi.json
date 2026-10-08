@@ -3193,6 +3193,66 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/wikidata/refresh": {
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Refresh Wikidata",
+        "description": "Queue a fetch of the linked item: again in full if its revision changed.",
+        "operationId": "refresh_wikidata_api_v1_entities__entity_id__wikidata_refresh_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clustering/status": {
       "get": {
         "tags": [
@@ -5612,6 +5672,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/operations/wikidata": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Operations Wikidata",
+        "description": "Our load on Wikidata and whether we may ask: the throttle, counts and runs.",
+        "operationId": "operations_wikidata_api_v1_operations_wikidata_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataStatusResponse"
                 }
               }
             }
@@ -17804,6 +17886,58 @@
         ],
         "title": "WikidataCandidateResponse"
       },
+      "WikidataCountResponse": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "average_ms": {
+            "type": "integer",
+            "title": "Average Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "kind",
+          "outcome",
+          "count",
+          "average_ms"
+        ],
+        "title": "WikidataCountResponse"
+      },
+      "WikidataHolder": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_id",
+          "display_name"
+        ],
+        "title": "WikidataHolder"
+      },
       "WikidataItemResponse": {
         "properties": {
           "qid": {
@@ -17989,6 +18123,16 @@
           "search_pending": {
             "type": "boolean",
             "title": "Search Pending"
+          },
+          "redirect_holder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WikidataHolder"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -18000,7 +18144,8 @@
           "fetch_pending",
           "names",
           "candidates",
-          "search_pending"
+          "search_pending",
+          "redirect_holder"
         ],
         "title": "WikidataLinkResponse"
       },
@@ -18229,6 +18374,22 @@
             "type": "integer",
             "title": "Checked"
           },
+          "changed": {
+            "type": "integer",
+            "title": "Changed"
+          },
+          "redirected": {
+            "type": "integer",
+            "title": "Redirected"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
           "requests": {
             "type": "integer",
             "title": "Requests"
@@ -18281,6 +18442,10 @@
           "status",
           "entity_id",
           "checked",
+          "changed",
+          "redirected",
+          "missing",
+          "errors",
           "requests",
           "error",
           "created_at",
@@ -18311,6 +18476,143 @@
           "message"
         ],
         "title": "WikidataSkipped"
+      },
+      "WikidataStatusResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "throttle": {
+            "$ref": "#/components/schemas/WikidataThrottleResponse"
+          },
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataCountResponse"
+            },
+            "type": "array",
+            "title": "Counts"
+          },
+          "links": {
+            "type": "integer",
+            "title": "Links"
+          },
+          "open_candidates": {
+            "type": "integer",
+            "title": "Open Candidates"
+          },
+          "due_refresh": {
+            "type": "integer",
+            "title": "Due Refresh"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataRunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "last_refresh": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WikidataRunResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "reason",
+          "throttle",
+          "counts",
+          "links",
+          "open_candidates",
+          "due_refresh",
+          "runs",
+          "last_refresh"
+        ],
+        "title": "WikidataStatusResponse"
+      },
+      "WikidataThrottleResponse": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "paused",
+              "budget_spent"
+            ],
+            "title": "State"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
+          },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Reason"
+          },
+          "requests_today": {
+            "type": "integer",
+            "title": "Requests Today"
+          },
+          "daily_budget": {
+            "type": "integer",
+            "title": "Daily Budget"
+          },
+          "next_request_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Request At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "paused_until",
+          "pause_reason",
+          "requests_today",
+          "daily_budget",
+          "next_request_at"
+        ],
+        "title": "WikidataThrottleResponse"
       }
     }
   }

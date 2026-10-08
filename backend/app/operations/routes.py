@@ -23,6 +23,13 @@ from app.operations.schemas import (
 )
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.rebuild import ALIAS
+from app.wikidata.routes import run_response
+from app.wikidata.schemas import (
+    WikidataCountResponse,
+    WikidataStatusResponse,
+    WikidataThrottleResponse,
+)
+from app.wikidata.status import wikidata_status
 
 router = APIRouter(tags=["operations"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -95,3 +102,37 @@ async def operations_failures(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> FailuresResponse:
     return await queries.failures(db, datetime.now(UTC), area, hours, limit)
+
+
+@router.get("/operations/wikidata", response_model=WikidataStatusResponse)
+async def operations_wikidata(db: Db, _auth: Auth, settings: Config) -> WikidataStatusResponse:
+    """Our load on Wikidata and whether we may ask: the throttle, counts and runs."""
+    found = await wikidata_status(db, settings)
+    throttle = found.throttle
+    return WikidataStatusResponse(
+        enabled=found.enabled,
+        reason=found.reason,
+        throttle=WikidataThrottleResponse(
+            state=throttle.state,
+            paused_until=throttle.paused_until,
+            pause_reason=throttle.pause_reason,
+            requests_today=throttle.requests_today,
+            daily_budget=throttle.daily_budget,
+            next_request_at=throttle.next_request_at,
+        ),
+        counts=[
+            WikidataCountResponse(
+                day=count.day,
+                kind=count.kind,
+                outcome=count.outcome,
+                count=count.count,
+                average_ms=count.average_ms,
+            )
+            for count in found.counts
+        ],
+        links=found.links,
+        open_candidates=found.open_candidates,
+        due_refresh=found.due_refresh,
+        runs=[run_response(run) for run in found.runs],
+        last_refresh=run_response(found.last_refresh) if found.last_refresh is not None else None,
+    )

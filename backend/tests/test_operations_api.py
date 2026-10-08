@@ -12,7 +12,10 @@ from app.operations import schemas as ops_schemas
 from app.operations.routes import router
 
 PREFIX = "/api/v1/operations"
-PATHS = {f"{PREFIX}/{name}" for name in ("health", "pipelines", "feeds", "storage", "failures")}
+PATHS = {
+    f"{PREFIX}/{name}"
+    for name in ("health", "pipelines", "feeds", "storage", "failures", "wikidata")
+}
 
 
 def _operations() -> dict[str, dict[str, Any]]:
@@ -24,7 +27,7 @@ def _query(operation: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {p["name"]: p for p in operation.get("parameters", []) if p["in"] == "query"}
 
 
-def test_the_five_operations_routes_are_documented_and_read_only() -> None:
+def test_the_six_operations_routes_are_documented_and_read_only() -> None:
     found = _operations()
     assert set(found) == PATHS
     for item in found.values():
@@ -35,7 +38,7 @@ def test_the_five_operations_routes_are_documented_and_read_only() -> None:
 
 def test_every_operations_route_requires_a_session() -> None:
     routes = [r for r in router.routes if isinstance(r, APIRoute)]
-    assert len(routes) == 5
+    assert len(routes) == 6
     for route in routes:
         assert current_session in [d.call for d in route.dependant.dependencies], route.path
 

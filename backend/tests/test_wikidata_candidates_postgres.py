@@ -557,9 +557,16 @@ async def test_the_scheduler_step_queues_a_sweep_and_hands_one_run_to_a_worker()
     assert await runs.schedule_wikidata(settings(), send=send) == 1
     assert await runs.schedule_wikidata(settings(), send=send) == 0
     async with session_factory() as db:
-        sweep = await db.scalar(select(WikidataRun))
-        assert sweep is not None and sweep.entity_id is None and sweep.status == "running"
-    assert sent == [(str(sweep.id), str(sweep.claim_token))]
+        # One run at a time: a due refresh goes first, else the sweep.
+        running = await db.scalar(select(WikidataRun).where(WikidataRun.status == "running"))
+        assert running is not None and running.entity_id is None
+        sweep = await db.scalar(
+            select(WikidataRun).where(
+                WikidataRun.kind == "candidates", WikidataRun.entity_id.is_(None)
+            )
+        )
+        assert sweep is not None
+    assert sent == [(str(running.id), str(running.claim_token))]
     await _no_runs()
 
 

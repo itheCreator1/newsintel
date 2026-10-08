@@ -225,7 +225,10 @@ class WikidataClient:
             for batch in _chunks(wanted, BATCH):
                 light.extend(await self._entities(batch, LIGHT_PROPS))
             return light
-        pages = await self.info(wanted)
+        return await self.full_items(wanted, await self.info(wanted))
+
+    async def full_items(self, wanted: list[str], pages: dict[str, PageInfo]) -> list[Item]:
+        """The items with claims, from a size check `info` already made (a refresh's)."""
         found: list[Item] = []
         fetch: list[PageInfo] = []
         for qid in wanted:

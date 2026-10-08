@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -59,6 +59,8 @@ class WikidataLinkResponse(BaseModel):
     # Open candidates while the root is unlinked, best first; a search queued by the button.
     candidates: list["WikidataCandidateResponse"]
     search_pending: bool
+    # The root holding the item this one was merged into: a merge to offer.
+    redirect_holder: "WikidataHolder | None"
 
 
 class WikidataCandidateResponse(BaseModel):
@@ -92,6 +94,10 @@ class WikidataRunResponse(BaseModel):
     status: str
     entity_id: str | None
     checked: int
+    changed: int
+    redirected: int
+    missing: int
+    errors: int
     requests: int
     error: str | None
     created_at: datetime
@@ -108,6 +114,43 @@ class WikidataSkipped(BaseModel):
 class WikidataApproveResponse(BaseModel):
     linked: int
     skipped: list[WikidataSkipped]
+
+
+class WikidataHolder(BaseModel):
+    entity_id: str
+    display_name: str
+
+
+class WikidataThrottleResponse(BaseModel):
+    # open, paused (a 429/503, maxlag or an error asked us to wait) or budget_spent (today's).
+    state: Literal["open", "paused", "budget_spent"]
+    paused_until: datetime | None
+    pause_reason: str | None
+    requests_today: int
+    daily_budget: int
+    next_request_at: datetime | None
+
+
+class WikidataCountResponse(BaseModel):
+    day: date
+    kind: str
+    outcome: str
+    count: int
+    average_ms: int
+
+
+class WikidataStatusResponse(BaseModel):
+    enabled: bool
+    # Why it is off: switched off, or no contact for the User-Agent.
+    reason: str | None
+    throttle: WikidataThrottleResponse
+    counts: list[WikidataCountResponse]
+    links: int
+    open_candidates: int
+    # Linked items whose monthly check is due.
+    due_refresh: int
+    runs: list[WikidataRunResponse]
+    last_refresh: WikidataRunResponse | None
 
 
 WikidataLinkResponse.model_rebuild()
