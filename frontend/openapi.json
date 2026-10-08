@@ -2947,6 +2947,252 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/wikidata/search": {
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Search Wikidata",
+        "description": "Queue a search for candidates; a worker asks Wikidata, never this request.",
+        "operationId": "search_wikidata_api_v1_entities__entity_id__wikidata_search_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities/{entity_id}/wikidata/candidates/{qid}/dismiss": {
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Dismiss Wikidata Candidate",
+        "description": "Not this item: it is never suggested for this root again.",
+        "operationId": "dismiss_wikidata_candidate_api_v1_entities__entity_id__wikidata_candidates__qid__dismiss_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Qid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wikidata/candidates": {
+      "get": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Review Wikidata Candidates",
+        "description": "Open candidates of unlinked roots, best first: the Authority file's review tab.",
+        "operationId": "review_wikidata_candidates_api_v1_wikidata_candidates_get",
+        "parameters": [
+          {
+            "name": "min_score",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 2,
+              "minimum": -1,
+              "default": 0.5,
+              "title": "Min Score"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataReviewPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wikidata/candidates/approve-exact": {
+      "post": {
+        "tags": [
+          "wikidata"
+        ],
+        "summary": "Approve Exact Wikidata Candidates",
+        "description": "Link every root whose one exact label of the right type is clear (decided 2026-10-08).\n\nEach link is the same as the user's own: labels become variants, aliases stay unticked.\nA refusal (the item went to another root meanwhile) skips that root and says why.",
+        "operationId": "approve_exact_wikidata_candidates_api_v1_wikidata_candidates_approve_exact_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikidataApproveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clustering/status": {
       "get": {
         "tags": [
@@ -17477,6 +17723,87 @@
         ],
         "title": "ValidationError"
       },
+      "WikidataApproveResponse": {
+        "properties": {
+          "linked": {
+            "type": "integer",
+            "title": "Linked"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataSkipped"
+            },
+            "type": "array",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "linked",
+          "skipped"
+        ],
+        "title": "WikidataApproveResponse"
+      },
+      "WikidataCandidateResponse": {
+        "properties": {
+          "qid": {
+            "type": "string",
+            "title": "Qid"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "exact": {
+            "type": "boolean",
+            "title": "Exact"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sitelinks": {
+            "type": "integer",
+            "title": "Sitelinks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "qid",
+          "score",
+          "reasons",
+          "exact",
+          "label",
+          "description",
+          "sitelinks"
+        ],
+        "title": "WikidataCandidateResponse"
+      },
       "WikidataItemResponse": {
         "properties": {
           "qid": {
@@ -17651,6 +17978,17 @@
             },
             "type": "array",
             "title": "Names"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataCandidateResponse"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "search_pending": {
+            "type": "boolean",
+            "title": "Search Pending"
           }
         },
         "type": "object",
@@ -17660,7 +17998,9 @@
           "identifiers",
           "item",
           "fetch_pending",
-          "names"
+          "names",
+          "candidates",
+          "search_pending"
         ],
         "title": "WikidataLinkResponse"
       },
@@ -17751,6 +18091,226 @@
           "names"
         ],
         "title": "WikidataNamesRequest"
+      },
+      "WikidataReviewItem": {
+        "properties": {
+          "qid": {
+            "type": "string",
+            "title": "Qid"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "exact": {
+            "type": "boolean",
+            "title": "Exact"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "sitelinks": {
+            "type": "integer",
+            "title": "Sitelinks"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "qid",
+          "score",
+          "reasons",
+          "exact",
+          "label",
+          "description",
+          "sitelinks",
+          "entity_id",
+          "display_name",
+          "entity_type",
+          "language"
+        ],
+        "title": "WikidataReviewItem"
+      },
+      "WikidataReviewPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WikidataReviewItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "WikidataReviewPage"
+      },
+      "WikidataRunResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "checked": {
+            "type": "integer",
+            "title": "Checked"
+          },
+          "requests": {
+            "type": "integer",
+            "title": "Requests"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "entity_id",
+          "checked",
+          "requests",
+          "error",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "WikidataRunResponse"
+      },
+      "WikidataSkipped": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "qid": {
+            "type": "string",
+            "title": "Qid"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_id",
+          "qid",
+          "message"
+        ],
+        "title": "WikidataSkipped"
       }
     }
   }

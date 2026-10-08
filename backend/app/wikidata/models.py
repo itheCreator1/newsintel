@@ -95,6 +95,8 @@ class WikidataCandidate(Base):
     score: Mapped[float] = mapped_column(Float)
     reasons: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # The root's one candidate with its exact label and the right type: "approve all exact".
+    exact: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -111,7 +113,11 @@ class WikidataRun(Base):
     entity_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("nlp_entities.id", ondelete="CASCADE")
     )
+    # A sweep's last root done, so a run stopped by a pause or the budget goes on from there.
     cursor: Mapped[str | None] = mapped_column(Text)
+    # The worker holding the run; another may take it once the claim expires.
+    claim_token: Mapped[uuid.UUID | None] = mapped_column()
+    claim_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requests: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     checked: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     changed: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))

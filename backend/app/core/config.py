@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     wikidata_search_cache_days: int = 30
     wikidata_class_cache_days: int = 180
     wikidata_candidate_min_articles: int = 3
+    # A sweep for candidates starts once a day; a worker holds a run for one batch at a time.
+    wikidata_candidate_sweep_hours: float = 24
+    wikidata_run_batch_seconds: float = 120
+    wikidata_run_lease_seconds: float = 900
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":
