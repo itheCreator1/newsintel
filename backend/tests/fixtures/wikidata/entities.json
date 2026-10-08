@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "Q42": {
+      "type": "item",
+      "id": "Q42",
+      "pageid": 138,
+      "ns": 0,
+      "title": "Q42",
+      "lastrevid": 2215441093,
+      "modified": "2026-09-30T10:11:12Z",
+      "labels": {
+        "en": {"language": "en", "value": "Douglas Adams"},
+        "el": {"language": "el", "value": "Ντάγκλας Άνταμς"}
+      },
+      "descriptions": {
+        "en": {"language": "en", "value": "English writer and humorist (1952–2001)"},
+        "el": {"language": "el", "value": "Άγγλος συγγραφέας"}
+      },
+      "aliases": {
+        "en": [
+          {"language": "en", "value": "Douglas Noel Adams"},
+          {"language": "en", "value": "Douglas N. Adams"}
+        ]
+      },
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {"entity-type": "item", "numeric-id": 5, "id": "Q5"},
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "id": "Q42$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9",
+            "rank": "normal"
+          }
+        ],
+        "P214": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P214",
+              "datavalue": {"value": "113230702", "type": "string"},
+              "datatype": "external-id"
+            },
+            "type": "statement",
+            "rank": "preferred"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P214",
+              "datavalue": {"value": "999999999", "type": "string"},
+              "datatype": "external-id"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P213": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P213",
+              "datavalue": {"value": "0000 0000 8045 6315", "type": "string"},
+              "datatype": "external-id"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P244": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P244",
+              "datavalue": {"value": "n80076765", "type": "string"},
+              "datatype": "external-id"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P1889": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P1889",
+              "datavalue": {
+                "value": {"entity-type": "item", "numeric-id": 9000001, "id": "Q9000001"},
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {"snaktype": "novalue", "property": "P1889", "datatype": "wikibase-item"},
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "enwiki": {"site": "enwiki", "title": "Douglas Adams", "badges": []},
+        "elwiki": {"site": "elwiki", "title": "Ντάγκλας Άνταμς", "badges": []},
+        "frwiki": {"site": "frwiki", "title": "Douglas Adams", "badges": []}
+      }
+    },
+    "Q9000002": {
+      "type": "item",
+      "id": "Q9000002",
+      "lastrevid": 1500,
+      "labels": {"en": {"language": "en", "value": "Blue Party"}},
+      "descriptions": {},
+      "aliases": {},
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {"entity-type": "item", "numeric-id": 7278, "id": "Q7278"},
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "deprecated"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {"entity-type": "item", "numeric-id": 43229, "id": "Q43229"},
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q9000003": {
+      "type": "item",
+      "id": "Q9000004",
+      "lastrevid": 1800,
+      "redirects": {"from": "Q9000003", "to": "Q9000004"},
+      "labels": {"en": {"language": "en", "value": "Merged Item"}},
+      "descriptions": {},
+      "aliases": {},
+      "claims": {},
+      "sitelinks": {}
+    },
+    "Q9000005": {"id": "Q9000005", "missing": ""}
+  },
+  "success": 1
+}

@@ -1,0 +1,25 @@
+{
+  "searchinfo": {"search": "Douglas Adams"},
+  "search": [
+    {
+      "id": "Q42",
+      "title": "Q42",
+      "pageid": 138,
+      "concepturi": "http://www.wikidata.org/entity/Q42",
+      "label": "Douglas Adams",
+      "description": "English writer and humorist (1952–2001)",
+      "match": {"type": "label", "language": "en", "text": "Douglas Adams"}
+    },
+    {
+      "id": "Q9000002",
+      "title": "Q9000002",
+      "pageid": 9000002,
+      "label": "Douglas Adams",
+      "description": "a different person",
+      "match": {"type": "alias", "language": "en", "text": "Douglas Adams"},
+      "aliases": ["Douglas Adams"]
+    }
+  ],
+  "search-continue": 2,
+  "success": 1
+}

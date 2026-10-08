@@ -110,3 +110,7 @@
 "test_settings.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_source_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_source_dossier_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_wikidata_client.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_wikidata_parsing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_wikidata_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_wikidata_contract.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
