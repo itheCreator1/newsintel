@@ -24,6 +24,8 @@
 "test_article_processing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_article_processing_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = true }
 "test_auth_helpers.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_authority_api_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_authority_suggestions_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_classification.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_cli_authority_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_cli_bootstrap.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
