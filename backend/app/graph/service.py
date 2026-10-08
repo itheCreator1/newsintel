@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.clustering.models import StoryCluster
+from app.entities.relations import LABELS
 from app.feeds.models import Article, FeedArticle
 from app.feeds.service import article_response
 from app.graph.schemas import (
@@ -19,8 +20,9 @@ from app.graph.schemas import (
     GraphEdge,
     GraphNode,
     GraphResponse,
+    StatedEdge,
 )
-from app.nlp.models import Entity
+from app.nlp.models import Entity, EntityRelation
 from app.search.aggregations import ROOT_ORDER
 from app.search.elasticsearch import ElasticsearchAdapter
 
@@ -276,6 +278,29 @@ def parse_edges(
     )
     truncated = len(edges) > MAX_EDGES
     return edges[:MAX_EDGES], truncated
+
+
+async def stated_links(db: AsyncSession, drawn: list[str]) -> list[StatedEdge]:
+    """See-also links with both ends among the drawn entities, read from the subject's side."""
+    ids = [uuid.UUID(value) for value in drawn]
+    if len(ids) < 2:
+        return []
+    relations = await db.scalars(
+        select(EntityRelation)
+        .where(EntityRelation.subject_id.in_(ids), EntityRelation.object_id.in_(ids))
+        .order_by(EntityRelation.subject_id, EntityRelation.relation_type, EntityRelation.object_id)
+    )
+    # A link stated twice for two periods is still one line.
+    edges = {
+        (relation.subject_id, LABELS[(relation.relation_type, True)], relation.object_id)
+        for relation in relations
+    }
+    return [
+        StatedEdge(source=source, target=target, label=label)
+        for source, label, target in sorted(
+            edges, key=lambda edge: (str(edge[0]), edge[1], str(edge[2]))
+        )
+    ]
 
 
 async def _catalogue(db: AsyncSession, node_ids: list[str]) -> dict[str, Entity]:

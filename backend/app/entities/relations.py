@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from sqlalchemy import func, literal, or_, select
+from sqlalchemy import and_, case, false, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.entities.authority import PLACE_TYPES, AuthorityError, record
@@ -26,7 +26,9 @@ __all__ = [
     "RelationError",
     "SeeAlso",
     "add_relation",
+    "EXPANSIONS",
     "check_dates",
+    "expand",
     "find_relation",
     "label_for",
     "labels_for",
@@ -81,6 +83,8 @@ _REFUSED = {
 # Links that chain: following them must never come back to where it started.
 ACYCLIC = frozenset({"succeeded_by", "part_of"})
 MAX_STEPS = 10
+# What a search may follow: every earlier and later name, or everything that is part of a place.
+EXPANSIONS = ("names", "parts")
 _PARTIAL_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
 
 
@@ -391,3 +395,46 @@ async def see_also(db: AsyncSession, entity_id: uuid.UUID) -> list[SeeAlso]:
             item.relation.valid_from or "",
         ),
     )
+
+
+async def expand(db: AsyncSession, ids: list[str], modes: set[str]) -> list[str]:
+    """The ids asked for plus every root their see-also links reach, up to MAX_STEPS away.
+
+    `names` walks later and earlier names both ways; `parts` walks down to what is part of each
+    (recursively, so a country reaches its regions and their towns). Membership, leadership and
+    plain `related` links never widen a search. Variants are left to `expand_for_search`.
+    """
+    requested = sorted(set(ids))
+    if not requested or not modes & set(EXPANSIONS):
+        return requested
+    start = select(
+        func.coalesce(Entity.authority_id, Entity.id).label("id"), literal(0).label("depth")
+    ).where(Entity.id.in_([uuid.UUID(value) for value in requested]))
+    walk = start.cte("expand_walk", recursive=True)
+    names = (
+        and_(
+            EntityRelation.relation_type == "succeeded_by",
+            or_(EntityRelation.subject_id == walk.c.id, EntityRelation.object_id == walk.c.id),
+        )
+        if "names" in modes
+        else false()
+    )
+    parts = (
+        and_(EntityRelation.relation_type == "part_of", EntityRelation.object_id == walk.c.id)
+        if "parts" in modes
+        else false()
+    )
+    # One join for both directions: Postgres allows a single reference to the walk per step.
+    walk = walk.union(
+        select(
+            case(
+                (EntityRelation.subject_id == walk.c.id, EntityRelation.object_id),
+                else_=EntityRelation.subject_id,
+            ),
+            walk.c.depth + 1,
+        )
+        .join(walk, or_(names, parts))
+        .where(walk.c.depth < MAX_STEPS)
+    )
+    reached = await db.scalars(select(walk.c.id).distinct())
+    return sorted({*requested, *(str(value) for value in reached)})

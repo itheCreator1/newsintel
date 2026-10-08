@@ -50,6 +50,7 @@ export type AuthorityHistoryPage = components['schemas']['AuthorityHistoryPage']
 export type SeeAlso = components['schemas']['SeeAlsoResponse']
 export type SeeAlsoItem = components['schemas']['SeeAlsoItem']
 export type SeeAlsoLabel = SeeAlsoItem['label']
+export type StatedEdge = components['schemas']['StatedEdge']
 export type SeeAlsoCreate = components['schemas']['SeeAlsoCreate']
 export type SeeAlsoUpdate = components['schemas']['SeeAlsoUpdate']
 /** Filters on the authority file; an absent key is not sent. */

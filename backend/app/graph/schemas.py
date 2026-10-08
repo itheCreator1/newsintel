@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.entities.schemas import SeeAlsoLabel
 from app.feeds.schemas import ArticleResponse
 
 
@@ -24,12 +25,22 @@ class GraphEdge(BaseModel):
     recent_weight: int = 0
 
 
+class StatedEdge(BaseModel):
+    """A see-also link the user stated, read from `source`'s side: source <label> target."""
+
+    source: uuid.UUID
+    target: uuid.UUID
+    label: SeeAlsoLabel
+
+
 class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     truncated: bool
     # Start of the "recent" span edges' recent_weight counts; None when the window is too short.
     recent_since: datetime | None = None
+    # See-also links between drawn entities, only when asked for; never part of edges or weights.
+    stated_edges: list[StatedEdge] = []
 
 
 class EdgeEntity(BaseModel):

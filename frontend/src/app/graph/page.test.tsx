@@ -8,9 +8,10 @@ import GraphPage from './page'
 vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { entityGraph: vi.fn(), edgeEvidence: vi.fn(), search: vi.fn(), searchSources: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the clicked node id.
 vi.mock('../../components/EntityGraph', () => ({
-  EntityGraph: (props: { nodes?: unknown[]; onSelect: (id: string) => void; onSelectEdge: (source: string, target: string) => void }) =>
+  EntityGraph: (props: { nodes?: unknown[]; stated?: unknown[]; onSelect: (id: string) => void; onSelectEdge: (source: string, target: string) => void }) =>
     <>
       <button type="button" onClick={() => props.onSelect('entity-two')}>{`Chart with ${props.nodes?.length} nodes`}</button>
+      {props.stated?.length ? <span>{`Chart with ${props.stated.length} stated links`}</span> : null}
       <button type="button" onClick={() => props.onSelectEdge('entity-two', 'entity-one')}>Chart edge</button>
     </>,
 }))
@@ -24,7 +25,7 @@ const edges = [{ source: 'entity-one', target: 'entity-two', weight: 3, score: 0
 beforeEach(() => {
   vi.clearAllMocks()
   resetNavigationHarness({ pathname: '/graph/' })
-  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges, truncated: false })
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges, truncated: false, stated_edges: [] })
   vi.mocked(api.edgeEvidence).mockResolvedValue({
     source: { id: 'entity-one', text: 'Acme', type: 'ORG' }, target: { id: 'entity-two', text: 'Jane Doe', type: 'PERSON' },
     meaning: 'Both entities are mentioned in the same article. This is co-occurrence, not a stated relationship.',
@@ -139,7 +140,7 @@ it('sends a minimum connection strength other than the default', async () => {
 it('lists the strongest connections first and the rest on request', async () => {
   const many = Array.from({ length: 25 }, (_, index) => ({ id: `n${index}`, text: `N${index}`, type: 'ORG', article_count: 30 - index }))
   const links = many.slice(1).map((node, index) => ({ source: 'n0', target: node.id, weight: 2, score: 1 - index / 100, recent_weight: 0 }))
-  vi.mocked(api.entityGraph).mockResolvedValue({ nodes: many, edges: links, truncated: false })
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes: many, edges: links, truncated: false, stated_edges: [] })
   renderWithQuery(() => <GraphPage />)
   const list = await screen.findByRole('list', { name: 'Connections in this graph' })
 
@@ -149,7 +150,7 @@ it('lists the strongest connections first and the rest on request', async () => 
 })
 
 it('explains new connections when the graph has any', async () => {
-  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges: [{ ...edges[0], recent_weight: 3 }], truncated: false, recent_since: '2026-09-29T00:00:00Z' })
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges: [{ ...edges[0], recent_weight: 3 }], truncated: false, recent_since: '2026-09-29T00:00:00Z', stated_edges: [] })
   renderWithQuery(() => <GraphPage />)
 
   expect(await screen.findByText(/Dashed yellow lines are new/)).toBeTruthy()
@@ -172,7 +173,7 @@ it('links from the side panel to search with this entity', async () => {
 })
 
 it('shows the empty state when there are no co-occurring entities', async () => {
-  vi.mocked(api.entityGraph).mockResolvedValue({ nodes: [], edges: [], truncated: false })
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes: [], edges: [], truncated: false, stated_edges: [] })
   const { rerenderSame } = renderWithQuery(() => <GraphPage />)
 
   expect(await screen.findByText('No co-occurring entities yet.')).toBeTruthy()
@@ -278,4 +279,24 @@ it('offers Retry when the graph is temporarily unavailable', async () => {
   expect(await screen.findByText('The entity graph is temporarily unavailable.')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
   expect(await screen.findByRole('button', { name: 'Chart with 2 nodes' })).toBeTruthy()
+})
+
+it('draws stated see-also links only when switched on, and lists them', async () => {
+  vi.mocked(api.entityGraph).mockResolvedValue({ nodes, edges, truncated: false, stated_edges: [{ source: 'entity-two', target: 'entity-one', label: 'leader_of' }] })
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+  expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '30' })
+  expect(screen.queryByText('Chart with 1 stated links')).toBeNull()
+
+  const toggle = screen.getByRole('button', { name: 'Stated links' })
+  expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  fireEvent.click(toggle)
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.get('stated')).toBe('1')
+  await vi.waitFor(() => expect(api.entityGraph).toHaveBeenLastCalledWith({ nodes: '30', stated: 'true' }))
+  expect(await screen.findByRole('button', { name: 'Stated links' })).toHaveAttribute('aria-pressed', 'true')
+  expect(await screen.findByText('Chart with 1 stated links')).toBeTruthy()
+  const list = screen.getByRole('list', { name: 'Stated links in this graph' })
+  expect(list.textContent).toBe('Jane Doe · leader of · Acme')
 })

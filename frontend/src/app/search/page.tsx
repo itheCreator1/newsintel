@@ -18,7 +18,7 @@ import { FacetPanel } from '../../components/FacetPanel'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { advancedCount, clearCriteria, errorCode, filterChips, graphHref, GRAPH_CHIP_FIELDS, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from '../../lib/filter-ui'
-import { brushRange, clusterHref, INTERVALS, mapHref, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
+import { brushRange, clusterHref, EXPANSIONS, INTERVALS, mapHref, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
 const joined = (values: string[]) => values.join(', ')
 const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
@@ -28,9 +28,11 @@ function formFromState(current: Investigation) {
     q: current.q, source_id: [...current.source_id], country: joined(current.source_country), after: current.after ?? '', before: current.before ?? '',
     content_available: current.content_available === null ? '' : String(current.content_available), processing_status: current.processing_status[0] ?? '', sort: current.sort,
     language: joined(current.language), entity_id: [...current.entity_id], entity_type: [...current.entity_type], keyword_id: [...current.keyword_id],
-    story_country: joined(current.story_country), mentioned_country: joined(current.mentioned_country),
+    story_country: joined(current.story_country), mentioned_country: joined(current.mentioned_country), entity_expand: [...current.entity_expand] as string[],
   }
 }
+
+const EXPANSION_OPTIONS = [{ value: 'names', label: 'Earlier and later names' }, { value: 'parts', label: 'Parts' }]
 
 
 function SearchContent() {
@@ -91,6 +93,7 @@ function SearchContent() {
       content_available: draft.content_available === '' ? null : draft.content_available === 'true', processing_status: draft.processing_status ? [draft.processing_status] : [],
       sort: draft.sort, language: split(draft.language), entity_id: draft.entity_id, entity_type: draft.entity_type, keyword_id: draft.keyword_id,
       story_country: split(draft.story_country).map(code => code.toUpperCase()), mentioned_country: split(draft.mentioned_country).map(code => code.toUpperCase()),
+      entity_expand: EXPANSIONS.filter(option => draft.entity_expand.includes(option)),
     }
   }
   function submit() { navigate(draftState()) }
@@ -150,6 +153,7 @@ function SearchContent() {
             <label className={labelClass}>Detected language<input className={cn(fieldClass, 'mt-1')} value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="en" /></label>
             <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>
             <CheckboxPicker legend="Entity" options={entities.map(entity => ({ value: entity.id, label: `${entity.text} (${entity.kind})` }))} selected={form.entity_id} labels={pickerLabels.entity_id} onChange={values => setForm(f => ({ ...f, entity_id: values }))} emptyText="No entities match." />
+            <CheckboxPicker legend="Follow see-also links" options={EXPANSION_OPTIONS} selected={form.entity_expand} onChange={values => setForm(f => ({ ...f, entity_expand: values }))} />
             <CheckboxPicker legend="Entity type" options={['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'].map(kind => ({ value: kind, label: kind }))} selected={form.entity_type} onChange={values => setForm(f => ({ ...f, entity_type: values }))} />
             <label className={labelClass}>Keyword search<input className={cn(fieldClass, 'mt-1')} value={keywordTerm} onChange={e => setKeywordTerm(e.target.value)} placeholder="Find a keyword" /></label>
             <CheckboxPicker legend="Keyword" options={keywords.map(keyword => ({ value: keyword.id, label: keyword.text }))} selected={form.keyword_id} labels={pickerLabels.keyword_id} onChange={values => setForm(f => ({ ...f, keyword_id: values }))} emptyText="No keywords match." />

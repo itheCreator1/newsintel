@@ -295,3 +295,100 @@ async def test_downgrade_to_0019_removes_only_relations() -> None:
 
     async with session_factory() as db:
         assert await db.scalar(text("SELECT to_regclass('entity_relations') IS NOT NULL")) is True
+
+
+async def _chain(language: str) -> dict[str, uuid.UUID]:
+    """Three names of one company in turn, a city in a region in a country, and a party."""
+    ids = await _entities(
+        language,
+        ("ORG", "first co"),
+        ("ORG", "second co"),
+        ("ORG", "third co"),
+        ("GPE", "hellas"),
+        ("GPE", "crete"),
+        ("GPE", "chania"),
+        ("ORG", "blue party"),
+        ("PERSON", "ana pol"),
+        ("ORG", "partner co"),
+        f2="first co",
+    )
+    async with _client() as client:
+        await _link(client, ids["first co"], "later_name", ids["second co"])
+        await _link(client, ids["third co"], "earlier_name", ids["second co"])
+        await _link(client, ids["crete"], "part_of", ids["hellas"])
+        await _link(client, ids["chania"], "part_of", ids["crete"])
+        await _link(client, ids["ana pol"], "member_of", ids["blue party"])
+        await _link(client, ids["ana pol"], "leader_of", ids["blue party"])
+        await _link(client, ids["partner co"], "related", ids["blue party"], note="Allies")
+        await _link(client, ids["second co"], "member_of", ids["blue party"])
+    return ids
+
+
+async def _expanded(ids: list[uuid.UUID], *modes: str) -> set[uuid.UUID]:
+    from app.entities.relations import expand
+
+    async with session_factory() as db:
+        return {
+            uuid.UUID(value) for value in await expand(db, [str(item) for item in ids], set(modes))
+        }
+
+
+async def test_expand_names_follows_the_chain_both_ways() -> None:
+    ids = await _chain(_language())
+    every_name = {ids["first co"], ids["second co"], ids["third co"]}
+
+    assert await _expanded([ids["second co"]], "names") == every_name
+    assert await _expanded([ids["third co"]], "names") == every_name
+    # A variant's id stands for its root.
+    assert await _expanded([ids["f2"]], "names") == every_name | {ids["f2"]}
+    assert await _expanded([ids["second co"]]) == {ids["second co"]}
+
+
+async def test_expand_parts_is_recursive() -> None:
+    ids = await _chain(_language())
+
+    assert await _expanded([ids["hellas"]], "parts") == {ids["hellas"], ids["crete"], ids["chania"]}
+    assert await _expanded([ids["crete"]], "parts") == {ids["crete"], ids["chania"]}
+    assert await _expanded([ids["hellas"]], "names") == {ids["hellas"]}
+
+
+async def test_member_and_leader_never_expand() -> None:
+    ids = await _chain(_language())
+
+    assert await _expanded([ids["blue party"]], "names", "parts") == {ids["blue party"]}
+    assert await _expanded([ids["ana pol"]], "names", "parts") == {ids["ana pol"]}
+
+
+async def test_search_criteria_widen_only_when_asked() -> None:
+    from app.search.criteria import search_criteria
+
+    ids = await _chain(_language())
+    async with session_factory() as db:
+        plain = await search_criteria(db, entity_id=[ids["third co"]])
+        widened = await search_criteria(db, entity_id=[ids["third co"]], entity_expand=["names"])
+
+    assert set(plain.entity_match_ids) == {str(ids["third co"])}
+    assert set(widened.entity_match_ids) == {
+        str(ids[name]) for name in ("first co", "f2", "second co", "third co")
+    }
+    assert widened.entity_ids == plain.entity_ids == [str(ids["third co"])]
+    assert "entity_expand" not in plain.fingerprint()
+    assert widened.fingerprint()["entity_expand"] == ["names"]
+
+
+async def test_graph_draws_stated_links_only_when_asked() -> None:
+    from app.graph.service import stated_links
+
+    ids = await _chain(_language())
+    drawn = [str(ids[name]) for name in ("first co", "second co", "blue party", "ana pol")]
+    async with session_factory() as db:
+        links = await stated_links(db, drawn)
+
+    assert sorted((str(link.source), link.label, str(link.target)) for link in links) == sorted(
+        [
+            (str(ids["first co"]), "later_name", str(ids["second co"])),
+            (str(ids["ana pol"]), "member_of", str(ids["blue party"])),
+            (str(ids["ana pol"]), "leader_of", str(ids["blue party"])),
+            (str(ids["second co"]), "member_of", str(ids["blue party"])),
+        ]
+    )

@@ -58,3 +58,26 @@ it('dashes a connection whose articles are all recent, only when the graph has a
   expect(s.edges[1].lineStyle).not.toHaveProperty('type')
   expect(graphOption({ nodes, edges: recent }).series[0].edges[0].lineStyle).not.toHaveProperty('type')
 })
+
+it('draws stated links as dotted, labelled lines apart from co-occurrence', () => {
+  const s = graphOption({ nodes, edges, stated: [{ source: 'a', target: 'c', label: 'later_name' }] }).series[0]
+  const line = s.edges.find(e => e.source === 'a' && e.target === 'c')!
+
+  expect(line).toMatchObject({ stated: true, label: { show: true, formatter: 'later name' } })
+  expect(line.lineStyle).toMatchObject({ type: 'dotted' })
+  // Co-occurrence lines are untouched, and the stated one adds no pull to the layout.
+  expect(s.edges.filter(e => !e.stated)).toEqual(graphOption({ nodes, edges }).series[0].edges)
+  expect(line.ignoreForceLayout).toBe(true)
+})
+
+it('stated edges do not change communities', () => {
+  const grouped = (stated: { source: string; target: string; label: 'part_of' }[] = []) =>
+    graphOption({ nodes, edges, colourBy: 'group', stated }).series[0].data.map(datum => datum.category)
+
+  expect(grouped([{ source: 'a', target: 'z5', label: 'part_of' }])).toEqual(grouped())
+})
+
+it('drops a stated link whose entity is not drawn', () => {
+  const s = graphOption({ nodes, edges, stated: [{ source: 'a', target: 'missing', label: 'part_of' }] }).series[0]
+  expect(s.edges.some(e => e.stated)).toBe(false)
+})

@@ -117,3 +117,16 @@ def test_saved_search_routes_require_csrf_for_mutations() -> None:
             param["name"] for param in operation.get("parameters", []) if param["in"] == "header"
         ]
         assert "X-CSRF-Token" not in headers
+
+
+def test_old_state_without_entity_expand_still_validates() -> None:
+    state = InvestigationState.model_validate({"entity_id": [str(uuid.uuid4())]})
+    assert state.entity_expand == []
+    assert "entity_expand" not in state.model_dump(exclude_defaults=True)
+
+
+def test_entity_expand_takes_names_and_parts_only() -> None:
+    state = InvestigationState.model_validate({"entity_expand": ["parts", "names", "names"]})
+    assert state.entity_expand == ["names", "parts"]
+    with pytest.raises(ValidationError):
+        InvestigationState.model_validate({"entity_expand": ["members"]})

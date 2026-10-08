@@ -2,6 +2,9 @@ import type { CompareKind, CompareRole, GeoRole, InvestigationState } from './ap
 
 export const SORTS = ['relevance', 'newest', 'oldest', 'most_sources'] as const
 export const INTERVALS = ['auto', 'hour', 'day', 'week', 'month', 'year'] as const
+/** See-also links an entity filter can follow: earlier and later names, and parts of a place. */
+export const EXPANSIONS = ['names', 'parts'] as const
+export type Expansion = typeof EXPANSIONS[number]
 const LIST_FIELDS = ['source_id', 'source_country', 'processing_status', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'story_cluster_id'] as const
 const COUNTRY_FIELDS = new Set<ListField>(['source_country', 'story_country', 'mentioned_country'])
 
@@ -13,7 +16,7 @@ const urlKey = (field: ListField) => field === 'source_country' ? 'country' : fi
 export const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
 
 export function emptyInvestigation(): Investigation {
-  return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'relevance', interval: 'auto' }
+  return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], entity_expand: [], sort: 'relevance', interval: 'auto' }
 }
 
 function values(query: URLSearchParams, key: string): string[] {
@@ -37,6 +40,7 @@ export function stateFromQuery(query: URLSearchParams): Investigation {
   const state = emptyInvestigation()
   for (const field of LIST_FIELDS) state[field] = many(query, urlKey(field)).map(value => normalize(field, value))
   const content = one(query, 'content_available')
+  state.entity_expand = EXPANSIONS.filter(option => many(query, 'entity_expand').includes(option))
   return {
     ...state, q: one(query, 'q'), after: one(query, 'after') || null, before: one(query, 'before') || null,
     content_available: content === 'true' ? true : content === 'false' ? false : null,
@@ -48,6 +52,7 @@ export function queryFromState(state: Investigation): URLSearchParams {
   const query = new URLSearchParams()
   if (state.q) query.set('q', state.q)
   for (const field of LIST_FIELDS) for (const value of state[field]) query.append(urlKey(field), value)
+  for (const option of state.entity_expand) query.append('entity_expand', option)
   if (state.after) query.set('after', state.after)
   if (state.before) query.set('before', state.before)
   if (state.content_available !== null) query.set('content_available', String(state.content_available))
@@ -152,6 +157,7 @@ export function searchParams(state: Investigation, options: { interval?: boolean
   const params: Record<string, string | string[]> = {}
   if (state.q) params.q = state.q
   for (const field of LIST_FIELDS) if (state[field].length) params[field] = state[field]
+  if (state.entity_expand.length) params.entity_expand = state.entity_expand
   if (state.after) params.after = state.after
   if (state.before) params.before = state.before
   if (state.content_available !== null) params.content_available = String(state.content_available)

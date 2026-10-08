@@ -6,21 +6,11 @@ import { useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { SeeAlsoItem, SeeAlsoLabel } from '../lib/api-types'
 import { entityHref, toHref } from '../lib/investigation'
+import { SEE_ALSO_LABELS } from '../lib/see-also'
 import { fieldClass, ghostButtonClass, labelClass } from '../lib/ui-classes'
 import { EntityPicker, type Picked } from './EntityAuthority'
 
-/** Each label as read from this entity's side, in the order the section lists them. */
-const LABEL_TEXT: Record<SeeAlsoLabel, string> = {
-  later_name: 'Later name',
-  earlier_name: 'Earlier name',
-  part_of: 'Part of',
-  has_part: 'Has part',
-  member_of: 'Member of',
-  has_member: 'Has member',
-  leader_of: 'Leader of',
-  led_by: 'Led by',
-  related: 'Related',
-}
+const LABEL_TEXT = SEE_ALSO_LABELS
 const ORDER = Object.keys(LABEL_TEXT) as SeeAlsoLabel[]
 
 const failure = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback

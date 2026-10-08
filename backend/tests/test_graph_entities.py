@@ -726,3 +726,50 @@ def test_graph_route_bounds_its_node_count_and_shares_the_search_filters() -> No
     assert search_names - {"sort", "limit", "cursor"} <= set(names)
     node_limit = next(item for item in parameters if item["name"] == "nodes")["schema"]
     assert (node_limit["maximum"], node_limit["minimum"]) == (MAX_NODES, 1)
+
+
+@pytest.mark.asyncio
+async def test_stated_edges_only_between_drawn_nodes(
+    adapter: type[_Adapter], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.graph.schemas import StatedEdge
+
+    left, right = uuid.uuid4(), uuid.uuid4()
+    asked: list[list[str]] = []
+
+    async def links(_db: object, drawn: list[str]) -> list[StatedEdge]:
+        asked.append(drawn)
+        return [StatedEdge(source=left, target=right, label="later_name")]
+
+    monkeypatch.setattr("app.graph.routes.stated_links", links)
+
+    def responses() -> list[dict[str, Any]]:
+        return [
+            _nodes_response([_bucket(str(left), 6, 6), _bucket(str(right), 4, 4)]),
+            _edges_response([{"key": f"{left}&{right}", "doc_count": 3}]),
+        ]
+
+    database = _Database(entities=[_entity(left, "Facebook"), _entity(right, "Meta")])
+    adapter.responses = responses()
+    plain = await _graph(database)
+    adapter.responses = responses()
+    stated = await entity_graph(
+        database,  # type: ignore[arg-type]
+        object(),  # type: ignore[arg-type]
+        Settings(),
+        _criteria(),
+        None,
+        30,
+        2,
+        stated=True,
+    )
+
+    assert plain.stated_edges == [] and len(asked) == 1
+    assert asked == [[str(left), str(right)]]
+    assert [(edge.source, edge.target, edge.label) for edge in stated.stated_edges] == [
+        (left, right, "later_name")
+    ]
+    # A stated link is drawn beside the co-occurrence edges, never counted in them.
+    assert [(edge.weight, edge.score) for edge in stated.edges] == [
+        (edge.weight, edge.score) for edge in plain.edges
+    ]

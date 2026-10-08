@@ -13,13 +13,13 @@ describe('investigation URL state', () => {
     const state = stateFromQuery(params({
       q: 'climate', source_id: ['s1', 's2'], country: 'gr', after: '2026-01-01', before: '2026-02-01', content_available: 'true',
       processing_status: 'failed', language: ['en', 'de'], entity_id: 'e1', entity_type: 'ORG', keyword_id: ['k1'],
-      story_country: 'de', mentioned_country: 'FR', story_cluster_id: 'cluster-1', sort: 'newest', interval: 'week',
+      story_country: 'de', mentioned_country: 'FR', story_cluster_id: 'cluster-1', sort: 'newest', interval: 'week', entity_expand: 'names',
     }))
 
     expect(state).toEqual({
       q: 'climate', source_id: ['s1', 's2'], source_country: ['GR'], after: '2026-01-01', before: '2026-02-01', content_available: true,
       processing_status: ['failed'], language: ['en', 'de'], entity_id: ['e1'], entity_type: ['ORG'], keyword_id: ['k1'],
-      story_country: ['DE'], mentioned_country: ['FR'], story_cluster_id: ['cluster-1'], sort: 'newest', interval: 'week',
+      story_country: ['DE'], mentioned_country: ['FR'], story_cluster_id: ['cluster-1'], sort: 'newest', interval: 'week', entity_expand: ['names'],
     })
     const typed: InvestigationState = state
     expect(typed.sort).toBe('newest')
@@ -48,6 +48,28 @@ describe('investigation URL state', () => {
 
     expect(searchParams(state)).toEqual({ q: 'grid', source_country: ['GR'], content_available: 'true', sort: 'relevance' })
     expect(searchParams(state, { interval: true })).toEqual({ q: 'grid', source_country: ['GR'], content_available: 'true', interval: 'week' })
+  })
+})
+
+describe('following see-also links', () => {
+  it('keeps only known expansions, once each and in a stable order', () => {
+    expect(stateFromQuery(params({ entity_expand: ['parts', 'members', 'names,parts', ''] })).entity_expand).toEqual(['names', 'parts'])
+    expect(stateFromQuery(params({})).entity_expand).toEqual([])
+  })
+
+  it('round-trips through the URL and is sent to the API only when set', () => {
+    const state = { ...emptyInvestigation(), entity_id: ['e1'], entity_expand: ['names' as const, 'parts' as const] }
+
+    const query = queryFromState(state)
+
+    expect(query.toString()).toBe('entity_id=e1&entity_expand=names&entity_expand=parts')
+    expect(stateFromQuery(query)).toEqual(state)
+    expect(searchParams(state)).toEqual({ entity_id: ['e1'], entity_expand: ['names', 'parts'], sort: 'relevance' })
+    expect(searchParams({ ...state, entity_expand: [] })).toEqual({ entity_id: ['e1'], sort: 'relevance' })
+  })
+
+  it('restores a saved state that predates expansions with none', () => {
+    expect(fromSaved({ q: 'grid', sort: 'relevance', interval: 'auto' }).entity_expand).toEqual([])
   })
 })
 

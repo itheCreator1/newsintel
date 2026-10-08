@@ -3083,6 +3083,11 @@ export interface components {
             truncated: boolean;
             /** Recent Since */
             recent_since?: string | null;
+            /**
+             * Stated Edges
+             * @default []
+             */
+            stated_edges: components["schemas"]["StatedEdge"][];
         };
         /** GreekEntitiesResponse */
         GreekEntitiesResponse: {
@@ -3257,6 +3262,8 @@ export interface components {
             mentioned_country?: string[];
             /** Story Cluster Id */
             story_cluster_id?: string[];
+            /** Entity Expand */
+            entity_expand?: ("names" | "parts")[];
             /**
              * Sort
              * @default relevance
@@ -4316,6 +4323,27 @@ export interface components {
             median_minutes_behind: number | null;
             /** P90 Minutes Behind */
             p90_minutes_behind: number | null;
+        };
+        /**
+         * StatedEdge
+         * @description A see-also link the user stated, read from `source`'s side: source <label> target.
+         */
+        StatedEdge: {
+            /**
+             * Source
+             * Format: uuid
+             */
+            source: string;
+            /**
+             * Target
+             * Format: uuid
+             */
+            target: string;
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "later_name" | "earlier_name" | "part_of" | "has_part" | "member_of" | "has_member" | "leader_of" | "led_by" | "related";
         };
         /** StopWordsResponse */
         StopWordsResponse: {
@@ -6688,6 +6716,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -6739,6 +6768,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -6957,6 +6987,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7002,6 +7033,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7047,6 +7079,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7199,6 +7232,7 @@ export interface operations {
                 nodes?: number;
                 min_edge_weight?: number;
                 expand?: string[] | null;
+                stated?: boolean;
                 q?: string;
                 source_id?: string[] | null;
                 source_country?: string[] | null;
@@ -7213,6 +7247,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7262,6 +7297,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7742,6 +7778,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7787,6 +7824,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;
@@ -7832,6 +7870,7 @@ export interface operations {
                 story_country?: string[] | null;
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
             };
             header?: never;
             path?: never;

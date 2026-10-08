@@ -177,7 +177,7 @@ case $group in
   investigations) users phase6 ;;
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
-  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c ;;
+  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d ;;
 esac
 ni_stage app.up
 $compose up -d $app_build_flag api worker nlp-worker scheduler frontend
@@ -265,6 +265,8 @@ case $group in
     # Two likely duplicate pairs in a language of their own, so the queue holds exactly these.
     [ "$(psql_app "with seeded as (insert into nlp_entities (id, language, entity_type, normalized_text, display_text) values (gen_random_uuid(), 'zz', 'PERSON', 'jon tarr', 'Jon Tarr'), (gen_random_uuid(), 'zz', 'PERSON', 'j. tarr', 'J. Tarr'), (gen_random_uuid(), 'zz', 'ORG', 'north atlantic council', 'North Atlantic Council'), (gen_random_uuid(), 'zz', 'ORG', 'nac', 'NAC') returning id) select count(*) from seeded")" = 4 ] || { echo "Authority suggestion seed failed" >&2; exit 1; }
     e2e "authority file workflow"
+    # After the merge workflow, which a see-also link would block; it removes the links it adds.
+    e2e "see also workflow"
     e2e "ui polish workflow"
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.

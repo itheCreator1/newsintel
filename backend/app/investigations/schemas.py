@@ -45,6 +45,8 @@ class InvestigationState(BaseModel):
     story_country: list[CountryCode] = Field(default_factory=list, max_length=50)
     mentioned_country: list[CountryCode] = Field(default_factory=list, max_length=50)
     story_cluster_id: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    # Which see-also links the entity filter follows; states saved before see-also have none.
+    entity_expand: list[Literal["names", "parts"]] = Field(default_factory=list, max_length=10)
     sort: Literal["relevance", "newest", "oldest", "most_sources"] = "relevance"
     interval: RequestedInterval = "auto"
 
@@ -56,6 +58,11 @@ class InvestigationState(BaseModel):
         except SearchSyntaxError as exc:
             raise ValueError(str(exc)) from exc
         return value.strip()
+
+    @field_validator("entity_expand")
+    @classmethod
+    def _each_expansion_once(cls, value: list[str]) -> list[str]:
+        return sorted(set(value))
 
     @model_validator(mode="after")
     def _ordered_range(self) -> Self:
