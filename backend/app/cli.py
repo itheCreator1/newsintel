@@ -1,9 +1,12 @@
 import argparse
 import asyncio
 import getpass
+import json
 import os
+import sys
 import uuid
 from datetime import timedelta
+from pathlib import Path
 
 from sqlalchemy import delete, select
 
@@ -20,6 +23,7 @@ from app.clustering.service import (
 )
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.transfer import export_authorities, import_authorities, parse_file
 from app.nlp.authority import seed_countries
 from app.nlp.reprocessing import (
     count_selection,
@@ -132,7 +136,40 @@ async def run_nlp_reprocessing(
     print(f"run_id={active_id} status=succeeded")
 
 
-AUTHORITY_ACTIONS = ("seed-countries",)
+AUTHORITY_ACTIONS = ("seed-countries", "export", "import")
+
+
+async def run_authority_export(path: Path | None, *, language: str | None) -> None:
+    """Write the authority file as JSON to `path`, or to stdout without one."""
+    async with session_factory() as db:
+        data = await export_authorities(db, language=language)
+    text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if path is None:
+        sys.stdout.write(text)
+        return
+    await asyncio.to_thread(path.write_text, text, encoding="utf-8")
+    print(
+        f"authority export: {len(data['entities'])} roots, {len(data['distinct'])} distinct pairs"
+    )
+
+
+async def run_authority_import(path: Path, *, apply: bool) -> None:
+    """Apply an authority file; without --apply the changes are rolled back and only reported."""
+    try:
+        data = json.loads(await asyncio.to_thread(path.read_text, encoding="utf-8"))
+        parse_file(data)
+    except (OSError, ValueError) as error:
+        raise SystemExit(f"Cannot read the authority file {path}: {error}") from None
+    async with session_factory() as db:
+        report = await import_authorities(db, data)
+        if apply:
+            await db.commit()
+        else:
+            await db.rollback()
+    mode = "applied" if apply else "dry-run (use --apply to write)"
+    print(f"authority import {mode}: {report.summary()}")
+    for item in report.conflicts:
+        print(f"  conflict {item}")
 
 
 async def run_seed_countries(*, apply: bool) -> None:
@@ -224,13 +261,25 @@ def main() -> None:
     parser.add_argument("--to-date")
     parser.add_argument("--all", action="store_true")
     parser.add_argument(
-        "--language", help="reprocess-nlp: narrow the selection to one detected language, e.g. el"
+        "--language",
+        help="reprocess-nlp: narrow the selection to one detected language, e.g. el; "
+        "authority export: export one language only",
+    )
+    parser.add_argument(
+        "--file", type=Path, help="authority export|import: the JSON file (export: default stdout)"
     )
     args = parser.parse_args()
     if args.command == "authority":
         if args.username not in AUTHORITY_ACTIONS:
             parser.error("authority requires an action: " + ", ".join(AUTHORITY_ACTIONS))
-        asyncio.run(run_seed_countries(apply=args.apply))
+        if args.username == "export":
+            asyncio.run(run_authority_export(args.file, language=args.language))
+        elif args.username == "import":
+            if args.file is None:
+                parser.error("authority import requires --file PATH")
+            asyncio.run(run_authority_import(args.file, apply=args.apply))
+        else:
+            asyncio.run(run_seed_countries(apply=args.apply))
         return
     if args.command == "bootstrap-admin":
         if args.username:

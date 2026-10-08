@@ -36,6 +36,7 @@ __all__ = [
     "EntityRef",
     "RowPart",
     "add_distinct",
+    "adopt",
     "advance_run",
     "combine_rows",
     "entity_group",
@@ -216,6 +217,43 @@ async def merge(
     return await _start_run(db, "merge", variant.id, root.id)
 
 
+async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) -> None:
+    """Tie a name no article uses yet to a root: there is nothing to move, so no run.
+
+    For an import into a database that has not seen the name; anything else is a `merge`.
+    """
+    variant = await _locked(db, variant_id)
+    root = await _get(db, root_id)
+    problem = merge_problem(
+        _ref(variant), _ref(root), distinct=await _is_distinct(db, variant.id, root.id)
+    )
+    if problem is not None:
+        raise AuthorityError(*problem)
+    in_use = await db.scalar(
+        select(
+            exists().where(
+                or_(
+                    ArticleEntity.entity_id == variant.id,
+                    ArticleEntity.observed_entity_id == variant.id,
+                )
+            )
+            | exists().where(Entity.authority_id == variant.id)
+        )
+    )
+    if in_use:
+        raise AuthorityError(409, "This entity has articles or variants; merge it instead")
+    variant.authority_id = root.id
+    _record(
+        db,
+        "merged",
+        variant.id,
+        other_id=root.id,
+        before={"authority_id": None},
+        after={"authority_id": str(root.id)},
+    )
+    await db.flush()
+
+
 async def split(db: AsyncSession, variant_id: uuid.UUID) -> EntityAuthorityRun:
     """Make a variant its own root again and start giving its mentions back."""
     variant = await _locked(db, variant_id)
@@ -253,12 +291,13 @@ async def _root_only(db: AsyncSession, entity_id: uuid.UUID) -> Entity:
 
 
 async def rename(
-    db: AsyncSession, entity_id: uuid.UUID, preferred_text: str | None
+    db: AsyncSession, entity_id: uuid.UUID, preferred_text: str | None, *, reindex: bool = True
 ) -> EntityAuthorityRun | None:
     """Set the root's preferred name; None goes back to the latest spelling NLP saw.
 
     The search index carries the name, so a change starts a run that reindexes the root's
-    articles; the same name again changes nothing and returns None.
+    articles; the same name again changes nothing and returns None. A name no article uses
+    yet (`reindex=False`, for an import) needs no run.
     """
     entity = await _root_only(db, entity_id)
     value = " ".join(preferred_text.split()) if preferred_text else None
@@ -272,6 +311,9 @@ async def rename(
         after={"preferred_text": value},
     )
     entity.preferred_text = value
+    if not reindex:
+        await db.flush()
+        return None
     return await _start_run(db, "reindex", entity.id, entity.id)
 
 
