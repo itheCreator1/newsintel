@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
-async function login(page: Page) {
+async function login(page: Page, user = 'phase14b') {
   await page.goto('/')
-  await page.getByLabel('Username').fill('phase14b')
-  await page.getByLabel('Password').fill('phase14b-password')
+  await page.getByLabel('Username').fill(user)
+  await page.getByLabel('Password').fill(`${user}-password`)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
 }
@@ -59,4 +59,37 @@ test('authority merge workflow merges, keeps old ids working, and splits back', 
   await page.goto(`/entities?id=${nations}`)
   await expect(page.getByRole('heading', { level: 3, name: 'United Nations' })).toBeVisible()
   await expect(page.getByText('Opened from a name merged into this entity.')).toHaveCount(0)
+})
+
+// The suggestion pairs live in their own language ("zz"), seeded by infra/test-e2e.sh, so no other
+// spec sees them and the queue holds exactly these two.
+test('authority file workflow approves and rejects suggested duplicates', async ({ page }) => {
+  await login(page, 'phase14c')
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Authority file' }).click()
+  await expect(page).toHaveURL(/\/authorities\/$/)
+  await page.getByLabel('Language').fill('zz')
+
+  const queue = page.getByRole('list', { name: 'Maybe the same?' })
+  await expect(queue.getByRole('listitem')).toHaveCount(2)
+  await expect(queue.getByText('Is “NAC” the same as “North Atlantic Council”?')).toBeVisible()
+  await expect(queue.getByText('Is “J. Tarr” the same as “Jon Tarr”?')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Same entity: merge NAC into North Atlantic Council' }).click()
+  await expect(page.getByText('NAC is now a name of North Atlantic Council; its articles move over shortly.')).toBeVisible()
+  await expect(queue.getByRole('listitem')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Different: keep J. Tarr apart from Jon Tarr' }).click()
+  await expect(page.getByText('J. Tarr and Jon Tarr are recorded as different.')).toBeVisible()
+  await expect(page.getByText('No likely duplicates right now.')).toBeVisible()
+
+  await page.getByLabel('Find a name').fill('north')
+  const file = page.getByRole('list', { name: 'Authority file' })
+  await expect(file.getByRole('listitem')).toHaveCount(1)
+  await expect(file.getByText('ORG · zz · 1 other name')).toBeVisible()
+  await file.getByRole('link', { name: 'North Atlantic Council' }).click()
+  await expect(page.getByRole('list', { name: 'Other names' }).getByText('NAC')).toBeVisible()
+
+  await page.goBack()
+  const history = page.getByRole('list', { name: 'Recent changes' })
+  await expect(history.getByRole('listitem').first()).toContainText(/(J\. Tarr and Jon Tarr|Jon Tarr and J\. Tarr) recorded as different/)
+  await expect(history.getByRole('listitem').nth(1)).toContainText('NAC merged into North Atlantic Council')
 })

@@ -42,5 +42,6 @@ it('titles each tab after its page', () => {
   expect(pageTitle('/search/', true)).toBe('Search · NewsIntel')
   expect(pageTitle('/monitors/', true)).toBe('Watchlist · NewsIntel')
   expect(pageTitle('/sources/detail/', true)).toBe('Source · NewsIntel')
+  expect(pageTitle('/authorities/', true)).toBe('Authority file · NewsIntel')
   expect(pageTitle('/search/', false)).toBe('Sign in · NewsIntel')
 })

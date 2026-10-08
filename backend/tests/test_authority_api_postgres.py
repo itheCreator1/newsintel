@@ -115,3 +115,26 @@ async def test_the_authority_history_is_newest_first() -> None:
     assert str(entity_id) not in {item["entity_id"] for item in older["items"]}
     assert bad.status_code == 400
     assert uuid.UUID(latest["items"][0]["id"])
+
+
+async def test_the_history_names_both_entities_of_a_change() -> None:
+    language = _language()
+    async with session_factory() as db, db.begin():
+        root = await _named(db, language, "PERSON", "ora vale")
+        variant = await _named(db, language, "PERSON", "o. vale")
+        root_id, variant_id = root.id, variant.id
+
+    async with _client() as client:
+        merged = await client.post(
+            f"/entities/{variant_id}/merge", json={"target_id": str(root_id)}, headers=CSRF
+        )
+        latest = (await client.get("/authorities/history", params={"limit": 1})).json()
+
+    assert merged.status_code == 202
+    item = latest["items"][0]
+    assert (item["action"], item["entity_name"], item["other_id"], item["other_name"]) == (
+        "merged",
+        "O. Vale",
+        str(root_id),
+        "Ora Vale",
+    )
