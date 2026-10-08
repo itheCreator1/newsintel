@@ -1,0 +1,27 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "redirects": [{"from": "Q9000003", "to": "Q9000004"}],
+    "pages": [
+      {
+        "pageid": 138,
+        "ns": 0,
+        "title": "Q42",
+        "contentmodel": "wikibase-item",
+        "pagelanguage": "en",
+        "touched": "2026-09-30T10:11:12Z",
+        "lastrevid": 2215441093,
+        "length": 412345
+      },
+      {
+        "pageid": 9000004,
+        "ns": 0,
+        "title": "Q9000004",
+        "contentmodel": "wikibase-item",
+        "lastrevid": 1800,
+        "length": 900
+      },
+      {"ns": 0, "title": "Q9000005", "missing": true}
+    ]
+  }
+}

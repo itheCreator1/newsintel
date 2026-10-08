@@ -1,0 +1,10 @@
+{
+  "error": {
+    "code": "maxlag",
+    "info": "Waiting for 10.64.48.35: 6 seconds lagged.",
+    "host": "10.64.48.35",
+    "lag": 6,
+    "type": "db"
+  },
+  "servedby": "mw-api-ext.eqiad.main-1"
+}

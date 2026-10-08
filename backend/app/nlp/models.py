@@ -138,6 +138,11 @@ class Entity(Base):
     # A name that may stand for several people: NER never folds it into a longer name.
     ambiguous: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     note: Mapped[str | None] = mapped_column(Text)
+    # Where the name came from: "ner" (an article), "seed" (the country seed), "wikidata" (a
+    # label of the linked item) or "user" (an import or a name the user added).
+    name_source: Mapped[str] = mapped_column(
+        String(16), default="ner", server_default=text("'ner'")
+    )
 
     @hybrid_property
     def name(self) -> str:

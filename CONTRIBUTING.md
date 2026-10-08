@@ -146,6 +146,8 @@ ci-stop-after: map workflow
 
 A targeted run never stands in for the full gate before a merge.
 
+A fourth workflow (`.github/workflows/wikidata-contract.yml`) checks the Wikidata client against the real API, which no test reaches: it runs `python -m app.wikidata.contract`, six requests through the app's own client and throttle, and names any answer whose shape the parsers no longer read. It runs monthly, from the Actions tab, or from a push to any branch but `main` whose head commit carries the trailer `wikidata-contract: run`. The fixtures it guards are in `backend/tests/fixtures/wikidata/`.
+
 Neither workflow starts for a pull request or a push that changes nothing but Markdown files, `assets/` or `LICENSE` (`paths-ignore`); a change that touches anything else as well runs as usual. A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
 
 ## 7. Test-harness reference

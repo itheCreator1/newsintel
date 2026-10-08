@@ -1,0 +1,44 @@
+name: Wikidata contract
+
+# Asks the real Wikidata API six questions (python -m app.wikidata.contract) and checks that the
+# client's parsers still read the answers; the test suite itself never reaches the network.
+# Runs monthly, by hand, or from a push to any branch but main whose head commit carries the
+# trailer "wikidata-contract: run". Requests go through the app's own client and throttle.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 3 * *"
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wikidata-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Wikidata contract (app.wikidata.contract)
+    if: "github.event_name != 'push' || contains(github.event.head_commit.message, 'wikidata-contract: run')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: ./.github/actions/warm-docker-cache
+        with:
+          files: |
+            compose.test.yaml
+          targets: |
+            backend-test
+          scope: test
+      - run: docker compose -f docker/compose.test.yaml build backend-test
+      - name: Ask the real API
+        env:
+          NEWSINTEL_WIKIDATA_CONTACT: https://github.com/${{ github.repository }}
+        run: |
+          docker compose -f docker/compose.test.yaml run --rm --no-deps \
+            -e NEWSINTEL_WIKIDATA_CONTACT backend-test python -m app.wikidata.contract
