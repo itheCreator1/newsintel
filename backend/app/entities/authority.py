@@ -252,21 +252,27 @@ async def _root_only(db: AsyncSession, entity_id: uuid.UUID) -> Entity:
     return entity
 
 
-async def rename(db: AsyncSession, entity_id: uuid.UUID, preferred_text: str | None) -> Entity:
-    """Set the root's preferred name; None goes back to the latest spelling NLP saw."""
+async def rename(
+    db: AsyncSession, entity_id: uuid.UUID, preferred_text: str | None
+) -> EntityAuthorityRun | None:
+    """Set the root's preferred name; None goes back to the latest spelling NLP saw.
+
+    The search index carries the name, so a change starts a run that reindexes the root's
+    articles; the same name again changes nothing and returns None.
+    """
     entity = await _root_only(db, entity_id)
     value = " ".join(preferred_text.split()) if preferred_text else None
-    if value != entity.preferred_text:
-        _record(
-            db,
-            "renamed",
-            entity.id,
-            before={"preferred_text": entity.preferred_text},
-            after={"preferred_text": value},
-        )
-        entity.preferred_text = value
-        await db.flush()
-    return entity
+    if value == entity.preferred_text:
+        return None
+    _record(
+        db,
+        "renamed",
+        entity.id,
+        before={"preferred_text": entity.preferred_text},
+        after={"preferred_text": value},
+    )
+    entity.preferred_text = value
+    return await _start_run(db, "reindex", entity.id, entity.id)
 
 
 async def set_status(db: AsyncSession, entity_id: uuid.UUID, status: str) -> Entity:
@@ -439,8 +445,8 @@ def _split_rows(variant_id: uuid.UUID, root_id: uuid.UUID):  # type: ignore[no-u
     )
 
 
-async def _touch(db: AsyncSession, article_ids: list[uuid.UUID]) -> None:
-    """Recompute the events these articles belong to, and reindex the articles."""
+async def _touch(db: AsyncSession, article_ids: list[uuid.UUID], *, reindex: bool) -> None:
+    """Recompute the events these articles belong to, and reindex them when asked."""
     event_ids = list(
         (
             await db.scalars(
@@ -455,20 +461,14 @@ async def _touch(db: AsyncSession, article_ids: list[uuid.UUID]) -> None:
         event = await db.get(Event, event_id)
         if event is not None:
             await refresh_event(db, event)
-    for article_id in article_ids:
-        await request_indexing(db, article_id)
+    if reindex:
+        for article_id in article_ids:
+            await request_indexing(db, article_id)
 
 
-async def advance_run(db: AsyncSession, run_id: uuid.UUID, *, batch_size: int = RUN_BATCH) -> int:
-    """Move one batch of articles; a batch that finds nothing left finishes the run."""
-    run = await db.scalar(
-        select(EntityAuthorityRun)
-        .where(EntityAuthorityRun.id == run_id)
-        .with_for_update(skip_locked=True)
-    )
-    if run is None or run.status != "running":
-        return 0
-    root_id = uuid.UUID(json.loads(run.cursor or "{}")["root"])
+async def _move(
+    db: AsyncSession, run: EntityAuthorityRun, root_id: uuid.UUID, batch_size: int
+) -> list[uuid.UUID]:
     if run.kind == "merge":
         pending = select(ArticleEntity.article_id).where(ArticleEntity.entity_id == run.entity_id)
     else:
@@ -482,23 +482,77 @@ async def advance_run(db: AsyncSession, run_id: uuid.UUID, *, batch_size: int = 
             )
         ).all()
     )
-    if not article_ids:
-        run.status = "finished"
-        run.finished_at = datetime.now(UTC)
-        await db.flush()
-        return 0
     for article_id in article_ids:
         if run.kind == "merge":
             await _merge_article(db, article_id, run.entity_id, root_id)
         else:
             await _split_article(db, article_id, run.entity_id, root_id)
     await db.flush()
-    await _touch(db, article_ids)
+    if article_ids:
+        # Merged articles belong to the root now and are reindexed with its other articles;
+        # given-back ones belong to the variant, so they are reindexed here.
+        await _touch(db, article_ids, reindex=run.kind == "split")
+    return article_ids
+
+
+async def _reindex(
+    db: AsyncSession, root_id: uuid.UUID, after: str | None, batch_size: int
+) -> list[uuid.UUID]:
+    """The next batch of the root's articles, each asked to be reindexed under its names now."""
+    query = select(ArticleEntity.article_id).where(
+        ArticleEntity.entity_id == root_id, ArticleEntity.is_current.is_(True)
+    )
+    if after is not None:
+        query = query.where(ArticleEntity.article_id > uuid.UUID(after))
+    article_ids = list(
+        (
+            await db.scalars(
+                query.group_by(ArticleEntity.article_id)
+                .order_by(ArticleEntity.article_id)
+                .limit(batch_size)
+            )
+        ).all()
+    )
+    for article_id in article_ids:
+        await request_indexing(db, article_id)
+    return article_ids
+
+
+async def advance_run(db: AsyncSession, run_id: uuid.UUID, *, batch_size: int = RUN_BATCH) -> int:
+    """Work through one batch of articles; a batch that finds nothing left finishes the run.
+
+    A merge or split moves rows until none are left, then reindexes the root's articles, whose
+    names changed; a reindex run does only that. The cursor keeps the phase and the last
+    article reindexed, so a run resumes where it stopped.
+    """
+    run = await db.scalar(
+        select(EntityAuthorityRun)
+        .where(EntityAuthorityRun.id == run_id)
+        .with_for_update(skip_locked=True)
+    )
+    if run is None or run.status != "running":
+        return 0
+    cursor = json.loads(run.cursor or "{}")
+    root_id = uuid.UUID(cursor["root"])
+    phase = cursor.get("phase", "reindex" if run.kind == "reindex" else "move")
+    if phase == "move":
+        moved = await _move(db, run, root_id, batch_size)
+        if moved:
+            return len(moved)
+        phase, cursor["after"] = "reindex", None
+    article_ids = await _reindex(db, root_id, cursor.get("after"), batch_size)
+    if article_ids:
+        cursor.update(phase=phase, after=str(article_ids[-1]))
+        run.cursor = json.dumps(cursor)
+    else:
+        run.status = "finished"
+        run.finished_at = datetime.now(UTC)
+    await db.flush()
     return len(article_ids)
 
 
 async def scan_authority_runs(batch_size: int = RUN_BATCH) -> int:
-    """Advance every unfinished merge or split by one batch; the scheduler calls this each cycle."""
+    """Advance every unfinished run by one batch; the scheduler calls this each cycle."""
     async with session_factory() as db:
         run_ids = list(
             (

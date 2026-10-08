@@ -178,7 +178,11 @@ class EntityAuthorityChange(Base):
 
 
 class EntityAuthorityRun(Base):
-    """A merge or split that rewrites article rows in batches and can resume from `cursor`."""
+    """A merge, split or reindex that works through articles in batches, resuming from `cursor`.
+
+    A merge or split first moves article rows, then reindexes the root's articles (its names
+    changed); a reindex run, which a rename starts, does only the second part.
+    """
 
     __tablename__ = "entity_authority_runs"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

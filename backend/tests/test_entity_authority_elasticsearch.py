@@ -11,7 +11,7 @@ from test_monitor_evaluation_elasticsearch import SETTLE, _evaluate, _index, _wa
 
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.entities.authority import merge
+from app.entities.authority import merge, rename
 from app.investigations.schemas import InvestigationState
 from app.monitors import evaluation
 from app.monitors.evaluation import criteria_params
@@ -43,9 +43,11 @@ async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     return name
 
 
-async def _found(index_name: str, *entity_ids: uuid.UUID) -> set[str]:
+async def _found(index_name: str, *entity_ids: uuid.UUID, q: str = "") -> set[str]:
     """The article ids a saved investigation filtering on these entities finds now."""
-    state = InvestigationState.model_validate({"entity_id": [str(value) for value in entity_ids]})
+    state = InvestigationState.model_validate(
+        {"entity_id": [str(value) for value in entity_ids], "q": q}
+    )
     async with session_factory() as db:
         criteria = await search_criteria(db, **criteria_params(state))
     response = await ElasticsearchAdapter(get_settings().elasticsearch_url).search_index(
@@ -133,3 +135,45 @@ async def test_monitor_with_an_old_id_keeps_matching(index_name: str) -> None:
     later = await _evaluate(watching, now0 + timedelta(hours=1) + SETTLE)
     assert later.unseen_article_count == 1
     assert later.latest_match_article_id == fresh.id
+
+
+async def test_free_text_search_finds_an_article_by_a_variant(index_name: str) -> None:
+    token = f"qhb{uuid.uuid4().hex[:10]}"
+    async with session_factory() as db, db.begin():
+        wire = await _feed(db, "Authority Wire")
+        root = await _entity(db, "Quill Harbour Board", "ORG")
+        variant = await _entity(db, token.upper(), "ORG")
+        article = await _article(
+            db, feeds=[wire], title=f"Board {uuid.uuid4().hex}", title_hash=uuid.uuid4().hex
+        )
+        await annotate(db, article.id, [root])
+        root_id, variant_id, article_id = root.id, variant.id, article.id
+    await _index(index_name, [article_id])
+    assert await _found(index_name, q=token) == set()
+
+    async with session_factory() as db, db.begin():
+        run = await merge(db, variant_id=variant_id, target_id=root_id)
+        run_id = run.id
+    await _finish(run_id)
+    await _index(index_name, [article_id])
+
+    # The article names the root only; the variant's name finds it all the same.
+    assert await _found(index_name, q=token) == {str(article_id)}
+
+
+async def test_rename_makes_the_new_name_searchable(index_name: str) -> None:
+    token = f"renamed{uuid.uuid4().hex[:10]}"
+    root_id, _variant_id, article_id = await _two_names(index_name)
+    async with session_factory() as db, db.begin():
+        await annotate(db, uuid.UUID(article_id), [await db.get(Entity, root_id)])
+    await _index(index_name, [uuid.UUID(article_id)])
+    assert await _found(index_name, q=token) == set()
+
+    async with session_factory() as db, db.begin():
+        run = await rename(db, root_id, f"Board {token}")
+        assert run is not None
+        run_id = run.id
+    await _finish(run_id)
+    await _index(index_name, [uuid.UUID(article_id)])
+
+    assert await _found(index_name, q=token) == {article_id}
