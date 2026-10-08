@@ -118,6 +118,10 @@ class WikidataRun(Base):
     # The worker holding the run; another may take it once the claim expires.
     claim_token: Mapped[uuid.UUID | None] = mapped_column()
     claim_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A refresh of every linked item, not only those due (`wikidata refresh --all`).
+    force: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # A refresh for a new link whose item was not cached: its labels come with the fetch.
+    add_labels: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     requests: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     checked: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     changed: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))

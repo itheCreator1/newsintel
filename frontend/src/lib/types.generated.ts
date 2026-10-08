@@ -859,6 +859,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/wikidata/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Wikidata
+         * @description Queue a fetch of the linked item: again in full if its revision changed.
+         */
+        post: operations["refresh_wikidata_api_v1_entities__entity_id__wikidata_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -1280,6 +1300,26 @@ export interface paths {
         };
         /** Operations Failures */
         get: operations["operations_failures_api_v1_operations_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/wikidata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operations Wikidata
+         * @description Our load on Wikidata and whether we may ask: the throttle, counts and runs.
+         */
+        get: operations["operations_wikidata_api_v1_operations_wikidata_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4692,6 +4732,29 @@ export interface components {
             /** Sitelinks */
             sitelinks: number;
         };
+        /** WikidataCountResponse */
+        WikidataCountResponse: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Kind */
+            kind: string;
+            /** Outcome */
+            outcome: string;
+            /** Count */
+            count: number;
+            /** Average Ms */
+            average_ms: number;
+        };
+        /** WikidataHolder */
+        WikidataHolder: {
+            /** Entity Id */
+            entity_id: string;
+            /** Display Name */
+            display_name: string;
+        };
         /** WikidataItemResponse */
         WikidataItemResponse: {
             /** Qid */
@@ -4759,6 +4822,7 @@ export interface components {
             candidates: components["schemas"]["WikidataCandidateResponse"][];
             /** Search Pending */
             search_pending: boolean;
+            redirect_holder: components["schemas"]["WikidataHolder"] | null;
         };
         /** WikidataName */
         WikidataName: {
@@ -4835,6 +4899,14 @@ export interface components {
             entity_id: string | null;
             /** Checked */
             checked: number;
+            /** Changed */
+            changed: number;
+            /** Redirected */
+            redirected: number;
+            /** Missing */
+            missing: number;
+            /** Errors */
+            errors: number;
             /** Requests */
             requests: number;
             /** Error */
@@ -4857,6 +4929,43 @@ export interface components {
             qid: string;
             /** Message */
             message: string;
+        };
+        /** WikidataStatusResponse */
+        WikidataStatusResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Reason */
+            reason: string | null;
+            throttle: components["schemas"]["WikidataThrottleResponse"];
+            /** Counts */
+            counts: components["schemas"]["WikidataCountResponse"][];
+            /** Links */
+            links: number;
+            /** Open Candidates */
+            open_candidates: number;
+            /** Due Refresh */
+            due_refresh: number;
+            /** Runs */
+            runs: components["schemas"]["WikidataRunResponse"][];
+            last_refresh: components["schemas"]["WikidataRunResponse"] | null;
+        };
+        /** WikidataThrottleResponse */
+        WikidataThrottleResponse: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "paused" | "budget_spent";
+            /** Paused Until */
+            paused_until: string | null;
+            /** Pause Reason */
+            pause_reason: string | null;
+            /** Requests Today */
+            requests_today: number;
+            /** Daily Budget */
+            daily_budget: number;
+            /** Next Request At */
+            next_request_at: string | null;
         };
     };
     responses: never;
@@ -6664,6 +6773,39 @@ export interface operations {
             };
         };
     };
+    refresh_wikidata_api_v1_entities__entity_id__wikidata_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clustering_status_api_v1_clustering_status_get: {
         parameters: {
             query?: never;
@@ -7516,6 +7658,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    operations_wikidata_api_v1_operations_wikidata_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataStatusResponse"];
                 };
             };
         };

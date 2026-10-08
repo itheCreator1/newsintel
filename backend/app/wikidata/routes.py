@@ -16,6 +16,7 @@ from app.wikidata.names import Name
 from app.wikidata.schemas import (
     WikidataApproveResponse,
     WikidataCandidateResponse,
+    WikidataHolder,
     WikidataItemResponse,
     WikidataLinkRequest,
     WikidataLinkResponse,
@@ -75,6 +76,11 @@ async def _response(db: AsyncSession, found: links.LinkState) -> WikidataLinkRes
         ],
         candidates=[_candidate(row, item, root.language) for row, item in offered],
         search_pending=await runs.search_pending(db, root.id),
+        redirect_holder=WikidataHolder(
+            entity_id=str(found.redirect_holder.id), display_name=found.redirect_holder.name
+        )
+        if found.redirect_holder is not None
+        else None,
     )
 
 
@@ -130,13 +136,17 @@ async def add_wikidata_names(
     return response
 
 
-def _run(run: WikidataRun) -> WikidataRunResponse:
+def run_response(run: WikidataRun) -> WikidataRunResponse:
     return WikidataRunResponse(
         id=str(run.id),
         kind=run.kind,
         status=run.status,
         entity_id=str(run.entity_id) if run.entity_id else None,
         checked=run.checked,
+        changed=run.changed,
+        redirected=run.redirected,
+        missing=run.missing,
+        errors=run.errors,
         requests=run.requests,
         error=run.error,
         created_at=run.created_at,
@@ -156,7 +166,7 @@ async def search_wikidata(entity_id: uuid.UUID, db: Db, _session: Mutation) -> W
         run = await runs.request_search(db, entity_id)
     except links.LinkError as error:
         raise _refused(error) from None
-    response = _run(run)
+    response = run_response(run)
     await db.commit()
     return response
 
@@ -233,3 +243,19 @@ async def approve_exact_wikidata_candidates(db: Db, _session: Mutation) -> Wikid
             skipped.append(WikidataSkipped(entity_id=str(entity_id), qid=qid, message=error.detail))
     await db.commit()
     return WikidataApproveResponse(linked=linked, skipped=skipped)
+
+
+@router.post(
+    "/entities/{entity_id}/wikidata/refresh",
+    response_model=WikidataRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def refresh_wikidata(entity_id: uuid.UUID, db: Db, _session: Mutation) -> WikidataRunResponse:
+    """Queue a fetch of the linked item: again in full if its revision changed."""
+    try:
+        run = await runs.request_refresh(db, entity_id)
+    except links.LinkError as error:
+        raise _refused(error) from None
+    response = run_response(run)
+    await db.commit()
+    return response

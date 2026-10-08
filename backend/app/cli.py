@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import uuid
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import delete, select
@@ -21,7 +21,7 @@ from app.clustering.service import (
     run_recluster,
     validate_selection,
 )
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.db.session import session_factory
 from app.entities.transfer import export_authorities, import_authorities, parse_file
 from app.nlp.authority import seed_countries
@@ -33,6 +33,12 @@ from app.nlp.reprocessing import (
 )
 from app.nlp.service import PROCESSORS
 from app.search.rebuild import create_rebuild, rebuild_status, scan_rebuild, try_cutover
+from app.wikidata import runs as wikidata_runs
+from app.wikidata.client import WikidataClient
+from app.wikidata.links import queue_fetch
+from app.wikidata.models import EntityExternalId, WikidataRun
+from app.wikidata.status import disabled_reason, wikidata_status
+from app.wikidata.throttle import PostgresThrottle
 
 
 async def create_user(username: str, password: str | None = None) -> None:
@@ -211,6 +217,98 @@ async def run_clustering_selection(
     print(f"recluster: jobs_queued={queued}")
 
 
+WIKIDATA_ACTIONS = ("refresh", "status")
+
+
+def _run_line(run: WikidataRun) -> str:
+    line = (
+        f"wikidata {run.kind} {run.id}: {run.status} checked={run.checked} changed={run.changed}"
+        f" redirected={run.redirected} missing={run.missing} requests={run.requests}"
+    )
+    return f"{line} error={run.error}" if run.error else line
+
+
+async def _work_wikidata_run(run_id: uuid.UUID, client: WikidataClient, settings: Settings) -> None:
+    """Do the run here, batch after batch, until it ends or Wikidata asks us to wait."""
+    while True:
+        async with session_factory() as db, db.begin():
+            claimed = await wikidata_runs.claim_run(db, settings, run_id=run_id)
+            waiting = await wikidata_runs.blocked(db, settings, datetime.now(UTC))
+        if claimed is None:
+            print(f"wikidata run {run_id} waits in the queue: {waiting or 'another worker has it'}")
+            return
+        await wikidata_runs.process_run(claimed[0], claimed[1], client, settings)
+        async with session_factory() as db:
+            run = await db.get(WikidataRun, run_id)
+        assert run is not None
+        if run.status != "queued" or run.error:
+            print(_run_line(run))
+            if run.status == "queued":
+                print("  the run waits in the queue; the scheduler goes on with it")
+            return
+
+
+async def run_wikidata_refresh(
+    *,
+    qids: list[str],
+    everything: bool,
+    client: WikidataClient | None = None,
+    settings: Settings | None = None,
+) -> None:
+    """Refresh linked items now: the given QIDs, those due, or all of them (`--all`)."""
+    settings = settings or get_settings()
+    reason = disabled_reason(settings)
+    if reason is not None:
+        raise SystemExit(reason)
+    async with session_factory() as db, db.begin():
+        run_ids: list[uuid.UUID] = []
+        for qid in qids:
+            root_id = await db.scalar(
+                select(EntityExternalId.entity_id).where(
+                    EntityExternalId.scheme == "wikidata", EntityExternalId.value == qid
+                )
+            )
+            if root_id is None:
+                raise SystemExit(f"{qid} is not linked to any entity")
+            run_ids.append((await queue_fetch(db, root_id)).id)
+        if not qids:
+            run = WikidataRun(kind="refresh", force=everything)
+            db.add(run)
+            await db.flush()
+            run_ids.append(run.id)
+    if client is not None:
+        for run_id in run_ids:
+            await _work_wikidata_run(run_id, client, settings)
+        return
+    async with WikidataClient(settings, PostgresThrottle(settings)) as own:
+        for run_id in run_ids:
+            await _work_wikidata_run(run_id, own, settings)
+
+
+async def print_wikidata_status(settings: Settings | None = None) -> None:
+    settings = settings or get_settings()
+    async with session_factory() as db:
+        found = await wikidata_status(db, settings)
+    print(
+        f"wikidata: {'on' if found.enabled else 'off'}"
+        + (f" ({found.reason})" if found.reason else "")
+    )
+    throttle = found.throttle
+    if throttle.state == "paused":
+        print(f"throttle: paused until {throttle.paused_until} ({throttle.pause_reason})")
+    else:
+        print(f"throttle: {throttle.state.replace('_', ' ')}")
+    print(f"requests today: {throttle.requests_today} of {throttle.daily_budget}")
+    print(
+        f"links: {found.links}, roots with candidates: {found.open_candidates},"
+        f" due for refresh: {found.due_refresh}"
+    )
+    if found.last_refresh is not None:
+        print(f"last refresh: {_run_line(found.last_refresh)}")
+    for run in found.runs:
+        print(f"  {_run_line(run)}")
+
+
 def _selection_from(args: argparse.Namespace, parser: argparse.ArgumentParser) -> dict[str, object]:
     selection: dict[str, object] = {}
     if args.article_id:
@@ -247,6 +345,7 @@ def main() -> None:
             "resume-nlp-reprocessing",
             "recluster",
             "authority",
+            "wikidata",
         ],
     )
     parser.add_argument("username", nargs="?")
@@ -268,7 +367,20 @@ def main() -> None:
     parser.add_argument(
         "--file", type=Path, help="authority export|import: the JSON file (export: default stdout)"
     )
+    parser.add_argument(
+        "--qid", action="append", default=[], help="wikidata refresh: this linked item only"
+    )
     args = parser.parse_args()
+    if args.command == "wikidata":
+        if args.username not in WIKIDATA_ACTIONS:
+            parser.error("wikidata requires an action: " + ", ".join(WIKIDATA_ACTIONS))
+        if args.username == "status":
+            asyncio.run(print_wikidata_status())
+            return
+        if args.qid and args.all:
+            parser.error("wikidata refresh takes --qid or --all, not both")
+        asyncio.run(run_wikidata_refresh(qids=args.qid, everything=args.all))
+        return
     if args.command == "authority":
         if args.username not in AUTHORITY_ACTIONS:
             parser.error("authority requires an action: " + ", ".join(AUTHORITY_ACTIONS))

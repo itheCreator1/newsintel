@@ -45,6 +45,8 @@ class LinkState:
     item: WikidataItem | None
     fetch_pending: bool
     names: list[NameState]
+    # The root that holds the item this one was merged into, when it is not this root.
+    redirect_holder: Entity | None = None
 
 
 async def _root(db: AsyncSession, entity_id: uuid.UUID, *, lock: bool = False) -> Entity:
@@ -85,20 +87,28 @@ async def write_identifiers(db: AsyncSession, root_id: uuid.UUID, item: Wikidata
     await db.flush()
 
 
-async def queue_fetch(db: AsyncSession, root_id: uuid.UUID) -> None:
-    """Ask for the linked item in full; one queued run per root is enough."""
-    queued = await db.scalar(
-        select(
-            exists().where(
-                WikidataRun.entity_id == root_id,
-                WikidataRun.kind == "refresh",
-                WikidataRun.status.in_(("queued", "running")),
-            )
+async def queue_fetch(
+    db: AsyncSession, root_id: uuid.UUID, *, add_labels: bool = False
+) -> WikidataRun:
+    """Ask for the linked item in full; one unfinished run per root is enough.
+
+    `add_labels`: the item was not cached when linked, so its labels come with the fetch.
+    """
+    run: WikidataRun | None = await db.scalar(
+        select(WikidataRun).where(
+            WikidataRun.entity_id == root_id,
+            WikidataRun.kind == "refresh",
+            WikidataRun.status.in_(("queued", "running")),
         )
     )
-    if not queued:
-        db.add(WikidataRun(kind="refresh", entity_id=root_id))
-        await db.flush()
+    if run is None:
+        run = WikidataRun(kind="refresh", entity_id=root_id, force=True, add_labels=add_labels)
+        db.add(run)
+    elif add_labels:
+        run.add_labels = True
+    await db.flush()
+    await db.refresh(run)
+    return run
 
 
 def _offered(item: WikidataItem | None, chosen: list[Name]) -> list[Name]:
@@ -161,7 +171,7 @@ async def link(
     if item is not None and item.claims_fetched:
         await write_identifiers(db, root.id, item)
     else:
-        await queue_fetch(db, root.id)
+        await queue_fetch(db, root.id, add_labels=item is None)
     # The choice is made: the other suggestions for this root are spent.
     await db.execute(delete(WikidataCandidate).where(WikidataCandidate.entity_id == root.id))
     record(db, "wikidata_linked", root.id, after={"qid": qid})
@@ -220,11 +230,22 @@ async def state(db: AsyncSession, entity_id: uuid.UUID) -> LinkState:
             )
         )
     )
+    holder = None
+    if item is not None and item.state == "redirected" and item.redirect_to:
+        holder_id = await db.scalar(
+            select(EntityExternalId.entity_id).where(
+                EntityExternalId.scheme == "wikidata",
+                EntityExternalId.value == item.redirect_to,
+            )
+        )
+        if holder_id is not None and holder_id != root.id:
+            holder = await db.get(Entity, holder_id)
     return LinkState(
         root=root,
         qid=qid,
         identifiers={row.scheme: row.value for row in rows if row.scheme != "wikidata"},
         item=item,
         fetch_pending=pending,
-        names=await name_states(db, root, item) if item is not None else [],
+        names=await name_states(db, root, item) if item is not None and item.state == "ok" else [],
+        redirect_holder=holder,
     )

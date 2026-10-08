@@ -8,18 +8,18 @@ shared throttle is paused or the day's budget is spent, nothing is handed out at
 
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 import structlog
-from sqlalchemy import exists, func, select, text
+from sqlalchemy import ColumnElement, exists, func, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.db.session import session_factory
 from app.nlp.models import ArticleEntity, Entity
 from app.wikidata.candidates import find_candidates
-from app.wikidata.client import WikidataClient, contact_ok
+from app.wikidata.client import BATCH, WikidataClient, contact_ok
 from app.wikidata.errors import (
     WikidataBudgetSpent,
     WikidataDisabled,
@@ -27,8 +27,9 @@ from app.wikidata.errors import (
     WikidataPaused,
     WikidataUnavailable,
 )
-from app.wikidata.links import LinkError
-from app.wikidata.models import EntityExternalId, WikidataRun, WikidataThrottle
+from app.wikidata.links import LinkError, queue_fetch
+from app.wikidata.models import EntityExternalId, WikidataItem, WikidataRun, WikidataThrottle
+from app.wikidata.refresh import refresh_roots
 from app.wikidata.throttle import PostgresThrottle, ThrottleState, wait_seconds
 from app.wikidata.types import TYPE_ROOTS
 
@@ -36,8 +37,7 @@ log = structlog.get_logger()
 
 # Roots a sweep searches between saving its place.
 SWEEP_BATCH = 10
-# The run kinds a worker can do; refreshes come with the monthly refresh.
-WORKED = ("candidates",)
+WORKED = ("candidates", "refresh")
 # Serializes claiming between the scheduler and anything else that claims.
 CLAIM_LOCK = 0x57494B49
 UNFINISHED = ("queued", "running")
@@ -135,6 +135,68 @@ async def ensure_sweep(db: AsyncSession, settings: Settings) -> WikidataRun | No
     return run
 
 
+def _refresh_due(settings: Settings, *, force: bool) -> ColumnElement[bool]:
+    """A linked root whose item is due: never fetched in full, or checked too long ago."""
+    if force:
+        return true()
+    cutoff = datetime.now(UTC) - timedelta(days=settings.wikidata_refresh_days)
+    return ~exists().where(
+        WikidataItem.qid == EntityExternalId.value,
+        WikidataItem.claims_fetched.is_(True),
+        WikidataItem.checked_at >= cutoff,
+    )
+
+
+async def due_refresh_roots(
+    db: AsyncSession, settings: Settings, *, after: uuid.UUID | None, limit: int, force: bool
+) -> list[uuid.UUID]:
+    """Linked roots whose items a refresh checks: those due, or every one with `force`."""
+    query = select(EntityExternalId.entity_id).where(
+        EntityExternalId.scheme == "wikidata", _refresh_due(settings, force=force)
+    )
+    if after is not None:
+        query = query.where(EntityExternalId.entity_id > after)
+    return list((await db.scalars(query.order_by(EntityExternalId.entity_id).limit(limit))).all())
+
+
+async def ensure_refresh(db: AsyncSession, settings: Settings) -> WikidataRun | None:
+    """Queue a refresh when linked items are due; at most one a day, so each item is monthly."""
+    await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CLAIM_LOCK})
+    sweeps = select(WikidataRun).where(
+        WikidataRun.kind == "refresh", WikidataRun.entity_id.is_(None)
+    )
+    if await db.scalar(sweeps.where(WikidataRun.status.in_(UNFINISHED)).limit(1)) is not None:
+        return None
+    since = datetime.now(UTC) - timedelta(days=1)
+    if await db.scalar(sweeps.where(WikidataRun.created_at >= since).limit(1)) is not None:
+        return None
+    if not await due_refresh_roots(db, settings, after=None, limit=1, force=False):
+        return None
+    run = WikidataRun(kind="refresh")
+    db.add(run)
+    await db.flush()
+    await db.refresh(run)
+    return run
+
+
+async def request_refresh(db: AsyncSession, entity_id: uuid.UUID) -> WikidataRun:
+    """Queue a refresh of the root's linked item (the entity page's button)."""
+    entity = await db.get(Entity, entity_id)
+    if entity is None:
+        raise LinkError(404, "Entity not found")
+    root_id = entity.authority_id or entity.id
+    linked = await db.scalar(
+        select(
+            exists().where(
+                EntityExternalId.entity_id == root_id, EntityExternalId.scheme == "wikidata"
+            )
+        )
+    )
+    if not linked:
+        raise LinkError(409, "This entity is not linked to Wikidata")
+    return await queue_fetch(db, root_id)
+
+
 async def blocked(db: AsyncSession, settings: Settings, now: datetime) -> str | None:
     """Why no request may go out now (a pause, the spent budget), as the throttle would say."""
     row = await db.get(WikidataThrottle, 1)
@@ -154,27 +216,39 @@ async def blocked(db: AsyncSession, settings: Settings, now: datetime) -> str | 
 
 
 async def claim_run(
-    db: AsyncSession, settings: Settings, now: datetime | None = None
+    db: AsyncSession,
+    settings: Settings,
+    now: datetime | None = None,
+    *,
+    run_id: uuid.UUID | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID] | None:
-    """Hand out the next run, or None: one run at a time, and none while Wikidata waits."""
+    """Hand out the next run, or None: one run at a time, and none while Wikidata waits.
+
+    With `run_id` (the CLI's own run) that run is taken even beside another one: the shared
+    throttle still sends their requests one after another.
+    """
     now = now or datetime.now(UTC)
     await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CLAIM_LOCK})
     if await blocked(db, settings, now) is not None:
         return None
-    busy = await db.scalar(
-        select(exists().where(WikidataRun.status == "running", WikidataRun.claim_expires_at > now))
-    )
-    if busy:
-        return None
-    run: WikidataRun | None = await db.scalar(
-        select(WikidataRun)
-        .where(
-            WikidataRun.kind.in_(WORKED),
-            (WikidataRun.status == "queued")
-            | ((WikidataRun.status == "running") & (WikidataRun.claim_expires_at <= now)),
+    if run_id is None:
+        busy = await db.scalar(
+            select(
+                exists().where(WikidataRun.status == "running", WikidataRun.claim_expires_at > now)
+            )
         )
+        if busy:
+            return None
+    query = select(WikidataRun).where(
+        WikidataRun.kind.in_(WORKED),
+        (WikidataRun.status == "queued")
+        | ((WikidataRun.status == "running") & (WikidataRun.claim_expires_at <= now)),
+    )
+    if run_id is not None:
+        query = query.where(WikidataRun.id == run_id)
+    run: WikidataRun | None = await db.scalar(
         # The user's buttons first, then refreshes, then the sweep; oldest first within each.
-        .order_by(
+        query.order_by(
             WikidataRun.entity_id.is_(None),
             WikidataRun.kind == "candidates",
             WikidataRun.created_at,
@@ -194,16 +268,22 @@ async def claim_run(
     return run.id, token
 
 
+COUNTERS = ("checked", "changed", "redirected", "missing", "requests", "errors")
+
+
 async def _update(
     run_id: uuid.UUID, token: uuid.UUID, settings: Settings, **values: object
 ) -> bool:
-    """Write to the run if this worker still holds it; False when another took it over."""
+    """Write to the run if this worker still holds it; False when another took it over.
+
+    Counters are added to; a run that is no longer running gives its claim back.
+    """
     async with session_factory() as db, db.begin():
         run = await db.get(WikidataRun, run_id, with_for_update=True)
         if run is None or run.claim_token != token or run.status != "running":
             return False
         for key, value in values.items():
-            if key in ("checked", "requests", "errors"):
+            if key in COUNTERS:
                 value = getattr(run, key) + int(value)  # type: ignore[call-overload]
             setattr(run, key, value)
         if run.status == "running":
@@ -216,10 +296,13 @@ async def _update(
         return True
 
 
+Batch = Callable[[list[uuid.UUID]], Awaitable[dict[str, int]]]
+
+
 async def process_run(
     run_id: uuid.UUID, token: uuid.UUID, client: WikidataClient, settings: Settings
 ) -> None:
-    """Do one batch of the run: a root's search whole, or a sweep for wikidata_run_batch_seconds.
+    """Do one batch of the run: a root's whole, or a sweep for wikidata_run_batch_seconds.
 
     A pause or the spent budget puts the run back in the queue where it stopped; a failed
     request fails it (the throttle has paused all traffic, and the sweep comes again).
@@ -228,29 +311,44 @@ async def process_run(
         run = await db.get(WikidataRun, run_id)
         if run is None or run.claim_token != token or run.status != "running":
             return
-        entity_id, cursor = run.entity_id, run.cursor
+        kind, entity_id, cursor = run.kind, run.entity_id, run.cursor
+        force, add_labels = run.force, run.add_labels
+
+    async def candidates(root_ids: list[uuid.UUID]) -> dict[str, int]:
+        await find_candidates(client, root_ids, settings)
+        return {"checked": len(root_ids)}
+
+    async def refresh(root_ids: list[uuid.UUID]) -> dict[str, int]:
+        found = await refresh_roots(client, root_ids, settings, force=force, add_labels=add_labels)
+        return {
+            "checked": found.checked,
+            "changed": found.changed,
+            "redirected": found.redirected,
+            "missing": found.missing,
+        }
+
+    async def next_roots(after: uuid.UUID | None) -> list[uuid.UUID]:
+        async with session_factory() as db:
+            if kind == "refresh":
+                return await due_refresh_roots(db, settings, after=after, limit=BATCH, force=force)
+            return await eligible_roots(db, settings, after=after, limit=SWEEP_BATCH)
+
+    work: Batch = refresh if kind == "refresh" else candidates
     started = time.monotonic()
     sent = client.requests
     status = "queued"
     outcome: dict[str, object] = {"error": None}
     try:
         if entity_id is not None:
-            await find_candidates(client, [entity_id], settings)
-            outcome["checked"] = 1
+            outcome.update(await work([entity_id]))
             status = "finished"
         else:
             while time.monotonic() - started < settings.wikidata_run_batch_seconds:
-                async with session_factory() as db:
-                    root_ids = await eligible_roots(
-                        db,
-                        settings,
-                        after=uuid.UUID(cursor) if cursor else None,
-                        limit=SWEEP_BATCH,
-                    )
+                root_ids = await next_roots(uuid.UUID(cursor) if cursor else None)
                 if not root_ids:
                     status = "finished"
                     break
-                await find_candidates(client, root_ids, settings)
+                counts = await work(root_ids)
                 cursor = str(root_ids[-1])
                 # The place is saved after each batch; the claim is renewed with it.
                 if not await _update(
@@ -258,8 +356,8 @@ async def process_run(
                     token,
                     settings,
                     cursor=cursor,
-                    checked=len(root_ids),
                     requests=client.requests - sent,
+                    **counts,
                 ):
                     return
                 sent = client.requests
@@ -284,7 +382,7 @@ async def process_run(
         requests=client.requests - sent,
         **outcome,
     )
-    log.info("wikidata_run_batch", run_id=str(run_id), status=status, error=outcome["error"])
+    log.info("wikidata_run_batch", run_id=str(run_id), kind=kind, status=status)
 
 
 async def run_job(run_id: uuid.UUID, token: uuid.UUID) -> None:
@@ -303,11 +401,12 @@ def _send(run_id: str, token: str) -> None:
 async def schedule_wikidata(
     settings: Settings | None = None, *, send: Callable[[str, str], None] = _send
 ) -> int:
-    """The scheduler's step: queue the day's sweep and hand one run to a worker."""
+    """The scheduler's step: queue what is due (refresh, sweep) and hand one run to a worker."""
     settings = settings or get_settings()
     if not enabled(settings):
         return 0
     async with session_factory() as db, db.begin():
+        await ensure_refresh(db, settings)
         await ensure_sweep(db, settings)
     async with session_factory() as db, db.begin():
         claimed = await claim_run(db, settings)
