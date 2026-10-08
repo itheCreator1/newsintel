@@ -1,6 +1,6 @@
 import json
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -252,6 +252,10 @@ async def list_authorities(
     language: Annotated[str | None, Query(max_length=16)] = None,
     status_filter: Annotated[EntityStatus | None, Query(alias="status")] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
+    wikidata: Annotated[
+        Literal["linked", "unlinked"] | None,
+        Query(description="Only roots linked to a Wikidata item, or only those without one."),
+    ] = None,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> AuthorityRootPage:
@@ -261,7 +265,13 @@ async def list_authorities(
     except ValueError:
         raise HTTPException(400, "Invalid cursor") from None
     page, next_cursor = await catalogue.roots(
-        db, language=language, status=status_filter, q=q, limit=limit, cursor=after
+        db,
+        language=language,
+        status=status_filter,
+        q=q,
+        limit=limit,
+        cursor=after,
+        wikidata=wikidata,
     )
     return AuthorityRootPage(
         items=[
@@ -273,8 +283,9 @@ async def list_authorities(
                 status=entity.status,
                 ambiguous=entity.ambiguous,
                 variant_count=count,
+                qid=qid,
             )
-            for entity, count in page
+            for entity, count, qid in page
         ],
         next_cursor=next_cursor,
     )

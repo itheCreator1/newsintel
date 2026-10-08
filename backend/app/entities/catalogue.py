@@ -12,6 +12,7 @@ from sqlalchemy.orm import aliased
 
 from app.feeds.service import encode_cursor
 from app.nlp.models import Entity, EntityAuthorityChange
+from app.wikidata.models import EntityExternalId
 
 __all__ = ["decode_name_cursor", "recent_changes", "roots"]
 
@@ -39,8 +40,12 @@ async def roots(
     q: str | None,
     limit: int,
     cursor: tuple[str, uuid.UUID] | None,
-) -> tuple[list[tuple[Entity, int]], str | None]:
-    """Roots by name with their variant counts; `q` finds a root by any of its names."""
+    wikidata: str | None = None,
+) -> tuple[list[tuple[Entity, int, str | None]], str | None]:
+    """Roots by name with their variant counts and QIDs; `q` finds a root by any of its names.
+
+    `wikidata`: "linked" or "unlinked" keeps the roots with or without a QID.
+    """
     variant = aliased(Entity)
     sort_name = func.lower(Entity.name)
     variant_count = (
@@ -49,7 +54,17 @@ async def roots(
         .correlate(Entity)
         .scalar_subquery()
     )
-    query = select(Entity, variant_count, sort_name).where(Entity.authority_id.is_(None))
+    qid = (
+        select(EntityExternalId.value)
+        .where(EntityExternalId.entity_id == Entity.id, EntityExternalId.scheme == "wikidata")
+        .correlate(Entity)
+        .scalar_subquery()
+    )
+    query = select(Entity, variant_count, sort_name, qid).where(Entity.authority_id.is_(None))
+    if wikidata == "linked":
+        query = query.where(qid.is_not(None))
+    elif wikidata == "unlinked":
+        query = query.where(qid.is_(None))
     if language is not None:
         query = query.where(Entity.language == language)
     if status is not None:
@@ -72,7 +87,7 @@ async def roots(
             tuple_(sort_name, Entity.id) > tuple_(literal(cursor[0]), literal(cursor[1]))
         )
     rows = list(await db.execute(query.order_by(sort_name, Entity.id).limit(limit + 1)))
-    page = [(row[0], row[1]) for row in rows[:limit]]
+    page = [(row[0], row[1], row[3]) for row in rows[:limit]]
     # The database's own lowercase, so the next page starts exactly where this one ended.
     next_cursor = (
         _encode_name_cursor(rows[limit - 1][2], rows[limit - 1][0].id)
