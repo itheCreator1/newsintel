@@ -28,8 +28,11 @@ test('greek entities workflow finds names in a Greek article', async ({ page }) 
   await page.goto('/settings')
   const greekSwitch = page.getByRole('switch', { name: /^Greek entities/ })
   await expect(greekSwitch).toBeEnabled({ timeout: 30_000 })
-  await greekSwitch.check()
-  await expect(page.getByText(/^Greek entities are on\./)).toBeVisible()
+  // The switch follows the saved setting, so it flips only once the server has answered:
+  // click and wait for that, rather than check(), which expects the box to change at once.
+  await greekSwitch.click()
+  await expect(page.getByText(/^Greek entities are on\./)).toBeVisible({ timeout: 30_000 })
+  await expect(greekSwitch).toBeChecked()
 
   await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Greek Wire', url: 'http://fixture/greek-wire.xml', source_country: 'GR' } })
   let articleId = ''
