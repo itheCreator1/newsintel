@@ -32,7 +32,9 @@ The one-shot `setup` service runs `alembic upgrade head` and `bootstrap-admin` o
 
 `docker/compose.dev.yaml` mounts `backend/app` read-only into the `api` container and runs uvicorn with `--reload`, so backend route changes show up without a rebuild. The workers and scheduler do not reload: `dc restart worker nlp-worker scheduler` after changing job code, and rebuild the frontend image (`dc up -d --build frontend`) after changing the UI.
 
-**Entity recognition is off by default.** spaCy is not in the default image (`NEWSINTEL_NLP_NER_ENABLED=false`), so no entities are extracted: the Graph and entity dossiers stay empty, and story clustering and event association work without their entity signal. Add `-f docker/compose.ner.yaml` to the alias to build a backend image with spaCy and `en_core_web_sm` and turn NER on for `api` and `nlp-worker`.
+**Entity recognition is off by default.** spaCy is not in the default image (`NEWSINTEL_NLP_NER_ENABLED=false`), so no entities are extracted: the Graph and entity dossiers stay empty, and story clustering and event association work without their entity signal. Add `-f docker/compose.ner.yaml` to the alias to build a backend image with spaCy, `en_core_web_sm` and `el_core_news_sm` and turn NER on for `api` and `nlp-worker`.
+
+**Greek entities are off by default too**, even with the NER image. Set `NEWSINTEL_NLP_NER_MODEL_EL=el_core_news_sm` (for example in `.env`) and restart `api` and `nlp-worker`. Greek names are stored without accents or the commonest case endings, so "Τσίπρας", "ΤΣΙΠΡΑΣ" and "Τσίπρα" are one entity; Greek and English spellings ("Τσίπρας", "Tsipras") stay separate. Articles already in the archive get Greek entities only when reprocessed: back up first, then `dc run --rm nlp-worker python -m app.cli reprocess-nlp --processors entities --language el --all --apply`. Greek articles had no entities before, so they lose nothing while they wait in the queue. Keywords and countries are still English-only.
 
 Other useful commands, all run as `dc run --rm api python -m app.cli <command>`:
 
@@ -41,7 +43,7 @@ Other useful commands, all run as `dc run --rm api python -m app.cli <command>`:
 | `create-user <name>`, `reset-password <name>` | Manage logins; passwords need at least 12 characters. Resetting revokes the user's sessions. |
 | `bootstrap-admin` | Create the first account from `NEWSINTEL_ADMIN_USERNAME`/`NEWSINTEL_ADMIN_PASSWORD` while no user exists. The `setup` service runs it on every `up`. |
 | `rebuild-search`, `resume-search-rebuild <id>`, `search-index-status` | Build a new search index beside the live one and move the alias (see README §6). |
-| `reprocess-nlp`, `resume-nlp-reprocessing <id>`, `nlp-status` | Rerun NLP processors over a selection (`--article-id`, `--from-date`/`--to-date`, or `--all`; dry run unless `--apply`). |
+| `reprocess-nlp`, `resume-nlp-reprocessing <id>`, `nlp-status` | Rerun NLP processors over a selection (`--article-id`, `--from-date`/`--to-date`, or `--all`, optionally narrowed with `--language el`; dry run unless `--apply`). |
 | `recluster` | Recluster a selection of articles, chosen the same way. |
 | `cleanup-article-storage` | Delete expired temporary article HTML (dry run unless `--apply`). |
 

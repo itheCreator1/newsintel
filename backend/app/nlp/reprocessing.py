@@ -1,11 +1,12 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 
 from app.db.session import session_factory
 from app.feeds.models import Article
-from app.nlp.models import NlpJob, NlpReprocessingRun
+from app.nlp.models import ArticleLanguageAnnotation, NlpJob, NlpReprocessingRun
 from app.nlp.service import PROCESSORS, request_article_nlp
 
 
@@ -32,6 +33,20 @@ async def create_reprocessing_run(
         return run.id
 
 
+def _in_language[T: tuple[Any, ...]](query: Select[T], language: object) -> Select[T]:
+    """Only articles whose current detected language is `language` (e.g. "el" for Greek)."""
+    if not isinstance(language, str):
+        return query
+    return query.where(
+        Article.id.in_(
+            select(ArticleLanguageAnnotation.article_id).where(
+                ArticleLanguageAnnotation.is_current.is_(True),
+                ArticleLanguageAnnotation.language == language,
+            )
+        )
+    )
+
+
 def _parse_datetime(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -53,6 +68,7 @@ async def count_selection(selection: dict[str, object]) -> int:
             query = query.where(Article.first_discovered_at >= from_date)
         if to_date:
             query = query.where(Article.first_discovered_at < to_date)
+        query = _in_language(query, selection.get("language"))
         return int(await db.scalar(query) or 0)
 
 
@@ -79,6 +95,7 @@ async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:
             query = query.where(Article.first_discovered_at >= from_date)
         if to_date:
             query = query.where(Article.first_discovered_at < to_date)
+        query = _in_language(query, run.selection.get("language"))
         ids = list((await db.scalars(query)).all())
         processors = tuple(str(name) for name in run.processor_names)
         _validate_processors(processors)

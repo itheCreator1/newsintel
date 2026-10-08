@@ -16,6 +16,7 @@ from app.nlp.models import (
     NlpProcessorRun,
 )
 from app.nlp.routes import _lookup
+from app.search.criteria import _resolve_annotations
 
 pytestmark = [
     pytest.mark.skipif(
@@ -246,3 +247,45 @@ async def test_entity_lookup_lists_a_matching_country_first_across_pages() -> No
     assert await walk("the U.S") == [country]
     assert await walk("U.S. N") == [navy]
     assert await walk("united") == [country, organisation]
+
+
+async def test_greek_entities_are_found_with_or_without_accents_and_endings() -> None:
+    language = f"t{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Greek lookup evidence",
+            normalized_title_hash=uuid.uuid4().hex,
+            published_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+            first_discovered_at=datetime(2026, 10, 1, 12, tzinfo=UTC),
+        )
+        # Stored as the NER processor stores Greek names: under greek_name_key.
+        person = Entity(
+            language=language,
+            entity_type="PERSON",
+            normalized_text="κουτσουμπα",
+            display_text="Κουτσούμπας",
+        )
+        db.add_all([article, person])
+        await db.flush()
+        run = await _run(db, article.id, "entities")
+        db.add(
+            ArticleEntity(
+                article_id=article.id,
+                entity_id=person.id,
+                run_id=run.id,
+                occurrence_count=1,
+                relevance=1,
+                occurrences=[{"start": 0, "end": 11}],
+                input_fingerprint=DIGEST,
+                is_current=True,
+            )
+        )
+
+    async with session_factory() as db:
+        for q in ("Κουτσούμπας", "ΚΟΥΤΣΟΥΜΠΑΣ", "Κουτσούμπα", "κουτσου", "Κου"):
+            page = await _lookup(db, Entity, q=q, cursor=None, limit=50)
+            assert person.id in {item.id for item in page.items}, q
+        resolved = await _resolve_annotations(db, ["Κουτσούμπα", "ΚΟΥΤΣΟΥΜΠΑΣ"], Entity)
+    assert resolved == [str(person.id)]
