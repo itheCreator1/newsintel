@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
+import type { SeeAlsoLabel } from '../../lib/api-types'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import EntitiesPage from './page'
@@ -10,7 +11,7 @@ vi.mock('../../lib/api', async importOriginal => ({
   api: {
     entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn(),
     entityVariants: vi.fn(), entityHistory: vi.fn(), mergeEntity: vi.fn(), splitEntity: vi.fn(), updateEntity: vi.fn(),
-    addDistinct: vi.fn(), nlpEntities: vi.fn(),
+    addDistinct: vi.fn(), nlpEntities: vi.fn(), seeAlso: vi.fn(), addRelation: vi.fn(), updateRelation: vi.fn(), removeRelation: vi.fn(),
   },
 }))
 vi.mock('../../components/BarChart', () => ({
@@ -45,6 +46,7 @@ beforeEach(() => {
   vi.mocked(api.entityRelationships).mockResolvedValue(relationships())
   vi.mocked(api.entityVariants).mockResolvedValue({ items: [] })
   vi.mocked(api.entityHistory).mockResolvedValue({ items: [] })
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['member_of', 'leader_of', 'related'], items: [] })
 })
 afterEach(cleanup)
 
@@ -240,6 +242,8 @@ it('lists the authority history, oldest first', async () => {
   vi.mocked(api.entityHistory).mockResolvedValue({ items: [
     { id: 'h1', action: 'merged', entity_id: 'var-1', other_id: 'ent-1', before: { authority_id: null }, after: { authority_id: 'ent-1' }, created_at: '2026-10-08T10:00:00Z' },
     { id: 'h2', action: 'renamed', entity_id: 'ent-1', other_id: null, before: { preferred_text: null }, after: { preferred_text: 'Obama, Barack' }, created_at: '2026-10-08T11:00:00Z' },
+    { id: 'h3', action: 'relation_added', entity_id: 'ent-1', other_id: 'ent-8', before: null, after: { relation_type: 'leader_of' }, created_at: '2026-10-08T12:00:00Z' },
+    { id: 'h4', action: 'relation_removed', entity_id: 'ent-1', other_id: 'ent-8', before: { relation_type: 'leader_of' }, after: null, created_at: '2026-10-08T13:00:00Z' },
   ] })
   renderWithQuery(() => <EntitiesPage />)
 
@@ -247,4 +251,91 @@ it('lists the authority history, oldest first', async () => {
   const items = within(history).getAllByRole('listitem').map(item => item.textContent)
   expect(items[0]).toContain('Merged')
   expect(items[1]).toContain('Renamed to Obama, Barack')
+  expect(items[2]).toContain('Added a see-also link')
+  expect(items[3]).toContain('Removed a see-also link')
+})
+
+const link = (id: string, label: SeeAlsoLabel, name: string, over = {}) => ({
+  id, label, entity: { id: `ent-${name}`, display_name: name, entity_type: 'ORG' }, valid_from: null, valid_to: null, note: null, source_article: null, ...over,
+})
+
+it('lists the see-also links by type, with dates, notes and the source article', async () => {
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['member_of', 'leader_of', 'related'], items: [
+    link('r3', 'member_of', 'NATO', { valid_from: '1952', note: 'Founding member', source_article: { id: 'a7', title: 'Treaty signed' } }),
+    link('r1', 'earlier_name', 'Facebook', { valid_to: '2021-10' }),
+    link('r4', 'related', 'Michelle Obama', { valid_from: '1992', valid_to: '2024' }),
+    link('r2', 'member_of', 'EU', { valid_from: '1981' }),
+  ] })
+  renderWithQuery(() => <EntitiesPage />)
+
+  const list = await screen.findByRole('list', { name: 'See also' })
+  expect(within(list).getAllByRole('listitem').map(item => item.textContent)).toEqual([
+    expect.stringContaining('Earlier name: Facebook (until 2021-10)'),
+    expect.stringContaining('Member of: EU (from 1981)'),
+    expect.stringContaining('Member of: NATO (from 1952) · Founding member · Source: Treaty signed'),
+    expect.stringContaining('Related: Michelle Obama (1992 – 2024)'),
+  ])
+  expect(within(list).getByRole('link', { name: 'NATO' })).toHaveAttribute('href', '/entities/?id=ent-NATO')
+  expect(within(list).getByRole('link', { name: 'Treaty signed' })).toHaveAttribute('href', '/articles/?article=a7')
+  expect(api.seeAlso).toHaveBeenCalledWith('ent-1')
+})
+
+it('says when there are no see-also links', async () => {
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByText('No see-also links yet.')).toBeTruthy()
+})
+
+it('adds a link of a type this entity can take, to an entity picked by name', async () => {
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-8', kind: 'ORG', normalized_text: 'democratic party', text: 'Democratic Party' }], next_cursor: null })
+  vi.mocked(api.addRelation).mockResolvedValue(link('r9', 'leader_of', 'Democratic Party'))
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Add link' }))
+  const type = screen.getByLabelText('Link type')
+  expect(within(type).getAllByRole('option').map(option => option.textContent)).toEqual(['Member of', 'Leader of', 'Related'])
+  fireEvent.change(type, { target: { value: 'leader_of' } })
+  fireEvent.change(screen.getByLabelText('Find the linked entity'), { target: { value: 'democratic' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Democratic Party (ORG)' }))
+  fireEvent.change(screen.getByLabelText('From'), { target: { value: '2009' } })
+  fireEvent.change(screen.getByLabelText('Link note'), { target: { value: ' Party chair ' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save link' }))
+
+  await vi.waitFor(() => expect(api.addRelation).toHaveBeenCalledWith('ent-1', { label: 'leader_of', target_id: 'ent-8', valid_from: '2009', note: 'Party chair' }))
+  await vi.waitFor(() => expect(api.seeAlso).toHaveBeenCalledTimes(2))
+  await vi.waitFor(() => expect(api.entityHistory).toHaveBeenCalledTimes(2))
+})
+
+it('shows why a link was refused', async () => {
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['related'], items: [] })
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-8', kind: 'ORG', normalized_text: 'acme', text: 'Acme' }], next_cursor: null })
+  vi.mocked(api.addRelation).mockRejectedValue(new ApiError('A related link needs a note saying how they relate', 422))
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Add link' }))
+  fireEvent.change(screen.getByLabelText('Find the linked entity'), { target: { value: 'acme' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Acme (ORG)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save link' }))
+
+  expect(await screen.findByText('A related link needs a note saying how they relate')).toBeTruthy()
+})
+
+it('edits the dates and note of a link, and removes one', async () => {
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['member_of', 'leader_of', 'related'], items: [
+    link('r3', 'member_of', 'NATO', { valid_from: '1952', note: 'Founding member' }),
+    link('r1', 'earlier_name', 'Facebook'),
+  ] })
+  vi.mocked(api.updateRelation).mockResolvedValue(link('r3', 'member_of', 'NATO'))
+  vi.mocked(api.removeRelation).mockResolvedValue(undefined)
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit link to NATO' }))
+  expect(screen.getByLabelText('From')).toHaveValue('1952')
+  fireEvent.change(screen.getByLabelText('Until'), { target: { value: '2004' } })
+  fireEvent.change(screen.getByLabelText('Link note'), { target: { value: '' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save link' }))
+  await vi.waitFor(() => expect(api.updateRelation).toHaveBeenCalledWith('r3', { valid_from: '1952', valid_to: '2004', note: null }))
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Remove link to Facebook' }))
+  await vi.waitFor(() => expect(api.removeRelation).toHaveBeenCalledWith('r1'))
 })

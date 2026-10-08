@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
 import { EntityAuthority } from '../../components/EntityAuthority'
+import { SeeAlso } from '../../components/SeeAlso'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
@@ -139,6 +140,13 @@ function EntityContent() {
           {clusters.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={clusters.isFetchingNextPage} onClick={() => clusters.fetchNextPage()}>{clusters.isFetchingNextPage ? 'Loading…' : 'Load more stories'}</button></div>}
         </GlassPanel>
       </div>
+
+      {entity && (
+        <GlassPanel className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-foreground">See also</h3>
+          <SeeAlso key={entity.id} entityId={entity.id} />
+        </GlassPanel>
+      )}
 
       <GlassPanel className="flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-foreground">Co-occurrence in the last {days} days</h3>

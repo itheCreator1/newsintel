@@ -18,8 +18,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.entities import authority
-from app.nlp.models import ArticleEntity, Entity, EntityDistinct
+from app.entities import authority, relations
+from app.feeds.models import Article
+from app.nlp.models import ArticleEntity, Entity, EntityDistinct, EntityRelation
 
 __all__ = ["FORMAT", "ImportReport", "export_authorities", "import_authorities", "parse_file"]
 
@@ -50,6 +51,19 @@ class _Root(_Variant):
     variants: list[_Variant] = Field(default_factory=list)
 
 
+class _Relation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: _Name
+    relation_type: Literal["succeeded_by", "part_of", "member_of", "leader_of", "related"]
+    object: _Name
+    valid_from: str | None = None
+    valid_to: str | None = None
+    note: str | None = None
+    # The source article travels by its address, the one identity it keeps in a rebuild.
+    source_url: str | None = None
+
+
 class _File(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -58,6 +72,7 @@ class _File(BaseModel):
     exported_at: str | None = None
     entities: list[_Root] = Field(default_factory=list)
     distinct: list[tuple[_Name, _Name]] = Field(default_factory=list)
+    relations: list[_Relation] = Field(default_factory=list)
 
 
 @dataclass
@@ -66,13 +81,15 @@ class ImportReport:
     merged: int = 0
     updated: int = 0
     distinct_added: int = 0
+    relations_added: int = 0
     unchanged: int = 0
     conflicts: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         return (
             f"created={self.created} merged={self.merged} updated={self.updated} "
-            f"distinct_added={self.distinct_added} unchanged={self.unchanged} "
+            f"distinct_added={self.distinct_added} relations_added={self.relations_added} "
+            f"unchanged={self.unchanged} "
             f"conflicts={len(self.conflicts)}"
         )
 
@@ -156,7 +173,45 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
             for root in roots
         ],
         "distinct": [[_name(first), _name(second)] for first, second in distinct],
+        "relations": await _export_relations(db, language),
     }
+
+
+async def _export_relations(db: AsyncSession, language: str | None) -> list[dict[str, Any]]:
+    """Every see-also link, by identity; a related pair reads the same way round every time."""
+    subject, obj = aliased(Entity), aliased(Entity)
+    query = (
+        select(EntityRelation, subject, obj, Article.normalized_url)
+        .join(subject, subject.id == EntityRelation.subject_id)
+        .join(obj, obj.id == EntityRelation.object_id)
+        .outerjoin(Article, Article.id == EntityRelation.source_article_id)
+    )
+    if language is not None:
+        query = query.where(or_(subject.language == language, obj.language == language))
+    found = []
+    for relation, first, second, url in await db.execute(query):
+        if relation.relation_type == "related" and _identity(second) < _identity(first):
+            first, second = second, first
+        found.append(
+            {
+                "subject": _name(first),
+                "relation_type": relation.relation_type,
+                "object": _name(second),
+                "valid_from": relation.valid_from,
+                "valid_to": relation.valid_to,
+                "note": relation.note,
+                "source_url": url,
+            }
+        )
+    return sorted(
+        found,
+        key=lambda item: (
+            tuple(item["subject"].values()),
+            item["relation_type"],
+            tuple(item["object"].values()),
+            item["valid_from"] or "",
+        ),
+    )
 
 
 async def _find_or_create(db: AsyncSession, name: _Name) -> tuple[Entity, bool]:
@@ -272,6 +327,41 @@ async def _import_pair(db: AsyncSession, pair: tuple[_Name, _Name], report: Impo
     report.distinct_added += 1
 
 
+async def _import_relation(db: AsyncSession, item: _Relation, report: ImportReport) -> None:
+    first, made_first = await _find_or_create(db, item.subject)
+    second, made_second = await _find_or_create(db, item.object)
+    report.created += made_first + made_second
+    subject_id = first.authority_id or first.id
+    object_id = second.authority_id or second.id
+    if await relations.find_relation(
+        db, item.relation_type, subject_id, object_id, item.valid_from
+    ):
+        report.unchanged += 1
+        return
+    source_id = (
+        await db.scalar(select(Article.id).where(Article.normalized_url == item.source_url))
+        if item.source_url
+        else None
+    )
+    try:
+        await relations.add_relation(
+            db,
+            subject_id,
+            label=relations.LABELS[(item.relation_type, True)],
+            target_id=object_id,
+            valid_from=item.valid_from,
+            valid_to=item.valid_to,
+            note=item.note,
+            source_article_id=source_id,
+        )
+    except authority.AuthorityError as error:
+        report.conflicts.append(
+            f"{item.subject.label()} {item.relation_type} {item.object.label()}: {error.detail}"
+        )
+        return
+    report.relations_added += 1
+
+
 async def import_authorities(db: AsyncSession, data: object) -> ImportReport:
     """Apply a file; the caller owns the transaction, so a dry run is a rollback."""
     parsed = parse_file(data)
@@ -280,5 +370,7 @@ async def import_authorities(db: AsyncSession, data: object) -> ImportReport:
         await _import_root(db, record, report)
     for pair in parsed.distinct:
         await _import_pair(db, pair, report)
+    for item in parsed.relations:
+        await _import_relation(db, item, report)
     await db.flush()
     return report

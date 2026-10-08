@@ -124,7 +124,7 @@ it('explains a refused decision and an empty queue', async () => {
 it('shows recent changes newest first, linked to both entities', async () => {
   vi.mocked(api.authorityHistory)
     .mockResolvedValueOnce({ items: [change('h2', 'renamed', 'Lund, Kai', { preferred_text: 'Lund, Kai' }), change('h1', 'status_changed', 'Lund, Kai', { status: 'established' })], next_cursor: 'older' })
-    .mockResolvedValueOnce({ items: [{ ...change('h0', 'merged', 'NAC'), other_id: 'r9', other_name: 'North Atlantic Council' }, change('hx', 'ambiguous_changed', null, { ambiguous: true })], next_cursor: null })
+    .mockResolvedValueOnce({ items: [{ ...change('h0', 'merged', 'NAC'), other_id: 'r9', other_name: 'North Atlantic Council' }, change('hx', 'ambiguous_changed', null, { ambiguous: true }), { ...change('hr', 'relation_added', 'Kai Rho'), other_id: 'u1', other_name: 'Union Party' }, { ...change('hq', 'relation_removed', 'Kai Rho'), other_id: 'u1', other_name: 'Union Party' }], next_cursor: null })
   renderWithQuery(() => <AuthoritiesPage />)
 
   const list = await screen.findByRole('list', { name: 'Recent changes' })
@@ -138,6 +138,8 @@ it('shows recent changes newest first, linked to both entities', async () => {
   expect(merged.textContent).toContain('NAC merged into North Atlantic Council')
   expect(within(merged).getByRole('link', { name: 'North Atlantic Council' })).toHaveAttribute('href', '/entities/?id=r9')
   expect(within(list).getAllByRole('listitem')[3].textContent).toContain('Unknown entity: marked as an ambiguous name')
+  expect(within(list).getAllByRole('listitem')[4].textContent).toContain('Kai Rho linked to Union Party')
+  expect(within(list).getAllByRole('listitem')[5].textContent).toContain('Kai Rho no longer linked to Union Party')
   expect(api.authorityHistory).toHaveBeenLastCalledWith('older')
 })
 

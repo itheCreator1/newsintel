@@ -47,6 +47,11 @@ export type EntityHistory = components['schemas']['EntityHistory']
 export type AuthorityRootPage = components['schemas']['AuthorityRootPage']
 export type AuthoritySuggestionList = components['schemas']['AuthoritySuggestionList']
 export type AuthorityHistoryPage = components['schemas']['AuthorityHistoryPage']
+export type SeeAlso = components['schemas']['SeeAlsoResponse']
+export type SeeAlsoItem = components['schemas']['SeeAlsoItem']
+export type SeeAlsoLabel = SeeAlsoItem['label']
+export type SeeAlsoCreate = components['schemas']['SeeAlsoCreate']
+export type SeeAlsoUpdate = components['schemas']['SeeAlsoUpdate']
 /** Filters on the authority file; an absent key is not sent. */
 export type AuthorityFilters = { q?: string; status?: 'provisional' | 'established'; language?: string }
 export type Monitor = components['schemas']['MonitorResponse']

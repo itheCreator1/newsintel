@@ -196,6 +196,27 @@ class EntityAuthorityRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class EntityRelation(Base):
+    """A see-also link the user stated between two roots; the inverse is read, never stored."""
+
+    __tablename__ = "entity_relations"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
+    relation_type: Mapped[str] = mapped_column(String(24))
+    object_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
+    # Partial dates: "2009", "2021-10" or "2021-10-28".
+    valid_from: Mapped[str | None] = mapped_column(String(10))
+    valid_to: Mapped[str | None] = mapped_column(String(10))
+    note: Mapped[str | None] = mapped_column(Text)
+    source_article_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("articles.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class NlpLanguageSetting(Base):
     """Per-language switches turned on in Settings; a language without a row is off."""
 

@@ -194,3 +194,67 @@ class AuthorityHistoryItem(EntityHistoryItem):
 class AuthorityHistoryPage(BaseModel):
     items: list[AuthorityHistoryItem]
     next_cursor: str | None
+
+
+SeeAlsoLabel = Literal[
+    "later_name",
+    "earlier_name",
+    "part_of",
+    "has_part",
+    "member_of",
+    "has_member",
+    "leader_of",
+    "led_by",
+    "related",
+]
+
+
+class SeeAlsoEntity(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+
+
+class SeeAlsoSource(BaseModel):
+    id: uuid.UUID
+    title: str
+
+
+class SeeAlsoItem(BaseModel):
+    """One link, labelled from the side of the entity asked about ("earlier_name": Facebook)."""
+
+    id: uuid.UUID
+    label: SeeAlsoLabel
+    entity: SeeAlsoEntity
+    valid_from: str | None
+    valid_to: str | None
+    note: str | None
+    source_article: SeeAlsoSource | None
+
+
+class SeeAlsoResponse(BaseModel):
+    # The labels this entity's type can take from its own side, for the "Add link" form.
+    labels: list[SeeAlsoLabel]
+    items: list[SeeAlsoItem]
+
+
+class SeeAlsoCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: SeeAlsoLabel
+    target_id: uuid.UUID
+    valid_from: str | None = Field(default=None, max_length=10)
+    valid_to: str | None = Field(default=None, max_length=10)
+    note: str | None = Field(default=None, max_length=4000)
+    source_article_id: uuid.UUID | None = None
+
+
+class SeeAlsoUpdate(BaseModel):
+    """Only the fields sent change; null clears one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    valid_from: str | None = Field(default=None, max_length=10)
+    valid_to: str | None = Field(default=None, max_length=10)
+    note: str | None = Field(default=None, max_length=4000)
+    source_article_id: uuid.UUID | None = None

@@ -37,6 +37,9 @@ function describe(change: Change): ReactNode {
     case 'ambiguous_changed': return <>{entity}{after.ambiguous ? ': marked as an ambiguous name' : ': no longer marked as ambiguous'}</>
     case 'distinct_added': return <>{entity} and {other} recorded as different</>
     case 'distinct_removed': return <>{entity} and {other} no longer recorded as different</>
+    case 'relation_added': return <>{entity} linked to {other}</>
+    case 'relation_changed': return <>{entity}: link to {other} changed</>
+    case 'relation_removed': return <>{entity} no longer linked to {other}</>
     default: return <>{entity}: {change.action}</>
   }
 }
