@@ -353,3 +353,27 @@ it('offers no entity link with fewer than two entities', async () => {
   expect(await screen.findByRole('link', { name: 'Open dossier for Acme' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Link two entities' })).toBeNull()
 })
+
+it('sends a note with the link, which a related link needs', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  const entity = (id: string, text: string, entity_type: string) => ({ id, text, normalized_text: text.toLowerCase(), entity_type, original_label: entity_type, relevance: 0.8, occurrence_count: 1, occurrences: [], fresh: true })
+  vi.mocked(api.articleAnnotations).mockResolvedValue({
+    article_id: 'one', capabilities: [], countries: [], keywords: [], language: null, processors: [], source_countries: [],
+    entities: [entity('entity-one', 'United Nations', 'ORG'), entity('entity-two', 'Brussels', 'GPE')],
+  })
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['related'], items: [] })
+  vi.mocked(api.addRelation).mockResolvedValue({} as never)
+  renderWithQuery(() => <ArticlesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Link two entities' }))
+  const form = screen.getByRole('form', { name: 'Link entities from this article' })
+  fireEvent.change(within(form).getByRole('combobox', { name: 'Entity' }), { target: { value: 'entity-one' } })
+  await within(form).findByRole('combobox', { name: 'Link type' })
+  fireEvent.change(within(form).getByRole('combobox', { name: 'Linked entity' }), { target: { value: 'entity-two' } })
+  fireEvent.change(within(form).getByRole('textbox', { name: 'Link note' }), { target: { value: '  Host city  ' } })
+  fireEvent.click(within(form).getByRole('button', { name: 'Save link' }))
+
+  await vi.waitFor(() => expect(api.addRelation).toHaveBeenCalledWith('entity-one', { label: 'related', target_id: 'entity-two', source_article_id: 'one', note: 'Host city' }))
+})
