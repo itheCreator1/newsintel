@@ -9111,6 +9111,17 @@
               }
             ],
             "title": "Entity Name"
+          },
+          "other_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Name"
           }
         },
         "type": "object",
@@ -9122,7 +9133,8 @@
           "before",
           "after",
           "created_at",
-          "entity_name"
+          "entity_name",
+          "other_name"
         ],
         "title": "AuthorityHistoryItem"
       },

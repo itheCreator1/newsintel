@@ -188,6 +188,7 @@ class AuthoritySuggestionList(BaseModel):
 
 class AuthorityHistoryItem(EntityHistoryItem):
     entity_name: str | None
+    other_name: str | None
 
 
 class AuthorityHistoryPage(BaseModel):

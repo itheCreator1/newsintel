@@ -84,10 +84,13 @@ async def roots(
 
 async def recent_changes(
     db: AsyncSession, *, limit: int, cursor: tuple[datetime, uuid.UUID] | None
-) -> tuple[list[tuple[EntityAuthorityChange, str | None]], str | None]:
-    """Every change to the file, newest first, with the current name of the entity it changed."""
-    query: Any = select(EntityAuthorityChange, Entity.name).outerjoin(
-        Entity, Entity.id == EntityAuthorityChange.entity_id
+) -> tuple[list[tuple[EntityAuthorityChange, str | None, str | None]], str | None]:
+    """Every change to the file, newest first, with the current names of both entities in it."""
+    other = aliased(Entity)
+    query: Any = (
+        select(EntityAuthorityChange, Entity.name, other.name)
+        .outerjoin(Entity, Entity.id == EntityAuthorityChange.entity_id)
+        .outerjoin(other, other.id == EntityAuthorityChange.other_id)
     )
     if cursor is not None:
         query = query.where(
@@ -101,7 +104,7 @@ async def recent_changes(
             ).limit(limit + 1)
         )
     )
-    page = [(row[0], row[1]) for row in rows[:limit]]
+    page = [(row[0], row[1], row[2]) for row in rows[:limit]]
     next_cursor = (
         encode_cursor(page[-1][0].created_at, page[-1][0].id) if len(rows) > limit else None
     )

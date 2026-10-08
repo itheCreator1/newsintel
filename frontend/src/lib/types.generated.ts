@@ -1719,6 +1719,8 @@ export interface components {
             created_at: string;
             /** Entity Name */
             entity_name: string | null;
+            /** Other Name */
+            other_name: string | null;
         };
         /** AuthorityHistoryPage */
         AuthorityHistoryPage: {

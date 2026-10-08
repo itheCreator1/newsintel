@@ -322,9 +322,10 @@ async def list_authority_history(
                 {
                     **EntityHistoryItem.model_validate(change, from_attributes=True).model_dump(),
                     "entity_name": name,
+                    "other_name": other_name,
                 }
             )
-            for change, name in page
+            for change, name, other_name in page
         ],
         next_cursor=next_cursor,
     )
