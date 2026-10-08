@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
@@ -7,7 +7,11 @@ import EntitiesPage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn() },
+  api: {
+    entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn(),
+    entityVariants: vi.fn(), entityHistory: vi.fn(), mergeEntity: vi.fn(), splitEntity: vi.fn(), updateEntity: vi.fn(),
+    addDistinct: vi.fn(), nlpEntities: vi.fn(),
+  },
 }))
 vi.mock('../../components/BarChart', () => ({
   BarChart: ({ items, onSelect }: { items: { id: string; label: string }[]; onSelect(item: { id: string }): void }) => (
@@ -39,6 +43,8 @@ beforeEach(() => {
   vi.mocked(api.entityArticles).mockResolvedValue(articles([article('a1', 'First report')]))
   vi.mocked(api.entityClusters).mockResolvedValue({ items: [cluster], next_cursor: null })
   vi.mocked(api.entityRelationships).mockResolvedValue(relationships())
+  vi.mocked(api.entityVariants).mockResolvedValue({ items: [] })
+  vi.mocked(api.entityHistory).mockResolvedValue({ items: [] })
 })
 afterEach(cleanup)
 
@@ -139,4 +145,106 @@ it('watches this entity under its name', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Watch entity' }))
   await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Barack Obama', expect.objectContaining({ entity_id: ['ent-1'], source_id: [] }), 'entity'))
   expect(await screen.findByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
+})
+
+const variant = { id: 'var-1', display_name: 'B. Obama', normalized_text: 'b obama', language: 'en', entity_type: 'PERSON' }
+const run = (kind: 'merge' | 'split', entity: string, root: string) => ({ id: `run-${kind}`, kind, status: 'running' as const, entity_id: entity, root_id: root })
+const authority = (over = {}) => ({ id: 'ent-1', display_name: 'Barack Obama', preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null, authority_id: null, ...over })
+
+it('shows the status, the variants and says when it was opened from a merged name', async () => {
+  vi.mocked(api.entityDossier).mockResolvedValue(dossier({ redirected_from: 'var-1', status: 'established' }))
+  vi.mocked(api.entityVariants).mockResolvedValue({ items: [variant] })
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByText('Opened from a name merged into this entity.')).toBeTruthy()
+  expect(screen.getByText('Established')).toBeTruthy()
+  const variants = await screen.findByRole('list', { name: 'Other names' })
+  expect(within(variants).getByText('B. Obama')).toBeTruthy()
+  expect(api.entityVariants).toHaveBeenCalledWith('ent-1')
+})
+
+it('merges this entity into another one picked by name and opens the result', async () => {
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-9', kind: 'PERSON', normalized_text: 'barack h obama', text: 'Barack H. Obama' }], next_cursor: null })
+  vi.mocked(api.mergeEntity).mockResolvedValue(run('merge', 'ent-1', 'ent-9'))
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Merge with…' }))
+  fireEvent.change(screen.getByLabelText('Find the entity to merge into'), { target: { value: 'barack' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Barack H. Obama (PERSON)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Merge into Barack H. Obama' }))
+
+  await vi.waitFor(() => expect(api.mergeEntity).toHaveBeenCalledWith('ent-1', 'ent-9'))
+  await vi.waitFor(() => expect(navigationHarness.push).toHaveBeenCalledWith('/entities/?id=ent-9'))
+})
+
+it('shows why a merge was refused', async () => {
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-9', kind: 'PERSON', normalized_text: 'other', text: 'Other Obama' }], next_cursor: null })
+  vi.mocked(api.mergeEntity).mockRejectedValue(new ApiError('These entities are marked as different', 409))
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Merge with…' }))
+  fireEvent.change(screen.getByLabelText('Find the entity to merge into'), { target: { value: 'other' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Other Obama (PERSON)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Merge into Other Obama' }))
+
+  expect(await screen.findByText('These entities are marked as different')).toBeTruthy()
+  expect(navigationHarness.push).not.toHaveBeenCalled()
+})
+
+it('splits a variant back out', async () => {
+  vi.mocked(api.entityVariants).mockResolvedValue({ items: [variant] })
+  vi.mocked(api.splitEntity).mockResolvedValue(run('split', 'var-1', 'ent-1'))
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Split B. Obama' }))
+
+  await vi.waitFor(() => expect(api.splitEntity).toHaveBeenCalledWith('var-1'))
+  expect(await screen.findByText('B. Obama is its own entity again; its articles move back shortly.')).toBeTruthy()
+})
+
+it('renames the entity, marks it established and keeps a note', async () => {
+  vi.mocked(api.updateEntity).mockResolvedValue(authority())
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Rename' }))
+  fireEvent.change(screen.getByLabelText('Preferred name'), { target: { value: 'Obama, Barack' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save name' }))
+  await vi.waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { preferred_text: 'Obama, Barack' }))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Mark established' }))
+  await vi.waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { status: 'established' }))
+
+  fireEvent.click(screen.getByLabelText('Ambiguous name (may stand for several people)'))
+  await vi.waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { ambiguous: true }))
+
+  fireEvent.change(screen.getByLabelText('Note'), { target: { value: '44th US president' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save note' }))
+  await vi.waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { note: '44th US president' }))
+})
+
+it('records that another entity is not the same', async () => {
+  vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-7', kind: 'PERSON', normalized_text: 'michelle obama', text: 'Michelle Obama' }], next_cursor: null })
+  vi.mocked(api.addDistinct).mockResolvedValue(undefined)
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Not the same as…' }))
+  fireEvent.change(screen.getByLabelText('Find the entity that is different'), { target: { value: 'michelle' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Michelle Obama (PERSON)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Mark Michelle Obama as different' }))
+
+  await vi.waitFor(() => expect(api.addDistinct).toHaveBeenCalledWith('ent-1', 'ent-7'))
+  expect(await screen.findByText('Michelle Obama is recorded as a different entity.')).toBeTruthy()
+})
+
+it('lists the authority history, oldest first', async () => {
+  vi.mocked(api.entityHistory).mockResolvedValue({ items: [
+    { id: 'h1', action: 'merged', entity_id: 'var-1', other_id: 'ent-1', before: { authority_id: null }, after: { authority_id: 'ent-1' }, created_at: '2026-10-08T10:00:00Z' },
+    { id: 'h2', action: 'renamed', entity_id: 'ent-1', other_id: null, before: { preferred_text: null }, after: { preferred_text: 'Obama, Barack' }, created_at: '2026-10-08T11:00:00Z' },
+  ] })
+  renderWithQuery(() => <EntitiesPage />)
+
+  const history = await screen.findByRole('list', { name: 'Authority history' })
+  const items = within(history).getAllByRole('listitem').map(item => item.textContent)
+  expect(items[0]).toContain('Merged')
+  expect(items[1]).toContain('Renamed to Obama, Barack')
 })
