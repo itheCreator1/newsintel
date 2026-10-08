@@ -101,19 +101,24 @@ test('see also workflow links entities and follows the link in search and the gr
   test.setTimeout(120_000)
   await login(page, 'phase14d')
   const microsoft = await entityId(page, 'Microsoft')
-  const nations = await entityId(page, 'United Nations')
-  const brussels = await entityId(page, 'Brussels')
-  expect(microsoft && nations && brussels).toBeTruthy()
+  expect(microsoft).toBeTruthy()
 
   // From an article: two of its entities, with the article recorded as the source.
   const summit = (await json<{ items: { id: string; title: string }[] }>(page, '/articles?limit=100')).items
     .find(item => item.title === 'United Nations envoy visits Brussels for a climate summit')!
   await page.goto(`/articles?article=${summit.id}`)
+  // The ids the article itself names: a name search can also find a same-named entity of another type.
+  const dossierId = async (name: string) =>
+    new URL((await page.getByRole('link', { name: `Open dossier for ${name}` }).getAttribute('href'))!, 'http://n').searchParams.get('id')!
+  const nations = await dossierId('United Nations')
+  const brussels = await dossierId('Brussels')
   await page.getByRole('button', { name: 'Link two entities' }).click()
   const form = page.getByRole('form', { name: 'Link entities from this article' })
-  await form.getByLabel('Entity', { exact: true }).selectOption(nations)
+  await form.getByRole('combobox', { name: 'Entity', exact: true }).selectOption(nations)
   await form.getByLabel('Link type').selectOption('related')
   await form.getByLabel('Linked entity').selectOption(brussels)
+  // A plain related link must say how the two relate.
+  await form.getByLabel('Link note').fill('Host city of the climate summit')
   await form.getByRole('button', { name: 'Save link' }).click()
   await expect(page.getByRole('status')).toHaveText('Linked United Nations to Brussels, with this article as the source.')
 
@@ -130,7 +135,7 @@ test('see also workflow links entities and follows the link in search and the gr
   const links = page.getByRole('list', { name: 'See also' })
   await expect(links.getByRole('listitem')).toHaveCount(2)
   await expect(links).toContainText('Earlier name: Microsoft')
-  await expect(links).toContainText('Related: Brussels · Source: United Nations envoy visits Brussels for a climate summit')
+  await expect(links).toContainText('Related: Brussels · Host city of the climate summit · Source: United Nations envoy visits Brussels for a climate summit')
 
   // Search follows the link only when asked: the earlier name's articles join the later name's.
   await page.goto(`/search?entity_id=${nations}`)

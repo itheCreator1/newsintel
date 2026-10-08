@@ -16,13 +16,14 @@ export function ArticleEntityLink({ articleId, entities }: { articleId: string; 
   const [from, setFrom] = useState('')
   const [label, setLabel] = useState<SeeAlsoLabel | ''>('')
   const [target, setTarget] = useState('')
+  const [note, setNote] = useState('')
   const [message, setMessage] = useState('')
   // The link types depend on the first entity's type, so they come from its see-also section.
   const links = useQuery({ queryKey: ['entity-see-also', from], queryFn: () => api.seeAlso(from), enabled: Boolean(from), retry: false })
   const chosen = label || links.data?.labels[0] || ''
   const name = (id: string) => entities.find(entity => entity.id === id)?.text ?? id
   const save = useMutation({
-    mutationFn: () => api.addRelation(from, { label: chosen as SeeAlsoLabel, target_id: target, source_article_id: articleId }),
+    mutationFn: () => api.addRelation(from, { label: chosen as SeeAlsoLabel, target_id: target, source_article_id: articleId, ...(note.trim() ? { note: note.trim() } : {}) }),
     onSuccess: () => {
       setMessage(`Linked ${name(from)} to ${name(target)}, with this article as the source.`)
       setOpen(false)
@@ -32,7 +33,7 @@ export function ArticleEntityLink({ articleId, entities }: { articleId: string; 
 
   function start() {
     save.reset(); setMessage('')
-    setFrom(''); setLabel(''); setTarget('')
+    setFrom(''); setLabel(''); setTarget(''); setNote('')
     setOpen(true)
   }
 
@@ -63,6 +64,10 @@ export function ArticleEntityLink({ articleId, entities }: { articleId: string; 
               </select>
             </label>
           </div>
+          {/* A plain "related" link must say how the two relate; the service refuses it otherwise. */}
+          <label className={labelClass}>Link note
+            <textarea className={fieldClass} rows={2} maxLength={4000} value={note} onChange={event => setNote(event.target.value)} />
+          </label>
           {links.isError && <p className="error text-sm text-destructive">Could not load the link types.</p>}
           <div className="flex gap-2">
             <button type="submit" className={ghostButtonClass} disabled={save.isPending || !from || !target || !chosen}>Save link</button>
