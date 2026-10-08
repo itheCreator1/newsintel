@@ -5,6 +5,8 @@ name: Full gate
 # Playwright browser group. Too slow for every PR, so it runs after each merge to main,
 # nightly, on demand, and on PRs that change the test or container setup itself. A push that
 # changes nothing but the Markdown docs, the README's images or the licence starts no run.
+# Run on demand, it can instead run one targeted loop (one browser group, or named integration
+# tests), so a session that cannot run Docker can check a fix without the whole gate.
 on:
   push:
     branches:
@@ -24,12 +26,35 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      run:
+        description: >-
+          What to run: full is infra/test-docker.sh; e2e is one browser group
+          (infra/test-e2e.sh); integration is the named integration tests
+          (infra/test-integration.sh).
+        type: choice
+        default: full
+        options:
+          - full
+          - e2e
+          - integration
+      target:
+        description: >-
+          e2e: the group (search, investigations, monitors or graph). integration: the
+          pytest node ids, separated by spaces. Ignored for full.
+        type: string
+        default: ""
+      stop_after:
+        description: e2e only, optional. Stop the group after this spec (--stop-after).
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: full-gate-${{ github.ref }}
+  # A targeted run has its own group, so it neither waits behind nor cancels a full run.
+  group: full-gate-${{ github.ref }}-${{ inputs.run || 'full' }}-${{ inputs.target }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -48,7 +73,9 @@ jobs:
             backend-test
             frontend-test
           scope: test
-      - uses: ./.github/actions/warm-docker-cache
+      # The integration loop builds only the test images.
+      - if: inputs.run != 'integration'
+        uses: ./.github/actions/warm-docker-cache
         with:
           files: |
             compose.yaml
@@ -56,7 +83,9 @@ jobs:
             api
             frontend
           scope: runtime
-      - uses: ./.github/actions/warm-docker-cache
+      # Of the browser groups, only graph runs the NER image.
+      - if: inputs.run != 'integration' && (inputs.run != 'e2e' || inputs.target == 'graph')
+        uses: ./.github/actions/warm-docker-cache
         with:
           files: |
             compose.yaml
@@ -64,9 +93,35 @@ jobs:
           targets: |
             api
           scope: runtime-ner
-      - run: ./infra/test-docker.sh
+      - name: Run the selected tests
         env:
+          RUN: ${{ inputs.run || 'full' }}
+          TARGET: ${{ inputs.target }}
+          STOP_AFTER: ${{ inputs.stop_after }}
           NEWSINTEL_TEST_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+          NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+        run: |
+          case $RUN in
+            full) ./infra/test-docker.sh ;;
+            e2e)
+              case $TARGET in
+                search | investigations | monitors | graph) ;;
+                *) echo "::error::e2e needs target search, investigations, monitors or graph"; exit 2 ;;
+              esac
+              if [ -n "$STOP_AFTER" ]; then
+                ./infra/test-e2e.sh --stop-after "$STOP_AFTER" "$TARGET"
+              else
+                ./infra/test-e2e.sh "$TARGET"
+              fi
+              ;;
+            integration)
+              [ -n "$TARGET" ] || { echo "::error::integration needs pytest node ids in target"; exit 2; }
+              # One argument per node id; set -f keeps a parametrized id's [...] from globbing.
+              set -f
+              # shellcheck disable=SC2086
+              ./infra/test-integration.sh $TARGET
+              ;;
+          esac
       - if: always()
         uses: actions/upload-artifact@v7
         with:
