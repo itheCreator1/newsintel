@@ -79,6 +79,8 @@ class FakeWikidata:
     def __init__(self) -> None:
         self.entities: dict[str, dict[str, Any]] = {}
         self.searches: dict[tuple[str, str], list[str]] = {}
+        # Items Wikidata merged into another: source QID -> target QID.
+        self.redirects: dict[str, str] = {}
         self.requests: list[tuple[str, str]] = []
         # Set to a response to answer every request with it (a 429, a 503, a dropped line).
         self.failure: Callable[[httpx.Request], httpx.Response] | None = None
@@ -112,19 +114,26 @@ class FakeWikidata:
         if action == "wbgetentities":
             props = params.get("props", "").split("|")
             entities: dict[str, Any] = {}
-            for qid in params["ids"].split("|"):
+            for asked in params["ids"].split("|"):
+                qid = self.redirects.get(asked, asked)
                 stored = self.entities.get(qid)
                 if stored is None:
-                    entities[qid] = {"id": qid, "missing": ""}
+                    entities[asked] = {"id": asked, "missing": ""}
                     continue
                 answer = {key: value for key, value in stored.items() if key != "claims"}
                 if "claims" in props:
                     answer["claims"] = stored["claims"]
+                if qid != asked:
+                    answer["redirects"] = {"from": asked, "to": qid}
                 entities[qid] = answer
             return httpx.Response(200, json={"entities": entities, "success": 1})
         if action == "query":
             pages = []
-            for qid in params["titles"].split("|"):
+            redirects = []
+            for asked in params["titles"].split("|"):
+                qid = self.redirects.get(asked, asked)
+                if qid != asked:
+                    redirects.append({"from": asked, "to": qid})
                 stored = self.entities.get(qid)
                 if stored is None:
                     pages.append({"ns": 0, "title": qid, "missing": True})
@@ -132,7 +141,10 @@ class FakeWikidata:
                     pages.append(
                         {"ns": 0, "title": qid, "lastrevid": stored["lastrevid"], "length": 1000}
                     )
-            return httpx.Response(200, json={"batchcomplete": True, "query": {"pages": pages}})
+            query: dict[str, Any] = {"pages": pages}
+            if redirects:
+                query["redirects"] = redirects
+            return httpx.Response(200, json={"batchcomplete": True, "query": query})
         if action == "wbgetclaims":
             stored = self.entities.get(params["entity"], {})
             prop = params["property"]
