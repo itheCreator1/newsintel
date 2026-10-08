@@ -1,14 +1,14 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api } from '../../lib/api'
-import type { OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage } from '../../lib/api-types'
+import type { OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, OpsWikidata } from '../../lib/api-types'
 import { navigationHarness, resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import OperationsPage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { opsHealth: vi.fn(), opsPipelines: vi.fn(), opsFeeds: vi.fn(), opsStorage: vi.fn(), opsFailures: vi.fn() },
+  api: { opsHealth: vi.fn(), opsPipelines: vi.fn(), opsFeeds: vi.fn(), opsStorage: vi.fn(), opsFailures: vi.fn(), opsWikidata: vi.fn() },
 }))
 
 const AT = '2026-09-21T10:00:00Z'
@@ -76,6 +76,19 @@ const failures = (over = {}) => ({
   recent: [{ id: 'x1', ref_id: 'f2', status: 'failed', at: '2026-09-21T09:30:00Z', error_category: 'timeout', message: 'The read operation timed out' }],
   ...over,
 } as unknown as OpsFailures)
+const wdRun = (kind: string, status: string, over = {}) => ({
+  id: `${kind}-${status}`, kind, status, entity_id: null, checked: 40, changed: 3, redirected: 1, missing: 0, errors: 0, requests: 2,
+  error: null, created_at: AT, started_at: AT, finished_at: '2026-09-21T10:05:00Z', ...over,
+})
+const wikidata = (over = {}) => ({
+  enabled: true, reason: null,
+  throttle: { state: 'open', paused_until: null, pause_reason: null, requests_today: 312, daily_budget: 2000, next_request_at: null },
+  counts: [{ day: '2026-09-21', kind: 'search', outcome: 'ok', count: 300, average_ms: 210 }, { day: '2026-09-21', kind: 'entities', outcome: 'throttled', count: 1, average_ms: 90 }],
+  links: 41, open_candidates: 7, due_refresh: 2,
+  runs: [wdRun('refresh', 'finished'), wdRun('candidates', 'failed', { error: 'Wikidata answered 503', checked: 0, finished_at: null })],
+  last_refresh: wdRun('refresh', 'finished'),
+  ...over,
+} as unknown as OpsWikidata)
 
 function open(search = '') {
   resetNavigationHarness({ pathname: '/operations/', search })
@@ -90,6 +103,7 @@ beforeEach(() => {
   vi.mocked(api.opsFeeds).mockResolvedValue(feeds())
   vi.mocked(api.opsStorage).mockResolvedValue(storage())
   vi.mocked(api.opsFailures).mockResolvedValue(failures())
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata())
 })
 afterEach(cleanup)
 
@@ -261,4 +275,45 @@ it('reports a failed drill-down without hiding the page', async () => {
   open('area=feed')
   expect(await screen.findByText('Could not load the failures.')).toBeTruthy()
   await waitFor(() => expect(screen.getByRole('region', { name: 'Dependencies' })).toBeTruthy())
+})
+
+it('shows how much Wikidata is asked, its pause, the links and the recent runs', async () => {
+  open()
+  const panel = await screen.findByRole('region', { name: 'Wikidata' })
+  await within(panel).findByText('Open')
+  expect(stat(panel, 'Requests today')).toBe('312 of 2000')
+  expect(stat(panel, 'Linked entities')).toBe('41')
+  expect(stat(panel, 'Open suggestions')).toBe('7')
+  expect(stat(panel, 'Due for refresh')).toBe('2')
+  expect(stat(panel, 'Last refresh')).toBe(new Date('2026-09-21T10:05:00Z').toLocaleString())
+
+  const runs = within(panel).getByRole('table', { name: 'Wikidata runs' })
+  expect(within(runs).getByRole('row', { name: /refresh finished 40 3 1 0 2/ })).toBeTruthy()
+  expect(within(runs).getByRole('row', { name: /candidates failed/ }).textContent).toContain('Wikidata answered 503')
+  const counts = within(panel).getByRole('table', { name: 'Wikidata requests' })
+  expect(within(counts).getByRole('row', { name: /2026-09-21 search ok 300 210 ms/ })).toBeTruthy()
+})
+
+it('says when Wikidata is paused, out of budget or switched off', async () => {
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata({
+    throttle: { state: 'paused', paused_until: '2026-09-21T10:20:00Z', pause_reason: 'HTTP 429', requests_today: 12, daily_budget: 2000, next_request_at: null },
+  }))
+  open()
+  let panel = await screen.findByRole('region', { name: 'Wikidata' })
+  expect(await within(panel).findByText(`Paused until ${new Date('2026-09-21T10:20:00Z').toLocaleString()}`)).toBeTruthy()
+  expect(within(panel).getByText('Reason: HTTP 429')).toBeTruthy()
+  cleanup()
+
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata({
+    throttle: { state: 'budget_spent', paused_until: null, pause_reason: null, requests_today: 2000, daily_budget: 2000, next_request_at: null },
+  }))
+  open()
+  panel = await screen.findByRole('region', { name: 'Wikidata' })
+  expect(await within(panel).findByText('Today’s budget is spent')).toBeTruthy()
+  cleanup()
+
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata({ enabled: false, reason: 'Wikidata is switched off (NEWSINTEL_WIKIDATA_ENABLED=false)' }))
+  open()
+  panel = await screen.findByRole('region', { name: 'Wikidata' })
+  expect(await within(panel).findByText('Off: Wikidata is switched off (NEWSINTEL_WIKIDATA_ENABLED=false)')).toBeTruthy()
 })

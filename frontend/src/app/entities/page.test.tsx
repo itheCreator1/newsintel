@@ -12,6 +12,7 @@ vi.mock('../../lib/api', async importOriginal => ({
     entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn(),
     entityVariants: vi.fn(), entityHistory: vi.fn(), mergeEntity: vi.fn(), splitEntity: vi.fn(), updateEntity: vi.fn(),
     addDistinct: vi.fn(), nlpEntities: vi.fn(), seeAlso: vi.fn(), addRelation: vi.fn(), updateRelation: vi.fn(), removeRelation: vi.fn(),
+    wikidata: vi.fn(),
   },
 }))
 vi.mock('../../components/BarChart', () => ({
@@ -47,6 +48,9 @@ beforeEach(() => {
   vi.mocked(api.entityVariants).mockResolvedValue({ items: [] })
   vi.mocked(api.entityHistory).mockResolvedValue({ items: [] })
   vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['member_of', 'leader_of', 'related'], items: [] })
+  vi.mocked(api.wikidata).mockResolvedValue({
+    entity_id: 'ent-1', qid: null, identifiers: {}, item: null, fetch_pending: false, names: [], candidates: [], search_pending: false, redirect_holder: null,
+  })
 })
 afterEach(cleanup)
 
@@ -244,6 +248,8 @@ it('lists the authority history, oldest first', async () => {
     { id: 'h2', action: 'renamed', entity_id: 'ent-1', other_id: null, before: { preferred_text: null }, after: { preferred_text: 'Obama, Barack' }, created_at: '2026-10-08T11:00:00Z' },
     { id: 'h3', action: 'relation_added', entity_id: 'ent-1', other_id: 'ent-8', before: null, after: { relation_type: 'leader_of' }, created_at: '2026-10-08T12:00:00Z' },
     { id: 'h4', action: 'relation_removed', entity_id: 'ent-1', other_id: 'ent-8', before: { relation_type: 'leader_of' }, after: null, created_at: '2026-10-08T13:00:00Z' },
+    { id: 'h5', action: 'wikidata_linked', entity_id: 'ent-1', other_id: null, before: null, after: { qid: 'Q76' }, created_at: '2026-10-08T14:00:00Z' },
+    { id: 'h6', action: 'wikidata_missing', entity_id: 'ent-1', other_id: null, before: { qid: 'Q76' }, after: null, created_at: '2026-10-08T15:00:00Z' },
   ] })
   renderWithQuery(() => <EntitiesPage />)
 
@@ -253,6 +259,16 @@ it('lists the authority history, oldest first', async () => {
   expect(items[1]).toContain('Renamed to Obama, Barack')
   expect(items[2]).toContain('Added a see-also link')
   expect(items[3]).toContain('Removed a see-also link')
+  expect(items[4]).toContain('Linked to Wikidata Q76')
+  expect(items[5]).toContain('Wikidata deleted Q76; the link is kept')
+})
+
+it('has a Wikidata section that loads the root\'s link', async () => {
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByRole('heading', { name: 'Wikidata' })).toBeTruthy()
+  await vi.waitFor(() => expect(api.wikidata).toHaveBeenCalledWith('ent-1'))
+  expect(await screen.findByText('No Wikidata suggestions yet.')).toBeTruthy()
 })
 
 const link = (id: string, label: SeeAlsoLabel, name: string, over = {}) => ({
