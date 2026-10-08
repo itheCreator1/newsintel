@@ -1,0 +1,94 @@
+name: Targeted tests
+
+# One test loop, picked by a trailer on the head commit of a push to any branch but main:
+#   ci-run: e2e graph            one browser group
+#   ci-stop-after: map workflow  optional, with e2e: stop the group after that spec
+#   ci-run: integration backend/tests/test_x.py::test_y ...
+#   ci-run: full                 the whole gate (infra/test-docker.sh)
+# For sessions that can push but cannot run Docker or dispatch a workflow. A push without the
+# trailer starts no run (the job is skipped). It never stands in for the full gate before a merge.
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: targeted-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  targeted:
+    name: Targeted tests (infra/test-ci.sh)
+    if: contains(github.event.head_commit.message, 'ci-run:')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - id: select
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          run_line=$(printf '%s\n' "$MESSAGE" | sed -n 's/^ci-run:[[:space:]]*//p' | tail -n 1)
+          stop_after=$(printf '%s\n' "$MESSAGE" | sed -n 's/^ci-stop-after:[[:space:]]*//p' | tail -n 1)
+          set -f
+          # shellcheck disable=SC2086
+          set -- $run_line
+          [ "$#" -ge 1 ] || { echo "::error::the ci-run: trailer names no loop"; exit 2; }
+          {
+            echo "run=$1"
+            shift
+            echo "target=$*"
+            echo "stop_after=$stop_after"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: ./.github/actions/warm-docker-cache
+        with:
+          files: |
+            compose.test.yaml
+          targets: |
+            backend-test
+            frontend-test
+          scope: test
+      # The integration loop builds only the test images.
+      - if: steps.select.outputs.run != 'integration'
+        uses: ./.github/actions/warm-docker-cache
+        with:
+          files: |
+            compose.yaml
+          targets: |
+            api
+            frontend
+          scope: runtime
+      # Of the browser groups, only graph runs the NER image.
+      - if: steps.select.outputs.run != 'integration' && (steps.select.outputs.run != 'e2e' || steps.select.outputs.target == 'graph')
+        uses: ./.github/actions/warm-docker-cache
+        with:
+          files: |
+            compose.yaml
+            compose.ner.yaml
+          targets: |
+            api
+          scope: runtime-ner
+      - name: Run the selected tests
+        env:
+          RUN: ${{ steps.select.outputs.run }}
+          TARGET: ${{ steps.select.outputs.target }}
+          STOP_AFTER: ${{ steps.select.outputs.stop_after }}
+          NEWSINTEL_TEST_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+          NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+        run: |
+          set -f
+          # shellcheck disable=SC2086
+          case $RUN in
+            e2e) ./infra/test-ci.sh e2e $TARGET "$STOP_AFTER" ;;
+            *) ./infra/test-ci.sh "$RUN" $TARGET ;;
+          esac
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: targeted-test-artifacts
+          path: ${{ runner.temp }}/test-artifacts
+          if-no-files-found: ignore

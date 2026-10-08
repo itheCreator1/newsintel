@@ -6,7 +6,7 @@ name: Full gate
 # nightly, on demand, and on PRs that change the test or container setup itself. A push that
 # changes nothing but the Markdown docs, the README's images or the licence starts no run.
 # Run on demand, it can instead run one targeted loop (one browser group, or named integration
-# tests), so a session that cannot run Docker can check a fix without the whole gate.
+# tests) through infra/test-ci.sh; targeted.yml does the same from a commit trailer.
 on:
   push:
     branches:
@@ -101,26 +101,14 @@ jobs:
           NEWSINTEL_TEST_ARTIFACTS: ${{ runner.temp }}/test-artifacts
           NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/test-artifacts
         run: |
+          # One argument per word of TARGET (a group, or node ids); set -f keeps a
+          # parametrized node id's [...] from globbing.
+          set -f
+          # shellcheck disable=SC2086
           case $RUN in
-            full) ./infra/test-docker.sh ;;
-            e2e)
-              case $TARGET in
-                search | investigations | monitors | graph) ;;
-                *) echo "::error::e2e needs target search, investigations, monitors or graph"; exit 2 ;;
-              esac
-              if [ -n "$STOP_AFTER" ]; then
-                ./infra/test-e2e.sh --stop-after "$STOP_AFTER" "$TARGET"
-              else
-                ./infra/test-e2e.sh "$TARGET"
-              fi
-              ;;
-            integration)
-              [ -n "$TARGET" ] || { echo "::error::integration needs pytest node ids in target"; exit 2; }
-              # One argument per node id; set -f keeps a parametrized id's [...] from globbing.
-              set -f
-              # shellcheck disable=SC2086
-              ./infra/test-integration.sh $TARGET
-              ;;
+            full) ./infra/test-ci.sh full ;;
+            e2e) ./infra/test-ci.sh e2e $TARGET "$STOP_AFTER" ;;
+            *) ./infra/test-ci.sh "$RUN" $TARGET ;;
           esac
       - if: always()
         uses: actions/upload-artifact@v7
