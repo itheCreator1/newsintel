@@ -86,6 +86,27 @@ it('preserves repeated picker selections as OR values in the URL', async () => {
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ entity_id: ['entity-one', 'entity-two'] }), undefined))
 })
 
+it('follows see-also links only when asked, and shows each expansion as a chip', async () => {
+  const { rerenderSame } = renderSearch('entity_id=entity-one')
+  await screen.findByText('Safe <script> title')
+  expect(api.search).toHaveBeenLastCalledWith({ entity_id: ['entity-one'], sort: 'relevance' }, undefined)
+
+  const links = screen.getByRole('group', { name: /^Follow see-also links/ })
+  expect(within(links).getByRole('checkbox', { name: 'Earlier and later names' })).not.toBeChecked()
+  fireEvent.click(within(links).getByRole('checkbox', { name: 'Earlier and later names' }))
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('entity_expand')).toEqual(['names'])
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ entity_id: ['entity-one'], entity_expand: ['names'], sort: 'relevance' }, undefined))
+  expect(within(screen.getByRole('group', { name: /^Follow see-also links/ })).getByRole('checkbox', { name: 'Earlier and later names' })).toBeChecked()
+  const bar = screen.getByRole('region', { name: 'Applied filters' })
+  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Entity links: earlier and later names' }))
+  rerenderSame()
+  expect(navigationHarness.searchParams.getAll('entity_expand')).toEqual([])
+  expect(navigationHarness.searchParams.getAll('entity_id')).toEqual(['entity-one'])
+})
+
 it('sends the canonical array criteria and keeps the source country bookmark key', async () => {
   renderSearch('country=us&country=GR&processing_status=failed')
   await screen.findByText('Safe <script> title')
@@ -177,7 +198,7 @@ it('saves the complete investigation state by name', async () => {
 
   await vi.waitFor(() => expect(api.createSavedSearch).toHaveBeenCalledWith('Greek grid', {
     q: 'grid', source_id: [], source_country: ['GR'], after: null, before: '2026-02-01', content_available: null, processing_status: [], language: [],
-    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month',
+    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month', entity_expand: [],
   }))
   expect(await screen.findByText('Saved “Greek grid”.')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))

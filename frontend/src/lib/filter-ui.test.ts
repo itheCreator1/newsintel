@@ -36,6 +36,20 @@ describe('filter chips', () => {
     expect(removeFilter(state, 'q').q).toBe('')
   })
 
+  it('shows each see-also expansion as its own chip, counts it, and removes it alone', () => {
+    const expanded = stateFromQuery(new URLSearchParams('entity_id=e1&entity_expand=names&entity_expand=parts'))
+
+    expect(filterChips(expanded, SEARCH_CHIP_FIELDS, { entity_id: new Map([['e1', 'Meta']]) })).toEqual([
+      { key: 'entity_id:e1', label: 'Entity: Meta' },
+      { key: 'entity_expand:names', label: 'Entity links: earlier and later names' },
+      { key: 'entity_expand:parts', label: 'Entity links: parts' },
+    ])
+    expect(advancedCount(expanded, SEARCH_ADVANCED)).toBe(3)
+    expect(removeFilter(expanded, 'entity_expand:names')).toEqual({ ...expanded, entity_expand: ['parts'] })
+    expect(filterChips(expanded, GRAPH_CHIP_FIELDS)).toEqual([])
+    expect(clearCriteria(expanded).entity_expand).toEqual([])
+  })
+
   it('clears criteria but keeps sort and interval', () => {
     expect(clearCriteria(state)).toEqual({ ...emptyInvestigation(), sort: 'newest', interval: 'week' })
   })

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api } from '../../lib/api'
 import { clusterHref, toHref } from '../../lib/investigation'
@@ -16,6 +16,8 @@ vi.mock('../../lib/api', async importOriginal => ({
     relatedArticles: vi.fn(),
     processArticle: vi.fn(),
     reprocessArticle: vi.fn(),
+    seeAlso: vi.fn(),
+    addRelation: vi.fn(),
   },
 }))
 
@@ -309,4 +311,45 @@ it('highlights annotated words in the text and lets highlights be switched off',
   fireEvent.click(screen.getByRole('button', { name: 'Highlights' }))
   expect(container.querySelector('.reader-newsprint mark')).toBeNull()
   expect(screen.getByRole('button', { name: 'Highlights' }).getAttribute('aria-pressed')).toBe('false')
+})
+
+it('links two of the article’s entities with the article as the source', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  const entity = (id: string, text: string, entity_type: string) => ({ id, text, normalized_text: text.toLowerCase(), entity_type, original_label: entity_type, relevance: 0.8, occurrence_count: 1, occurrences: [], fresh: true })
+  vi.mocked(api.articleAnnotations).mockResolvedValue({
+    article_id: 'one', capabilities: [], countries: [], keywords: [], language: null, processors: [], source_countries: [],
+    entities: [entity('entity-one', 'Facebook', 'ORG'), entity('entity-two', 'Meta', 'ORG'), entity('entity-three', 'Mark Zuckerberg', 'PERSON')],
+  })
+  vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['later_name', 'earlier_name', 'part_of', 'has_part', 'related'], items: [] })
+  vi.mocked(api.addRelation).mockResolvedValue({} as never)
+  renderWithQuery(() => <ArticlesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Link two entities' }))
+  const form = screen.getByRole('form', { name: 'Link entities from this article' })
+  fireEvent.change(within(form).getByLabelText('Entity'), { target: { value: 'entity-one' } })
+  await vi.waitFor(() => expect(api.seeAlso).toHaveBeenCalledWith('entity-one'))
+  fireEvent.change(await within(form).findByLabelText('Link type'), { target: { value: 'later_name' } })
+  const linked = within(form).getByLabelText('Linked entity')
+  expect([...linked.querySelectorAll('option')].map(option => option.textContent)).toEqual(['Choose an entity', 'Meta (ORG)', 'Mark Zuckerberg (PERSON)'])
+  fireEvent.change(linked, { target: { value: 'entity-two' } })
+  fireEvent.click(within(form).getByRole('button', { name: 'Save link' }))
+
+  await vi.waitFor(() => expect(api.addRelation).toHaveBeenCalledWith('entity-one', { label: 'later_name', target_id: 'entity-two', source_article_id: 'one' }))
+  expect(await screen.findByRole('status')).toHaveTextContent('Linked Facebook to Meta, with this article as the source.')
+})
+
+it('offers no entity link with fewer than two entities', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  vi.mocked(api.articleAnnotations).mockResolvedValue({
+    article_id: 'one', capabilities: [], countries: [], keywords: [], language: null, processors: [], source_countries: [],
+    entities: [{ id: 'entity-one', text: 'Acme', normalized_text: 'acme', entity_type: 'ORG', original_label: 'ORG', relevance: 0.8, occurrence_count: 1, occurrences: [], fresh: true }],
+  })
+  renderWithQuery(() => <ArticlesPage />)
+
+  expect(await screen.findByRole('link', { name: 'Open dossier for Acme' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Link two entities' })).toBeNull()
 })
