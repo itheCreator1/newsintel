@@ -130,7 +130,7 @@ function SourceContent() {
                   {coverage.data.entities.map(entity => <Link key={entity.id} className={chipClass} href={entityHref(entity.id)}>{entity.display_name} ({entity.entity_type}) · {plural(entity.article_count, 'article')}</Link>)}
                   {!coverage.data.entities.length && <p className="text-sm text-muted-foreground">No entities.</p>}
                 </div>
-                <ul className="flex flex-col gap-0.5">
+                <ul className="list-none pl-0 flex flex-col gap-0.5">
                   {coverage.data.countries.map(country => <li key={`${country.role}-${country.country_code}`} className="text-sm text-foreground">{`${country.country_code} · ${country.role} · ${plural(country.article_count, 'article')}`}</li>)}
                   {coverage.data.languages.map(language => <li key={language.language} className="text-sm text-foreground">{`${language.language} · ${plural(language.article_count, 'article')}`}</li>)}
                 </ul>

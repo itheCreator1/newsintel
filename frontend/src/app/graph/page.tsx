@@ -226,7 +226,7 @@ function GraphContent() {
                 </p>
               )}
               {stated.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-2" aria-label="Stated links in this graph">
+                <ul className="list-none pl-0 mt-2 flex flex-wrap gap-2" aria-label="Stated links in this graph">
                   {stated.map(link => (
                     <li key={`${link.source}:${link.label}:${link.target}`} className={chipClass}>
                       {`${nodeById.get(link.source)?.text ?? link.source} · ${statedText(link)} · ${nodeById.get(link.target)?.text ?? link.target}`}
@@ -235,7 +235,7 @@ function GraphContent() {
                 </ul>
               )}
               {graph.data?.truncated && <p className="mt-2 text-sm text-muted-foreground">Showing a bounded subset of the graph. Narrow the filters to see more.</p>}
-              <ul className="mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
+              <ul className="list-none pl-0 mt-4 flex flex-wrap gap-2" aria-label="Entities in this graph">
                 {nodes.map(node => (
                   <li key={node.id}>
                     <button
@@ -250,7 +250,7 @@ function GraphContent() {
                 ))}
               </ul>
               {listedEdges.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-2" aria-label="Connections in this graph">
+                <ul className="list-none pl-0 mt-3 flex flex-wrap gap-2" aria-label="Connections in this graph">
                   {listedEdges.map(link => {
                     const from = nodeById.get(link.source)
                     const to = nodeById.get(link.target)

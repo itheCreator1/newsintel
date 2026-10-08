@@ -169,7 +169,7 @@ function OperationsContent() {
         {health.data && (
           <>
             <p className="px-6 text-xs text-muted-foreground">Each check has a 2 second limit; an unreachable service is shown as Down here instead of an error. Workers checks that each queue has a live worker process; whether it keeps up shows in each pipeline’s oldest wait and expired leases.</p>
-            <ul className="flex flex-col">
+            <ul className="list-none pl-0 flex flex-col">
               {health.data.probes.map(probe => (
                 <li key={probe.name} className="flex flex-wrap items-center gap-3 border-t border-border px-6 py-3">
                   <span className="w-36 text-sm text-foreground">{PROBES[probe.name] ?? probe.name}</span>
@@ -261,12 +261,12 @@ function OperationsContent() {
           {failures.isError && <LoadError className="px-6 py-4" query={failures} message="Could not load the failures." />}
           {failures.data && failures.data.by_category.length === 0 && failures.data.recent.length === 0 && <Note>{`No failures in the last ${hoursText(hours)}.`}</Note>}
           {failures.data && failures.data.by_category.length > 0 && (
-            <ul aria-label="Failure categories" className="flex flex-wrap gap-3 px-6">
+            <ul aria-label="Failure categories" className="list-none flex flex-wrap gap-3 px-6">
               {failures.data.by_category.map(item => <li key={item.category} className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground">{item.category}: <strong className="font-mono text-foreground">{item.count}</strong></li>)}
             </ul>
           )}
           {failures.data && failures.data.recent.length > 0 && (
-            <ul className="pb-4">
+            <ul className="list-none pl-0 pb-4">
               {failures.data.recent.map(item => (
                 <li key={item.id} className="flex flex-col gap-0.5 border-t border-border px-6 py-3">
                   <span className="text-xs text-muted-foreground">{when(item.at)}{item.status ? ` · ${item.status}` : ''}{item.error_category ? ` · ${item.error_category}` : ''}</span>

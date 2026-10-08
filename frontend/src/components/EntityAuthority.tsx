@@ -138,7 +138,7 @@ export function EntityAuthority({ entity }: { entity: EntityDossier }) {
         {variants.isError && <p className="error text-sm text-destructive">Could not load the other names.</p>}
         {variants.data && !variants.data.items.length && <p className="text-sm text-muted-foreground">No other names merged into this entity.</p>}
         {variants.data && variants.data.items.length > 0 && (
-          <ul aria-label="Other names" className="flex flex-col gap-1">
+          <ul aria-label="Other names" className="list-none pl-0 flex flex-col gap-1">
             {variants.data.items.map(variant => (
               <li key={variant.id} className="flex items-center gap-3 text-sm text-foreground">
                 <span>{variant.display_name}</span>
@@ -162,7 +162,7 @@ export function EntityAuthority({ entity }: { entity: EntityDossier }) {
       {history.data && history.data.items.length > 0 && (
         <div className="flex flex-col gap-2">
           <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</strong>
-          <ul aria-label="Authority history" className="flex flex-col gap-1">
+          <ul aria-label="Authority history" className="list-none pl-0 flex flex-col gap-1">
             {history.data.items.map(change => (
               <li key={change.id} className="text-sm text-muted-foreground">{`${describe(change)} · ${new Date(change.created_at).toLocaleString()}`}</li>
             ))}
