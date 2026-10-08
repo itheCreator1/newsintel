@@ -78,3 +78,28 @@ def test_language_is_rejected_outside_reprocess_nlp(
         _run(monkeypatch, "recluster", "--all", "--language", "el")
     assert failure.value.code == 2
     assert "--language applies to reprocess-nlp only" in capsys.readouterr().err
+
+
+def test_authority_seed_countries_runs_the_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_seed(**kwargs: object) -> None:
+        calls.append(kwargs)
+
+    monkeypatch.setattr("app.cli.run_seed_countries", fake_seed)
+    monkeypatch.setattr("app.cli.asyncio.run", lambda _awaitable: None)
+    _run(monkeypatch, "authority", "seed-countries", "--apply")
+    _run(monkeypatch, "authority", "seed-countries")
+
+    # Without --apply it only reports, like the other maintenance commands.
+    assert calls == [{"apply": True}, {"apply": False}]
+
+
+@pytest.mark.parametrize("argv", [("authority",), ("authority", "seed-everything")])
+def test_authority_requires_a_known_action(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: tuple[str, ...]
+) -> None:
+    with pytest.raises(SystemExit) as failure:
+        _run(monkeypatch, *argv)
+    assert failure.value.code == 2
+    assert "authority requires an action: seed-countries" in capsys.readouterr().err

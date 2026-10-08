@@ -710,3 +710,134 @@ async def test_downgrade_to_0016_removes_only_the_language_settings() -> None:
     async with session_factory() as db:
         # Back at head the table exists again, empty: Greek entities are off until turned on.
         assert await db.scalar(select(func.count()).select_from(NlpLanguageSetting)) == 0
+
+
+ENGLISH_DESCRIPTION = (
+    "The minister said the government would publish the plan next week, after talks with "
+    "unions and employers about wages, prices and the cost of energy for households."
+)
+
+
+async def _entity_row(article_id: uuid.UUID) -> list[tuple[uuid.UUID, uuid.UUID | None]]:
+    from app.nlp.models import ArticleEntity
+
+    async with session_factory() as db:
+        rows = (
+            await db.execute(
+                select(ArticleEntity.entity_id, ArticleEntity.observed_entity_id).where(
+                    ArticleEntity.article_id == article_id,
+                    ArticleEntity.is_current.is_(True),
+                )
+            )
+        ).all()
+    return [tuple(row) for row in rows]
+
+
+async def test_ner_writes_the_root_and_keeps_the_observed_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.nlp.models import Entity
+
+    token = uuid.uuid4().hex[:8]
+    async with session_factory() as db, db.begin():
+        root = Entity(
+            language="en",
+            entity_type="PERSON",
+            normalized_text=f"orla brennik {token}",
+            display_text=f"Orla Brennik {token}",
+        )
+        db.add(root)
+        await db.flush()
+        variant = Entity(
+            language="en",
+            entity_type="PERSON",
+            normalized_text=f"o. brennik {token}",
+            display_text=f"O. Brennik {token}",
+            authority_id=root.id,
+        )
+        db.add(variant)
+        await db.flush()
+        root_id, variant_id = root.id, variant.id
+
+    _, article_id, _ = await _run_entities_job(
+        monkeypatch,
+        title=f"O. Brennik {token} announced a new wage plan for public sector workers today",
+        description=ENGLISH_DESCRIPTION,
+        spans=[(f"O. Brennik {token}", "PERSON")],
+    )
+
+    # Search, the graph and the dossier count the root; the variant the article used is kept.
+    assert await _entity_row(article_id) == [(root_id, variant_id)]
+
+
+async def test_ner_leaves_observed_empty_for_a_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    token = uuid.uuid4().hex[:8]
+    _, article_id, _ = await _run_entities_job(
+        monkeypatch,
+        title=f"Ada Quill {token} announced a new wage plan for public sector workers today",
+        description=ENGLISH_DESCRIPTION,
+        spans=[(f"Ada Quill {token}", "PERSON")],
+    )
+
+    rows = await _entity_row(article_id)
+    assert len(rows) == 1 and rows[0][1] is None
+
+
+async def test_ner_never_overwrites_a_preferred_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.nlp.models import Entity
+
+    token = uuid.uuid4().hex[:8]
+    async with session_factory() as db, db.begin():
+        entity = Entity(
+            language="en",
+            entity_type="PERSON",
+            normalized_text=f"mara voss {token}",
+            display_text=f"Mara Voss {token}",
+            preferred_text=f"Voss, Mara {token}",
+        )
+        db.add(entity)
+        await db.flush()
+        entity_id = entity.id
+
+    await _run_entities_job(
+        monkeypatch,
+        title=f"MARA VOSS {token} announced a new wage plan for public sector workers today",
+        description=ENGLISH_DESCRIPTION,
+        spans=[(f"MARA VOSS {token}", "PERSON")],
+    )
+
+    async with session_factory() as db:
+        stored = await db.get(Entity, entity_id)
+    assert stored is not None
+    # The article's spelling still updates the display text; the chosen name stays.
+    assert stored.display_text == f"MARA VOSS {token}"
+    assert stored.preferred_text == f"Voss, Mara {token}"
+
+
+async def test_ambiguous_surname_is_not_folded(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.nlp.models import Entity
+
+    surname = f"Kestrelwick{uuid.uuid4().hex[:6]}"
+    async with session_factory() as db, db.begin():
+        db.add(
+            Entity(
+                language="en",
+                entity_type="PERSON",
+                normalized_text=surname.casefold(),
+                display_text=surname,
+                ambiguous=True,
+            )
+        )
+
+    _, article_id, _ = await _run_entities_job(
+        monkeypatch,
+        title=f"Ivo {surname} announced a new wage plan for public sector workers today",
+        description=f"{surname} said so. " + ENGLISH_DESCRIPTION,
+        spans=[(f"Ivo {surname}", "PERSON"), (surname, "PERSON")],
+    )
+
+    # Marked ambiguous, the surname alone stays its own entity instead of joining "Ivo ...".
+    assert {key for _, _, key in await _current_entity_rows(article_id)} == {
+        f"ivo {surname.casefold()}",
+        surname.casefold(),
+    }

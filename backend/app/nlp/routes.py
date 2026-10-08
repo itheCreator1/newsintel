@@ -169,7 +169,7 @@ async def article_annotations(
     entity_rows = (
         await db.execute(
             select(ArticleEntity, Entity)
-            .join(Entity)
+            .join(Entity, Entity.id == ArticleEntity.entity_id)
             .where(
                 ArticleEntity.article_id == article_id,
                 ArticleEntity.is_current.is_(True),

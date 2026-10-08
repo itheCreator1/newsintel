@@ -51,6 +51,8 @@ class ProcessorContext:
     ner_model: str
     # The Greek model; None leaves Greek articles without entities.
     ner_model_el: str | None = None
+    # Person names the user marked ambiguous: never folded into a longer name.
+    ambiguous_names: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -301,6 +303,27 @@ def _entity_countries() -> dict[str, tuple[str, str]]:
     return {name: (code, display[code]) for name, code in names.items()}
 
 
+def country_spellings() -> dict[str, tuple[str, dict[str, str]]]:
+    """Each country code to its display name and its other spellings (normalized: as written).
+
+    The same names `canonical_entity` folds into the country, so seeding them as variants keeps
+    the authority file and extraction in step. The display name itself is left out.
+    """
+    countries = _entity_countries()
+    _, lexicon = _country_lexicon()
+    spellings: dict[str, tuple[str, dict[str, str]]] = {}
+    for normalized, (code, display) in countries.items():
+        if normalized == display.casefold():
+            continue
+        written = next(
+            (name for name in lexicon.get(code, ()) if _normalized_name(name) == normalized),
+            # The short aliases ("us", "uae") are written as acronyms, "america" as a name.
+            normalized.upper() if len(normalized) <= 3 else normalized.title(),
+        )
+        spellings.setdefault(code, (display, {}))[1][normalized] = written
+    return spellings
+
+
 def _normalized_name(text: str) -> str:
     """One key per name: "The U.S.", "U.S.'s" and "US" all become "us"."""
     text = _POSSESSIVE.sub("", " ".join(text.split())) or text
@@ -410,16 +433,20 @@ def _merge_short_person_names(
     grouped: dict[tuple[str, str], list[Occurrence]],
     display: dict[tuple[str, str], str],
     labels: dict[tuple[str, str], dict[str, int]],
+    ambiguous: frozenset[str] = frozenset(),
 ) -> None:
     """Fold "Trump" into "Donald Trump" when the article names only one Trump in full.
 
     A surname alone is merged only when every longer name ending in it shares a first name, so
-    "Trump" beside both "Donald Trump" and "Melania Trump" stays as it is.
+    "Trump" beside both "Donald Trump" and "Melania Trump" stays as it is. A name the user
+    marked ambiguous is never merged.
     """
     people = sorted(
         (key for key in grouped if key[0] == "PERSON"), key=lambda key: -len(key[1].split())
     )
     for key in people:
+        if key[1] in ambiguous:
+            continue
         tokens = key[1].split()
         longer = [
             other
@@ -512,7 +539,7 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
                 display[key] = text
         else:
             display.setdefault(key, text)
-    _merge_short_person_names(grouped, display, labels)
+    _merge_short_person_names(grouped, display, labels, context.ambiguous_names)
     values = [
         EntityValue(
             display[key],

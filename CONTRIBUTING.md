@@ -45,6 +45,7 @@ Other useful commands, all run as `dc run --rm api python -m app.cli <command>`:
 | `rebuild-search`, `resume-search-rebuild <id>`, `search-index-status` | Build a new search index beside the live one and move the alias (see README §6). |
 | `reprocess-nlp`, `resume-nlp-reprocessing <id>`, `nlp-status` | Rerun NLP processors over a selection (`--article-id`, `--from-date`/`--to-date`, or `--all`, optionally narrowed with `--language el`; dry run unless `--apply`). |
 | `recluster` | Recluster a selection of articles, chosen the same way. |
+| `authority seed-countries` | Tie every other spelling of a country ("USA", "America", "U.K.") to the country's entity in the authority file. Safe to rerun; spellings that already hold articles are reported, not merged. Dry run unless `--apply`. |
 | `cleanup-article-storage` | Delete expired temporary article HTML (dry run unless `--apply`). |
 
 ## 2. Repository layout
