@@ -7,12 +7,12 @@
 ![Data](https://img.shields.io/badge/data-PostgreSQL%20%C2%B7%20Elasticsearch%20%C2%B7%20Redis-336791)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-![The Events view: story clusters grouped into events, each with its sources and shared entities](assets/events.png)
-<sub>**Figure 1.** The Events view. Independent reports on the same happening, grouped by a deterministic engine that can tell you why.</sub>
+![The Events view: two events, each grouping two stories from several sources, with the entities they share](assets/events.png)
+<sub>**Figure 1.** The Events view. Independent reports on the same happening, grouped by a deterministic engine that can tell you why. The screenshots in this README come from a small sample archive of fictional outlets.</sub>
 
 ## Abstract
 
-News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
+News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. An authority file, in the tradition of library cataloguing, gives every person, place and organisation one established name, gathers its other spellings under it, and records the links you state between entities. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
 
 ## Quickstart
 
@@ -55,7 +55,9 @@ Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed u
 
 **P5. One domain, one module.** The backend is not a god-object API. `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations`, `auth` and `jobs` are separate modules under `backend/app`, each owning its models, service layer and routes.
 
-**P6. Nothing slow happens in a request.** Feed polling, extraction, annotation, clustering and indexing run as background jobs; the API only reads what they have committed.
+**P6. Nothing slow happens in a request.** Feed polling, extraction, annotation, clustering and indexing run as background jobs; the API reads what they have committed. When you change the authority file, the API records the decision at once, and the scheduler moves the affected articles over in batches.
+
+**P7. A decision about a name can be undone.** Merging two spellings never deletes either: the other name stays a variant that can be split back out, every mention keeps the spelling it was found under, and each change is written to the entity's history. Names you mark as different are not suggested again, and links between entities are stated by you, never inferred, so they never count as co-occurrence.
 
 ## 2. System architecture
 
@@ -64,13 +66,13 @@ Five application services and three data services run under Docker Compose, each
 ```mermaid
 flowchart TB
     feeds(["RSS / Atom feeds"])
-    scheduler["scheduler<br/>claims due work"]
+    scheduler["scheduler<br/>claims due work ·<br/>advances authority runs"]
     redis[("Redis<br/>Dramatiq broker")]
     worker["worker<br/>ingestion · extraction ·<br/>search indexing · monitors"]
     nlp["nlp-worker<br/>NER · keywords ·<br/>clustering · events"]
     pg[("PostgreSQL<br/>source of truth")]
     es[("Elasticsearch<br/>rebuildable index")]
-    api["api<br/>FastAPI, read-mostly"]
+    api["api<br/>FastAPI, read-mostly ·<br/>records authority decisions"]
     frontend["frontend<br/>Next.js static export"]
 
     scheduler -- "sends actors" --> redis
@@ -79,10 +81,11 @@ flowchart TB
     worker & nlp -- "commit results +<br/>next job rows" --> pg
     worker -- "indexes" --> es
     pg -. "due job rows" .-> scheduler
+    scheduler -- "authority runs:<br/>move articles in batches" --> pg
     frontend --> api
     api --> pg & es
 ```
-<sub>**Figure 2.** Service topology. Arrows show who talks to whom; note that no worker talks to another worker.</sub>
+<sub>**Figure 2.** Service topology. Arrows show who talks to whom; note that no worker talks to another worker. The scheduler also carries out authority runs itself: a merge or split moves a batch of articles each cycle and asks for them to be reindexed.</sub>
 
 ## 3. The pipeline, stage by stage
 
@@ -94,6 +97,8 @@ flowchart LR
     fetch -- "full-text feeds" --> extract["Extract<br/>Trafilatura"]
     fetch -- "title + summary" --> nlp["Annotate<br/>NER · keywords ·<br/>language · country"]
     extract -- "body text" --> nlp
+    authority[("Authority file<br/>roots · variants ·<br/>see-also links")]
+    authority -. "a known variant<br/>counts under its root" .-> nlp
     nlp -- "entities" --> cluster["Cluster<br/>stories"]
     cluster -. "every 30 s" .-> events["Associate<br/>events"]
 
@@ -104,7 +109,7 @@ flowchart LR
 
     index -. "on a timer" .-> monitors["Evaluate<br/>monitors"]
 ```
-<sub>**Figure 3.** Article flow. Solid arrows are job rows written in the producing stage's transaction; dotted arrows are timer-driven. Annotation runs once on the feed item and again when the body text arrives.</sub>
+<sub>**Figure 3.** Article flow. Solid arrows are job rows written in the producing stage's transaction; dotted arrows are timer-driven, except the one from the authority file, which annotation reads. Annotation runs once on the feed item and again when the body text arrives.</sub>
 
 | Stage | Runs on | Writes | Triggers next |
 | --- | --- | --- | --- |
@@ -116,24 +121,46 @@ flowchart LR
 | **Associate events** | nlp-worker, every 30 s plus a 5-minute sweep | `events`, `event_clusters` with join scores and signals, a record of each run | — |
 | **Index** | worker | per-article search state and deliveries per index target | — |
 | **Monitors** | worker, on each monitor's own interval | cursors and unseen counts on `monitors` | — |
+| **Authority runs** | scheduler, one batch per cycle | after a merge or split, each article's entity rows under the root or the variant; a rename reindexes the root's articles | an index delivery per article; the events those articles belong to are recomputed |
 
 Two details make the index trustworthy. Each article carries a *revision* bumped on every change, and a delivery only lands if its revision is still current, so a slow worker cannot overwrite a newer document with an older one. And indices are versioned behind an alias: a reindex builds a new index alongside the live one and swaps the alias, with no downtime.
 
 ## 4. A tour in figures
 
-![Search results for "China" with a daily timeline, save and watch actions, and highlighted matches](assets/search.png)
-<sub>**Figure 4.** Search. Full-text queries with field filters, a matching-articles timeline, and highlighted hits. Any search can be saved as a running case file or turned into a monitor that the scheduler re-evaluates in the background. The **Watchlist** then shows each monitor's new articles and stories, with a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) linked to the evidence.</sub>
+![Search for "Athens": a timeline of the matching articles by hour, and facets by source, source country, story country, mentioned country, language and entity](assets/search.png)
+<sub>**Figure 4.** Search. Full-text queries with field filters, a matching-articles timeline, bounded facets, and highlighted hits below them. Any search can be saved as a running case file or turned into a monitor that the scheduler re-evaluates in the background. The **Watchlist** then shows each monitor's new articles and stories, with a deterministic "What changed" summary (new sources, entities and stories, and stories that gained sources) linked to the evidence.</sub>
 
 **Search is the investigation hub.** The query and filters live in the URL, and every view reads that same state: bounded facets beside the results (10 values per group, 25 at most), the Graph and the Map. (Overview stays on its own recent-window scope; the API's `scope=investigation` mode exists but the only caller is Map.) An article's detail page adds **Related coverage**: other articles with similar wording from outside the article's own story, found by Elasticsearch `more_like_this`. Similar wording is not a confirmed connection, and the panel says so.
 
-![Entity relationship graph with GPE, ORG, PERSON and OTHER nodes and co-occurrence edges](assets/graph.png)
-<sub>**Figure 5.** The relationship graph: who and what keeps showing up together. Deliberately bounded — "narrow the filters to see more" is a feature, not an apology. Each edge opens the articles and stories behind it, and each entity has a dossier with its articles, stories and closest neighbours.</sub>
+![Entity relationship graph with GPE, ORG, LOCATION and PERSON nodes, dashed co-occurrence edges, dotted purple stated links, and the list of stated links below it](assets/graph.png)
+<sub>**Figure 5.** The relationship graph: who and what keeps showing up together. Deliberately bounded — "narrow the filters to see more" is a feature, not an apology. Each edge opens the articles and stories behind it, and each entity has a dossier with its articles, stories and closest neighbours. **Stated links** draws the see-also links you recorded (Attica is part of Greece, Ingrid Halvorsen leads Norvane Systems) as dotted purple lines and lists them; they never count as co-occurrence. Dashed yellow lines are new: all their articles date from the last week.</sub>
 
-![Event dossier showing member entities, article counts, sources and a per-day timeline](assets/event-dossier.png)
+![Event dossier for the Italy floods: two stories, nine articles from five sources, its entities with article counts, top sources and a per-day timeline](assets/event-dossier.png)
 <sub>**Figure 6.** An event dossier: a UTC-day timeline, the member stories with their join scores and signals, the articles, and every entity involved. Events are grouped by time, shared entities, headline overlap and story country, and served by the read-only `/api/v1/events` API.</sub>
 
 ![World choropleth of articles by story country, with a ranked country table](assets/map.png)
 <sub>**Figure 7.** The map, by *story country*: the one country an article is about. Location roles are never summed together, and the page tells you how many articles have no country at all, because a choropleth that hides its denominator is just a very confident guess. Opened from Search, the map covers the whole investigation from Elasticsearch, and its story and source counts are estimates, shown as `≈N (estimated)`. Opened on its own, it keeps the recent-window PostgreSQL mode, with exact counts, which works while Elasticsearch is down.</sub>
+
+### The authority file
+
+NER finds names, not entities: "WHO" and "the World Health Organization", or "A. Okafor" and "Amara Okafor", arrive as different entities, and a spelling that splits an entity in two also splits its counts, its graph edges and its search results. The authority file is how you join them, following library cataloguing practice: one established name per entity (the *root*), the other spellings as its *variants*, and see-also links between entities that are related but not the same.
+
+![The Authority file page: the "Maybe the same?" queue asking whether WHO is the World Health Organization and whether A. Okafor is Amara Okafor, with the reasons and article counts for each](assets/authorities.png)
+<sub>**Figure 8.** The **Authority file** page. "Maybe the same?" lists likely duplicates (an acronym, initials, a surname on its own, a similar spelling), with the articles both names share; nothing merges until you answer. Further down are the authority file itself, searchable by any of an entity's names and narrowed by language or to provisional names, and the recent changes.</sub>
+
+![The authority panel of the World Health Organization's dossier: established, a note, WHO under other names with a Split button, and the history of the merge, rename and link](assets/entity-authority.png)
+<sub>**Figure 9.** The authority controls on an entity's dossier: mark the name established or provisional, rename it, mark it ambiguous (a name that may stand for several people), keep a note, merge it with another name or record that two names are different. Every merged name can be split back out, and the history lists every change.</sub>
+
+![The See also panel of Greece's dossier: has part Attica, member of European Union, each with Edit and Remove](assets/entity-see-also.png)
+<sub>**Figure 10.** See-also links on a dossier: earlier and later names (an organisation that renamed itself), parts, members and leaders, or a plain "related" link, which needs a note saying how. Each link can carry dates, a note and the article it came from, and shows from both sides.</sub>
+
+![The reader's "Link two entities" form: Mount Parnitha, part of, Attica, with a note](assets/reader-link.png)
+<sub>**Figure 11.** Linking two entities while reading: the article's own entities fill the form, and the link records the article as its source.</sub>
+
+![Search's advanced filters with the "Follow see-also links" picker: Earlier and later names, Parts](assets/search-see-also.png)
+<sub>**Figure 12.** Searches and monitors can follow see-also links: filtering by an entity can also take in its earlier and later names, or its parts, so a search for a country can include its regions, and their towns in turn.</sub>
+
+Searching, the graph, the dossiers, monitors and saved searches all work on roots: a filter on a variant finds its root's articles, and ids saved before a merge keep working. Merging and splitting move each article's mentions in batches (Figure 2), so a large merge never blocks a request. `python -m app.cli authority export` writes the whole file as JSON, by name rather than by id, and `authority import` applies it to another database or to the same one after a rebuild, before NLP runs again; `authority seed-countries` ties the usual spellings of each country ("USA", "U.K.") to its entity. A country renamed with the same territory (Swaziland, now Eswatini) is one entity: merge the old name into the new one rather than linking them.
 
 The remaining routes follow the same design language:
 - **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
@@ -191,6 +218,15 @@ dc up -d
 dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows; resume-search-rebuild <id> if catching_up
 ```
 
+The dump carries the authority file with everything else. To keep your naming decisions across a fresh database instead, export them first and apply them to the new database before the feeds are ingested again:
+
+```sh
+dc run --rm -T api python -m app.cli authority export > authority.json
+# … the new database is up …
+dc run --rm -v "$PWD/authority.json:/authority.json:ro" api python -m app.cli authority import --file /authority.json          # dry run
+dc run --rm -v "$PWD/authority.json:/authority.json:ro" api python -m app.cli authority import --file /authority.json --apply
+```
+
 ## 7. Development checks
 
 The system is typed and tested end to end, and everything runs in containers: development and validation need only Docker with Compose, Git and ordinary POSIX shell utilities. The backend is checked with `ruff` and strict `mypy`; the frontend is TypeScript, using API types generated from the checked-in OpenAPI spec.
@@ -207,7 +243,7 @@ GitHub Actions runs the quick loop, the frontend build and a workflow lint on ev
 In the tradition of papers that are honest about their methods:
 
 - **No summarisation or "insight" generation.** NewsIntel groups, counts and links; it does not paraphrase. This is a choice: every output can be traced to its articles (P2), which a generated summary cannot promise.
-- **Entity quality is spaCy's quality.** NER mislabels things. Dates, times, amounts and time phrases it tags as names (the graph in Figure 5 met a "Last week" it believed was an entity) are now filtered out, but other mislabels get through. Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
+- **Entity quality is spaCy's quality.** NER mislabels things: the small models used here call a city a person now and then, and tag one name with two types. Dates, times, amounts and time phrases it tags as names are filtered out, but other mislabels get through. The authority file (Figure 8) joins spellings of one entity, but only of the same type (a place may be a GPE or a LOCATION), so it cannot fix a wrong type, and its suggestions only look within one language. Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
 - **Story country is conservative.** It is only assigned when a country is named alone in the title and repeated in the text, and mainly for English-language articles, so most articles have none. The map says so rather than guessing.
 - **Rule-based clustering and events.** They are deterministic and explainable. Story clustering also matches articles whose opening words share rare specifics (stemmed, and weighted by how rare each term is in the 48-hour window), so a reworded headline no longer hides a story. A true paraphrase in different vocabulary is still missed, and event association still relies on entities and headline terms. Articles clustered before the wording rule have no terms until they are reclustered (`python -m app.cli recluster --from-date … --to-date …`).
 - **Related coverage is wording, not meaning.** It needs at least five shared terms, so a paraphrase in different words is missed, and a short or text-poor article gets no related coverage rather than a guess.
