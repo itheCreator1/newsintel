@@ -223,7 +223,13 @@ def _article(article_id: uuid.UUID, title: str) -> Article:
 def adapter(monkeypatch: pytest.MonkeyPatch) -> type[_Adapter]:
     _Adapter.responses, _Adapter.bodies, _Adapter.unavailable = [], [], False
     monkeypatch.setattr("app.graph.routes.ElasticsearchAdapter", _Adapter)
+    # An entity outside the authority file is its own root; tests of variants replace this.
+    monkeypatch.setattr("app.graph.routes.entity_group", _ungrouped, raising=False)
     return _Adapter
+
+
+async def _ungrouped(db: _Database, entity_id: uuid.UUID) -> tuple[uuid.UUID, list[str]] | None:
+    return (entity_id, [str(entity_id)]) if entity_id in db.entities else None
 
 
 def _entity(entity_id: uuid.UUID, text: str, entity_type: str = "ORG") -> Entity:
@@ -457,3 +463,50 @@ async def test_evidence_reports_elasticsearch_outage(adapter: type[_Adapter]) ->
         await _evidence(_database())
 
     assert exc.value.status_code == 503
+
+
+VARIANT = uuid.uuid4()
+
+
+async def _grouped(db: _Database, entity_id: uuid.UUID) -> tuple[uuid.UUID, list[str]] | None:
+    if entity_id in (LEFT, VARIANT):
+        return LEFT, sorted([str(LEFT), str(VARIANT)])
+    return await _ungrouped(db, entity_id)
+
+
+@pytest.mark.asyncio
+async def test_evidence_resolves_a_variant_to_its_root_and_matches_every_name(
+    adapter: type[_Adapter],
+    hydrated: dict[str, dict[uuid.UUID, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.graph.routes.entity_group", _grouped)
+    adapter.responses = [_response([])]
+
+    result = await _evidence(_database(), source=VARIANT)
+
+    assert (result.source.id, result.source.text) == (LEFT, "Harbour Authority")
+    filters = adapter.bodies[0][1]["query"]["bool"]["filter"]
+    # Articles still indexed under the variant's id count for the root's edge.
+    assert filters[1] == {
+        "nested": {
+            "path": "entities",
+            "query": {"terms": {"entities.id": sorted([str(LEFT), str(VARIANT)])}},
+        }
+    }
+    assert filters[2] == {
+        "nested": {"path": "entities", "query": {"term": {"entities.id": str(RIGHT)}}}
+    }
+
+
+@pytest.mark.asyncio
+async def test_evidence_rejects_two_names_of_one_entity(
+    adapter: type[_Adapter], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.graph.routes.entity_group", _grouped)
+
+    with pytest.raises(HTTPException) as exc:
+        await _evidence(_database(), source=VARIANT, target=LEFT)
+
+    assert exc.value.status_code == 422
+    assert adapter.bodies == []

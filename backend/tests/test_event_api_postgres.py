@@ -437,3 +437,23 @@ async def test_the_default_list_query_is_index_backed() -> None:
         plan = "\n".join(row[0] for row in await db.execute(text(query)))
         await db.rollback()
     assert "ix_events_" in plan, plan
+
+
+async def test_the_entity_filter_follows_the_authority_file() -> None:
+    """A variant's id finds its root's events, and a root finds events built under a variant."""
+    version = _version()
+    async with session_factory() as db, db.begin():
+        root, other, early, late = await entities(db, 4)
+        by_root = await _make(db, version, [await story(db, [root, other], hours=0)])
+        # Built before `early` was merged: its entity rows still name the variant.
+        by_variant = await _make(db, version, [await story(db, [early, other], hours=30)])
+        early.authority_id = late.authority_id = root.id
+        ids = {str(by_root.id), str(by_variant.id)}
+
+    async def found(entity_id: uuid.UUID) -> set[str]:
+        page = await _get("/events", algorithm_version=version, entity_id=str(entity_id))
+        return {e["id"] for e in page["items"]}
+
+    assert await found(root.id) == ids
+    assert await found(late.id) == ids
+    assert await found(early.id) == ids

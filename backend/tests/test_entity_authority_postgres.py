@@ -456,3 +456,28 @@ async def test_merge_and_nlp_on_the_same_article_serialise(monkeypatch: pytest.M
     _, article_id, _ = await job
 
     assert await _rows(article_id) == [(root_id, variant_id, 1)]
+
+
+async def test_resolver_maps_any_name_to_its_root_and_expands_a_root_for_search() -> None:
+    from app.entities.authority import expand_for_search, resolve_root
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Wim Basso")
+        first = await _entity(db, "W. Basso", authority_id=root.id)
+        second = await _entity(db, "Basso", authority_id=root.id)
+        alone = await _entity(db, "Zora Quint")
+        ids = root.id, first.id, second.id, alone.id
+
+    unknown = uuid.uuid4()
+    group = sorted(str(value) for value in ids[:3])
+    async with session_factory() as db:
+        assert [await resolve_root(db, value) for value in ids] == [ids[0], ids[0], ids[0], ids[3]]
+        assert await resolve_root(db, unknown) is None
+        # Root and every variant: articles still indexed under a variant's id are found too.
+        assert await expand_for_search(db, [str(ids[1])]) == group
+        assert await expand_for_search(db, [str(ids[0]), str(ids[3])]) == sorted(
+            [*group, str(ids[3])]
+        )
+        # An id the archive does not know stays in the filter (it matches nothing).
+        assert await expand_for_search(db, [str(unknown)]) == [str(unknown)]
+        assert await expand_for_search(db, []) == []
