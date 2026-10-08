@@ -66,11 +66,13 @@ Other useful commands, all run as `dc run --rm api python -m app.cli <command>`:
 
 Pick the smallest loop that covers your change, and finish with the full gate before merging.
 
+When a loop fails, fix it in the smallest loop that reproduces the failure, not by rerunning the full gate: the failing integration test through `test-integration.sh`, the failing browser group through `test-e2e.sh`, plus `test-quick.sh`. Rerun the full gate once, when those pass. Every failure is in the run's artifacts (§7), so a failed full gate already names the loop to rerun.
+
 | Loop | Command | Covers |
 | --- | --- | --- |
 | Quick | `./infra/test-quick.sh` | ruff, mypy, unit pytest, the OpenAPI/TypeScript contract, vitest, frontend typecheck. No service containers. CI runs this. |
 | Integration | `./infra/test-integration.sh <pytest-node-id>...` | Exactly the named integration modules, with only the services they need. |
-| Browser | `./infra/test-e2e.sh <search\|investigations\|monitors\|graph>` | One Playwright group against a fresh Compose stack. |
+| Browser | `./infra/test-e2e.sh [--stop-after <spec>] <search\|investigations\|monitors\|graph>` | One Playwright group against a fresh Compose stack. `--stop-after` ends the group once that spec passes. |
 | Full gate | `./infra/test-docker.sh` | Everything: all of the above, migrations, the single-head check, the real-model NER tests (English and Greek spaCy models), `npm run build`, the backup/restore rehearsal and all four browser groups. |
 
 `./infra/test-docker.sh` is the only run that counts as a full regression run. It rejects skipped tests and stale generated contracts, and it is the sole source of the timing and memory baselines in §7. Run it before merging: on most pull requests CI runs it only after the merge (see §6).
@@ -80,6 +82,8 @@ The quick loop starts nothing but the backend and frontend test images (`--no-de
 The integration loop resolves its selection before starting anything: an unknown or empty selection, or a unit module (those belong in the quick loop), fails before any container starts. Node ids may be given relative to the repository root (`backend/tests/test_x.py::test_y`) or to `backend/`.
 
 Each browser group uses a fresh database and an isolated Compose network, and its containers and volumes are always removed.
+
+The specs in a group run in order and depend on what earlier specs seeded, so a single spec cannot run on its own. `--stop-after "<spec>"` runs the group up to and including that spec and stops there, which saves the specs after it. `<spec>` is one of the group's `e2e "..."` names in `infra/test-e2e.sh`; an unknown name fails before anything starts and lists the group's specs. It is for checking a fix, not for passing a group.
 
 ## 4. The OpenAPI and TypeScript contract
 
@@ -120,6 +124,25 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 - **Workflow lint**: `actionlint` over the workflow files.
 
 A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
+
+Run on demand ("Run workflow", on any branch), it can instead run one targeted loop, for checking a fix where Docker is not available:
+
+| `run` | `target` | Runs |
+| --- | --- | --- |
+| `full` (default) | ignored | `./infra/test-docker.sh` |
+| `e2e` | `search`, `investigations`, `monitors` or `graph` | `./infra/test-e2e.sh <target>`, with `--stop-after` when `stop_after` is set |
+| `integration` | pytest node ids, separated by spaces | `./infra/test-integration.sh <target>` |
+
+A third workflow (`.github/workflows/targeted.yml`) runs the same loops from a push, for a session that can push but can neither run Docker nor start a workflow by hand. On a push to any branch but `main`, it reads a trailer on the head commit:
+
+```text
+ci-run: e2e graph
+ci-stop-after: map workflow
+```
+
+`ci-run:` takes the same `run` and `target` as the table above (`ci-run: integration backend/tests/test_x.py`, `ci-run: full`); `ci-stop-after:` is optional and only for `e2e`. Put the trailer on the commit that carries the fix. A push without it skips the job. A newer push to the same branch cancels the run in progress, so wait for it before pushing again.
+
+A targeted run never stands in for the full gate before a merge.
 
 Neither workflow starts for a pull request or a push that changes nothing but Markdown files, `assets/` or `LICENSE` (`paths-ignore`); a change that touches anything else as well runs as usual. A newer push to the same pull request cancels the run in progress. On most pull requests CI still runs no integration tests, migrations, restore rehearsal or browser groups, so `./infra/test-docker.sh` is still the check to run before merging.
 

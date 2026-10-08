@@ -27,21 +27,6 @@ trap 'exit 130' INT TERM
 cd "$root"
 mkdir -p "$artifacts/inventory"
 
-# ni_e2e_calls <group>: the ordered e2e() grep-argument strings from that group's own case arm in
-# test-e2e.sh (the third `case $group in` block -- the first is the group-validation dispatch
-# (search|investigations|monitors|graph) ;; *) ..., the second is the `users ...` setup dispatch,
-# both of which also have a "<group>)" line and would otherwise be matched first). A deliberately
-# repeated call (e.g. search's two "search restores URL state" invocations) prints twice, not
-# deduplicated.
-ni_e2e_calls() {
-  awk -v grp="$1" '
-    /^case \$group in$/ { casenum++ }
-    casenum == 3 && $0 ~ "^  " grp "\\)" { inblock = 1 }
-    casenum == 3 && inblock { print }
-    casenum == 3 && inblock && /;;/ { inblock = 0 }
-  ' "$root/infra/test-e2e.sh" | grep -oE 'e2e "[^"]*"' | sed -e 's/^e2e "//' -e 's/"$//'
-}
-
 ni_stage build
 $compose build backend-test frontend-test
 
@@ -67,7 +52,7 @@ $compose run --rm --no-deps frontend-test npx vitest list > "$artifacts/inventor
 
 for group in search investigations monitors graph; do
   ni_stage "e2e.$group.invocations"
-  ni_e2e_calls "$group" > "$artifacts/inventory/e2e-$group-invocations.txt"
+  ni_e2e_calls "$root" "$group" > "$artifacts/inventory/e2e-$group-invocations.txt"
   [ -s "$artifacts/inventory/e2e-$group-invocations.txt" ] || {
     echo "No e2e() calls found for $group group in infra/test-e2e.sh" >&2
     exit 1

@@ -1,30 +1,59 @@
 #!/bin/sh
 # Maintained browser suite: runs every Playwright workflow entirely inside Docker.
-# Usage: infra/test-e2e.sh [--reuse-images <manifest>] <group>, group is one of search,
+# Usage: infra/test-e2e.sh [--reuse-images <manifest>] [--stop-after <spec>] <group>, group is one of search,
 # investigations, monitors, graph.
 # --reuse-images <manifest> skips this script's own frontend-test build and runs the app with
 # --no-build, trusting the images test-e2e.sh's own project's caller (test-docker.sh) already
 # built and recorded in <manifest> (a shell env file, sourced in). Standalone invocations without
 # the flag are unaffected: they always build from current source using Docker's cache, as before.
+# --stop-after <spec> ends the group once the named e2e() call has passed, for a quick check of
+# one spec while fixing it. The specs before it still run, because later specs depend on what
+# earlier ones seeded. <spec> is one of the group's e2e() arguments, or one |-separated part of
+# one; a name repeated in the group stops at its first call. Not a substitute for the whole group.
 # Each group gets a fresh Compose project because the specs share fixture feeds and assert exact counts.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 
-usage="usage: infra/test-e2e.sh [--reuse-images <manifest>] search|investigations|monitors|graph"
+usage="usage: infra/test-e2e.sh [--reuse-images <manifest>] [--stop-after <spec>] search|investigations|monitors|graph"
 reuse_manifest=
-if [ "${1:-}" = "--reuse-images" ]; then
-  reuse_manifest=${2:?$usage}
-  shift 2
-fi
+stop_after=
+while [ "$#" -gt 1 ]; do
+  case $1 in
+    --reuse-images) reuse_manifest=$2; shift 2 ;;
+    --stop-after) stop_after=$2; shift 2 ;;
+    *) break ;;
+  esac
+done
 group=${1:?$usage}
 
 case $group in
   search | investigations | monitors | graph) ;;
+  -*) echo "$usage" >&2; exit 2 ;;
   *) echo "Unknown group: $group" >&2; exit 2 ;;
 esac
 [ "$#" -eq 1 ] || { echo "$usage" >&2; exit 2; }
+
+# A name that matches no call would otherwise run the whole group and look like a pass.
+# spec_matches <e2e-argument>: the argument is <spec>, or <spec> is one of its |-separated parts.
+spec_matches() {
+  [ "$1" = "$stop_after" ] || printf '%s\n' "$1" | tr '|' '\n' | grep -qxF -- "$stop_after"
+}
+if [ -n "$stop_after" ]; then
+  ni_spec_found=0
+  ni_spec_calls=$(ni_e2e_calls "$root" "$group")
+  while IFS= read -r ni_call; do
+    spec_matches "$ni_call" && ni_spec_found=1
+  done <<EOF_CALLS
+$ni_spec_calls
+EOF_CALLS
+  [ "$ni_spec_found" = 1 ] || {
+    echo "--stop-after: group $group has no spec \"$stop_after\". Its specs:" >&2
+    echo "$ni_spec_calls" | sed 's/^/  /' >&2
+    exit 2
+  }
+fi
 
 if [ -n "$reuse_manifest" ]; then
   [ -r "$reuse_manifest" ] || { echo "Reuse manifest not readable: $reuse_manifest" >&2; exit 2; }
@@ -102,6 +131,10 @@ e2e() {
     -e NEWSINTEL_E2E_BASE_URL=http://frontend:8080 \
     -e NEWSINTEL_E2E_OUTPUT_DIR=/artifacts/playwright \
     frontend-test npm run e2e -- --grep "$1"
+  if [ -n "$stop_after" ] && spec_matches "$1"; then
+    echo "E2E group $group stopped after \"$stop_after\" (--stop-after): the later specs did not run"
+    exit 0
+  fi
 }
 users() { for user in "$@"; do printf '%s-password\n%s-password\n' "$user" "$user" | $compose run --rm -T api python -m app.cli create-user "$user"; done; }
 wait_until() {  # wait_until <what> <shell condition>

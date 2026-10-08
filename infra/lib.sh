@@ -18,6 +18,21 @@ ni_tree_hash() {
   { git -C "$1" status --porcelain; git -C "$1" diff HEAD; } | sha256sum | cut -d' ' -f1
 }
 
+# ni_e2e_calls <root> <group>: the ordered e2e() grep-argument strings from that group's own case
+# arm in test-e2e.sh (the third `case $group in` block -- the first is the group-validation dispatch
+# (search|investigations|monitors|graph) ;; *) ..., the second is the `users ...` setup dispatch,
+# both of which also have a "<group>)" line and would otherwise be matched first). A deliberately
+# repeated call (e.g. search's two "search restores URL state" invocations) prints twice, not
+# deduplicated.
+ni_e2e_calls() {
+  awk -v grp="$2" '
+    /^case \$group in$/ { casenum++ }
+    casenum == 3 && $0 ~ "^  " grp "\\)" { inblock = 1 }
+    casenum == 3 && inblock { print }
+    casenum == 3 && inblock && /;;/ { inblock = 0 }
+  ' "$1/infra/test-e2e.sh" | grep -oE 'e2e "[^"]*"' | sed -e 's/^e2e "//' -e 's/"$//'
+}
+
 # ni_single_head <compose> <service> <message> [run-flag]
 # Runs the duplicated "exactly one migration head" assertion; exits 1 with <message> on stderr
 # if it fails (matches the two scripts' pre-existing, slightly different wording). [run-flag],
