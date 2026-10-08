@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -108,6 +108,15 @@ export const api = {
   addRelation: (id: string, link: SeeAlsoCreate) => mutate<SeeAlsoItem>(`/entities/${id}/see-also`, 'POST', link),
   updateRelation: (id: string, changes: SeeAlsoUpdate) => mutate<SeeAlsoItem>(`/entity-relations/${id}`, 'PATCH', changes),
   removeRelation: (id: string) => mutate<void>(`/entity-relations/${id}`, 'DELETE'),
+  wikidata: (id: string) => request<WikidataLink>(`/entities/${id}/wikidata`),
+  linkWikidata: (id: string, qid: string, aliases: WikidataName[] = []) => mutate<WikidataLink>(`/entities/${id}/wikidata`, 'POST', { qid, aliases }),
+  unlinkWikidata: (id: string) => mutate<void>(`/entities/${id}/wikidata`, 'DELETE'),
+  addWikidataNames: (id: string, names: WikidataName[]) => mutate<WikidataLink>(`/entities/${id}/wikidata/names`, 'POST', { names }),
+  searchWikidata: (id: string) => mutate<WikidataRun>(`/entities/${id}/wikidata/search`, 'POST'),
+  refreshWikidata: (id: string) => mutate<WikidataRun>(`/entities/${id}/wikidata/refresh`, 'POST'),
+  dismissWikidataCandidate: (id: string, qid: string) => mutate<void>(`/entities/${id}/wikidata/candidates/${qid}/dismiss`, 'POST'),
+  wikidataCandidates: (cursor?: string) => request<WikidataReviewPage>(`/wikidata/candidates${query({ cursor })}`),
+  approveExactWikidata: () => mutate<WikidataApprove>('/wikidata/candidates/approve-exact', 'POST'),
   authorities: (filters: AuthorityFilters, cursor?: string) => request<AuthorityRootPage>(`/authorities${query({ ...filters, cursor })}`),
   authoritySuggestions: (language?: string) => request<AuthoritySuggestionList>(`/authorities/suggestions${query({ language })}`),
   authorityHistory: (cursor?: string) => request<AuthorityHistoryPage>(`/authorities/history${query({ cursor })}`),
@@ -130,6 +139,7 @@ export const api = {
   opsPipelines: (hours: number) => request<OpsPipelines>(`/operations/pipelines${query({ hours: String(hours) })}`),
   opsFeeds: (hours: number) => request<OpsFeeds>(`/operations/feeds${query({ hours: String(hours) })}`),
   opsStorage: () => request<OpsStorage>('/operations/storage'),
+  opsWikidata: () => request<OpsWikidata>('/operations/wikidata'),
   opsFailures: (area: OpsArea, hours: number) => request<OpsFailures>(`/operations/failures${query({ area, hours: String(hours) })}`),
   compareStories: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareClusterPage>(`/compare/stories${query({ ...compareParams(spec), part, cursor })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),

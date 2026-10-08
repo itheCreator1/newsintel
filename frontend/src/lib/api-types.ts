@@ -54,7 +54,15 @@ export type StatedEdge = components['schemas']['StatedEdge']
 export type SeeAlsoCreate = components['schemas']['SeeAlsoCreate']
 export type SeeAlsoUpdate = components['schemas']['SeeAlsoUpdate']
 /** Filters on the authority file; an absent key is not sent. */
-export type AuthorityFilters = { q?: string; status?: 'provisional' | 'established'; language?: string }
+export type AuthorityFilters = { q?: string; status?: 'provisional' | 'established'; language?: string; wikidata?: 'linked' | 'unlinked' }
+export type WikidataLink = components['schemas']['WikidataLinkResponse']
+export type WikidataCandidate = components['schemas']['WikidataCandidateResponse']
+export type WikidataItemName = components['schemas']['WikidataNameResponse']
+export type WikidataName = components['schemas']['WikidataName']
+export type WikidataReviewPage = components['schemas']['WikidataReviewPage']
+export type WikidataReviewItem = components['schemas']['WikidataReviewItem']
+export type WikidataRun = components['schemas']['WikidataRunResponse']
+export type WikidataApprove = components['schemas']['WikidataApproveResponse']
 export type Monitor = components['schemas']['MonitorResponse']
 export type MonitorKind = Monitor['kind']
 export type MonitorPage = components['schemas']['MonitorPage']
@@ -94,4 +102,5 @@ export type OpsStorage = components['schemas']['StorageResponse']
 export type OpsFailures = components['schemas']['FailuresResponse']
 export type OpsArea = OpsFailures['area']
 export type OpsFeedState = OpsFeed['state']
+export type OpsWikidata = components['schemas']['WikidataStatusResponse']
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }

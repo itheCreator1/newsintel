@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api'
 import type { EntityAuthorityUpdate, EntityDossier, EntityHistory } from '../lib/api-types'
 import { entityHref } from '../lib/investigation'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../lib/ui-classes'
+import { wikidataChange } from '../lib/wikidata'
 
 type Change = EntityHistory['items'][number]
 export interface Picked { id: string; text: string }
@@ -26,7 +27,7 @@ function describe(change: Change): string {
     case 'relation_added': return 'Added a see-also link'
     case 'relation_changed': return 'Changed a see-also link'
     case 'relation_removed': return 'Removed a see-also link'
-    default: return change.action
+    default: return wikidataChange(change) ?? change.action
   }
 }
 

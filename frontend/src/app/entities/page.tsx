@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
 import { EntityAuthority } from '../../components/EntityAuthority'
+import { EntityWikidata } from '../../components/EntityWikidata'
 import { SeeAlso } from '../../components/SeeAlso'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
@@ -98,6 +99,13 @@ function EntityContent() {
         <GlassPanel className="flex flex-col gap-3">
           <h3 className="text-sm font-semibold text-foreground">Authority file</h3>
           <EntityAuthority key={entity.id} entity={entity} />
+        </GlassPanel>
+      )}
+
+      {entity && (
+        <GlassPanel className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-foreground">Wikidata</h3>
+          <EntityWikidata key={entity.id} entityId={entity.id} language={entity.language} />
         </GlassPanel>
       )}
 
