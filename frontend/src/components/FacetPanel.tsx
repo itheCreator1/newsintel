@@ -27,7 +27,7 @@ export function FacetPanel({ facets, state, onToggle }: { facets: SearchFacets; 
       {groups.map(({ group, field, title }) => (
         <section key={group} aria-labelledby={`facet-${group}`} className="flex flex-col gap-2">
           <h4 id={`facet-${group}`} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="list-none pl-0 flex flex-wrap gap-2">
             {facets[group].buckets.map(bucket => {
               const active = state[field].includes(bucket.value)
               return (

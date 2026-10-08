@@ -35,7 +35,7 @@ export function MonitorChanges({ id, item, currentHref }: { id: string; item: Mo
       {changes.data?.window_end && <p className="text-xs text-muted-foreground">Counted through {when(changes.data.window_end)}</p>}
       {changes.data && !lines.length && <p className="text-sm text-muted-foreground">{emptyText(item)}</p>}
       {lines.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <ul className="list-none pl-0 flex flex-col gap-3">
           {lines.map(line => {
             const href = subjectHref(line)
             return (

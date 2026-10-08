@@ -86,7 +86,7 @@ export function SeeAlso({ entityId }: { entityId: string }) {
       {links.isError && <p className="error text-sm text-destructive">Could not load the see-also links.</p>}
       {links.data && !items.length && <p className="text-sm text-muted-foreground">No see-also links yet.</p>}
       {items.length > 0 && (
-        <ul aria-label="See also" className="flex flex-col gap-1">
+        <ul aria-label="See also" className="list-none pl-0 flex flex-col gap-1">
           {items.map(link => (
             <li key={link.id} className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>

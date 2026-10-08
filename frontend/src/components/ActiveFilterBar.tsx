@@ -7,7 +7,7 @@ export function ActiveFilterBar({ items, onRemove, onClear, draftDiffers = false
   if (!items.length) return null
   return (
     <section aria-label="Applied filters" className="flex flex-col gap-2">
-      <ul className="flex flex-wrap items-center gap-2">
+      <ul className="list-none pl-0 flex flex-wrap items-center gap-2">
         {items.map(item => (
           <li key={item.key}>
             <button type="button" className={cn(chipClass, 'w-auto bg-transparent font-normal')} aria-label={`Remove ${item.label}`} onClick={() => onRemove(item.key)}>

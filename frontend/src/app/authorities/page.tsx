@@ -89,7 +89,7 @@ function SuggestionQueue({ language }: { language?: string }) {
       {message && <p role="status" className="text-sm text-primary">{message}</p>}
       {decision.isError && <p role="alert" className="error text-sm text-destructive">{failure(decision.error, 'Could not record this decision.')}</p>}
       {items.length > 0 && (
-        <ul aria-label="Maybe the same?" className="flex flex-col gap-3">
+        <ul aria-label="Maybe the same?" className="list-none pl-0 flex flex-col gap-3">
           {items.map(item => {
             const { root, variant } = item
             return (
@@ -135,7 +135,7 @@ function AuthorityList({ filters }: { filters: AuthorityFilters }) {
       {pages.isError && <LoadError query={pages} message="Could not load the authority file." />}
       {pages.isSuccess && !items.length && <p className="text-sm text-muted-foreground">No names match.</p>}
       {items.length > 0 && (
-        <ul aria-label="Authority file" className="flex flex-col divide-y divide-border">
+        <ul aria-label="Authority file" className="list-none pl-0 flex flex-col divide-y divide-border">
           {items.map(item => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="flex flex-col gap-1">
@@ -172,7 +172,7 @@ function RecentChanges() {
       {pages.isError && <LoadError query={pages} message="Could not load the history." />}
       {pages.isSuccess && !items.length && <p className="text-sm text-muted-foreground">No changes yet.</p>}
       {items.length > 0 && (
-        <ul aria-label="Recent changes" className="flex flex-col gap-1">
+        <ul aria-label="Recent changes" className="list-none pl-0 flex flex-col gap-1">
           {items.map(change => (
             <li key={change.id} className="text-sm text-muted-foreground">
               {describe(change)}

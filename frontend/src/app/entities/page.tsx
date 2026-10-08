@@ -163,14 +163,14 @@ function EntityContent() {
             </div>
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Countries</strong>
-              <ul className="mt-2 flex flex-wrap gap-2">
+              <ul className="list-none pl-0 mt-2 flex flex-wrap gap-2">
                 {relationships.data.countries.map(country => <li key={`${country.country_code}-${country.role}`} className="text-sm text-foreground">{`${country.country_code} · ${country.role} · ${plural(country.article_count, 'article')}`}</li>)}
                 {!relationships.data.countries.length && <li className="text-sm text-muted-foreground">No countries.</li>}
               </ul>
             </div>
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</strong>
-              <ul className="mt-2 flex flex-wrap gap-2">
+              <ul className="list-none pl-0 mt-2 flex flex-wrap gap-2">
                 {relationships.data.feeds.map(feed => <li key={feed.id}><Link className="text-sm text-foreground hover:underline" href={sourceHref(feed.id, currentHref)}>{`${feed.name} · ${plural(feed.article_count, 'article')}`}</Link></li>)}
                 {!relationships.data.feeds.length && <li className="text-sm text-muted-foreground">No sources.</li>}
               </ul>

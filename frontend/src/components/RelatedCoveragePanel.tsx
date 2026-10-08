@@ -17,7 +17,7 @@ export function RelatedCoveragePanel({ articleId, hrefFor }: { articleId: string
       {related.isError && <p className="error text-sm text-destructive">{related.error instanceof ApiError && related.error.status === 409 ? related.error.message : 'Related coverage is unavailable right now.'}</p>}
       {related.data && !items.length && <p className="text-sm text-muted-foreground">No other coverage with similar wording.</p>}
       {items.length > 0 && (
-        <ul className="flex flex-col gap-1">
+        <ul className="list-none pl-0 flex flex-col gap-1">
           {items.map(({ article }) => (
             <li key={article.id} className="flex flex-wrap items-baseline gap-2">
               <Link className="text-sm text-primary underline-offset-4 hover:underline" href={hrefFor(article.id)}>{article.title}</Link>

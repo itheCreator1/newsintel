@@ -51,7 +51,7 @@ export function EdgeEvidencePanel({ source, target, filters, returnHref }: { sou
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stories</strong>
               {head.cluster_count > head.clusters.length && <p className="mt-1 text-xs text-muted-foreground">{`Showing the ${head.clusters.length} stories with the most of these articles.`}</p>}
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="list-none pl-0 mt-2 flex flex-col gap-2">
                 {head.clusters.map(story => (
                   <li key={story.id} className="flex flex-col gap-0.5">
                     <Link className="text-sm text-primary underline-offset-4 hover:underline" href={clusterHref(story.id, returnHref)}>{story.representative_article?.title ?? 'Story'}</Link>
@@ -64,7 +64,7 @@ export function EdgeEvidencePanel({ source, target, filters, returnHref }: { sou
           {articles.length > 0 && (
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Articles</strong>
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="list-none pl-0 mt-2 flex flex-col gap-2">
                 {articles.map(article => (
                   <li key={article.id} className="flex flex-col gap-0.5">
                     <Link className="text-sm text-primary underline-offset-4 hover:underline" href={toHref('/articles', new URLSearchParams({ article: article.id, from: returnHref }))}>{article.title}</Link>
