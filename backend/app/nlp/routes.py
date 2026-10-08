@@ -26,10 +26,11 @@ from app.nlp.models import (
     Entity,
     Keyword,
     NlpJob,
+    NlpLanguageSetting,
     NlpProcessorRun,
 )
 from app.nlp.processors import country_entity_names, entity_lookup_prefixes
-from app.nlp.reprocessing import reprocessing_status
+from app.nlp.reprocessing import count_selection, create_reprocessing_run, reprocessing_status
 from app.nlp.schemas import (
     AnnotationLookupItem,
     AnnotationLookupPage,
@@ -37,6 +38,8 @@ from app.nlp.schemas import (
     CapabilityResponse,
     CountryAnnotationResponse,
     EntityAnnotationResponse,
+    GreekEntitiesResponse,
+    GreekEntitiesUpdate,
     KeywordAnnotationResponse,
     LanguageAnnotationResponse,
     NlpFailurePage,
@@ -52,6 +55,7 @@ from app.nlp.schemas import (
 from app.nlp.service import (
     PROCESSORS,
     current_stop_words,
+    greek_ner_enabled,
     request_article_nlp,
     update_stop_words,
 )
@@ -63,10 +67,21 @@ Mutation = Annotated[Session, Depends(require_csrf)]
 Config = Annotated[Settings, Depends(get_settings)]
 
 
-def _capabilities(settings: Settings) -> list[CapabilityResponse]:
+def _greek_unavailable(settings: Settings) -> str | None:
+    """Why this install cannot run Greek NER, or None when it can."""
+    if not settings.nlp_ner_enabled:
+        return "Entity recognition is off: start the app with docker/compose.ner.yaml"
+    if importlib.util.find_spec("spacy") is None:
+        return "spaCy is not installed: rebuild with docker/compose.ner.yaml"
+    if not settings.nlp_ner_model_el or importlib.util.find_spec(settings.nlp_ner_model_el) is None:
+        return f"The Greek model {settings.nlp_ner_model_el!r} is not installed"
+    return None
+
+
+def _capabilities(settings: Settings, greek_ner: bool = False) -> list[CapabilityResponse]:
     ner_installed = importlib.util.find_spec("spacy") is not None
     models = [settings.nlp_ner_model]
-    if settings.nlp_ner_model_el:
+    if greek_ner and settings.nlp_ner_model_el:
         models.append(settings.nlp_ner_model_el)
     missing = [
         model for model in models if not ner_installed or importlib.util.find_spec(model) is None
@@ -270,7 +285,7 @@ async def article_annotations(
             )
             for state in states
         ],
-        capabilities=_capabilities(settings),
+        capabilities=_capabilities(settings, await greek_ner_enabled(db)),
     )
 
 
@@ -284,7 +299,7 @@ async def nlp_status(db: Db, _auth: Auth, settings: Config) -> NlpStatusResponse
     }
     return NlpStatusResponse(
         **{name: counts.get(name, 0) for name in ("queued", "running", "retrying", "failed")},
-        capabilities=_capabilities(settings),
+        capabilities=_capabilities(settings, await greek_ner_enabled(db)),
         reprocessing=await reprocessing_status(),
     )
 
@@ -361,6 +376,52 @@ async def retry_nlp_job(job_id: uuid.UUID, db: Db, _mutation: Mutation) -> NlpMu
     )
     await db.commit()
     return NlpMutationResponse(status="queued", jobs_created=count)
+
+
+GREEK_ARCHIVE: dict[str, object] = {"all": True, "language": "el"}
+
+
+async def _greek_entities(db: AsyncSession, settings: Settings) -> GreekEntitiesResponse:
+    detail = _greek_unavailable(settings)
+    return GreekEntitiesResponse(
+        enabled=await greek_ner_enabled(db),
+        available=detail is None,
+        detail=detail,
+        greek_article_count=await count_selection(GREEK_ARCHIVE),
+    )
+
+
+@router.get("/nlp/greek-entities", response_model=GreekEntitiesResponse)
+async def get_greek_entities(db: Db, _auth: Auth, settings: Config) -> GreekEntitiesResponse:
+    return await _greek_entities(db, settings)
+
+
+@router.put("/nlp/greek-entities", response_model=GreekEntitiesResponse)
+async def put_greek_entities(
+    payload: GreekEntitiesUpdate, db: Db, _mutation: Mutation, settings: Config
+) -> GreekEntitiesResponse:
+    """Switch Greek entities on or off; turning on can also queue the Greek archive.
+
+    Turning off keeps the Greek entities already extracted; new Greek articles get none.
+    """
+    if payload.enabled and (detail := _greek_unavailable(settings)) is not None:
+        raise HTTPException(409, detail)
+    setting = await db.get(NlpLanguageSetting, "el", with_for_update=True)
+    if setting is None:
+        setting = NlpLanguageSetting(language="el")
+        db.add(setting)
+    turned_on = payload.enabled and not setting.ner_enabled
+    setting.ner_enabled = payload.enabled
+    await db.commit()
+    response = await _greek_entities(db, settings)
+    if turned_on and payload.process_existing:
+        # The scheduler queues the run in small batches; Greek articles had no entities before,
+        # so nothing disappears while they wait.
+        response.reprocessing_run_id = await create_reprocessing_run(
+            processor_names=("entities",), selection=GREEK_ARCHIVE
+        )
+        response.queued_article_count = response.greek_article_count
+    return response
 
 
 @router.get("/nlp/stop-words", response_model=StopWordsResponse)

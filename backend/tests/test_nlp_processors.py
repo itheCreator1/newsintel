@@ -450,17 +450,20 @@ def test_entity_lookup_prefixes_match_greek_names_as_typed() -> None:
     assert entity_lookup_prefixes(" Barack ") == {"barack"}
 
 
-def test_greek_model_changes_the_entity_fingerprint_only_when_set(
+def test_greek_switch_changes_the_entity_fingerprint_only_when_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.core.config import Settings
     from app.nlp import service
 
-    def fingerprint(settings: Settings) -> dict[str, str]:
-        monkeypatch.setattr(service, "get_settings", lambda: settings)
-        return {name: service.configuration_fingerprint(name) for name in service.PROCESSORS}
+    monkeypatch.setattr(service, "get_settings", lambda: Settings(nlp_ner_enabled=True))
 
-    base = Settings(nlp_ner_enabled=True)
+    def fingerprint(greek_ner: bool) -> dict[str, str]:
+        return {
+            name: service.configuration_fingerprint(name, greek_ner=greek_ner)
+            for name in service.PROCESSORS
+        }
+
     expected = hashlib.sha256(
         json.dumps(
             {
@@ -469,13 +472,13 @@ def test_greek_model_changes_the_entity_fingerprint_only_when_set(
                 "stop_words": None,
                 "ner_enabled": True,
                 "ner_model": "en_core_web_sm",
-                "max_input_characters": base.nlp_max_input_characters,
+                "max_input_characters": Settings().nlp_max_input_characters,
             },
             sort_keys=True,
         ).encode()
     ).hexdigest()
-    without = fingerprint(base)
-    with_greek = fingerprint(Settings(nlp_ner_enabled=True, nlp_ner_model_el="el_core_news_sm"))
+    without = fingerprint(False)
+    with_greek = fingerprint(True)
 
     # An install that leaves Greek off keeps the fingerprints its articles were processed with.
     assert without["entities"] == expected

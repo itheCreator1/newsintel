@@ -8,6 +8,7 @@ STEPS = (
     "schedule_due_feeds",
     "schedule_due_articles",
     "schedule_due_nlp",
+    "scan_active_reprocessing",
     "schedule_due_clustering",
     "schedule_due_search",
     "schedule_due_monitors",

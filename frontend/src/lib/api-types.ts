@@ -15,6 +15,7 @@ export type ArticleAnnotations = components['schemas']['ArticleAnnotationsRespon
 export type NlpStatus = components['schemas']['NlpStatusResponse']
 export type NlpFailurePage = components['schemas']['NlpFailurePage']
 export type StopWords = components['schemas']['StopWordsResponse']
+export type GreekEntities = components['schemas']['GreekEntitiesResponse']
 export type AnnotationLookupPage = components['schemas']['AnnotationLookupPage']
 export type InvestigationState = components['schemas']['InvestigationState']
 export type SavedSearch = components['schemas']['SavedSearchResponse']

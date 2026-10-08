@@ -150,7 +150,7 @@ The remaining routes follow the same design language:
 | Background jobs | Dramatiq, Redis, PostgreSQL job tables with leases |
 | Canonical storage | PostgreSQL |
 | Search | Elasticsearch (versioned indices behind an alias, zero-downtime reindexing): full text, facets, investigation analytics and map, related coverage |
-| NLP | spaCy NER for English and Greek (optional image, off by default; enable with `docker/compose.ner.yaml`, plus `NEWSINTEL_NLP_NER_MODEL_EL` for Greek), YAKE keywords, Lingua language detection, pluggable/versioned processors |
+| NLP | spaCy NER for English and Greek (optional image, off by default; enable with `docker/compose.ner.yaml`, then switch Greek on in Settings), YAKE keywords, Lingua language detection, pluggable/versioned processors |
 | Extraction | Trafilatura, behind a replaceable extractor interface |
 | Frontend | Next.js (App Router, static export), React, TypeScript, TanStack Query, Apache ECharts |
 | Deployment | Docker Compose |

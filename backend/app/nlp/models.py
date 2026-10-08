@@ -123,6 +123,17 @@ class Entity(Base):
     display_text: Mapped[str] = mapped_column(Text)
 
 
+class NlpLanguageSetting(Base):
+    """Per-language switches turned on in Settings; a language without a row is off."""
+
+    __tablename__ = "nlp_language_settings"
+    language: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ner_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Keyword(Base):
     __tablename__ = "nlp_keywords"
     __table_args__ = (
