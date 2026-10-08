@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -194,3 +195,53 @@ async def test_adapter_reuses_the_shared_client_while_one_is_open(
     finally:
         await close_shared_client()
     assert opened[2].is_closed
+
+
+class _StatusDatabase:
+    """The two queries /search/indexing/status runs: delivery counts, then the current index."""
+
+    def __init__(self, current: uuid.UUID | None) -> None:
+        self.current = current
+
+    async def execute(self, _query: object) -> object:
+        rows = [("queued", 3), ("failed", 1)]
+        return SimpleNamespace(all=lambda: rows)
+
+    async def scalar(self, _query: object) -> uuid.UUID | None:
+        return self.current
+
+
+@pytest.mark.parametrize(("current", "ready"), [(None, False), (uuid.uuid4(), True)])
+@pytest.mark.asyncio
+async def test_indexing_status_reports_index_ready_only_with_a_current_index(
+    monkeypatch: pytest.MonkeyPatch, current: uuid.UUID | None, ready: bool
+) -> None:
+    from app.search import routes
+
+    async def no_rebuilds() -> list[dict[str, object]]:
+        return []
+
+    monkeypatch.setattr(routes, "rebuild_status", no_rebuilds)
+
+    status = await routes.indexing_status(_StatusDatabase(current), None)  # type: ignore[arg-type]
+
+    assert status.index_ready is ready
+    assert (status.queued, status.running, status.retrying, status.failed) == (3, 0, 0, 1)
+    assert status.active_rebuild is None
+
+
+@pytest.mark.asyncio
+async def test_indexing_status_reports_the_unfinished_rebuild(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.search import routes
+
+    async def rebuilds() -> list[dict[str, object]]:
+        return [{"status": "completed"}, {"status": "copying"}]
+
+    monkeypatch.setattr(routes, "rebuild_status", rebuilds)
+
+    status = await routes.indexing_status(_StatusDatabase(None), None)  # type: ignore[arg-type]
+
+    assert status.active_rebuild == {"status": "copying"}
+    assert status.index_ready is False

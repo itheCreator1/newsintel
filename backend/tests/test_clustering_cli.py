@@ -46,3 +46,35 @@ def test_recluster_rejects_a_non_uuid_article_id(
         _run(monkeypatch, "recluster", "--article-id", "not-a-uuid")
     assert failure.value.code == 2
     assert "must be UUIDs" in capsys.readouterr().err
+
+
+def test_reprocess_nlp_passes_the_language_selection(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Unlike the cases above this one gets past argument checks, so the reprocessing and
+    # asyncio.run are both replaced: a real asyncio.run would unset the event loop that the
+    # session-scoped async tests share.
+    calls: list[dict[str, object]] = []
+
+    def fake_reprocessing(**kwargs: object) -> None:
+        calls.append(kwargs)
+
+    monkeypatch.setattr("app.cli.run_nlp_reprocessing", fake_reprocessing)
+    monkeypatch.setattr("app.cli.asyncio.run", lambda _awaitable: None)
+    _run(monkeypatch, "reprocess-nlp", "--processors", "entities", "--all", "--language", "el")
+
+    assert calls == [
+        {
+            "run_id": None,
+            "processors": ("entities",),
+            "selection": {"all": True, "language": "el"},
+            "apply": False,
+        }
+    ]
+
+
+def test_language_is_rejected_outside_reprocess_nlp(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as failure:
+        _run(monkeypatch, "recluster", "--all", "--language", "el")
+    assert failure.value.code == 2
+    assert "--language applies to reprocess-nlp only" in capsys.readouterr().err

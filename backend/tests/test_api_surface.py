@@ -5,7 +5,7 @@ from starlette.requests import Request
 from app.auth.routes import current_session
 from app.core.config import Settings
 from app.main import create_app
-from app.nlp.routes import _capabilities, _lookup_cursor
+from app.nlp.routes import _capabilities, _greek_unavailable, _lookup_cursor
 
 
 @pytest.mark.asyncio
@@ -69,6 +69,54 @@ def test_enabled_ner_reports_a_missing_configured_model(monkeypatch: pytest.Monk
     entities = next(item for item in capabilities if item.name == "entities")
     assert entities.state == "configuration_failure"
     assert entities.detail == "spaCy model 'missing_model' is not installed"
+
+
+def test_greek_ner_reports_a_missing_greek_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    # spaCy and the English model are installed; only the Greek one is missing.
+    monkeypatch.setattr(
+        "app.nlp.routes.importlib.util.find_spec",
+        lambda name: None if name == "el_core_news_sm" else object(),
+    )
+    monkeypatch.setattr("app.nlp.routes.importlib.metadata.version", lambda _name: "3.8.16")
+    settings = Settings(nlp_ner_enabled=True)
+
+    assert _greek_unavailable(settings) == "The Greek model 'el_core_news_sm' is not installed"
+    entities = next(
+        item for item in _capabilities(settings, greek_ner=True) if item.name == "entities"
+    )
+    assert entities.state == "configuration_failure"
+    assert entities.detail == "spaCy model 'el_core_news_sm' is not installed"
+    # With Greek off, the missing Greek model does not mark English NER as broken.
+    english_only = next(item for item in _capabilities(settings) if item.name == "entities")
+    assert english_only.state == "available"
+
+
+@pytest.mark.parametrize(
+    ("settings", "reason"),
+    [
+        (
+            Settings(nlp_ner_enabled=False),
+            "Entity recognition is off: start the app with docker/compose.ner.yaml",
+        ),
+        (
+            Settings(nlp_ner_enabled=True, nlp_ner_model_el=""),
+            "The Greek model '' is not installed",
+        ),
+    ],
+)
+def test_greek_ner_explains_why_it_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch, settings: Settings, reason: str
+) -> None:
+    monkeypatch.setattr("app.nlp.routes.importlib.util.find_spec", lambda _name: object())
+    assert _greek_unavailable(settings) == reason
+
+
+def test_greek_ner_needs_spacy_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.nlp.routes.importlib.util.find_spec", lambda _name: None)
+    assert (
+        _greek_unavailable(Settings(nlp_ner_enabled=True))
+        == "spaCy is not installed: rebuild with docker/compose.ner.yaml"
+    )
 
 
 def test_annotation_lookup_rejects_malformed_base64_cursor() -> None:
