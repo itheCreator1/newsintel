@@ -21,11 +21,16 @@ from sqlalchemy.orm import aliased
 from app.entities import authority, relations
 from app.feeds.models import Article
 from app.nlp.models import ArticleEntity, Entity, EntityDistinct, EntityRelation
+from app.wikidata.links import queue_fetch
+from app.wikidata.models import EntityExternalId
+from app.wikidata.parsing import is_qid
 
 __all__ = ["FORMAT", "ImportReport", "export_authorities", "import_authorities", "parse_file"]
 
 FORMAT = "newsintel-authority-file"
-VERSION = 1
+# 2 adds each root's external ids (its Wikidata link) and each name's source; 1 still imports.
+VERSION = 2
+NAME_SOURCES = Literal["ner", "seed", "wikidata", "user"]
 
 
 class _Name(BaseModel):
@@ -43,12 +48,22 @@ class _Name(BaseModel):
 class _Variant(_Name):
     ambiguous: bool = False
     note: str | None = None
+    name_source: NAME_SOURCES = "ner"
+
+
+class _ExternalId(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scheme: Literal["wikidata", "viaf", "isni", "lcnaf"]
+    value: str = Field(min_length=1, max_length=200)
+    source: Literal["user", "wikidata"] = "user"
 
 
 class _Root(_Variant):
     preferred_text: str | None = None
     status: Literal["provisional", "established"] = "provisional"
     variants: list[_Variant] = Field(default_factory=list)
+    external_ids: list[_ExternalId] = Field(default_factory=list)
 
 
 class _Relation(BaseModel):
@@ -68,7 +83,7 @@ class _File(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     format: Literal["newsintel-authority-file"]
-    version: Literal[1]
+    version: Literal[1, 2]
     exported_at: str | None = None
     entities: list[_Root] = Field(default_factory=list)
     distinct: list[tuple[_Name, _Name]] = Field(default_factory=list)
@@ -82,6 +97,7 @@ class ImportReport:
     updated: int = 0
     distinct_added: int = 0
     relations_added: int = 0
+    linked: int = 0
     unchanged: int = 0
     conflicts: list[str] = field(default_factory=list)
 
@@ -89,6 +105,7 @@ class ImportReport:
         return (
             f"created={self.created} merged={self.merged} updated={self.updated} "
             f"distinct_added={self.distinct_added} relations_added={self.relations_added} "
+            f"linked={self.linked} "
             f"unchanged={self.unchanged} "
             f"conflicts={len(self.conflicts)}"
         )
@@ -124,6 +141,7 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
         Entity.authority_id.is_(None),
         or_(
             has_variants,
+            exists().where(EntityExternalId.entity_id == Entity.id),
             Entity.preferred_text.is_not(None),
             Entity.status != "provisional",
             Entity.note.is_not(None),
@@ -140,6 +158,14 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
         for item in await db.scalars(select(Entity).where(Entity.authority_id.in_(ids))):
             assert item.authority_id is not None
             variants[item.authority_id].append(item)
+
+    external: dict[uuid.UUID, list[EntityExternalId]] = {root.id: [] for root in roots}
+    for chunk_start in range(0, len(roots), 1000):
+        ids = [root.id for root in roots[chunk_start : chunk_start + 1000]]
+        for row in await db.scalars(
+            select(EntityExternalId).where(EntityExternalId.entity_id.in_(ids))
+        ):
+            external[row.entity_id].append(row)
 
     a, b = aliased(Entity), aliased(Entity)
     pairs = (
@@ -165,9 +191,21 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
                 "status": root.status,
                 "ambiguous": root.ambiguous,
                 "note": root.note,
+                "name_source": root.name_source,
                 "variants": [
-                    {**_name(item), "ambiguous": item.ambiguous, "note": item.note}
+                    {
+                        **_name(item),
+                        "ambiguous": item.ambiguous,
+                        "note": item.note,
+                        "name_source": item.name_source,
+                    }
                     for item in sorted(variants[root.id], key=_identity)
+                ],
+                # The links are the user's decisions; the Wikidata cache is not exported and
+                # refills from them (a refresh run per link is queued on import).
+                "external_ids": [
+                    {"scheme": row.scheme, "value": row.value, "source": row.source}
+                    for row in sorted(external[root.id], key=lambda row: row.scheme)
                 ],
             }
             for root in roots
@@ -215,6 +253,8 @@ async def _export_relations(db: AsyncSession, language: str | None) -> list[dict
 
 
 async def _find_or_create(db: AsyncSession, name: _Name) -> tuple[Entity, bool]:
+    # A name created here keeps the source the file gives it; an existing one keeps its own.
+    source = name.name_source if isinstance(name, _Variant) else "ner"
     created = await db.scalar(
         insert(Entity)
         .values(
@@ -222,6 +262,7 @@ async def _find_or_create(db: AsyncSession, name: _Name) -> tuple[Entity, bool]:
             entity_type=name.entity_type,
             normalized_text=name.normalized_text,
             display_text=name.display_text,
+            name_source=source,
         )
         .on_conflict_do_nothing(constraint="uq_nlp_entity_identity")
         .returning(Entity.id)
@@ -288,6 +329,7 @@ async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) ->
     else:
         report.unchanged += 1
 
+    await _import_external_ids(db, root, record, report)
     for item in record.variants:
         variant, made = await _find_or_create(db, item)
         report.created += made
@@ -308,6 +350,54 @@ async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) ->
         report.merged += 1
         # A conflicting name keeps its own marks; a joined one takes the file's.
         await _marks(db, variant, item)
+
+
+async def _import_external_ids(
+    db: AsyncSession, root: Entity, record: _Root, report: ImportReport
+) -> None:
+    """Link the root as the file says. A QID already on another root, or another QID already
+    on this one, is the database's own decision: reported, never changed."""
+    rows = {
+        row.scheme: row
+        for row in await db.scalars(
+            select(EntityExternalId).where(EntityExternalId.entity_id == root.id)
+        )
+    }
+    for item in sorted(record.external_ids, key=lambda item: item.scheme != "wikidata"):
+        current = rows.get(item.scheme)
+        if current is not None:
+            if current.value != item.value:
+                report.conflicts.append(
+                    f"{record.label()}: already linked to {current.value} ({item.scheme}),"
+                    f" not {item.value}"
+                )
+            continue
+        if item.scheme == "wikidata":
+            if not is_qid(item.value):
+                report.conflicts.append(f"{record.label()}: not a Wikidata item id {item.value}")
+                continue
+            holder = await db.scalar(
+                select(Entity)
+                .join(EntityExternalId, EntityExternalId.entity_id == Entity.id)
+                .where(EntityExternalId.scheme == "wikidata", EntityExternalId.value == item.value)
+            )
+            if holder is not None:
+                report.conflicts.append(
+                    f"{record.label()}: {item.value} is already linked to {holder.name}"
+                )
+                continue
+        db.add(
+            EntityExternalId(
+                entity_id=root.id, scheme=item.scheme, value=item.value, source=item.source
+            )
+        )
+        await db.flush()
+        rows[item.scheme] = EntityExternalId(scheme=item.scheme, value=item.value)
+        if item.scheme == "wikidata":
+            authority.record(db, "wikidata_linked", root.id, after={"qid": item.value})
+            # The names came in the file; the fetch brings the item and its identifiers.
+            await queue_fetch(db, root.id)
+            report.linked += 1
 
 
 async def _import_pair(db: AsyncSession, pair: tuple[_Name, _Name], report: ImportReport) -> None:
