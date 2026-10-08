@@ -158,6 +158,8 @@ class AuthorityRootResponse(BaseModel):
     status: EntityStatus
     ambiguous: bool
     variant_count: int
+    # The Wikidata item the root is linked to, if any.
+    qid: str | None
 
 
 class AuthorityRootPage(BaseModel):

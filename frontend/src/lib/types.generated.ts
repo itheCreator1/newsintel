@@ -1991,6 +1991,8 @@ export interface components {
             ambiguous: boolean;
             /** Variant Count */
             variant_count: number;
+            /** Qid */
+            qid: string | null;
         };
         /** AuthoritySuggestionList */
         AuthoritySuggestionList: {
@@ -6279,6 +6281,8 @@ export interface operations {
                 language?: string | null;
                 status?: ("provisional" | "established") | null;
                 q?: string | null;
+                /** @description Only roots linked to a Wikidata item, or only those without one. */
+                wikidata?: ("linked" | "unlinked") | null;
                 cursor?: string | null;
                 limit?: number;
             };

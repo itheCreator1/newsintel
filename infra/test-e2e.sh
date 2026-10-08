@@ -177,7 +177,7 @@ case $group in
   investigations) users phase6 ;;
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
-  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d ;;
+  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d phase15a ;;
 esac
 ni_stage app.up
 $compose up -d $app_build_flag api worker nlp-worker scheduler frontend
@@ -267,6 +267,12 @@ case $group in
     e2e "authority file workflow"
     # After the merge workflow, which a see-also link would block; it removes the links it adds.
     e2e "see also workflow"
+    # A name no fixture article has, so the Wikidata stand-in's two items are its only suggestions.
+    [ "$(psql_app "with seeded as (insert into nlp_entities (id, language, entity_type, normalized_text, display_text) values (gen_random_uuid(), 'en', 'PERSON', 'ada lindqvist', 'Ada Lindqvist') returning id) select count(*) from seeded")" = 1 ] || { echo "Wikidata seed failed" >&2; exit 1; }
+    e2e "wikidata workflow"
+    # The worker asked the fixture's stand-in (never Wikidata) and kept every answer in PostgreSQL.
+    [ "$(psql_app "select count(*) from entity_external_ids where scheme = 'wikidata'")" = 1 ] || { echo "Wikidata link missing" >&2; exit 1; }
+    [ "$(psql_app "select coalesce(sum(count), 0) > 0 from wikidata_request_counts")" = t ] || { echo "No Wikidata request was counted" >&2; exit 1; }
     e2e "ui polish workflow"
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.

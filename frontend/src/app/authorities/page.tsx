@@ -7,15 +7,17 @@ import { LoadError } from '../../components/Feedback'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { api, ApiError } from '../../lib/api'
-import type { AuthorityFilters, AuthorityHistoryPage, AuthoritySuggestionList } from '../../lib/api-types'
+import type { AuthorityFilters, AuthorityHistoryPage, AuthoritySuggestionList, WikidataReviewItem } from '../../lib/api-types'
 import { entityHref } from '../../lib/investigation'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
+import { Attribution } from '../../components/EntityWikidata'
+import { qidHref, reasonText as wikidataReason, wikidataChange } from '../../lib/wikidata'
 
 type Suggestion = AuthoritySuggestionList['items'][number]
 type Change = AuthorityHistoryPage['items'][number]
 type Name = Suggestion['root']
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+const plural = (count: number, word: string, many = `${word}s`) => `${count} ${count === 1 ? word : many}`
 const failure = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback
 const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 
@@ -40,7 +42,11 @@ function describe(change: Change): ReactNode {
     case 'relation_added': return <>{entity} linked to {other}</>
     case 'relation_changed': return <>{entity}: link to {other} changed</>
     case 'relation_removed': return <>{entity} no longer linked to {other}</>
-    default: return <>{entity}: {change.action}</>
+    default: {
+      const text = wikidataChange(change)
+      if (!text) return <>{entity}: {change.action}</>
+      return <>{entity}: {text.startsWith('Wikidata') ? text : text.charAt(0).toLowerCase() + text.slice(1)}</>
+    }
   }
 }
 
@@ -121,6 +127,80 @@ function SuggestionQueue({ language }: { language?: string }) {
   )
 }
 
+/** Possible Wikidata items for unlinked names, best first; nothing is linked until the user decides. */
+function WikidataReview() {
+  const client = useQueryClient()
+  const [message, setMessage] = useState('')
+  const pages = useInfiniteQuery({
+    queryKey: ['wikidata-review'],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => api.wikidataCandidates(pageParam),
+    getNextPageParam: page => page.next_cursor ?? undefined,
+  })
+  const refresh = () => Promise.all(['wikidata-review', 'authorities', 'authority-history'].map(key => client.invalidateQueries({ queryKey: [key] })))
+  const decision = useMutation({
+    mutationFn: ({ link, item }: { link: boolean; item: WikidataReviewItem }): Promise<unknown> => link ? api.linkWikidata(item.entity_id, item.qid, []) : api.dismissWikidataCandidate(item.entity_id, item.qid),
+    onMutate: () => setMessage(''),
+    onSuccess: (_result, { link, item }) => { setMessage(link ? `${item.display_name} is linked to ${item.qid}.` : `${item.display_name} is not ${item.qid}.`); return refresh() },
+  })
+  const approve = useMutation({ mutationFn: api.approveExactWikidata, onMutate: () => setMessage(''), onSuccess: refresh })
+  const items = pages.data?.pages.flatMap(page => page.items) ?? []
+  const pending = decision.isPending || approve.isPending
+  const error = [decision, approve].find(mutation => mutation.isError)?.error
+
+  return (
+    <GlassPanel className="flex flex-col gap-4 p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 className={sectionTitle}>Wikidata suggestions</h3>
+        <button type="button" className={ghostButtonClass} disabled={pending || !items.length} onClick={() => approve.mutate()}>Approve all exact</button>
+      </div>
+      <p className="text-sm text-muted-foreground">Possible Wikidata items for names not linked yet. Nothing is linked until you decide. Approve all exact links every name whose one exact label has the right type.</p>
+      {pages.isPending && <p className="text-sm text-muted-foreground">Loading Wikidata suggestions…</p>}
+      {pages.isError && <LoadError query={pages} message="Could not load the Wikidata suggestions." />}
+      {pages.isSuccess && !items.length && <p className="text-sm text-muted-foreground">No Wikidata suggestions to review.</p>}
+      {message && <p role="status" className="text-sm text-primary">{message}</p>}
+      {approve.data && (
+        <div role="status" className="flex flex-col gap-1 text-sm text-primary">
+          <p>{`Linked ${plural(approve.data.linked, 'entity', 'entities')}; ${approve.data.skipped.length} skipped.`}</p>
+          {approve.data.skipped.length > 0 && (
+            <ul aria-label="Skipped" className="list-none pl-0 flex flex-col gap-1 text-muted-foreground">
+              {approve.data.skipped.map(skip => <li key={`${skip.entity_id}-${skip.qid}`}><EntityLink id={skip.entity_id} name={skip.message} /></li>)}
+            </ul>
+          )}
+        </div>
+      )}
+      {error && <p role="alert" className="error text-sm text-destructive">{failure(error, 'Could not record this decision.')}</p>}
+      {items.length > 0 && (
+        <ul aria-label="Wikidata suggestions" className="list-none pl-0 flex flex-col gap-3">
+          {items.map(item => (
+            <li key={`${item.entity_id}-${item.qid}`} className="flex flex-col gap-1 rounded-lg border border-border p-4">
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                <EntityLink id={item.entity_id} name={item.display_name} />
+                <a className="font-mono text-foreground hover:text-primary" href={qidHref(item.qid)} target="_blank" rel="noreferrer">{item.qid}</a>
+              </p>
+              {(item.label || item.description) && <span className="text-sm text-muted-foreground">{[item.label, item.description].filter(Boolean).join(' · ')}</span>}
+              <small className="text-xs text-muted-foreground">{item.reasons.map(wikidataReason).join(' · ')}</small>
+              <small className="text-xs text-muted-foreground">{`${item.entity_type} · ${item.language}`}</small>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={ghostButtonClass} disabled={pending} aria-label={`Link ${item.display_name} to ${item.qid}`}
+                  onClick={() => decision.mutate({ link: true, item })}>Link</button>
+                <button type="button" className={ghostButtonClass} disabled={pending} aria-label={`${item.display_name} is not ${item.qid}`}
+                  onClick={() => decision.mutate({ link: false, item })}>Not this one</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pages.hasNextPage && (
+        <div><button type="button" className={ghostButtonClass} disabled={pages.isFetchingNextPage} onClick={() => pages.fetchNextPage()}>
+          {pages.isFetchingNextPage ? 'Loading…' : 'Load more suggestions'}
+        </button></div>
+      )}
+      {items.length > 0 && <Attribution />}
+    </GlassPanel>
+  )
+}
+
 function AuthorityList({ filters }: { filters: AuthorityFilters }) {
   const pages = useInfiniteQuery({
     queryKey: ['authorities', filters],
@@ -144,7 +224,10 @@ function AuthorityList({ filters }: { filters: AuthorityFilters }) {
                   {[item.entity_type, item.language, ...(item.variant_count ? [plural(item.variant_count, 'other name')] : [])].join(' · ')}
                 </small>
               </div>
-              <span className={chipClass}>{item.status === 'established' ? 'Established' : 'Provisional'}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {item.qid && <a className={chipClass} href={qidHref(item.qid)} target="_blank" rel="noreferrer">{item.qid}</a>}
+                <span className={chipClass}>{item.status === 'established' ? 'Established' : 'Provisional'}</span>
+              </div>
             </li>
           ))}
         </ul>
@@ -195,12 +278,14 @@ export default function AuthoritiesPage() {
   const [text, setText] = useState('')
   const [provisional, setProvisional] = useState(false)
   const [languageText, setLanguageText] = useState('')
+  const [wikidata, setWikidata] = useState<'' | 'linked' | 'unlinked'>('')
   const q = text.trim()
   const language = languageText.trim() || undefined
   const filters: AuthorityFilters = {
     ...(q ? { q } : {}),
     ...(provisional ? { status: 'provisional' as const } : {}),
     ...(language ? { language } : {}),
+    ...(wikidata ? { wikidata } : {}),
   }
 
   return (
@@ -211,6 +296,7 @@ export default function AuthoritiesPage() {
         </label>
       </PageHeader>
       <SuggestionQueue language={language} />
+      <WikidataReview />
       <GlassPanel className="flex flex-col gap-4 p-6">
         <h3 className={sectionTitle}>Names</h3>
         <div className="flex flex-wrap items-end gap-4">
@@ -220,6 +306,13 @@ export default function AuthoritiesPage() {
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input type="checkbox" className="h-4 w-4 accent-primary" checked={provisional} onChange={event => setProvisional(event.target.checked)} />
             Provisional only
+          </label>
+          <label className={labelClass}>Wikidata
+            <select className={fieldClass} value={wikidata} onChange={event => setWikidata(event.target.value as typeof wikidata)}>
+              <option value="">Any</option>
+              <option value="linked">Linked</option>
+              <option value="unlinked">Not linked</option>
+            </select>
           </label>
         </div>
         <AuthorityList filters={filters} />

@@ -2305,6 +2305,28 @@
             }
           },
           {
+            "name": "wikidata",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "linked",
+                    "unlinked"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only roots linked to a Wikidata item, or only those without one.",
+              "title": "Wikidata"
+            },
+            "description": "Only roots linked to a Wikidata item, or only those without one."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -10290,6 +10312,17 @@
           "variant_count": {
             "type": "integer",
             "title": "Variant Count"
+          },
+          "qid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qid"
           }
         },
         "type": "object",
@@ -10300,7 +10333,8 @@
           "language",
           "status",
           "ambiguous",
-          "variant_count"
+          "variant_count",
+          "qid"
         ],
         "title": "AuthorityRootResponse",
         "description": "A root of the authority file, with how many other names point at it."

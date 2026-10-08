@@ -1,3 +1,4 @@
+import json
 import re
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -7,6 +8,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).parent
+# Run as a script in the e2e stack and loaded by path in the tests: its sibling module either way.
+sys.path.insert(0, str(ROOT))
+import wikidata_api  # noqa: E402
+
 RECOVERY_FAILURES = 3
 # The day after the newest fixture pubDate; frontend/e2e/fixture-dates.ts mirrors it.
 ANCHOR = date(2026, 9, 14)
@@ -31,6 +36,16 @@ class FixtureHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def do_GET(self) -> None:
+        path, _, query = self.path.partition("?")
+        if path == wikidata_api.PATH:
+            status, body = wikidata_api.answer(query)
+            payload = json.dumps(body).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         if self.path == "/permanent.html":
             self.send_error(404, "permanent fixture failure")
             return

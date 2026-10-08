@@ -107,7 +107,11 @@ async def test_entity_status_accepts_only_provisional_or_established() -> None:
         )
 
 
-async def test_downgrade_to_0017_removes_only_the_authority_schema() -> None:
+async def test_downgrade_to_0017_removes_only_the_authority_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Going below 0021 discards Wikidata links other test files may have made.
+    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_WIKIDATA", "1")
     async with session_factory() as db, db.begin():
         await _insert_old_style_entity(db, f"downgrade-{uuid.uuid4().hex}")
     async with session_factory() as db:
@@ -147,7 +151,11 @@ async def _run(db, kind: str) -> uuid.UUID:  # type: ignore[no-untyped-def]
     return run_id
 
 
-async def test_downgrade_to_0018_keeps_merge_and_split_runs_only() -> None:
+async def test_downgrade_to_0018_keeps_merge_and_split_runs_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Going below 0021 discards Wikidata links other test files may have made.
+    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_WIKIDATA", "1")
     async with session_factory() as db, db.begin():
         kept = [await _run(db, "merge"), await _run(db, "split")]
         dropped = await _run(db, "reindex")

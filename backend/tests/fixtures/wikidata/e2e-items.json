@@ -1,0 +1,194 @@
+{
+ "entities": {
+  "Q900001": {
+   "type": "item",
+   "id": "Q900001",
+   "lastrevid": 5001,
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Ada Lindqvist"
+    },
+    "el": {
+     "language": "el",
+     "value": "Άντα Λίντκβιστ"
+    }
+   },
+   "descriptions": {
+    "en": {
+     "language": "en",
+     "value": "Swedish diplomat (invented for the tests)"
+    }
+   },
+   "aliases": {
+    "en": [
+     {
+      "language": "en",
+      "value": "A. Lindqvist"
+     }
+    ]
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "id": "Q5"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P214": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P214",
+       "datavalue": {
+        "value": "900001",
+        "type": "string"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P213": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P213",
+       "datavalue": {
+        "value": "0000 0000 9000 0001",
+        "type": "string"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {
+    "wiki0": {
+     "site": "wiki0",
+     "title": "Ada Lindqvist"
+    },
+    "wiki1": {
+     "site": "wiki1",
+     "title": "Ada Lindqvist"
+    },
+    "wiki2": {
+     "site": "wiki2",
+     "title": "Ada Lindqvist"
+    },
+    "wiki3": {
+     "site": "wiki3",
+     "title": "Ada Lindqvist"
+    },
+    "wiki4": {
+     "site": "wiki4",
+     "title": "Ada Lindqvist"
+    },
+    "wiki5": {
+     "site": "wiki5",
+     "title": "Ada Lindqvist"
+    },
+    "wiki6": {
+     "site": "wiki6",
+     "title": "Ada Lindqvist"
+    },
+    "wiki7": {
+     "site": "wiki7",
+     "title": "Ada Lindqvist"
+    },
+    "wiki8": {
+     "site": "wiki8",
+     "title": "Ada Lindqvist"
+    },
+    "wiki9": {
+     "site": "wiki9",
+     "title": "Ada Lindqvist"
+    },
+    "wiki10": {
+     "site": "wiki10",
+     "title": "Ada Lindqvist"
+    },
+    "wiki11": {
+     "site": "wiki11",
+     "title": "Ada Lindqvist"
+    }
+   }
+  },
+  "Q900002": {
+   "type": "item",
+   "id": "Q900002",
+   "lastrevid": 5002,
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Ada Lindqvist"
+    }
+   },
+   "descriptions": {
+    "en": {
+     "language": "en",
+     "value": "film (invented for the tests)"
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "id": "Q11424"
+        },
+        "type": "wikibase-entityid"
+       }
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {
+    "wiki0": {
+     "site": "wiki0",
+     "title": "Ada Lindqvist"
+    }
+   }
+  },
+  "Q11424": {
+   "type": "item",
+   "id": "Q11424",
+   "lastrevid": 5003,
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "film"
+    }
+   },
+   "descriptions": {},
+   "aliases": {},
+   "claims": {},
+   "sitelinks": {}
+  }
+ },
+ "searches": {
+  "en:Ada Lindqvist": [
+   "Q900001",
+   "Q900002"
+  ]
+ }
+}

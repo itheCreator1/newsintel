@@ -66,7 +66,7 @@ async def test_export_then_import_round_trips() -> None:
         exported = await export_authorities(db, language=source)
 
     assert exported["format"] == "newsintel-authority-file"
-    assert exported["version"] == 1
+    assert exported["version"] == 2
     assert [item["normalized_text"] for item in exported["entities"]] == [
         "hugo brandt",
         "lee",
