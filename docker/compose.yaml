@@ -38,8 +38,8 @@ services:
       NEWSINTEL_ARTICLE_STORAGE_PATH: /var/lib/newsintel/articles
       NEWSINTEL_NLP_NER_ENABLED: ${NEWSINTEL_NLP_NER_ENABLED:-false}
       NEWSINTEL_NLP_NER_MODEL: ${NEWSINTEL_NLP_NER_MODEL:-en_core_web_sm}
-      # Greek NER stays off while empty; set to el_core_news_sm (in the NER image) to turn it on.
-      NEWSINTEL_NLP_NER_MODEL_EL: ${NEWSINTEL_NLP_NER_MODEL_EL:-}
+      # The Greek model; Greek entities are switched on in Settings (needs the NER image).
+      NEWSINTEL_NLP_NER_MODEL_EL: ${NEWSINTEL_NLP_NER_MODEL_EL:-el_core_news_sm}
     depends_on:
       postgres: { condition: service_healthy }
       setup: { condition: service_completed_successfully }

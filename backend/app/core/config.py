@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     nlp_max_input_characters: int = 1_000_000
     nlp_ner_enabled: bool = False
     nlp_ner_model: str = "en_core_web_sm"
-    # Greek NER stays off until a model is named here (e.g. "el_core_news_sm").
-    nlp_ner_model_el: str | None = None
+    # The Greek model, used once Greek entities are switched on in Settings.
+    nlp_ner_model_el: str = "el_core_news_sm"
     nlp_lease_seconds: int = 300
     clustering_lease_seconds: int = 300
     monitor_interval_seconds: int = 300

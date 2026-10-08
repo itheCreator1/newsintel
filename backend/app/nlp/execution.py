@@ -35,7 +35,12 @@ from app.nlp.processors import (
     extract_keywords,
     validate_input_size,
 )
-from app.nlp.service import current_stop_words, load_input_document, next_retry_at
+from app.nlp.service import (
+    current_stop_words,
+    greek_ner_enabled,
+    load_input_document,
+    next_retry_at,
+)
 from app.search.service import request_indexing
 
 type ProcessorResult = LanguageResult | KeywordResult | EntityResult | CountryResult
@@ -79,6 +84,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             return None
         stop_words = await current_stop_words(db)
         settings = get_settings()
+        greek_model = settings.nlp_ner_model_el if await greek_ner_enabled(db) else None
         initial_context = ProcessorContext(
             text=document.text,
             input_fingerprint=document.fingerprint,
@@ -87,7 +93,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             stop_words=frozenset(stop_words.words),
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
-            ner_model_el=settings.nlp_ner_model_el,
+            ner_model_el=greek_model,
         )
         validate_input_size(initial_context, settings.nlp_max_input_characters)
         language = None
@@ -101,7 +107,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             stop_words=frozenset(stop_words.words),
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
-            ner_model_el=settings.nlp_ner_model_el,
+            ner_model_el=greek_model,
         )
         return LoadedJob(
             job.id,

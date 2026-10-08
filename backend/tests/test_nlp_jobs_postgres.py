@@ -392,18 +392,14 @@ async def test_stop_word_revision_requeues_keywords_without_touching_other_proce
         await db.flush()
         await request_article_nlp(db, article.id, processor_names=("language", "keywords"))
         current = await current_stop_words(db)
-        unique_word = "revision" + "".join(
-            chr(ord("a") + byte % 26) for byte in uuid.uuid4().bytes
-        )
+        unique_word = "revision" + "".join(chr(ord("a") + byte % 26) for byte in uuid.uuid4().bytes)
         await update_stop_words(
             db,
             language="en",
             current_revision=current.revision,
             words=[*current.words, unique_word],
         )
-        assert (
-            await request_article_nlp(db, article.id, processor_names=("keywords",)) == 1
-        )
+        assert await request_article_nlp(db, article.id, processor_names=("keywords",)) == 1
         article_id = article.id
 
     async with session_factory() as db:
@@ -416,3 +412,108 @@ async def test_stop_word_revision_requeues_keywords_without_touching_other_proce
         )
     generations = {state.processor_name: state.requested_generation for state in states}
     assert generations == {"language": 1, "keywords": 2}
+
+
+async def test_greek_switch_queues_the_greek_archive_once_and_refuses_without_the_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi import HTTPException
+
+    from app.core.config import Settings
+    from app.nlp import routes
+    from app.nlp.models import NlpLanguageSetting, NlpReprocessingRun
+    from app.nlp.reprocessing import scan_active_reprocessing
+    from app.nlp.schemas import GreekEntitiesUpdate
+    from app.nlp.service import greek_ner_enabled
+
+    settings = Settings(nlp_ner_enabled=True)
+    monkeypatch.setattr(routes, "_greek_unavailable", lambda _: "model missing")
+    async with session_factory() as db:
+        with pytest.raises(HTTPException) as refused:
+            await routes.put_greek_entities(GreekEntitiesUpdate(enabled=True), db, None, settings)  # type: ignore[arg-type]
+        assert refused.value.status_code == 409
+        assert not await greek_ner_enabled(db)
+
+    monkeypatch.setattr(routes, "_greek_unavailable", lambda _: None)
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="Ο Τσίπρας μίλησε στην Αθήνα",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        state = ArticleNlpState(
+            article_id=article.id,
+            processor_name="language",
+            input_fingerprint="a" * 64,
+            processor_version="test",
+            configuration_fingerprint="a" * 64,
+        )
+        db.add(state)
+        await db.flush()
+        job = NlpJob(
+            state_id=state.id,
+            article_id=article.id,
+            processor_name="language",
+            generation=1,
+            input_fingerprint="a" * 64,
+            processor_version="test",
+            configuration_fingerprint="a" * 64,
+        )
+        db.add(job)
+        await db.flush()
+        run = NlpProcessorRun(
+            job_id=job.id,
+            article_id=article.id,
+            processor_name="language",
+            processor_version="test",
+            algorithm_version="test",
+            configuration_fingerprint="a" * 64,
+            input_fingerprint="a" * 64,
+            generation=1,
+            outcome="success",
+        )
+        db.add(run)
+        await db.flush()
+        db.add(
+            ArticleLanguageAnnotation(
+                article_id=article.id,
+                run_id=run.id,
+                language="el",
+                confidence=0.99,
+                margin=0.9,
+                input_fingerprint="a" * 64,
+            )
+        )
+
+    async with session_factory() as db:
+        on = await routes.put_greek_entities(GreekEntitiesUpdate(enabled=True), db, None, settings)  # type: ignore[arg-type]
+        again = await routes.put_greek_entities(
+            GreekEntitiesUpdate(enabled=True), db, None, settings
+        )  # type: ignore[arg-type]
+    assert on.enabled and on.available and on.reprocessing_run_id is not None
+    assert on.queued_article_count == on.greek_article_count >= 1
+    # Already on: nothing is queued a second time.
+    assert again.reprocessing_run_id is None
+
+    while await scan_active_reprocessing():
+        pass
+    async with session_factory() as db:
+        greek_run = await db.get(NlpReprocessingRun, on.reprocessing_run_id)
+        entity_jobs = (
+            await db.scalars(
+                select(NlpJob).where(
+                    NlpJob.article_id == article.id, NlpJob.processor_name == "entities"
+                )
+            )
+        ).all()
+        off = await routes.put_greek_entities(
+            GreekEntitiesUpdate(enabled=False), db, None, settings
+        )  # type: ignore[arg-type]
+        setting = await db.get(NlpLanguageSetting, "el")
+    assert greek_run is not None and greek_run.status == "succeeded"
+    assert len(entity_jobs) == 1
+    assert not off.enabled and off.reprocessing_run_id is None
+    assert setting is not None and not setting.ner_enabled

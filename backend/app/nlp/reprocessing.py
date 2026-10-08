@@ -112,6 +112,24 @@ async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:
         return len(ids)
 
 
+async def scan_active_reprocessing(batch_size: int = 100) -> int:
+    """Advance every unfinished run by one batch, so a run started from Settings needs no CLI.
+
+    One batch per scheduler cycle keeps a large reprocess from flooding the NLP queue at once.
+    """
+    async with session_factory() as db:
+        run_ids = list(
+            (
+                await db.scalars(
+                    select(NlpReprocessingRun.id)
+                    .where(NlpReprocessingRun.status == "scanning")
+                    .order_by(NlpReprocessingRun.created_at)
+                )
+            ).all()
+        )
+    return sum([await scan_reprocessing(run_id, batch_size=batch_size) for run_id in run_ids])
+
+
 async def reprocessing_status() -> list[dict[str, object]]:
     async with session_factory() as db:
         runs = list(

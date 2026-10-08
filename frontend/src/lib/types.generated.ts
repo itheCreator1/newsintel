@@ -381,6 +381,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nlp/greek-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Greek Entities */
+        get: operations["get_greek_entities_api_v1_nlp_greek_entities_get"];
+        /**
+         * Put Greek Entities
+         * @description Switch Greek entities on or off; turning on can also queue the Greek archive.
+         *
+         *     Turning off keeps the Greek entities already extracted; new Greek articles get none.
+         */
+        put: operations["put_greek_entities_api_v1_nlp_greek_entities_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/nlp/stop-words": {
         parameters: {
             query?: never;
@@ -2601,6 +2624,34 @@ export interface components {
             /** Recent Since */
             recent_since?: string | null;
         };
+        /** GreekEntitiesResponse */
+        GreekEntitiesResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Available */
+            available: boolean;
+            /** Detail */
+            detail?: string | null;
+            /** Greek Article Count */
+            greek_article_count: number;
+            /** Reprocessing Run Id */
+            reprocessing_run_id?: string | null;
+            /**
+             * Queued Article Count
+             * @default 0
+             */
+            queued_article_count: number;
+        };
+        /** GreekEntitiesUpdate */
+        GreekEntitiesUpdate: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Process Existing
+             * @default true
+             */
+            process_existing: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4660,6 +4711,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NlpMutationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_greek_entities_api_v1_nlp_greek_entities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreekEntitiesResponse"];
+                };
+            };
+        };
+    };
+    put_greek_entities_api_v1_nlp_greek_entities_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GreekEntitiesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreekEntitiesResponse"];
                 };
             };
             /** @description Validation Error */

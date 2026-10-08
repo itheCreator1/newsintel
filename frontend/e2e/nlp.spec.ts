@@ -32,6 +32,8 @@ test('annotations refine search and stop words use revisioned settings', async (
   await expect(page).not.toHaveURL(/story_country=/)
 
   await page.getByRole('link', { name: 'Settings' }).click()
+  await expect(page.getByRole('switch')).toBeDisabled()
+  await expect(page.getByText(/Not available: Entity recognition is off/)).toBeVisible()
   const words = page.getByLabel('English stop words')
   await expect(words).not.toHaveValue('', { timeout: 30_000 })
   await words.fill(`${await words.inputValue()}\nphasefiveterm`)

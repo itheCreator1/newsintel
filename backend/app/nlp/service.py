@@ -18,6 +18,7 @@ from app.nlp.models import (
     ArticleLanguageAnnotation,
     ArticleNlpState,
     NlpJob,
+    NlpLanguageSetting,
     StopWordRevision,
 )
 from app.search.service import request_indexing
@@ -31,7 +32,7 @@ def next_retry_at(now: datetime, attempt: int) -> datetime:
 
 
 def configuration_fingerprint(
-    processor_name: str, *, stop_words_fingerprint: str | None = None
+    processor_name: str, *, stop_words_fingerprint: str | None = None, greek_ner: bool = False
 ) -> str:
     settings = get_settings()
     data = {
@@ -42,8 +43,8 @@ def configuration_fingerprint(
         "ner_model": settings.nlp_ner_model if processor_name == "entities" else None,
         "max_input_characters": settings.nlp_max_input_characters,
     }
-    if processor_name == "entities" and settings.nlp_ner_model_el:
-        # Added only when set, so an install without Greek NER keeps its fingerprints.
+    if processor_name == "entities" and greek_ner and settings.nlp_ner_model_el:
+        # Added only when on, so an install without Greek NER keeps its fingerprints.
         data["ner_model_el"] = settings.nlp_ner_model_el
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
@@ -102,6 +103,15 @@ async def update_stop_words(
     return revision
 
 
+async def greek_ner_enabled(db: AsyncSession) -> bool:
+    """Whether Greek entities are switched on in Settings."""
+    return bool(
+        await db.scalar(
+            select(NlpLanguageSetting.ner_enabled).where(NlpLanguageSetting.language == "el")
+        )
+    )
+
+
 async def load_input_document(db: AsyncSession, article_id: uuid.UUID) -> InputDocument:
     article = await db.scalar(
         select(Article)
@@ -132,13 +142,14 @@ async def request_article_nlp(
     await db.scalar(select(Article.id).where(Article.id == article_id).with_for_update())
     document = await load_input_document(db, article_id)
     stop_words = await current_stop_words(db)
+    greek_ner = await greek_ner_enabled(db)
     requested = 0
     for name in processor_names:
         if name not in PROCESSOR_VERSIONS:
             raise ValueError(f"unknown NLP processor: {name}")
         version = PROCESSOR_VERSIONS[name]
         config = configuration_fingerprint(
-            name, stop_words_fingerprint=stop_words.configuration_fingerprint
+            name, stop_words_fingerprint=stop_words.configuration_fingerprint, greek_ner=greek_ner
         )
         state = await db.scalar(
             select(ArticleNlpState)

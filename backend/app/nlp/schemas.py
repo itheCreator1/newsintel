@@ -123,6 +123,23 @@ class NlpMutationResponse(BaseModel):
     jobs_created: int
 
 
+class GreekEntitiesResponse(BaseModel):
+    enabled: bool
+    # Whether this install can run Greek NER at all: the NER image with the Greek model.
+    available: bool
+    detail: str | None = None
+    greek_article_count: int
+    # The run queuing the Greek archive, when this response started one.
+    reprocessing_run_id: uuid.UUID | None = None
+    queued_article_count: int = 0
+
+
+class GreekEntitiesUpdate(BaseModel):
+    enabled: bool
+    # Also queue the Greek articles already in the archive (only when turning on).
+    process_existing: bool = True
+
+
 class StopWordsResponse(BaseModel):
     language: str
     revision: int

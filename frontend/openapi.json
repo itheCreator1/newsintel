@@ -1283,6 +1283,85 @@
         }
       }
     },
+    "/api/v1/nlp/greek-entities": {
+      "get": {
+        "tags": [
+          "nlp"
+        ],
+        "summary": "Get Greek Entities",
+        "operationId": "get_greek_entities_api_v1_nlp_greek_entities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GreekEntitiesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "nlp"
+        ],
+        "summary": "Put Greek Entities",
+        "description": "Switch Greek entities on or off; turning on can also queue the Greek archive.\n\nTurning off keeps the Greek entities already extracted; new Greek articles get none.",
+        "operationId": "put_greek_entities_api_v1_nlp_greek_entities_put",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GreekEntitiesUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GreekEntitiesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/nlp/stop-words": {
       "get": {
         "tags": [
@@ -11375,6 +11454,75 @@
           "truncated"
         ],
         "title": "GraphResponse"
+      },
+      "GreekEntitiesResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "greek_article_count": {
+            "type": "integer",
+            "title": "Greek Article Count"
+          },
+          "reprocessing_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reprocessing Run Id"
+          },
+          "queued_article_count": {
+            "type": "integer",
+            "title": "Queued Article Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "available",
+          "greek_article_count"
+        ],
+        "title": "GreekEntitiesResponse"
+      },
+      "GreekEntitiesUpdate": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "process_existing": {
+            "type": "boolean",
+            "title": "Process Existing",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "GreekEntitiesUpdate"
       },
       "HTTPValidationError": {
         "properties": {

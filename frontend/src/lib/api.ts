@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -145,6 +145,8 @@ export const api = {
   retryNlpJob: (jobId: string) => mutate<{ status: string; jobs_created: number }>(`/nlp/jobs/${jobId}/retry`, 'POST'),
   stopWords: () => request<StopWords>('/nlp/stop-words'),
   updateStopWords: (currentRevision: number, words: string[]) => mutate<StopWords>('/nlp/stop-words', 'PUT', { current_revision: currentRevision, words }),
+  greekEntities: () => request<GreekEntities>('/nlp/greek-entities'),
+  updateGreekEntities: (enabled: boolean, processExisting: boolean) => mutate<GreekEntities>('/nlp/greek-entities', 'PUT', { enabled, process_existing: processExisting }),
   nlpEntities: (q = '', cursor?: string) => annotationLookup('/nlp/entities', q, cursor),
   nlpKeywords: (q = '', cursor?: string) => annotationLookup('/nlp/keywords', q, cursor),
   ingestionTimeline: () => request<IngestionTimeline>('/analytics/ingestion-timeline'),
