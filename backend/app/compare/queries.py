@@ -114,7 +114,7 @@ async def resolve(db: AsyncSession, spec: Spec, ref: str) -> Subject | None:
         entity = await db.get(Entity, uuid.UUID(ref))
         if entity is None:
             return None
-        label = entity.display_text
+        label = entity.name
     elif spec.kind == "source":
         feed = await db.get(Feed, uuid.UUID(ref))
         if feed is None:
@@ -263,9 +263,7 @@ async def _related(db: AsyncSession, spec: Spec, side_a: CTE, side_b: CTE) -> Co
         ]
     return CompareRelated(
         entities=[
-            RelatedItem(
-                id=row.Entity.id, label=row.Entity.display_text, a_articles=row.a, b_articles=row.b
-            )
+            RelatedItem(id=row.Entity.id, label=row.Entity.name, a_articles=row.a, b_articles=row.b)
             for row in entity_rows
         ],
         countries=[

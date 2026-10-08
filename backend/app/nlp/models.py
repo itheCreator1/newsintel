@@ -5,6 +5,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    ColumnElement,
     DateTime,
     Float,
     ForeignKey,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -136,6 +138,16 @@ class Entity(Base):
     # A name that may stand for several people: NER never folds it into a longer name.
     ambiguous: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     note: Mapped[str | None] = mapped_column(Text)
+
+    @hybrid_property
+    def name(self) -> str:
+        """The name to show: the user's preferred one, else the latest spelling NLP saw."""
+        return self.preferred_text or self.display_text
+
+    @name.inplace.expression
+    @classmethod
+    def _name_expression(cls) -> ColumnElement[str]:
+        return func.coalesce(cls.preferred_text, cls.display_text)
 
 
 class EntityDistinct(Base):

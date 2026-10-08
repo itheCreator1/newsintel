@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.models import StoryClusterMember
 from app.db.session import session_factory
+from app.entities.resolver import entity_group, expand_for_search, resolve_root
 from app.events.models import Event, EventCluster
 from app.events.service import refresh_event
 from app.nlp.authority import Combined, RowPart, combine_rows, split_occurrences
@@ -37,16 +38,21 @@ __all__ = [
     "add_distinct",
     "advance_run",
     "combine_rows",
+    "entity_group",
+    "expand_for_search",
+    "history",
     "merge",
     "merge_problem",
     "remove_distinct",
     "rename",
+    "resolve_root",
     "scan_authority_runs",
     "set_ambiguous",
     "set_note",
     "set_status",
     "split",
     "split_occurrences",
+    "variants",
 ]
 
 # Decided 2026-10-08: a country the model tagged LOC may join its GPE root; the root's type wins.
@@ -90,6 +96,33 @@ def merge_problem(variant: EntityRef, root: EntityRef, *, distinct: bool) -> tup
     ):
         return 422, "Only entities of the same type can be merged"
     return None
+
+
+async def variants(db: AsyncSession, root_id: uuid.UUID) -> list[Entity]:
+    return list(
+        await db.scalars(
+            select(Entity)
+            .where(Entity.authority_id == root_id)
+            .order_by(Entity.normalized_text, Entity.id)
+        )
+    )
+
+
+async def history(db: AsyncSession, root_id: uuid.UUID) -> list[EntityAuthorityChange]:
+    """Every change to a root or to a name that is its variant now, oldest first."""
+    ids = [root_id, *(variant.id for variant in await variants(db, root_id))]
+    return list(
+        await db.scalars(
+            select(EntityAuthorityChange)
+            .where(
+                or_(
+                    EntityAuthorityChange.entity_id.in_(ids),
+                    EntityAuthorityChange.other_id.in_(ids),
+                )
+            )
+            .order_by(EntityAuthorityChange.created_at, EntityAuthorityChange.id)
+        )
+    )
 
 
 def _ref(entity: Entity) -> EntityRef:
@@ -296,7 +329,8 @@ async def add_distinct(db: AsyncSession, a_id: uuid.UUID, b_id: uuid.UUID) -> No
 
 
 async def remove_distinct(db: AsyncSession, a_id: uuid.UUID, b_id: uuid.UUID) -> None:
-    low, high = _pair(a_id, b_id)
+    roots = [await _root_of(db, await _get(db, value)) for value in (a_id, b_id)]
+    low, high = _pair(roots[0].id, roots[1].id)
     removed = await db.scalar(
         delete(EntityDistinct)
         .where(EntityDistinct.a_id == low, EntityDistinct.b_id == high)

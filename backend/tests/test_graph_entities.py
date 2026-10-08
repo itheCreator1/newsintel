@@ -457,7 +457,13 @@ class _Adapter:
 def adapter(monkeypatch: pytest.MonkeyPatch) -> type[_Adapter]:
     _Adapter.responses, _Adapter.bodies, _Adapter.unavailable = [], [], False
     monkeypatch.setattr("app.graph.routes.ElasticsearchAdapter", _Adapter)
+    # An entity outside the authority file is its own root; tests of variants replace this.
+    monkeypatch.setattr("app.graph.routes.entity_group", _ungrouped, raising=False)
     return _Adapter
+
+
+async def _ungrouped(_db: object, entity_id: uuid.UUID) -> tuple[uuid.UUID, list[str]]:
+    return entity_id, [str(entity_id)]
 
 
 def _entity(entity_id: uuid.UUID, text: str, entity_type: str = "ORG") -> Entity:
@@ -534,6 +540,49 @@ async def test_graph_narrows_both_requests_to_articles_holding_the_focus_entity(
     assert [node.id for node in graph.nodes] == [focus, other]
     expected = focus_query(build_query(_criteria(), 2), focus)
     assert [body["query"] for _, body in adapter.bodies] == [expected, expected]
+
+
+@pytest.mark.asyncio
+async def test_graph_focus_resolves_a_variant_to_its_root(
+    adapter: type[_Adapter], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, variant, other = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    group = sorted([str(root), str(variant)])
+
+    async def grouped(_db: object, entity_id: uuid.UUID) -> tuple[uuid.UUID, list[str]]:
+        assert entity_id == variant
+        return root, group
+
+    monkeypatch.setattr("app.graph.routes.entity_group", grouped)
+    adapter.responses = [
+        _nodes_response([_bucket(str(root), 5, 5), _bucket(str(other), 3, 3)], focus=5),
+        _edges_response([{"key": f"{root}&{other}", "doc_count": 3}]),
+    ]
+    database = _Database(entities=[_entity(root, "Port Trust"), _entity(other, "Ada Reyes")])
+
+    graph = await _graph(database, focus_entity_id=variant)
+
+    assert [node.id for node in graph.nodes] == [root, other]
+    # Articles still indexed under the variant's id belong to the focus too.
+    expected = focus_query(build_query(_criteria(), 2), root, group)
+    assert [body["query"] for _, body in adapter.bodies] == [expected, expected]
+    focus = adapter.bodies[0][1]["aggs"]["focus"]["aggs"]["matched"]["filter"]
+    assert focus == {"terms": {"entities.id": group}}
+
+
+def test_focus_query_matches_any_name_of_the_focus() -> None:
+    root, variant = uuid.uuid4(), uuid.uuid4()
+    base = build_query(_criteria(), 2)
+
+    assert focus_query(base, root) == focus_query(base, root, [str(root)])
+    narrowed = focus_query(base, root, [str(root), str(variant)])
+    holds = narrowed["bool"]["filter"][-1]
+    assert holds == {
+        "nested": {
+            "path": "entities",
+            "query": {"terms": {"entities.id": [str(root), str(variant)]}},
+        }
+    }
 
 
 @pytest.mark.asyncio

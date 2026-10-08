@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, and_, case, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.api.cursors import cursor_or_400
 from app.auth.dependencies import require_csrf
@@ -470,16 +471,35 @@ async def _lookup(
         if model is Entity
         else (ArticleKeyword, ArticleKeyword.keyword_id)
     )
-    query = select(model).where(
-        select(link.id).where(link_column == model.id, link.is_current).exists()
-    )
+    linked = select(link.id).where(link_column == model.id, link.is_current).exists()
+    query = select(model).where(linked)
+    variant = aliased(Entity)
+    if model is Entity:
+        # The picker offers roots only; a root still counts while a merge run is moving its
+        # variants' links over.
+        variant_linked = (
+            select(link.id)
+            .join(variant, variant.id == link_column)
+            .where(variant.authority_id == Entity.id, link.is_current)
+            .exists()
+        )
+        query = select(Entity).where(Entity.authority_id.is_(None), or_(linked, variant_linked))
     rank: ColumnElement[int] = literal(1)
     if q.strip():
-        matches = (
-            or_(*(Entity.normalized_text.startswith(key) for key in entity_lookup_prefixes(q)))
-            if model is Entity
-            else model.normalized_text.startswith(q.strip().casefold())
-        )
+        if model is Entity:
+            prefixes = entity_lookup_prefixes(q)
+            # A root is found by any of its names.
+            by_variant = (
+                select(variant.id)
+                .where(
+                    variant.authority_id == Entity.id,
+                    or_(*(variant.normalized_text.startswith(key) for key in prefixes)),
+                )
+                .exists()
+            )
+            matches = or_(*(Entity.normalized_text.startswith(key) for key in prefixes), by_variant)
+        else:
+            matches = model.normalized_text.startswith(q.strip().casefold())
         if model is Entity and (countries := country_entity_names(q)):
             # A country is stored under one name; its other spellings ("US") have no row to match.
             country = and_(Entity.entity_type == "GPE", Entity.normalized_text.in_(countries))
@@ -514,7 +534,7 @@ async def _lookup(
         items=[
             AnnotationLookupItem(
                 id=row.id,
-                text=row.display_text,
+                text=row.name if isinstance(row, Entity) else row.display_text,
                 normalized_text=row.normalized_text,
                 kind=row.entity_type if isinstance(row, Entity) else row.kind,
             )

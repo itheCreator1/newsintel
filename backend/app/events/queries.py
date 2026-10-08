@@ -11,6 +11,7 @@ from sqlalchemy.sql.sqltypes import Date
 
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.entities.queries import effective_date, load_representatives
+from app.entities.resolver import names_of
 from app.events.models import Event, EventCluster, EventEntity
 from app.events.schemas import (
     EventArticlePage,
@@ -101,7 +102,7 @@ async def _top_entities(
         func.row_number()
         .over(
             partition_by=EventEntity.event_id,
-            order_by=(EventEntity.article_count.desc(), Entity.display_text.asc(), Entity.id.asc()),
+            order_by=(EventEntity.article_count.desc(), Entity.name.asc(), Entity.id.asc()),
         )
         .label("rank")
     )
@@ -109,7 +110,7 @@ async def _top_entities(
         select(
             EventEntity.event_id,
             Entity.id,
-            Entity.display_text,
+            Entity.name,
             Entity.entity_type,
             EventEntity.article_count,
             rank,
@@ -209,7 +210,9 @@ async def events(
         query = query.where(
             exists(
                 select(1).where(
-                    EventEntity.event_id == Event.id, EventEntity.entity_id == entity_id
+                    EventEntity.event_id == Event.id,
+                    # Any name of its root: events built before a merge still name the variant.
+                    EventEntity.entity_id.in_(names_of([entity_id])),
                 )
             )
         )

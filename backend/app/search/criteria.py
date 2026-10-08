@@ -1,5 +1,5 @@
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from typing import Annotated, Any
 
@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.entities.resolver import expand_for_search
 from app.feeds.models import Feed
 from app.nlp.models import Entity, Keyword
 from app.nlp.processors import entity_name_keys
@@ -33,6 +34,8 @@ class SearchCriteria:
     story_countries: list[str]
     mentioned_countries: list[str]
     story_cluster_ids: list[str]
+    # entity_ids widened to every name of their roots; what the index is filtered on.
+    entity_match_ids: list[str] = field(default_factory=list)
 
     @property
     def annotation_search(self) -> bool:
@@ -138,6 +141,12 @@ async def search_criteria(
         parsed = parse_query(q)
     except SearchSyntaxError as exc:
         raise HTTPException(422, str(exc)) from exc
+    entity_ids = sorted(
+        {
+            *(str(value) for value in entity_id or []),
+            *(await _resolve_annotations(db, parsed.entity_values, Entity)),
+        }
+    )
     return SearchCriteria(
         parsed=parsed,
         q=q.strip(),
@@ -153,12 +162,8 @@ async def search_criteria(
         content_available=content_available,
         processing=sorted(processing_status or []),
         languages=sorted({value.casefold() for value in language or []} | set(parsed.languages)),
-        entity_ids=sorted(
-            {
-                *(str(value) for value in entity_id or []),
-                *(await _resolve_annotations(db, parsed.entity_values, Entity)),
-            }
-        ),
+        entity_ids=entity_ids,
+        entity_match_ids=await expand_for_search(db, entity_ids),
         entity_types=sorted({value.upper() for value in entity_type or []}),
         keyword_ids=sorted(
             {
@@ -258,7 +263,10 @@ def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]
         filters.append({"terms": {"detected_language": criteria.languages}})
     entity_must: list[dict[str, Any]] = []
     if criteria.entity_ids or criteria.parsed.entity_values:
-        entity_must.append({"terms": {"entities.id": criteria.entity_ids}})
+        # Criteria that tests build by hand leave the match ids out.
+        entity_must.append(
+            {"terms": {"entities.id": criteria.entity_match_ids or criteria.entity_ids}}
+        )
     if criteria.entity_types:
         entity_must.append({"terms": {"entities.type": criteria.entity_types}})
     if entity_must:
