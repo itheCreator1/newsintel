@@ -122,3 +122,4 @@
 "test_wikidata_refresh_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_wikidata_transfer_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_wikidata_catalogue_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_wikidata_fixture_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false, note = "Starts the fixture server itself on a free local port; needs no running one." }
