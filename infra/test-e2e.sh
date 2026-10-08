@@ -177,7 +177,7 @@ case $group in
   investigations) users phase6 ;;
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
-  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a ;;
+  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b ;;
 esac
 ni_stage app.up
 $compose up -d $app_build_flag api worker nlp-worker scheduler frontend
@@ -260,6 +260,8 @@ case $group in
     e2e "source dossier workflow"
     e2e "event workflow"
     e2e "entity dossier workflow"
+    # Merges two shared entities and splits them back, so the counts after it are unchanged.
+    e2e "authority merge workflow"
     e2e "ui polish workflow"
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.

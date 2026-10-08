@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityClusterPage, EntityDossier, EntityRelationships, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities } from './api-types'
+import type { AnnotationLookupPage, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -97,6 +97,13 @@ export const api = {
   entityArticles: (id: string, cursor?: string) => request<EntityArticlePage>(`/entities/${id}/articles${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   entityClusters: (id: string, cursor?: string) => request<EntityClusterPage>(`/entities/${id}/clusters${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   entityRelationships: (id: string, days: number) => request<EntityRelationships>(`/entities/${id}/relationships?days=${days}`),
+  entityVariants: (id: string) => request<EntityVariantList>(`/entities/${id}/variants`),
+  entityHistory: (id: string) => request<EntityHistory>(`/entities/${id}/history`),
+  mergeEntity: (id: string, targetId: string) => mutate<EntityAuthorityRun>(`/entities/${id}/merge`, 'POST', { target_id: targetId }),
+  splitEntity: (id: string) => mutate<EntityAuthorityRun>(`/entities/${id}/split`, 'POST'),
+  updateEntity: (id: string, changes: EntityAuthorityUpdate) => mutate<EntityAuthority>(`/entities/${id}`, 'PATCH', changes),
+  addDistinct: (id: string, otherId: string) => mutate<void>(`/entities/${id}/distinct/${otherId}`, 'POST'),
+  removeDistinct: (id: string, otherId: string) => mutate<void>(`/entities/${id}/distinct/${otherId}`, 'DELETE'),
   events: (filters: EventFilters, cursor?: string) => request<EventPage>(`/events${query({ ...filters, cursor })}`),
   event: (id: string) => request<EventDetail>(`/events/${id}`),
   eventClusters: (id: string, cursor?: string) => request<EventClusterPage>(`/events/${id}/clusters${query({ cursor })}`),
