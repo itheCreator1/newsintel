@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
+import { EntityAuthority } from '../../components/EntityAuthority'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
@@ -74,6 +75,7 @@ function EntityContent() {
           : <Note error>Could not load this entity.</Note>)}
         {entity && (
           <div className="flex flex-col gap-2 px-6 py-4">
+            {entity.redirected_from && <p role="status" className="text-sm text-muted-foreground">Opened from a name merged into this entity.</p>}
             <h3 className="text-lg font-semibold text-foreground">{entity.display_name}</h3>
             <p className="text-sm text-muted-foreground">{entity.entity_type} · {entity.language}</p>
             <p className="text-sm text-muted-foreground">
@@ -90,6 +92,13 @@ function EntityContent() {
           </div>
         )}
       </GlassPanel>
+
+      {entity && (
+        <GlassPanel className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-foreground">Authority file</h3>
+          <EntityAuthority key={entity.id} entity={entity} />
+        </GlassPanel>
+      )}
 
       {entity && (
         <GlassPanel className="flex flex-col gap-3">
