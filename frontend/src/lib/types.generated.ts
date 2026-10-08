@@ -728,6 +728,34 @@ export interface paths {
         patch: operations["update_see_also_api_v1_entity_relations__relation_id__patch"];
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/wikidata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wikidata Link
+         * @description The root's Wikidata link, identifiers and cached item; read locally, never from Wikidata.
+         */
+        get: operations["get_wikidata_link_api_v1_entities__entity_id__wikidata_get"];
+        put?: never;
+        /**
+         * Link Wikidata
+         * @description Link the root to a Wikidata item. A QID another root holds is refused with that root.
+         */
+        post: operations["link_wikidata_api_v1_entities__entity_id__wikidata_post"];
+        /**
+         * Unlink Wikidata
+         * @description Remove the link and the identifiers read off the item; the names it brought stay.
+         */
+        delete: operations["unlink_wikidata_api_v1_entities__entity_id__wikidata_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -4537,6 +4565,66 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** WikidataItemResponse */
+        WikidataItemResponse: {
+            /** Qid */
+            qid: string;
+            /** State */
+            state: string;
+            /** Redirect To */
+            redirect_to: string | null;
+            /** Revision */
+            revision: number | null;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Aliases */
+            aliases: {
+                [key: string]: string[];
+            };
+            /** Descriptions */
+            descriptions: {
+                [key: string]: string;
+            };
+            /** Instance Of */
+            instance_of: string[];
+            /** Different From */
+            different_from: string[];
+            /** Sitelinks */
+            sitelinks: number;
+            /** Claims Fetched */
+            claims_fetched: boolean;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+        };
+        /** WikidataLinkRequest */
+        WikidataLinkRequest: {
+            /** Qid */
+            qid: string;
+        };
+        /** WikidataLinkResponse */
+        WikidataLinkResponse: {
+            /** Entity Id */
+            entity_id: string;
+            /** Qid */
+            qid: string | null;
+            /** Identifiers */
+            identifiers: {
+                [key: string]: string;
+            };
+            item: components["schemas"]["WikidataItemResponse"] | null;
+            /** Fetch Pending */
+            fetch_pending: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -6066,6 +6154,105 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SeeAlsoItem"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wikidata_link_api_v1_entities__entity_id__wikidata_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataLinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_wikidata_api_v1_entities__entity_id__wikidata_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WikidataLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataLinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_wikidata_api_v1_entities__entity_id__wikidata_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

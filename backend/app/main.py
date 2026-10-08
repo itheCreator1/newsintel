@@ -24,6 +24,7 @@ from app.operations.routes import router as operations_router
 from app.search.elasticsearch import close_shared_client, open_shared_client
 from app.search.routes import router as search_router
 from app.sources.routes import router as sources_router
+from app.wikidata.routes import router as wikidata_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(articles_router, prefix="/api/v1")
     app.include_router(nlp_router, prefix="/api/v1")
     app.include_router(entities_router, prefix="/api/v1")
+    app.include_router(wikidata_router, prefix="/api/v1")
     app.include_router(clustering_router, prefix="/api/v1")
     app.include_router(events_router, prefix="/api/v1")
     app.include_router(sources_router, prefix="/api/v1")
