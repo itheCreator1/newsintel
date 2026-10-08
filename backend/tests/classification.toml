@@ -115,3 +115,5 @@
 "test_wikidata_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_wikidata_contract.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_wikidata_links_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_wikidata_names_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_wikidata_names_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
