@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from urllib.parse import parse_qsl
 
 import pytest
 from fastapi import HTTPException
@@ -61,6 +62,9 @@ class _NoQueries:
         f"/clusters/{uuid.uuid4()}",
         "/nlp/failures",
         "/search/indexing/failures",
+        f"/entities/{uuid.uuid4()}/articles",
+        f"/entities/{uuid.uuid4()}/clusters",
+        f"/compare/articles?kind=entity&a={uuid.uuid4()}&b={uuid.uuid4()}&part=a",
     ],
 )
 @pytest.mark.parametrize("cursor", MALFORMED)
@@ -75,6 +79,10 @@ async def test_paged_routes_answer_400_for_a_malformed_cursor(path: str, cursor:
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
     ) as client:
-        response = await client.get(f"/api/v1{path}", params={"cursor": cursor})
+        # httpx replaces a URL's own query with `params`, so a route's other parameters move there.
+        route, _, query = path.partition("?")
+        response = await client.get(
+            f"/api/v1{route}", params={**dict(parse_qsl(query)), "cursor": cursor}
+        )
     assert response.status_code == 400, response.text
     assert response.json()["detail"] == "Invalid cursor"

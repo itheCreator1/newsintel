@@ -16,6 +16,18 @@ services:
       test-redis: { condition: service_healthy }
       test-elasticsearch: { condition: service_healthy }
 
+  # Same test image plus the pinned spaCy models; only the full gate's ner-model stage runs it,
+  # always with --no-deps (the real-model tests touch no service).
+  backend-test-ner:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.test
+      args:
+        NEWSINTEL_INSTALL_SPACY: "true"
+    image: ${NEWSINTEL_IMAGE_BACKEND_TEST_NER:-newsintel-backend-test-ner:local}
+    environment:
+      NEWSINTEL_RUN_NER_TESTS: "1"
+
   frontend-test:
     build:
       context: ../frontend

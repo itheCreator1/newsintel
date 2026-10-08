@@ -70,7 +70,7 @@ Pick the smallest loop that covers your change, and finish with the full gate be
 | Quick | `./infra/test-quick.sh` | ruff, mypy, unit pytest, the OpenAPI/TypeScript contract, vitest, frontend typecheck. No service containers. CI runs this. |
 | Integration | `./infra/test-integration.sh <pytest-node-id>...` | Exactly the named integration modules, with only the services they need. |
 | Browser | `./infra/test-e2e.sh <search\|investigations\|monitors\|graph>` | One Playwright group against a fresh Compose stack. |
-| Full gate | `./infra/test-docker.sh` | Everything: all of the above, migrations, the single-head check, `npm run build`, the backup/restore rehearsal and all four browser groups. |
+| Full gate | `./infra/test-docker.sh` | Everything: all of the above, migrations, the single-head check, the real-model NER tests (English and Greek spaCy models), `npm run build`, the backup/restore rehearsal and all four browser groups. |
 
 `./infra/test-docker.sh` is the only run that counts as a full regression run. It rejects skipped tests and stale generated contracts, and it is the sole source of the timing and memory baselines in §7. Run it before merging: on most pull requests CI runs it only after the merge (see §6).
 

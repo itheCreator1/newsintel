@@ -12,6 +12,7 @@ ner_compose="docker compose -p $project -f docker/compose.yaml -f docker/compose
 # the e2e groups it dispatches (via --reuse-images) resolve to the same already-built image
 # instead of rebuilding it once per service/group.
 export NEWSINTEL_IMAGE_BACKEND_TEST="newsintel-backend-test:$project"
+export NEWSINTEL_IMAGE_BACKEND_TEST_NER="newsintel-backend-test-ner:$project"
 export NEWSINTEL_IMAGE_FRONTEND_TEST="newsintel-frontend-test:$project"
 export NEWSINTEL_IMAGE_BACKEND="newsintel-backend:$project"
 export NEWSINTEL_IMAGE_BACKEND_NER="newsintel-backend-ner:$project"
@@ -125,13 +126,15 @@ ni_mem_start "$project"
 # services (worker/nlp-worker/scheduler, and worker/scheduler under the NER overlay) resolve to
 # the same tag at up/run time without ever being built themselves.
 # ni_stage's own aggregate would only cover the gap between two stage markers (near-zero), so
-# build.all is instead written by hand below as the wall-clock span of the five sub-builds --
+# build.all is instead written by hand below as the wall-clock span of the six sub-builds --
 # required so phase-5's stage-name diff against the phase-1 baseline (which only has build.all)
 # has a common key. It duplicates the 5 rows' time; ni_report_finalize's TOTAL is the rows'
 # wall-clock span, so an aggregate row inside that span doesn't change it.
 ni_bt0=$(date +%s)
 ni_stage build.backend-test
 $compose build backend-test
+ni_stage build.backend-test-ner
+$compose build backend-test-ner
 ni_stage build.frontend-test
 $compose build frontend-test
 ni_stage build.backend
@@ -232,6 +235,19 @@ infra/test-restore.sh "$($compose ps -q test-postgres)" newsintel_tests
 # while every remaining stage runs --no-deps or against its own separate Compose project.
 ni_stage deps.stop
 $compose stop test-postgres test-redis test-elasticsearch
+
+# The pytest stage above runs tests/test_nlp_ner_model.py without spaCy, where it only checks the
+# pinned models in pyproject.toml. Here the same tests run against the real English and Greek
+# models; NEWSINTEL_RUN_NER_TESTS is set on the command itself so the real branch cannot be skipped.
+ni_stage ner-model
+$compose run --rm --no-deps -v "$artifacts:/artifacts" backend-test-ner \
+  bash -o pipefail -c '
+    python -c "import en_core_web_sm, el_core_news_sm" || { echo "spaCy models missing from the NER test image" >&2; exit 1; }
+    NEWSINTEL_RUN_NER_TESTS=1 python -m pytest -q -rs tests/test_nlp_ner_model.py | tee /artifacts/ner-model.log
+    pytest_status=${PIPESTATUS[0]}
+    [ "$pytest_status" -eq 0 ] || exit "$pytest_status"
+    ! grep -Eq "[0-9]+ skipped" /artifacts/ner-model.log
+  '
 
 ni_stage contract.openapi
 $compose run --rm --no-deps -v "$artifacts:/artifacts" backend-test \

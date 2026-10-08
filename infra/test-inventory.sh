@@ -49,6 +49,10 @@ ni_stage backend.full
 $compose run --rm --no-deps backend-test pytest --collect-only -q tests \
   > "$artifacts/inventory/backend-full.txt"
 
+ni_stage backend.ner-model
+$compose run --rm --no-deps backend-test pytest --collect-only -q tests/test_nlp_ner_model.py \
+  > "$artifacts/inventory/backend-ner-model.txt"
+
 ni_stage backend.quick
 if [ -f "$root/backend/tests/classify.py" ]; then
   $compose run --rm --no-deps backend-test \

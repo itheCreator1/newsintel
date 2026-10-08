@@ -3,7 +3,14 @@ FROM python:3.13-slim
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --group dev
+# The full gate's ner-model stage builds this image with the spaCy models, to run the
+# real-model tests in tests/test_nlp_ner_model.py; every other stage uses the lean default.
+ARG NEWSINTEL_INSTALL_SPACY=false
+RUN if [ "$NEWSINTEL_INSTALL_SPACY" = "true" ]; then \
+      uv sync --frozen --group dev --group ner; \
+    else \
+      uv sync --frozen --group dev; \
+    fi
 COPY app ./app
 COPY migrations ./migrations
 COPY tests ./tests

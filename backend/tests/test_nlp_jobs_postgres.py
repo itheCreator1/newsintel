@@ -517,3 +517,144 @@ async def test_greek_switch_queues_the_greek_archive_once_and_refuses_without_th
     assert len(entity_jobs) == 1
     assert not off.enabled and off.reprocessing_run_id is None
     assert setting is not None and not setting.ner_enabled
+
+
+async def test_greek_article_entities_are_stored_with_language_el(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Greek article goes through a whole entities job, from detection to the database.
+
+    spaCy is faked (the test image has none; the ner-model gate stage runs the real model), but
+    language detection, the Greek model choice, the name key and the upsert are all real.
+    """
+    from types import SimpleNamespace
+
+    from app.core.config import Settings
+    from app.nlp.models import ArticleEntity, Entity, NlpLanguageSetting
+
+    title = "Ο Αλέξης Τσίπρας μίλησε στην Αθήνα για την οικονομία και την ενέργεια"
+    description = (
+        "Ο Τσίπρας είπε ότι η κυβέρνηση πρέπει να στηρίξει τα νοικοκυριά, "
+        "ενώ ο ΣΥΡΙΖΑ ζήτησε νέα μέτρα για τις τιμές της ενέργειας στην Ελλάδα."
+    )
+    spans = [("Αλέξης Τσίπρας", "PERSON"), ("Τσίπρας", "PERSON"), ("Αθήνα", "GPE")]
+    loaded_models: list[str] = []
+
+    class FakeSpan:
+        def __init__(self, value: str, full_text: str, label: str) -> None:
+            self.text = value
+            self.label_ = label
+            self.start_char = full_text.index(value)
+            self.end_char = self.start_char + len(value)
+
+    class FakePipeline:
+        meta = {"version": "test"}
+
+        def __call__(self, value: str) -> SimpleNamespace:
+            return SimpleNamespace(ents=[FakeSpan(span, value, label) for span, label in spans])
+
+    def load(model: str, **_: object) -> FakePipeline:
+        loaded_models.append(model)
+        return FakePipeline()
+
+    monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr(
+        "app.nlp.processors.importlib.import_module", lambda _: SimpleNamespace(load=load)
+    )
+    monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
+    settings = Settings(nlp_ner_enabled=True)
+    monkeypatch.setattr("app.nlp.execution.get_settings", lambda: settings)
+    monkeypatch.setattr("app.nlp.service.get_settings", lambda: settings)
+
+    async with session_factory() as db, db.begin():
+        await db.merge(NlpLanguageSetting(language="el", ner_enabled=True))
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title=title,
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        feed = Feed(
+            name="Greek NLP source",
+            url=f"https://example.test/{uuid.uuid4()}.xml",
+            tags=[],
+            enabled=True,
+            poll_interval_minutes=30,
+            fetching_mode="rss",
+        )
+        db.add_all([article, feed])
+        await db.flush()
+        db.add(
+            FeedArticle(
+                feed_id=feed.id,
+                article_id=article.id,
+                feed_title=title,
+                feed_url=article.original_url,
+                description=description,
+                metadata_json={},
+            )
+        )
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("entities",))
+        await db.flush()
+        job = await db.scalar(select(NlpJob).where(NlpJob.article_id == article.id))
+        assert job is not None
+        job_id = job.id
+        article_id = article.id
+
+    try:
+        async with session_factory() as db:
+            claimed = await claim_job(db, job_id, lease_seconds=60)
+        assert claimed is not None
+        await process_job(job_id, claimed[1])
+
+        async with session_factory() as db:
+            job = await db.get(NlpJob, job_id)
+            rows = (
+                await db.execute(
+                    select(Entity.language, Entity.entity_type, Entity.normalized_text)
+                    .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
+                    .where(
+                        ArticleEntity.article_id == article_id,
+                        ArticleEntity.is_current.is_(True),
+                    )
+                )
+            ).all()
+    finally:
+        async with session_factory() as db, db.begin():
+            await db.merge(NlpLanguageSetting(language="el", ner_enabled=False))
+
+    assert job is not None and job.status == "succeeded"
+    assert loaded_models == ["el_core_news_sm"]
+    # "Τσίπρας" folds into the one full name, and the key drops accents and the final "ς".
+    assert set(rows) == {("el", "PERSON", "αλεξη τσιπρα"), ("el", "GPE", "αθηνα")}
+
+
+async def test_downgrade_to_0016_removes_only_the_language_settings() -> None:
+    import asyncio
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import func, text
+
+    from app.nlp.models import NlpLanguageSetting
+
+    async with session_factory() as db, db.begin():
+        await db.merge(NlpLanguageSetting(language="el", ner_enabled=False))
+    async with session_factory() as db:
+        jobs_before = await db.scalar(select(func.count()).select_from(NlpJob))
+
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0016")
+    try:
+        async with session_factory() as db:
+            assert (
+                await db.scalar(text("SELECT to_regclass('nlp_language_settings') IS NULL")) is True
+            )
+            assert await db.scalar(select(func.count()).select_from(NlpJob)) == jobs_before
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+
+    async with session_factory() as db:
+        # Back at head the table exists again, empty: Greek entities are off until turned on.
+        assert await db.scalar(select(func.count()).select_from(NlpLanguageSetting)) == 0
