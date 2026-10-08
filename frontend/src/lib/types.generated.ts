@@ -470,7 +470,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Entity
+         * @description The preferred name and status belong to a root; any name can be ambiguous or noted.
+         */
+        patch: operations["update_entity_api_v1_entities__entity_id__patch"];
         trace?: never;
     };
     "/api/v1/entities/{entity_id}/articles": {
@@ -519,6 +523,101 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entity Variants */
+        get: operations["get_entity_variants_api_v1_entities__entity_id__variants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entity History */
+        get: operations["get_entity_history_api_v1_entities__entity_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Entity
+         * @description Make this entity a variant of the target's root; its articles move over in batches.
+         */
+        post: operations["merge_entity_api_v1_entities__entity_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Split Entity
+         * @description Make a variant its own entity again; its mentions go back in batches.
+         */
+        post: operations["split_entity_api_v1_entities__entity_id__split_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/distinct/{other_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Entity Distinct
+         * @description Record that two entities are different, so neither is merged into the other.
+         */
+        post: operations["add_entity_distinct_api_v1_entities__entity_id__distinct__other_id__post"];
+        /** Remove Entity Distinct */
+        delete: operations["remove_entity_distinct_api_v1_entities__entity_id__distinct__other_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1903,6 +2002,74 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** EntityAuthorityResponse */
+        EntityAuthorityResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Preferred Text */
+            preferred_text: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "provisional" | "established";
+            /** Ambiguous */
+            ambiguous: boolean;
+            /** Note */
+            note: string | null;
+            /** Authority Id */
+            authority_id: string | null;
+        };
+        /**
+         * EntityAuthorityRunResponse
+         * @description The batched run that moves the article links; it advances on every scheduler cycle.
+         */
+        EntityAuthorityRunResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "merge" | "split";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "finished" | "failed";
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Root Id
+             * Format: uuid
+             */
+            root_id: string;
+        };
+        /**
+         * EntityAuthorityUpdate
+         * @description Only the fields sent change; null clears the preferred name or the note.
+         */
+        EntityAuthorityUpdate: {
+            /** Preferred Text */
+            preferred_text?: string | null;
+            /** Status */
+            status?: ("provisional" | "established") | null;
+            /** Ambiguous */
+            ambiguous?: boolean | null;
+            /** Note */
+            note?: string | null;
+        };
         /** EntityChange */
         EntityChange: {
             /**
@@ -1950,6 +2117,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Redirected From */
+            redirected_from?: string | null;
             /** Display Name */
             display_name: string;
             /** Normalized Text */
@@ -1958,6 +2127,21 @@ export interface components {
             language: string;
             /** Entity Type */
             entity_type: string;
+            /** Preferred Text */
+            preferred_text?: string | null;
+            /**
+             * Status
+             * @default provisional
+             * @enum {string}
+             */
+            status: "provisional" | "established";
+            /**
+             * Ambiguous
+             * @default false
+             */
+            ambiguous: boolean;
+            /** Note */
+            note?: string | null;
             /** Aliases */
             aliases?: string[];
             /**
@@ -1981,6 +2165,49 @@ export interface components {
             /** Timeline */
             timeline: components["schemas"]["MentionTimelineDay"][];
         };
+        /** EntityHistory */
+        EntityHistory: {
+            /** Items */
+            items: components["schemas"]["EntityHistoryItem"][];
+        };
+        /** EntityHistoryItem */
+        EntityHistoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Action */
+            action: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Other Id */
+            other_id: string | null;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** EntityMergeRequest */
+        EntityMergeRequest: {
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+        };
         /** EntityRelationshipsResponse */
         EntityRelationshipsResponse: {
             /** Window Days */
@@ -1991,6 +2218,27 @@ export interface components {
             countries: components["schemas"]["RelatedCountryResponse"][];
             /** Feeds */
             feeds: components["schemas"]["RelatedFeedResponse"][];
+        };
+        /** EntityVariantList */
+        EntityVariantList: {
+            /** Items */
+            items: components["schemas"]["EntityVariantResponse"][];
+        };
+        /** EntityVariantResponse */
+        EntityVariantResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Normalized Text */
+            normalized_text: string;
+            /** Language */
+            language: string;
+            /** Entity Type */
+            entity_type: string;
         };
         /** EventArticlePage */
         EventArticlePage: {
@@ -4933,6 +5181,43 @@ export interface operations {
             };
         };
     };
+    update_entity_api_v1_entities__entity_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityAuthorityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityAuthorityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_entity_articles_api_v1_entities__entity_id__articles_get: {
         parameters: {
             query?: {
@@ -5022,6 +5307,202 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EntityRelationshipsResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entity_variants_api_v1_entities__entity_id__variants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityVariantList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entity_history_api_v1_entities__entity_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityHistory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_entity_api_v1_entities__entity_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityMergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityAuthorityRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    split_entity_api_v1_entities__entity_id__split_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityAuthorityRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_entity_distinct_api_v1_entities__entity_id__distinct__other_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+                other_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_entity_distinct_api_v1_entities__entity_id__distinct__other_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+                other_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

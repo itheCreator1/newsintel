@@ -54,16 +54,26 @@ class EdgeWeight:
     recent_weight: int = 0
 
 
-def _holds_entity(entity_id: str) -> dict[str, Any]:
-    """An article-level filter: the article carries a nested entity with this id."""
-    return {"nested": {"path": "entities", "query": {"term": {"entities.id": entity_id}}}}
+def _entity_ids(ids: list[str]) -> dict[str, Any]:
+    if len(ids) == 1:
+        return {"term": {"entities.id": ids[0]}}
+    return {"terms": {"entities.id": ids}}
 
 
-def focus_query(query: dict[str, Any], focus_entity_id: uuid.UUID | None) -> dict[str, Any]:
-    """Narrow the search query to articles containing the focus entity."""
+def _holds_entity(entity_id: str | list[str]) -> dict[str, Any]:
+    """An article-level filter: the article carries a nested entity with this id (or any of these
+    ids: a root and its variants, while a merge run has not reindexed every article yet)."""
+    ids = [entity_id] if isinstance(entity_id, str) else entity_id
+    return {"nested": {"path": "entities", "query": _entity_ids(ids)}}
+
+
+def focus_query(
+    query: dict[str, Any], focus_entity_id: uuid.UUID | None, match_ids: list[str] | None = None
+) -> dict[str, Any]:
+    """Narrow the search query to articles containing the focus entity under any of its ids."""
     if focus_entity_id is None:
         return query
-    holds = _holds_entity(str(focus_entity_id))
+    holds = _holds_entity(match_ids or str(focus_entity_id))
     clauses = query.get("bool")
     if clauses is None:
         return {"bool": {"must": [query], "filter": [holds]}}
@@ -77,6 +87,7 @@ def nodes_body(
     nodes: int,
     focus_entity_id: uuid.UUID | None,
     expand: list[uuid.UUID] | None = None,
+    focus_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     aggs: dict[str, Any] = {"entities": _top_entities(entity_types, min(nodes, MAX_NODES))}
     for position, entity_id in enumerate((expand or [])[:MAX_EXPANDED]):
@@ -90,7 +101,7 @@ def nodes_body(
             "nested": {"path": "entities"},
             "aggs": {
                 "matched": {
-                    "filter": {"term": {"entities.id": str(focus_entity_id)}},
+                    "filter": _entity_ids(focus_ids or [str(focus_entity_id)]),
                     "aggs": {"articles": {"reverse_nested": {}}},
                 }
             },
@@ -292,6 +303,7 @@ async def entity_graph(
     focus_entity_id: uuid.UUID | None,
     expand: list[uuid.UUID] | None = None,
     since: datetime | None = None,
+    focus_ids: list[str] | None = None,
 ) -> GraphResponse:
     expand = (expand or [])[:MAX_EXPANDED]
     response = await adapter.search_index(
@@ -302,6 +314,7 @@ async def entity_graph(
             nodes=nodes,
             focus_entity_id=focus_entity_id,
             expand=expand,
+            focus_ids=focus_ids,
         ),
     )
     counted, truncated = parse_nodes(response, nodes=nodes, focus_entity_id=focus_entity_id)
@@ -326,7 +339,7 @@ async def entity_graph(
         nodes=[
             GraphNode(
                 id=catalogue[item.entity_id].id,
-                text=catalogue[item.entity_id].display_text,
+                text=catalogue[item.entity_id].name,
                 type=catalogue[item.entity_id].entity_type,
                 article_count=counts.get(item.entity_id, item.article_count),
             )
@@ -365,13 +378,21 @@ def evidence_body(
     *,
     limit: int,
     after: list[Any] | None,
+    source_ids: list[str] | None = None,
+    target_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """The graph's own query plus both entities, so hits equal the drawn edge weight."""
     body: dict[str, Any] = {
         "size": min(limit, MAX_EVIDENCE) + 1,  # the extra hit reveals whether a page follows
         "track_total_hits": True,
         "query": {
-            "bool": {"filter": [query, _holds_entity(str(source)), _holds_entity(str(target))]}
+            "bool": {
+                "filter": [
+                    query,
+                    _holds_entity(source_ids or str(source)),
+                    _holds_entity(target_ids or str(target)),
+                ]
+            }
         },
         # ponytail: no PIT, pages can shift if the index is rebuilt mid-scroll; open one if needed
         "sort": [{"effective_date": "desc"}, {"article_id": "asc"}],
@@ -454,7 +475,7 @@ async def clusters_by_id(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UU
 
 
 def _edge_entity(entity: Entity) -> EdgeEntity:
-    return EdgeEntity(id=entity.id, text=entity.display_text, type=entity.entity_type)
+    return EdgeEntity(id=entity.id, text=entity.name, type=entity.entity_type)
 
 
 def _edge_cluster(
@@ -482,9 +503,20 @@ async def edge_evidence(
     target: Entity,
     limit: int,
     after: list[Any] | None,
+    source_ids: list[str] | None = None,
+    target_ids: list[str] | None = None,
 ) -> EdgeEvidenceResponse:
     response = await adapter.search_index(
-        index_name, evidence_body(query, source.id, target.id, limit=limit, after=after)
+        index_name,
+        evidence_body(
+            query,
+            source.id,
+            target.id,
+            limit=limit,
+            after=after,
+            source_ids=source_ids,
+            target_ids=target_ids,
+        ),
     )
     hits = parse_evidence(response, limit=limit)
     stories = await clusters_by_id(db, [cluster_id for cluster_id, _ in hits.cluster_counts])

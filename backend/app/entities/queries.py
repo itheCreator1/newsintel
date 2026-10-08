@@ -85,10 +85,14 @@ async def dossier(db: AsyncSession, entity: Entity, days: int) -> EntityDossierR
     ]
     return EntityDossierResponse(
         id=entity.id,
-        display_name=entity.display_text,
+        display_name=entity.name,
         normalized_text=entity.normalized_text,
         language=entity.language,
         entity_type=entity.entity_type,
+        preferred_text=entity.preferred_text,
+        status=entity.status,
+        ambiguous=entity.ambiguous,
+        note=entity.note,
         total_mentions=int(mentions),
         article_count=int(article_count),
         cluster_count=int(cluster_count),
@@ -261,7 +265,7 @@ async def relationships(
         entities=[
             RelatedEntityResponse(
                 id=item.id,
-                display_name=item.display_text,
+                display_name=item.name,
                 normalized_text=item.normalized_text,
                 language=item.language,
                 entity_type=item.entity_type,

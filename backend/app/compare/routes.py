@@ -1,5 +1,6 @@
 import re
 import uuid
+from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,6 +21,7 @@ from app.compare.schemas import (
     Subject,
 )
 from app.db.session import get_db
+from app.entities.resolver import resolve_root
 
 router = APIRouter(tags=["compare"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -60,20 +62,32 @@ def spec(
     return Spec(kind=kind, a=first, b=second, role=role, days=days)
 
 
+async def _by_root(db: AsyncSession, compared: Spec) -> Spec:
+    """Entities are compared by root, so a merged id stands for the entity it was merged into."""
+    if compared.kind != "entity":
+        return compared
+    a = await resolve_root(db, uuid.UUID(compared.a)) or compared.a
+    b = await resolve_root(db, uuid.UUID(compared.b)) or compared.b
+    if str(a) == str(b):
+        raise HTTPException(422, "Choose two different subjects")
+    return replace(compared, a=str(a), b=str(b))
+
+
 Compared = Annotated[Spec, Depends(spec)]
 
 
-async def _subjects(db: AsyncSession, compared: Spec) -> tuple[Subject, Subject]:
+async def _subjects(db: AsyncSession, compared: Spec) -> tuple[Spec, Subject, Subject]:
+    compared = await _by_root(db, compared)
     first = await queries.resolve(db, compared, compared.a)
     second = await queries.resolve(db, compared, compared.b)
     if first is None or second is None:
         raise HTTPException(404, "Subject not found")
-    return first, second
+    return compared, first, second
 
 
 @router.get("/compare", response_model=CompareResponse)
 async def compare(db: Db, _auth: Auth, compared: Compared) -> CompareResponse:
-    first, second = await _subjects(db, compared)
+    compared, first, second = await _subjects(db, compared)
     return await queries.summary(db, compared, first, second)
 
 
@@ -87,7 +101,7 @@ async def compare_articles(
     limit: Limit = 30,
 ) -> CompareArticlePage:
     cursor_value = cursor_or_400(cursor)
-    await _subjects(db, compared)
+    compared, _, _ = await _subjects(db, compared)
     return await queries.articles(db, compared, part, limit, cursor_value)
 
 
@@ -101,5 +115,5 @@ async def compare_stories(
     limit: Limit = 30,
 ) -> CompareClusterPage:
     cursor_value = cursor_or_400(cursor)
-    await _subjects(db, compared)
+    compared, _, _ = await _subjects(db, compared)
     return await queries.clusters(db, compared, part, limit, cursor_value)

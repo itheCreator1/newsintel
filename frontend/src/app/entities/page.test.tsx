@@ -17,6 +17,7 @@ vi.mock('../../components/BarChart', () => ({
 
 const dossier = (over = {}) => ({
   id: 'ent-1', display_name: 'Barack Obama', normalized_text: 'barack obama', language: 'en', entity_type: 'PERSON',
+  redirected_from: null, preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null,
   aliases: [], aliases_status: 'unavailable' as const, total_mentions: 12, article_count: 5, cluster_count: 2,
   first_seen_at: '2026-09-01T00:00:00Z', last_seen_at: '2026-09-18T00:00:00Z', timeline_days: 30,
   timeline: [{ date: '2026-09-17', mentions: 4 }, { date: '2026-09-18', mentions: 8 }], ...over,
