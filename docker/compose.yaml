@@ -40,6 +40,10 @@ services:
       NEWSINTEL_NLP_NER_MODEL: ${NEWSINTEL_NLP_NER_MODEL:-en_core_web_sm}
       # The Greek model; Greek entities are switched on in Settings (needs the NER image).
       NEWSINTEL_NLP_NER_MODEL_EL: ${NEWSINTEL_NLP_NER_MODEL_EL:-el_core_news_sm}
+      # Wikidata stays off until a contact (email or URL) is set: Wikimedia's User-Agent
+      # policy requires one. NEWSINTEL_WIKIDATA_ENABLED=false stops all Wikidata traffic.
+      NEWSINTEL_WIKIDATA_ENABLED: ${NEWSINTEL_WIKIDATA_ENABLED:-true}
+      NEWSINTEL_WIKIDATA_CONTACT: ${NEWSINTEL_WIKIDATA_CONTACT:-}
     depends_on:
       postgres: { condition: service_healthy }
       setup: { condition: service_completed_successfully }

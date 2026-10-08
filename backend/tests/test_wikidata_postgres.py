@@ -277,12 +277,20 @@ async def test_a_light_fetch_does_not_erase_claims_already_cached() -> None:
     assert adams.claims_fetched is True
 
 
-async def test_country_spellings_are_marked_as_seeded() -> None:
-    from app.nlp.authority import seed_countries
+async def test_country_spellings_are_marked_as_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.nlp import authority
     from app.nlp.models import Entity
 
+    # A country of its own, so the names are new whatever ran before.
+    tag = uuid.uuid4().hex[:8]
+    monkeypatch.setattr(
+        authority,
+        "country_spellings",
+        lambda: {"ZZ": (f"Testland {tag}", {f"tl {tag}": f"TL {tag}"})},
+    )
     async with session_factory() as db, db.begin():
-        await seed_countries(db)
+        report = await authority.seed_countries(db)
+    assert report.created == 1
     async with session_factory() as db:
         sources = dict(
             (
@@ -290,13 +298,13 @@ async def test_country_spellings_are_marked_as_seeded() -> None:
                     select(Entity.normalized_text, Entity.name_source).where(
                         Entity.language == "en",
                         Entity.entity_type == "GPE",
-                        Entity.normalized_text.in_(("usa", "united states")),
+                        Entity.normalized_text.in_((f"testland {tag}", f"tl {tag}")),
                     )
                 )
             ).all()
         )
-    # The spelling the seed wrote; the root keeps whatever made it.
-    assert sources["usa"] == "seed"
+    # The spelling the seed wrote; the root is the name NER also finds.
+    assert sources == {f"tl {tag}": "seed", f"testland {tag}": "ner"}
 
 
 async def test_downgrade_keeps_links_unless_told_to_discard_them() -> None:

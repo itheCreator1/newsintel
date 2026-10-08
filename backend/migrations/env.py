@@ -46,6 +46,16 @@ from app.search.models import (  # noqa: F401
     SearchRebuild,
     SourceSearchRefresh,
 )
+from app.wikidata.models import (  # noqa: F401
+    EntityExternalId,
+    WikidataCandidate,
+    WikidataClass,
+    WikidataItem,
+    WikidataRequestCount,
+    WikidataRun,
+    WikidataSearch,
+    WikidataThrottle,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))

@@ -45,6 +45,34 @@ class Settings(BaseSettings):
     monitor_retry_seconds: int = 300
     monitor_lease_seconds: int = 120
     monitor_settle_seconds: int = 120
+    # Wikidata (authority control, phase 3). Nothing is sent without a contact (an email or a
+    # URL), which Wikimedia's User-Agent policy requires; wikidata_enabled=false stops all traffic.
+    wikidata_enabled: bool = True
+    wikidata_url: str = "https://www.wikidata.org/w/api.php"
+    wikidata_contact: str = ""
+    wikidata_languages: list[str] = ["el", "en"]
+    wikidata_timeout_seconds: float = 20
+    wikidata_max_response_bytes: int = 20_000_000
+    # A full fetch (with claims) keeps the summed page sizes of one request under this.
+    wikidata_batch_bytes: int = 2_000_000
+    # Far inside Wikimedia's limits (200 a minute with a proper User-Agent): one request at a
+    # time for the whole app, at most one every 3 s, and 5 s after an answer that took over 1 s.
+    wikidata_min_interval_seconds: float = 3
+    wikidata_slow_response_seconds: float = 1
+    wikidata_slow_wait_seconds: float = 5
+    wikidata_daily_request_budget: int = 2000
+    # A 429 or 503 stops all traffic for max(Retry-After, this); a second within the hour for a day.
+    wikidata_rate_limit_pause_minutes: float = 15
+    wikidata_repeat_rate_limit_pause_hours: float = 24
+    # maxlag, other errors and timeouts: max(Retry-After, this), doubling up to the maximum.
+    wikidata_error_pause_minutes: float = 5
+    wikidata_error_pause_max_hours: float = 6
+    # A 403 may mean we are blocked: stop for a day and say so.
+    wikidata_blocked_pause_hours: float = 24
+    wikidata_refresh_days: int = 30
+    wikidata_search_cache_days: int = 30
+    wikidata_class_cache_days: int = 180
+    wikidata_candidate_min_articles: int = 3
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":
@@ -52,6 +80,18 @@ class Settings(BaseSettings):
             raise ValueError("production requires secure session cookies")
         if self.environment == "production" and len(self.secret_key) < 32:
             raise ValueError("production requires a secret key of at least 32 characters")
+        return self
+
+    @model_validator(mode="after")
+    def keep_wikidata_gentle(self) -> "Settings":
+        if self.wikidata_min_interval_seconds < 1:
+            raise ValueError("wikidata_min_interval_seconds may not be under 1 second")
+        if self.wikidata_slow_wait_seconds < 5:
+            raise ValueError("wikidata_slow_wait_seconds may not be under 5 seconds")
+        if self.wikidata_rate_limit_pause_minutes < 15:
+            raise ValueError("wikidata_rate_limit_pause_minutes may not be under 15 minutes")
+        if self.wikidata_error_pause_minutes < 1:
+            raise ValueError("wikidata_error_pause_minutes may not be under 1 minute")
         return self
 
 

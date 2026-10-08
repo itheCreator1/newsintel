@@ -148,6 +148,7 @@ async def seed_countries(db: AsyncSession) -> SeedReport:
                         normalized_text=normalized,
                         display_text=written,
                         authority_id=root.id,
+                        name_source="seed",
                     )
                 )
                 report.created += 1
