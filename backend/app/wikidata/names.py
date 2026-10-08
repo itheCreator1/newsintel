@@ -60,6 +60,12 @@ def identity(root: Entity, name: Name) -> tuple[str, str, str]:
     return canonical_entity(name.text, label, root.entity_type, name.language)
 
 
+def name_key(entity_type: str, language: str, text: str) -> str:
+    """The normalized text NER would store this name under, to compare names as NER does."""
+    label = _LABELS.get(entity_type, entity_type)
+    return canonical_entity(text, label, entity_type, language)[1]
+
+
 async def _existing(db: AsyncSession, root: Entity, name: Name) -> Entity | None:
     entity_type, normalized, _ = identity(root, name)
     found: Entity | None = await db.scalar(

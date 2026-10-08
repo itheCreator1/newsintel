@@ -56,3 +56,58 @@ class WikidataLinkResponse(BaseModel):
     # The linked item is waiting for its full fetch (claims and identifiers).
     fetch_pending: bool
     names: list[WikidataNameResponse]
+    # Open candidates while the root is unlinked, best first; a search queued by the button.
+    candidates: list["WikidataCandidateResponse"]
+    search_pending: bool
+
+
+class WikidataCandidateResponse(BaseModel):
+    qid: str
+    score: float
+    # Stated reasons: label:<lang>, alias:<lang>, variant:<lang>, type_matches, type_differs,
+    # sitelinks:<count>.
+    reasons: list[str]
+    # The root's one exact label of the right type: what "approve all exact" links.
+    exact: bool
+    label: str | None
+    description: str | None
+    sitelinks: int
+
+
+class WikidataReviewItem(WikidataCandidateResponse):
+    entity_id: str
+    display_name: str
+    entity_type: str
+    language: str
+
+
+class WikidataReviewPage(BaseModel):
+    items: list[WikidataReviewItem]
+    next_cursor: str | None
+
+
+class WikidataRunResponse(BaseModel):
+    id: str
+    kind: str
+    status: str
+    entity_id: str | None
+    checked: int
+    requests: int
+    error: str | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class WikidataSkipped(BaseModel):
+    entity_id: str
+    qid: str
+    message: str
+
+
+class WikidataApproveResponse(BaseModel):
+    linked: int
+    skipped: list[WikidataSkipped]
+
+
+WikidataLinkResponse.model_rebuild()

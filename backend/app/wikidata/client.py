@@ -100,6 +100,8 @@ class WikidataClient:
         self.throttle = throttle
         self.languages = tuple(settings.wikidata_languages)
         self.enabled = settings.wikidata_enabled and contact_ok(settings.wikidata_contact)
+        # Requests sent through this client, failed ones included: a run reports its load.
+        self.requests = 0
         self._http = httpx.AsyncClient(
             transport=transport,
             timeout=settings.wikidata_timeout_seconds,
@@ -139,6 +141,7 @@ class WikidataClient:
             )
         query = {"format": "json", "formatversion": "2", "maxlag": "5", **params}
         async with self.throttle.slot(kind) as slot:
+            self.requests += 1
 
             def fail(outcome: Outcome, detail: str, retry_after: float | None = None) -> None:
                 slot.record(outcome, retry_after)

@@ -776,6 +776,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/wikidata/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Wikidata
+         * @description Queue a search for candidates; a worker asks Wikidata, never this request.
+         */
+        post: operations["search_wikidata_api_v1_entities__entity_id__wikidata_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{entity_id}/wikidata/candidates/{qid}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Wikidata Candidate
+         * @description Not this item: it is never suggested for this root again.
+         */
+        post: operations["dismiss_wikidata_candidate_api_v1_entities__entity_id__wikidata_candidates__qid__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wikidata/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review Wikidata Candidates
+         * @description Open candidates of unlinked roots, best first: the Authority file's review tab.
+         */
+        get: operations["review_wikidata_candidates_api_v1_wikidata_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wikidata/candidates/approve-exact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Exact Wikidata Candidates
+         * @description Link every root whose one exact label of the right type is clear (decided 2026-10-08).
+         *
+         *     Each link is the same as the user's own: labels become variants, aliases stay unticked.
+         *     A refusal (the item went to another root meanwhile) skips that root and says why.
+         */
+        post: operations["approve_exact_wikidata_candidates_api_v1_wikidata_candidates_approve_exact_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/status": {
         parameters: {
             query?: never;
@@ -4585,6 +4668,30 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** WikidataApproveResponse */
+        WikidataApproveResponse: {
+            /** Linked */
+            linked: number;
+            /** Skipped */
+            skipped: components["schemas"]["WikidataSkipped"][];
+        };
+        /** WikidataCandidateResponse */
+        WikidataCandidateResponse: {
+            /** Qid */
+            qid: string;
+            /** Score */
+            score: number;
+            /** Reasons */
+            reasons: string[];
+            /** Exact */
+            exact: boolean;
+            /** Label */
+            label: string | null;
+            /** Description */
+            description: string | null;
+            /** Sitelinks */
+            sitelinks: number;
+        };
         /** WikidataItemResponse */
         WikidataItemResponse: {
             /** Qid */
@@ -4648,6 +4755,10 @@ export interface components {
             fetch_pending: boolean;
             /** Names */
             names: components["schemas"]["WikidataNameResponse"][];
+            /** Candidates */
+            candidates: components["schemas"]["WikidataCandidateResponse"][];
+            /** Search Pending */
+            search_pending: boolean;
         };
         /** WikidataName */
         WikidataName: {
@@ -4679,6 +4790,73 @@ export interface components {
         WikidataNamesRequest: {
             /** Names */
             names: components["schemas"]["WikidataName"][];
+        };
+        /** WikidataReviewItem */
+        WikidataReviewItem: {
+            /** Qid */
+            qid: string;
+            /** Score */
+            score: number;
+            /** Reasons */
+            reasons: string[];
+            /** Exact */
+            exact: boolean;
+            /** Label */
+            label: string | null;
+            /** Description */
+            description: string | null;
+            /** Sitelinks */
+            sitelinks: number;
+            /** Entity Id */
+            entity_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Language */
+            language: string;
+        };
+        /** WikidataReviewPage */
+        WikidataReviewPage: {
+            /** Items */
+            items: components["schemas"]["WikidataReviewItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** WikidataRunResponse */
+        WikidataRunResponse: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Entity Id */
+            entity_id: string | null;
+            /** Checked */
+            checked: number;
+            /** Requests */
+            requests: number;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** WikidataSkipped */
+        WikidataSkipped: {
+            /** Entity Id */
+            entity_id: string;
+            /** Qid */
+            qid: string;
+            /** Message */
+            message: string;
         };
     };
     responses: never;
@@ -6344,6 +6522,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WikidataLinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_wikidata_api_v1_entities__entity_id__wikidata_search_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_wikidata_candidate_api_v1_entities__entity_id__wikidata_candidates__qid__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+                qid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_wikidata_candidates_api_v1_wikidata_candidates_get: {
+        parameters: {
+            query?: {
+                min_score?: number;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataReviewPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_exact_wikidata_candidates_api_v1_wikidata_candidates_approve_exact_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikidataApproveResponse"];
                 };
             };
             /** @description Validation Error */

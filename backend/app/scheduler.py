@@ -35,6 +35,7 @@ from app.search.service import (
     delivery_due,
     process_source_refresh,
 )
+from app.wikidata.runs import schedule_wikidata
 
 log = structlog.get_logger()
 
@@ -308,6 +309,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             schedule_due_monitors,
             schedule_due_events,
             schedule_source_refreshes,
+            schedule_wikidata,
             schedule_retention,
         ):
             try:
