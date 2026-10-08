@@ -46,6 +46,25 @@ def test_an_item_keeps_names_in_our_languages_types_and_identifiers() -> None:
     assert adams.redirect_to is None
 
 
+def test_a_multilingual_label_stands_in_for_a_missing_english_one() -> None:
+    # Wikidata now keeps a name spelled alike in many languages once, under "mul" (the real
+    # Q42 has no "en" label any more). It fills in for English, never for Greek script.
+    body = _load("entities.json")
+    adams = body["entities"]["Q42"]
+    adams["labels"] = {
+        "mul": {"language": "mul", "value": "Douglas Adams"},
+        "el": {"language": "el", "value": "Ντάγκλας Άνταμς"},
+    }
+    adams["aliases"]["mul"] = [{"language": "mul", "value": "DNA"}]
+    item = _by_qid(parse_entities(body, languages=("el", "en")))["Q42"]
+    assert item.labels == {"en": "Douglas Adams", "el": "Ντάγκλας Άνταμς"}
+    assert item.aliases == {"en": ["Douglas Noel Adams", "Douglas N. Adams", "DNA"]}
+
+    del adams["labels"]["el"]
+    greekless = _by_qid(parse_entities(body, languages=("el", "en")))["Q42"]
+    assert greekless.labels == {"en": "Douglas Adams"}
+
+
 def test_names_in_other_languages_are_left_out() -> None:
     adams = _by_qid(parse_entities(_load("entities.json"), languages=("en",)))["Q42"]
     assert adams.labels == {"en": "Douglas Adams"}

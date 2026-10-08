@@ -480,7 +480,8 @@ async def test_candidates_are_fetched_light_fifty_at_a_time_without_claims() -> 
     assert params["action"] == "wbgetentities"
     # The claims of a big item (a country) run to megabytes: never for a mere candidate.
     assert params["props"] == "labels|aliases|descriptions|sitelinks|info"
-    assert params["languages"] == "el|en"
+    # "mul" holds the names spelled alike in many languages.
+    assert params["languages"] == "el|en|mul"
 
 
 @pytest.mark.asyncio
