@@ -21,6 +21,7 @@ from app.graph.schemas import (
     GraphResponse,
 )
 from app.nlp.models import Entity
+from app.search.aggregations import ROOT_ORDER
 from app.search.elasticsearch import ElasticsearchAdapter
 
 MAX_NODES = 50
@@ -109,7 +110,8 @@ def _top_entities(entity_types: list[str], size: int) -> dict[str, Any]:
                 ),
                 "aggs": {
                     "top": {
-                        "terms": {"field": "entities.id", "size": size},
+                        # By articles: one article naming an entity many times counts once.
+                        "terms": {"field": "entities.id", "size": size, "order": ROOT_ORDER},
                         "aggs": {"articles": {"reverse_nested": {}}},
                     }
                 },
