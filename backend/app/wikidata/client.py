@@ -18,6 +18,7 @@ import httpx
 from app.core.config import Settings
 from app.wikidata.errors import WikidataDisabled, WikidataUnavailable
 from app.wikidata.parsing import (
+    MULTILINGUAL,
     Item,
     PageInfo,
     api_error,
@@ -203,7 +204,7 @@ class WikidataClient:
                 "action": "wbgetentities",
                 "ids": "|".join(batch),
                 "props": props,
-                "languages": "|".join(self.languages),
+                "languages": "|".join((*self.languages, MULTILINGUAL)),
             },
         )
         return parse_entities(body, languages=self.languages)

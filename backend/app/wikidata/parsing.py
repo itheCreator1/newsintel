@@ -15,6 +15,10 @@ ID_PROPERTIES = {"P214": "viaf", "P213": "isni", "P244": "lcnaf"}
 INSTANCE_OF = "P31"
 SUBCLASS_OF = "P279"
 DIFFERENT_FROM = "P1889"
+# Wikidata keeps a name spelled alike in many languages once, under "mul". It stands in only for
+# languages written in Latin script: a Greek reader needs a Greek label, not a Latin one.
+MULTILINGUAL = "mul"
+MUL_LANGUAGES = frozenset({"en"})
 
 
 def is_qid(text: str) -> bool:
@@ -65,28 +69,42 @@ def api_error(body: Any) -> tuple[str, str] | None:
     return None
 
 
+def _text(value: Any) -> str | None:
+    if isinstance(value, dict) and isinstance(value.get("value"), str):
+        return str(value["value"])
+    return None
+
+
 def _texts(values: Any, languages: tuple[str, ...]) -> dict[str, str]:
+    """Texts in our languages; a "mul" one stands in for a missing Latin-script language."""
     if not isinstance(values, dict):
         return {}
-    return {
-        language: value["value"]
-        for language, value in values.items()
-        if language in languages and isinstance(value, dict) and "value" in value
-    }
+    found: dict[str, str] = {}
+    for language in languages:
+        text = _text(values.get(language))
+        if text is None and language in MUL_LANGUAGES:
+            text = _text(values.get(MULTILINGUAL))
+        if text is not None:
+            found[language] = text
+    return found
+
+
+def _alias_list(entries: Any) -> list[str]:
+    if not isinstance(entries, list):
+        return []
+    return [text for entry in entries if (text := _text(entry)) is not None]
 
 
 def _aliases(values: Any, languages: tuple[str, ...]) -> dict[str, list[str]]:
     if not isinstance(values, dict):
         return {}
     found: dict[str, list[str]] = {}
-    for language, entries in values.items():
-        if language not in languages or not isinstance(entries, list):
-            continue
-        names = [
-            entry["value"] for entry in entries if isinstance(entry, dict) and "value" in entry
-        ]
+    for language in languages:
+        names = _alias_list(values.get(language))
+        if language in MUL_LANGUAGES:
+            names += _alias_list(values.get(MULTILINGUAL))
         if names:
-            found[language] = names
+            found[language] = list(dict.fromkeys(names))
     return found
 
 
