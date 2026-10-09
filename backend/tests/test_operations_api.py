@@ -119,6 +119,7 @@ def test_the_queue_layout_lists_every_queue_the_actors_use() -> None:
     import app.jobs.diagnostics
     import app.jobs.events
     import app.jobs.ingestion
+    import app.jobs.maintenance
     import app.jobs.monitors
     import app.jobs.nlp
     import app.jobs.search  # noqa: F401

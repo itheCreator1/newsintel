@@ -1369,6 +1369,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/processes/activity/{key}/{item_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Item
+         * @description Try one failed row of the activity list again.
+         */
+        post: operations["retry_item_api_v1_processes_activity__key___item_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/{key}/retry-failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Failed
+         * @description Try what failed again, a bounded batch at a time; `remaining` says how many still wait.
+         */
+        post: operations["retry_failed_api_v1_processes__key__retry_failed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/{key}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Now
+         * @description Run a scheduled process now instead of at its next turn.
+         */
+        post: operations["run_now_api_v1_processes__key__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/{key}/runs/{run_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Run
+         * @description Stop a run part way; what it already did stays done.
+         */
+        post: operations["stop_run_api_v1_processes__key__runs__run_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -1798,6 +1878,16 @@ export interface components {
              * @default []
              */
             attempts: components["schemas"]["ActivityAttempt"][];
+            /**
+             * Can Retry
+             * @default false
+             */
+            can_retry: boolean;
+            /**
+             * Can Stop
+             * @default false
+             */
+            can_stop: boolean;
         };
         /** ActivityPage */
         ActivityPage: {
@@ -4053,6 +4143,11 @@ export interface components {
             progress?: components["schemas"]["Progress"] | null;
             /** Detail */
             detail?: string | null;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: ("retry_failed" | "run_now" | "stop")[];
         };
         /** ProcessRequest */
         ProcessRequest: {
@@ -4241,10 +4336,25 @@ export interface components {
             /** Processors */
             processors?: string[];
         };
+        /** RetryFailedResponse */
+        RetryFailedResponse: {
+            /** Retried */
+            retried: number;
+            /** Remaining */
+            remaining: number;
+        };
         /** RetryIndexResponse */
         RetryIndexResponse: {
             /** Status */
             status: string;
+        };
+        /** RetryItemResponse */
+        RetryItemResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "queued";
         };
         /** RunError */
         RunError: {
@@ -4257,6 +4367,16 @@ export interface components {
             category: string | null;
             /** Message */
             message: string | null;
+        };
+        /** RunNowResponse */
+        RunNowResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "sent" | "queued";
+            /** Run Id */
+            run_id?: string | null;
         };
         /** SavedSearchCreate */
         SavedSearchCreate: {
@@ -4718,6 +4838,14 @@ export interface components {
              * @enum {string}
              */
             label: "later_name" | "earlier_name" | "part_of" | "has_part" | "member_of" | "has_member" | "leader_of" | "led_by" | "related";
+        };
+        /** StopResponse */
+        StopResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "stopped";
         };
         /** StopWordsResponse */
         StopWordsResponse: {
@@ -7943,6 +8071,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_item_api_v1_processes_activity__key___item_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                key: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_failed_api_v1_processes__key__retry_failed_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                key: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryFailedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_now_api_v1_processes__key__run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                key: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunNowResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_run_api_v1_processes__key__runs__run_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                key: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StopResponse"];
                 };
             };
             /** @description Validation Error */

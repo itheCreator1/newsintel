@@ -117,7 +117,8 @@ async def search_pending(db: AsyncSession, root_id: uuid.UUID) -> bool:
 
 
 async def ensure_sweep(db: AsyncSession, settings: Settings) -> WikidataRun | None:
-    """Queue the day's candidate sweep, unless one is unfinished or finished within the day."""
+    """Queue the day's candidate sweep, unless one is unfinished or ended within the day (a sweep
+    stopped by hand waits for the next day too)."""
     await db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CLAIM_LOCK})
     sweeps = select(WikidataRun).where(
         WikidataRun.kind == "candidates", WikidataRun.entity_id.is_(None)
@@ -125,7 +126,9 @@ async def ensure_sweep(db: AsyncSession, settings: Settings) -> WikidataRun | No
     if await db.scalar(sweeps.where(WikidataRun.status.in_(UNFINISHED)).limit(1)) is not None:
         return None
     since = datetime.now(UTC) - timedelta(hours=settings.wikidata_candidate_sweep_hours)
-    recent = sweeps.where(WikidataRun.status == "finished", WikidataRun.finished_at >= since)
+    recent = sweeps.where(
+        WikidataRun.status.in_(("finished", "stopped")), WikidataRun.finished_at >= since
+    )
     if await db.scalar(recent.limit(1)) is not None:
         return None
     run = WikidataRun(kind="candidates")

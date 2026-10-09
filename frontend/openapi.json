@@ -5914,6 +5914,326 @@
         }
       }
     },
+    "/api/v1/processes/activity/{key}/{item_id}/retry": {
+      "post": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Retry Item",
+        "description": "Try one failed row of the activity list again.",
+        "operationId": "retry_item_api_v1_processes_activity__key___item_id__retry_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "feeds",
+                "articles",
+                "nlp",
+                "clustering",
+                "search",
+                "monitors",
+                "reprocessing",
+                "authority",
+                "rebuild",
+                "source_refresh",
+                "events",
+                "retention",
+                "wikidata_refresh",
+                "wikidata_candidates"
+              ],
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/processes/{key}/retry-failed": {
+      "post": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Retry Failed",
+        "description": "Try what failed again, a bounded batch at a time; `remaining` says how many still wait.",
+        "operationId": "retry_failed_api_v1_processes__key__retry_failed_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "feeds",
+                "articles",
+                "nlp",
+                "clustering",
+                "search",
+                "monitors",
+                "reprocessing",
+                "authority",
+                "rebuild",
+                "source_refresh",
+                "events",
+                "retention",
+                "wikidata_refresh",
+                "wikidata_candidates"
+              ],
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryFailedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/processes/{key}/run": {
+      "post": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Run Now",
+        "description": "Run a scheduled process now instead of at its next turn.",
+        "operationId": "run_now_api_v1_processes__key__run_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "feeds",
+                "articles",
+                "nlp",
+                "clustering",
+                "search",
+                "monitors",
+                "reprocessing",
+                "authority",
+                "rebuild",
+                "source_refresh",
+                "events",
+                "retention",
+                "wikidata_refresh",
+                "wikidata_candidates"
+              ],
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunNowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/processes/{key}/runs/{run_id}/stop": {
+      "post": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Stop Run",
+        "description": "Stop a run part way; what it already did stays done.",
+        "operationId": "stop_run_api_v1_processes__key__runs__run_id__stop_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "feeds",
+                "articles",
+                "nlp",
+                "clustering",
+                "search",
+                "monitors",
+                "reprocessing",
+                "authority",
+                "rebuild",
+                "source_refresh",
+                "events",
+                "retention",
+                "wikidata_refresh",
+                "wikidata_candidates"
+              ],
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -9881,6 +10201,16 @@
             "type": "array",
             "title": "Attempts",
             "default": []
+          },
+          "can_retry": {
+            "type": "boolean",
+            "title": "Can Retry",
+            "default": false
+          },
+          "can_stop": {
+            "type": "boolean",
+            "title": "Can Stop",
+            "default": false
           }
         },
         "type": "object",
@@ -16159,6 +16489,19 @@
               }
             ],
             "title": "Detail"
+          },
+          "actions": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "retry_failed",
+                "run_now",
+                "stop"
+              ]
+            },
+            "type": "array",
+            "title": "Actions",
+            "default": []
           }
         },
         "type": "object",
@@ -16611,6 +16954,24 @@
         "type": "object",
         "title": "ReprocessRequest"
       },
+      "RetryFailedResponse": {
+        "properties": {
+          "retried": {
+            "type": "integer",
+            "title": "Retried"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "retried",
+          "remaining"
+        ],
+        "title": "RetryFailedResponse"
+      },
       "RetryIndexResponse": {
         "properties": {
           "status": {
@@ -16623,6 +16984,20 @@
           "status"
         ],
         "title": "RetryIndexResponse"
+      },
+      "RetryItemResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "queued",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "RetryItemResponse"
       },
       "RunError": {
         "properties": {
@@ -16661,6 +17036,35 @@
           "message"
         ],
         "title": "RunError"
+      },
+      "RunNowResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "queued"
+            ],
+            "title": "Status"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "RunNowResponse"
       },
       "SavedSearchCreate": {
         "properties": {
@@ -18042,6 +18446,20 @@
         ],
         "title": "StatedEdge",
         "description": "A see-also link the user stated, read from `source`'s side: source <label> target."
+      },
+      "StopResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "stopped",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "StopResponse"
       },
       "StopWordsResponse": {
         "properties": {

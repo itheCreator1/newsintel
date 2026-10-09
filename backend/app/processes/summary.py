@@ -436,6 +436,10 @@ async def summary(
         await _retention(db),
         *await _wikidata(db, now, settings),
     ]
+    for card in cards:
+        card.actions = states.offers(
+            card.key, state=card.state, failed=card.failed, active_run_id=card.active_run_id
+        )
     by_key = {card.key: card for card in cards}
     return ProcessesResponse(
         generated_at=now, window_hours=hours, window_start=start,
