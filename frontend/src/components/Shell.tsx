@@ -14,7 +14,7 @@ const NAV_GROUPS: [string, [string, string][]][] = [
   ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
   ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles'], ['/authorities', 'Authority file']]],
   ['Investigations', [['/saved-searches', 'Saved Searches'], ['/monitors', 'Watchlist']]],
-  ['System', [['/jobs', 'Jobs'], ['/operations', 'Operations'], ['/settings', 'Settings']]],
+  ['System', [['/processes', 'Processes'], ['/settings', 'Settings']]],
 ]
 
 const normalize = (path: string) => path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path

@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsArea, OpsFailures, OpsFeeds, OpsHealth, OpsPipelines, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, Backlog, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexFailurePage, IndexStatus, IngestionTimeline, InvestigationState, NlpFailurePage, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, ProcessingJob, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
+import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsFeeds, OpsHealth, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexStatus, IngestionTimeline, InvestigationState, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, ActivityFilter, ActivityPage, ProcessKey, ProcessesResponse, RetryFailedResponse, RunNowResponse, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -70,17 +70,6 @@ export const api = {
   relatedArticles: (id: string) => request<RelatedCoverage>(`/articles/${id}/related`),
   processArticle: (id: string, mode: 'full_text' | 'full_text_html') => mutate<{ job_id: string; status: string; reused: boolean }>(`/articles/${id}/process`, 'POST', { mode }),
   reprocessArticle: (id: string, processors: string[] = []) => mutate<{ status: string; jobs_created: number }>(`/articles/${id}/nlp/reprocess`, 'POST', { processors }),
-  jobs: (filters: { articleId?: string; stage?: string; status?: string; cursor?: string } = {}) => {
-    const params = new URLSearchParams()
-    if (filters.articleId) params.set('article_id', filters.articleId)
-    if (filters.stage) params.set('stage', filters.stage)
-    if (filters.status) params.set('status', filters.status)
-    if (filters.cursor) params.set('cursor', filters.cursor)
-    return request<CursorPage<ProcessingJob>>(`/jobs${params.size ? `?${params}` : ''}`)
-  },
-  job: (id: string) => request<ProcessingJob>(`/jobs/${id}`),
-  backlog: () => request<Backlog>('/jobs/backlog'),
-  retryJob: (id: string) => mutate<{ job_id: string; status: string; reused: boolean }>(`/jobs/${id}/retry`, 'POST'),
   search: (filters: Filters, cursor?: string) => {
     const params = filterParams(filters)
     if (cursor) params.set('cursor', cursor)
@@ -136,11 +125,16 @@ export const api = {
   geoCountries: (role: GeoRole, params: Filters) => request<GeoCountriesResponse>(`/geo/countries?${filterParams({ role, ...params })}`),
   geoArticles: (role: GeoArticleRole, code: string, params: Filters, cursor?: string) => request<GeoArticlePage>(`/geo/articles?${filterParams({ role, code, ...params, cursor })}`),
   opsHealth: () => request<OpsHealth>('/operations/health'),
-  opsPipelines: (hours: number) => request<OpsPipelines>(`/operations/pipelines${query({ hours: String(hours) })}`),
   opsFeeds: (hours: number) => request<OpsFeeds>(`/operations/feeds${query({ hours: String(hours) })}`),
   opsStorage: () => request<OpsStorage>('/operations/storage'),
   opsWikidata: () => request<OpsWikidata>('/operations/wikidata'),
-  opsFailures: (area: OpsArea, hours: number) => request<OpsFailures>(`/operations/failures${query({ area, hours: String(hours) })}`),
+  processes: (hours: number) => request<ProcessesResponse>(`/processes${query({ hours: String(hours) })}`),
+  processActivity: ({ hours, process, status, q, cursor }: { hours: number; process?: ProcessKey; status: ActivityFilter; q?: string; cursor?: string }) =>
+    request<ActivityPage>(`/processes/activity${query({ hours: String(hours), process, status, q, cursor })}`),
+  retryProcessItem: (process: ProcessKey, id: string) => mutate<{ status: 'queued' }>(`/processes/activity/${process}/${id}/retry`, 'POST'),
+  retryProcessFailed: (process: ProcessKey) => mutate<RetryFailedResponse>(`/processes/${process}/retry-failed`, 'POST'),
+  runProcess: (process: ProcessKey) => mutate<RunNowResponse>(`/processes/${process}/run`, 'POST'),
+  stopProcessRun: (process: ProcessKey, runId: string) => mutate<{ status: 'stopped' }>(`/processes/${process}/runs/${runId}/stop`, 'POST'),
   compareStories: (spec: CompareSpec, part: ComparePart, cursor?: string) => request<CompareClusterPage>(`/compare/stories${query({ ...compareParams(spec), part, cursor })}`),
   entityGraph: (filters: Filters) => request<GraphResponse>(`/graph/entities?${filterParams(filters)}`),
   edgeEvidence: (filters: Filters, cursor?: string) => {
@@ -162,11 +156,7 @@ export const api = {
   deleteMonitor: (id: string) => mutate<void>(`/monitors/${id}`, 'DELETE'),
   searchSources: (q = '', cursor?: string) => request<SearchSourcePage>(`/search/sources?${new URLSearchParams({ ...(q ? { q } : {}), ...(cursor ? { cursor } : {}) })}`),
   indexingStatus: () => request<IndexStatus>('/search/indexing/status'),
-  indexingFailures: (cursor?: string) => request<IndexFailurePage>(`/search/indexing/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-  retryIndexing: (articleId: string) => mutate<{ status: string }>(`/search/indexing/articles/${articleId}/retry`, 'POST'),
   nlpStatus: () => request<NlpStatus>('/nlp/status'),
-  nlpFailures: (cursor?: string) => request<NlpFailurePage>(`/nlp/failures${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-  retryNlpJob: (jobId: string) => mutate<{ status: string; jobs_created: number }>(`/nlp/jobs/${jobId}/retry`, 'POST'),
   stopWords: () => request<StopWords>('/nlp/stop-words'),
   updateStopWords: (currentRevision: number, words: string[]) => mutate<StopWords>('/nlp/stop-words', 'PUT', { current_revision: currentRevision, words }),
   greekEntities: () => request<GreekEntities>('/nlp/greek-entities'),

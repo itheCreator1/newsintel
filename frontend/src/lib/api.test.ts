@@ -203,21 +203,23 @@ it('requests the country map for one role and its evidence with an encoded curso
   ])
 })
 
-it('requests each operations view with its window and area', async () => {
+it('requests each operations and processes view with its window and filters', async () => {
   const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
 
   await api.opsHealth()
-  await api.opsPipelines(24)
   await api.opsFeeds(72)
   await api.opsStorage()
-  await api.opsFailures('cluster', 6)
+  await api.processes(168)
+  await api.processActivity({ hours: 1, process: 'nlp', status: 'failed', q: 'Αθήνα', cursor: 'c+1' })
+  await api.processActivity({ hours: 24, status: 'attention' })
 
   expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
     '/api/v1/operations/health',
-    '/api/v1/operations/pipelines?hours=24',
     '/api/v1/operations/feeds?hours=72',
     '/api/v1/operations/storage',
-    '/api/v1/operations/failures?area=cluster&hours=6',
+    '/api/v1/processes?hours=168',
+    '/api/v1/processes/activity?hours=1&process=nlp&status=failed&q=%CE%91%CE%B8%CE%AE%CE%BD%CE%B1&cursor=c%2B1',
+    '/api/v1/processes/activity?hours=24&status=attention',
   ])
 })
 
@@ -228,6 +230,24 @@ it('tells a rejected sign-in apart from a session that has expired', async () =>
     .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
     .mockResolvedValueOnce(unauthorized())
 
-  await expect(api.backlog()).rejects.toMatchObject({ status: 401, message: 'Your session has expired. Sign in again.' })
+  await expect(api.processes(24)).rejects.toMatchObject({ status: 401, message: 'Your session has expired. Sign in again.' })
   await expect(api.login('analyst', 'wrong')).rejects.toMatchObject({ status: 401, message: 'Invalid username or password' })
+})
+
+it('sends the Processes page actions as CSRF-protected POSTs', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
+
+  await api.retryProcessItem('articles', 'job-1')
+  await api.retryProcessFailed('feeds')
+  await api.runProcess('retention')
+  await api.stopProcessRun('wikidata_candidates', 'run-1')
+
+  const calls = fetchMock.mock.calls
+  const sent = (index: number) => ({ url: calls[index][0], method: calls[index][1]?.method, csrf: new Headers(calls[index][1]?.headers).get('X-CSRF-Token') })
+  expect([1, 3, 5, 7].map(sent)).toEqual([
+    { url: '/api/v1/processes/activity/articles/job-1/retry', method: 'POST', csrf: 'token' },
+    { url: '/api/v1/processes/feeds/retry-failed', method: 'POST', csrf: 'token' },
+    { url: '/api/v1/processes/retention/run', method: 'POST', csrf: 'token' },
+    { url: '/api/v1/processes/wikidata_candidates/runs/run-1/stop', method: 'POST', csrf: 'token' },
+  ])
 })

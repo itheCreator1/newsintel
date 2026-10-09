@@ -267,7 +267,8 @@ it('searches the activity list when the search is submitted', async () => {
 it('shows each row with its process, a link, the error, the attempts and its actions', async () => {
   open()
   const list = await screen.findByRole('list', { name: 'Activity' })
-  const rows = await within(list).findAllByRole('listitem')
+  await within(list).findAllByRole('listitem')
+  const rows = Array.from(list.querySelectorAll(':scope > li')) as HTMLElement[]
   const failed = rows[0]
   expect(failed.textContent).toMatch(/Article download/)
   expect(within(failed).getByRole('link', { name: 'Ο Μητσοτάκης στις Βρυξέλλες' }).getAttribute('href')).toBe('/articles/?article=article-1')
@@ -312,7 +313,7 @@ it('says when nothing needs attention, and when nothing matches', async () => {
 
 it('passes the window to the windowed requests and writes a new one to the URL', async () => {
   open('hours=1')
-  await screen.findByText('Feed fetching')
+  await screen.findByRole('button', { name: 'Feed fetching' })
   expect(api.processes).toHaveBeenCalledWith(1)
   expect(api.opsFeeds).toHaveBeenCalledWith(1)
   const window = screen.getByRole('group', { name: 'Time window' })
@@ -390,7 +391,7 @@ it('keeps every other panel when one request fails', async () => {
 
 it('ignores a window, process, status or feed filter the API would not accept', async () => {
   open('hours=9999&process=nonsense&status=nonsense&feeds=nonsense')
-  await screen.findByText('Feed fetching')
+  await screen.findByRole('button', { name: 'Feed fetching' })
   expect(api.processes).toHaveBeenCalledWith(24)
   expect(api.processActivity).toHaveBeenCalledWith({ hours: 24, process: undefined, status: 'attention', q: undefined, cursor: undefined })
 })

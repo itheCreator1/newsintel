@@ -51,9 +51,9 @@ test('processes workflow shows healthy services, matches the job pages, filters 
   await page.getByRole('button', { name: 'Story clustering', exact: true }).click()
   await expect(page).toHaveURL(/process=clustering/)
   await expect(page).toHaveURL(/status=all/)
-  const activity = page.getByRole('list', { name: 'Activity' })
-  await expect(activity.getByRole('listitem').first()).toContainText('Story clustering', { timeout: 30_000 })
-  for (const text of await activity.getByRole('listitem').allTextContents()) expect(text).toContain('Story clustering')
+  const rows = page.getByRole('list', { name: 'Activity' }).locator(':scope > li')
+  await expect(rows.first()).toContainText('Story clustering', { timeout: 30_000 })
+  for (const text of await rows.allTextContents()) expect(text).toContain('Story clustering')
   await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: /^Done/ }).click()
   await expect(page).toHaveURL(/status=done/)
 
