@@ -12,7 +12,7 @@
 
 ## Abstract
 
-News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. An authority file, in the tradition of library cataloguing, gives every person, place and organisation one established name, gathers its other spellings under it, and records the links you state between entities. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
+News arrives as a stream of near-duplicates: the same event, rewritten by a dozen outlets, each with its own headline and its own idea of what matters. NewsIntel is a system for reading that stream at archive scale. It continuously collects articles from RSS feeds, deduplicates them, extracts full text, annotates entities and keywords, clusters independent reporting on the same story, associates stories into events, and serves the result through full-text search, an entity relationship graph, a map, and per-source and per-event dossiers. An authority file, in the tradition of library cataloguing, gives every person, place and organisation one established name, gathers its other spellings under it, and records the links you state between entities; each established name can also be tied to its Wikidata item, whose names and identifiers are kept in the archive's own database. Every derived object — a cluster, an event, a graph edge — remains traceable to the bounded set of articles that produced it. The architecture targets roughly five million archived articles without a rewrite, and the whole system runs self-hosted, auditable, and free of API keys. No large language models were consulted in the making of any conclusion.
 
 ## Quickstart
 
@@ -53,7 +53,7 @@ Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed u
 
 **P4. Descriptive, not judgemental.** Source dossiers report health, coverage and timing, each metric shown against its denominator. There is no "quality score": the system describes what a source did, not what it is worth.
 
-**P5. One domain, one module.** The backend is not a god-object API. `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations`, `auth` and `jobs` are separate modules under `backend/app`, each owning its models, service layer and routes.
+**P5. One domain, one module.** The backend is not a god-object API. `feeds`, `articles`, `nlp`, `search`, `clustering`, `analytics`, `entities`, `graph`, `investigations`, `monitors`, `events`, `sources`, `compare`, `geo`, `operations`, `processes`, `wikidata`, `auth` and `jobs` are separate modules under `backend/app`, each owning its models, service layer and routes.
 
 **P6. Nothing slow happens in a request.** Feed polling, extraction, annotation, clustering and indexing run as background jobs; the API reads what they have committed. When you change the authority file, the API records the decision at once, and the scheduler moves the affected articles over in batches.
 
@@ -68,16 +68,18 @@ flowchart TB
     feeds(["RSS / Atom feeds"])
     scheduler["scheduler<br/>claims due work ·<br/>advances authority runs"]
     redis[("Redis<br/>Dramatiq broker")]
-    worker["worker<br/>ingestion · extraction ·<br/>search indexing · monitors"]
+    worker["worker<br/>ingestion · extraction ·<br/>search indexing · monitors ·<br/>Wikidata runs"]
     nlp["nlp-worker<br/>NER · keywords ·<br/>clustering · events"]
     pg[("PostgreSQL<br/>source of truth")]
     es[("Elasticsearch<br/>rebuildable index")]
     api["api<br/>FastAPI, read-mostly ·<br/>records authority decisions"]
     frontend["frontend<br/>Next.js static export"]
+    wikidata(["Wikidata<br/>api.php"])
 
     scheduler -- "sends actors" --> redis
     redis --> worker & nlp
     feeds --> worker
+    worker -. "one request at a time,<br/>cached in Postgres" .-> wikidata
     worker & nlp -- "commit results +<br/>next job rows" --> pg
     worker -- "indexes" --> es
     pg -. "due job rows" .-> scheduler
@@ -85,7 +87,7 @@ flowchart TB
     frontend --> api
     api --> pg & es
 ```
-<sub>**Figure 2.** Service topology. Arrows show who talks to whom; note that no worker talks to another worker. The scheduler also carries out authority runs itself: a merge or split moves a batch of articles each cycle and asks for them to be reindexed.</sub>
+<sub>**Figure 2.** Service topology. Arrows show who talks to whom; note that no worker talks to another worker. The scheduler also carries out authority runs itself: a merge or split moves a batch of articles each cycle and asks for them to be reindexed. Wikidata is the one outside service, and it is optional: the worker asks it one request at a time, everything it learns is stored in PostgreSQL, and the rest of the system never waits for it.</sub>
 
 ## 3. The pipeline, stage by stage
 
@@ -121,6 +123,7 @@ flowchart LR
 | **Associate events** | nlp-worker, every 30 s plus a 5-minute sweep | `events`, `event_clusters` with join scores and signals, a record of each run | — |
 | **Index** | worker | per-article search state and deliveries per index target | — |
 | **Monitors** | worker, on each monitor's own interval | cursors and unseen counts on `monitors` | — |
+| **Wikidata runs** | worker, one run at a time, handed out by the scheduler (your buttons first, then refreshes, then the daily sweep) | cached items, suggestions for unlinked names, refreshed links and their identifiers | — |
 | **Authority runs** | scheduler, one batch per cycle | after a merge or split, each article's entity rows under the root or the variant; a rename reindexes the root's articles | an index delivery per article; the events those articles belong to are recomputed |
 
 Two details make the index trustworthy. Each article carries a *revision* bumped on every change, and a delivery only lands if its revision is still current, so a slow worker cannot overwrite a newer document with an older one. And indices are versioned behind an alias: a reindex builds a new index alongside the live one and swaps the alias, with no downtime.
@@ -160,7 +163,17 @@ NER finds names, not entities: "WHO" and "the World Health Organization", or "A.
 ![Search's advanced filters with the "Follow see-also links" picker: Earlier and later names, Parts](assets/search-see-also.png)
 <sub>**Figure 12.** Searches and monitors can follow see-also links: filtering by an entity can also take in its earlier and later names, or its parts, so a search for a country can include its regions, and their towns in turn.</sub>
 
-Searching, the graph, the dossiers, monitors and saved searches all work on roots: a filter on a variant finds its root's articles, and ids saved before a merge keep working. Merging and splitting move each article's mentions in batches (Figure 2), so a large merge never blocks a request. `python -m app.cli authority export` writes the whole file as JSON, by name rather than by id, and `authority import` applies it to another database or to the same one after a rebuild, before NLP runs again; `authority seed-countries` ties the usual spellings of each country ("USA", "U.K.") to its entity. A country renamed with the same territory (Swaziland, now Eswatini) is one entity: merge the old name into the new one rather than linking them.
+Searching, the graph, the dossiers, monitors and saved searches all work on roots: a filter on a variant finds its root's articles, and ids saved before a merge keep working. Merging and splitting move each article's mentions in batches (Figure 2), so a large merge never blocks a request. `python -m app.cli authority export` writes the whole file as JSON, by name rather than by id, and `authority import` applies it to another database (version 2 of the file also carries each root's Wikidata link and where each name came from) or to the same one after a rebuild, before NLP runs again; `authority seed-countries` ties the usual spellings of each country ("USA", "U.K.") to its entity. A country renamed with the same territory (Swaziland, now Eswatini) is one entity: merge the old name into the new one rather than linking them.
+
+#### Linking to Wikidata
+
+An established name can be tied to one Wikidata item (MARC 024 with `$2 wikidata`), so "Αλέξης Τσίπρας" and "Alexis Tsipras" become one entity and a search for either finds both the Greek and the English articles. Nothing is ever linked on its own: the system suggests, you decide.
+
+- **On a dossier**, **Find on Wikidata** searches for the name; the Wikidata section then shows the suggested items with their descriptions and the reasons for each (an exact label, a name the entity already has, a type that fits), with **Link** and **Not this one**. If you know the item, type its QID and press **Link item**. Linking brings the item's labels in Greek and English in as variants; its other names (nicknames, a bare surname) are listed under *Names on Wikidata* and added only if you tick them. A linked dossier shows the description and the VIAF, ISNI and Library of Congress identifiers the item carries, with **Refresh from Wikidata** and **Unlink**.
+- **On the Authority file page**, *Wikidata suggestions* lists likely items for names not yet linked, best first, and **Approve all exact** links every name whose one exact label has the right type. The authority file shows each root's QID and filters by linked or unlinked, and "Maybe the same?" gains a reason: two names that share a Wikidata name.
+- **One item, one root.** A QID already linked elsewhere is refused, with the offer to merge the two names, and a name marked ambiguous cannot be linked at all. A name that already belongs to another root is never moved: the pair turns up in "Maybe the same?" instead.
+- **Kept current, gently.** Each linked item is checked every 30 days, 50 to a request, and fetched again only if it changed. A redirect on Wikidata (two items merged) moves the link, with history; a deleted item keeps its link and is marked missing. The worker sends one request at a time, at most one every 3 seconds and 2,000 a day, and pauses when Wikidata asks it to.
+- **Offline is fine.** Everything is read from PostgreSQL, so the archive works without the internet; only new suggestions wait. Nothing is sent until you set `NEWSINTEL_WIKIDATA_CONTACT` (an email address or a URL, which Wikimedia's User-Agent policy requires), and `NEWSINTEL_WIKIDATA_ENABLED=false` stops all traffic. `python -m app.cli wikidata status` shows the state and the day's budget, and `wikidata refresh --all` (or `--qid Q…`) refreshes now. Data from Wikidata is CC0.
 
 The remaining routes follow the same design language:
 - **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
@@ -179,6 +192,7 @@ The remaining routes follow the same design language:
 | Search | Elasticsearch (versioned indices behind an alias, zero-downtime reindexing): full text, facets, investigation analytics and map, related coverage |
 | NLP | spaCy NER for English and Greek (optional image, off by default; enable with `docker/compose.ner.yaml`, then switch Greek on in Settings), YAKE keywords, Lingua language detection, pluggable/versioned processors |
 | Extraction | Trafilatura, behind a replaceable extractor interface |
+| Reference data | Wikidata Action API (optional), cached in PostgreSQL |
 | Frontend | Next.js (App Router, static export), React, TypeScript, TanStack Query, Apache ECharts |
 | Deployment | Docker Compose |
 
@@ -196,7 +210,7 @@ The Processes page (`/processes/`; the old `/jobs/` and `/operations/` addresses
 - **A card per process**, in three groups. *Per item*: feed fetching, article download, NLP, story clustering, search indexing, watchlist monitors. *Bulk runs*: NLP reprocessing, name changes, search index rebuild, source reindex. *Scheduled*: event linking, history cleanup, Wikidata refresh and suggestions. A card turns red only for failures inside the chosen window (1 h, 24 h or 7 d).
 - **Activity**: one list across all of them, by default what needs attention (running, retrying, failed in the window). Click a card to see only that process.
 - **Actions**: *Retry* on a failed row, *Retry N failed* on a card (200 at a time), *Run now* on the scheduled processes, and *Stop* on NLP reprocessing and Wikidata runs. Name changes, source reindexing and the index rebuild cannot be stopped: half a merge or reindex would leave the index inconsistent. The rebuild stays a CLI command.
-- **Feeds** (with *Fetch now*), **Storage** and **Wikidata**.
+- **Feeds** (with *Fetch now*), **Storage** and **Wikidata**: the requests sent today against the daily budget, any pause (a 429, 503 or `maxlag` answer pauses them), and the runs waiting.
 
 Two things it does not show:
 
@@ -226,7 +240,7 @@ dc up -d
 dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows; resume-search-rebuild <id> if catching_up
 ```
 
-The dump carries the authority file with everything else. To keep your naming decisions across a fresh database instead, export them first and apply them to the new database before the feeds are ingested again:
+The dump carries the authority file, with its Wikidata links and cached items, with everything else. To keep your naming decisions across a fresh database instead, export them first and apply them to the new database before the feeds are ingested again:
 
 ```sh
 dc run --rm -T api python -m app.cli authority export > authority.json
@@ -242,7 +256,7 @@ The system is typed and tested end to end, and everything runs in containers: de
 - `./infra/test-quick.sh` is the fast loop: unit tests, linting, type checks and the OpenAPI/TypeScript contract, with no service containers.
 - `./infra/test-docker.sh` is the full gate: it builds dedicated test images, runs backend and frontend checks, rejects skipped tests and stale generated contracts, rehearses backup/restore, and runs every browser workflow against disposable Compose stacks.
 
-GitHub Actions runs the quick loop, the frontend build and a workflow lint on every pull request and every push to `main` (`.github/workflows/ci.yml`). It runs the full gate after every merge to `main`, nightly, on demand, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself (`.github/workflows/full-gate.yml`). A change to nothing but the Markdown docs, the images in `assets/` or the licence starts neither. A green pull request therefore usually covers the quick loop only, so run the full gate before merging a change to application behaviour.
+GitHub Actions runs the quick loop, the frontend build and a workflow lint on every pull request and every push to `main` (`.github/workflows/ci.yml`). It runs the full gate after every merge to `main`, nightly, on demand, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself (`.github/workflows/full-gate.yml`). A change to nothing but the Markdown docs, the images in `assets/` or the licence starts neither. No test talks to Wikidata: the browser workflows use a stand-in for its API on the fixture server, and a monthly workflow (`.github/workflows/wikidata-contract.yml`) checks the client against the real one. A green pull request therefore usually covers the quick loop only, so run the full gate before merging a change to application behaviour.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers running the stack locally, the integration and browser loops, regenerating the OpenAPI spec and TypeScript types, writing migrations, and the test harness's options and reports.
 
@@ -254,6 +268,7 @@ In the tradition of papers that are honest about their methods:
 - **Entity quality is spaCy's quality.** NER mislabels things: the small models used here call a city a person now and then, and tag one name with two types. Dates, times, amounts and time phrases it tags as names are filtered out, but other mislabels get through. The authority file (Figure 8) joins spellings of one entity, but only of the same type (a place may be a GPE or a LOCATION), so it cannot fix a wrong type, and its suggestions only look within one language. Annotations are versioned, so a better model can be rerun over the archive without losing the old results.
 - **Story country is conservative.** It is only assigned when a country is named alone in the title and repeated in the text, and mainly for English-language articles, so most articles have none. The map says so rather than guessing.
 - **Rule-based clustering and events.** They are deterministic and explainable. Story clustering also matches articles whose opening words share rare specifics (stemmed, and weighted by how rare each term is in the 48-hour window), so a reworded headline no longer hides a story. A true paraphrase in different vocabulary is still missed, and event association still relies on entities and headline terms. Articles clustered before the wording rule have no terms until they are reclustered (`python -m app.cli recluster --from-date … --to-date …`).
+- **Wikidata needs the internet and your judgement.** The daily sweep only looks for names with at least three articles (**Find on Wikidata** works for any), and it searches by name, so an entity Wikidata knows under a quite different name may get no suggestion; you can still link it by its QID. A link is only as good as the item: Wikidata is edited by anyone, and a refresh brings in changed descriptions and identifiers, though never new names without you.
 - **Related coverage is wording, not meaning.** It needs at least five shared terms, so a paraphrase in different words is missed, and a short or text-poor article gets no related coverage rather than a guess.
 - **Scale is designed, not unlimited.** The target is on the order of five million articles on a single Compose host. Beyond that, the ceilings are named in the code as they are met.
 
