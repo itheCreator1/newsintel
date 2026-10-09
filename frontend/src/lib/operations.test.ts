@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { AREAS, bytes, feedTone, operationsHref, probeTone, since, span } from './operations'
+import { bytes, feedTone, probeTone, since, span } from './operations'
 
 it('turns seconds into the two largest units, and nothing into a dash', () => {
   expect(span(null)).toBe('—')
@@ -31,15 +31,4 @@ it('formats sizes in binary units', () => {
 it('maps every state to a tone, with unknown never shown as healthy', () => {
   expect(['ok', 'degraded', 'down', 'unknown'].map(state => probeTone(state as never))).toEqual(['healthy', 'degraded', 'error', 'pending'])
   expect((['ok', 'overdue', 'failing', 'awaiting', 'disabled'] as const).map(feedTone)).toEqual(['healthy', 'degraded', 'error', 'pending', 'pending'])
-})
-
-it('keeps the window, the failure drill-down and the feed filter in the URL, omitting defaults', () => {
-  expect(operationsHref({})).toBe('/operations/')
-  expect(operationsHref({ hours: 24 })).toBe('/operations/')
-  expect(operationsHref({ hours: 72, area: 'feed', feeds: 'failing' })).toBe('/operations/?hours=72&area=feed&feeds=failing')
-  expect(operationsHref({ feeds: 'all' })).toBe('/operations/')
-})
-
-it('lists the seven failure areas the API accepts', () => {
-  expect(AREAS.map(area => area.value).sort()).toEqual(['article', 'cluster', 'event', 'feed', 'monitor', 'nlp', 'search'])
 })

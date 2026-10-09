@@ -1,20 +1,5 @@
 import type { BadgeTone } from '../components/StatusBadge'
-import { toHref } from './investigation'
-import type { OpsArea, OpsFeedState, OpsProbe } from './api-types'
-
-export const HOURS = [1, 6, 24, 72, 168]
-export const DEFAULT_HOURS = 24
-export const FEED_FILTERS = ['all', 'failing', 'overdue', 'awaiting', 'disabled', 'ok'] as const
-export type FeedFilter = (typeof FEED_FILTERS)[number]
-export const AREAS: { value: OpsArea; label: string }[] = [
-  { value: 'feed', label: 'Feed fetches' },
-  { value: 'article', label: 'Article fetch and extraction' },
-  { value: 'search', label: 'Search indexing' },
-  { value: 'nlp', label: 'NLP processing' },
-  { value: 'cluster', label: 'Story clustering' },
-  { value: 'event', label: 'Event association' },
-  { value: 'monitor', label: 'Monitors' },
-]
+import type { OpsFeedState, OpsProbe } from './api-types'
 
 export const probeTone = (state: OpsProbe['state']): BadgeTone =>
   ({ ok: 'healthy', degraded: 'degraded', down: 'error', unknown: 'pending' } as const)[state]
@@ -45,13 +30,4 @@ export function bytes(value: number): string {
   let unit = 0
   while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1 }
   return unit === 0 ? `${value} B` : `${size.toFixed(1)} ${units[unit]}`
-}
-
-/** Operations link; window, drill-down and feed filter are in the URL so a view can be bookmarked. */
-export function operationsHref({ hours, area, feeds }: { hours?: number; area?: OpsArea; feeds?: FeedFilter }): string {
-  const query = new URLSearchParams()
-  if (hours && hours !== DEFAULT_HOURS) query.set('hours', String(hours))
-  if (area) query.set('area', area)
-  if (feeds && feeds !== 'all') query.set('feeds', feeds)
-  return toHref('/operations', query)
 }

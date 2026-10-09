@@ -165,8 +165,8 @@ Searching, the graph, the dossiers, monitors and saved searches all work on root
 The remaining routes follow the same design language:
 - **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
 - **Compare**: two entities, two sources or two countries side by side, with the articles and stories only one has and those both share.
-- **Clusters**, **Articles** and **Jobs**.
-- **Operations**: dependency health, pipeline backlogs, feed health and storage.
+- **Clusters** and **Articles**.
+- **Processes**: every background process on one page (it replaces Jobs and Operations): service health, a card per process, one activity list with Retry and Stop, feed health and storage.
 - **Settings**.
 
 ## 5. Tech stack
@@ -190,10 +190,18 @@ The remaining routes follow the same design language:
 
 **Estimated counts.** Three numbers come from Elasticsearch's cardinality estimate (precision 3000). Two are labelled: the distinct stories behind a Graph edge ("about N stories (estimated)"), and the story and source counts of the investigation Map (`≈N` in the table, "estimated" to a screen reader). The Watchlist's "N new stories" badge is not marked; it is a notification count and near-exact below 3000 distinct stories. Every other count is exact for the indexed snapshot.
 
-The Operations page (`/operations/`) shows dependency health, pipeline backlogs, feed health and storage. Two things it does not show:
+The Processes page (`/processes/`; the old `/jobs/` and `/operations/` addresses lead there) shows what the archive does in the background, refreshed every 5 seconds while the tab is open:
+
+- **Services**: PostgreSQL, Redis, Elasticsearch, the NLP models, the scheduler heartbeat and a live worker on every queue.
+- **A card per process**, in three groups. *Per item*: feed fetching, article download, NLP, story clustering, search indexing, watchlist monitors. *Bulk runs*: NLP reprocessing, name changes, search index rebuild, source reindex. *Scheduled*: event linking, history cleanup, Wikidata refresh and suggestions. A card turns red only for failures inside the chosen window (1 h, 24 h or 7 d).
+- **Activity**: one list across all of them, by default what needs attention (running, retrying, failed in the window). Click a card to see only that process.
+- **Actions**: *Retry* on a failed row, *Retry N failed* on a card (200 at a time), *Run now* on the scheduled processes, and *Stop* on NLP reprocessing and Wikidata runs. Name changes, source reindexing and the index rebuild cannot be stopped: half a merge or reindex would leave the index inconsistent. The rebuild stays a CLI command.
+- **Feeds** (with *Fetch now*), **Storage** and **Wikidata**.
+
+Two things it does not show:
 
 - **Article file size.** Retained article HTML lives on the worker's `article-data` volume, which only the worker mounts. Measure it from the host: `docker compose --env-file .env -f docker/compose.yaml exec worker du -sh /var/lib/newsintel/articles`.
-- **History retention.** Every hour, the scheduler deletes succeeded job rows older than 30 days that a newer row replaces, and sessions that expired or were revoked more than 30 days ago. Failed rows are kept for diagnosis.
+- **History retention.** Every hour (or on *Run now* in the History cleanup card), the scheduler deletes succeeded job rows older than 30 days that a newer row replaces, and sessions that expired or were revoked more than 30 days ago. Failed rows are kept for diagnosis.
 
 ### Backup and restore
 

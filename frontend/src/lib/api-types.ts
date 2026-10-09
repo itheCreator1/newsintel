@@ -1,4 +1,4 @@
-import type { components } from './types.generated'
+import type { components, operations } from './types.generated'
 
 export type Feed = components['schemas']['FeedResponse']
 export type FeedFetch = components['schemas']['FetchResponse']
@@ -104,3 +104,16 @@ export type OpsArea = OpsFailures['area']
 export type OpsFeedState = OpsFeed['state']
 export type OpsWikidata = components['schemas']['WikidataStatusResponse']
 export interface CursorPage<T> { items: T[]; next_cursor: string | null }
+export type ProcessesResponse = components['schemas']['ProcessesResponse']
+export type ProcessCard = components['schemas']['ProcessCard']
+export type ProcessKey = ProcessCard['key']
+export type ProcessGroup = ProcessCard['group']
+export type ProcessState = ProcessCard['state']
+export type ProcessAction = NonNullable<ProcessCard['actions']>[number]
+export type ActivityPage = components['schemas']['ActivityPage']
+export type ActivityItem = components['schemas']['ActivityItem']
+export type ActivityStatus = ActivityItem['status']
+export type ActivityLinkKind = NonNullable<ActivityItem['link_kind']>
+export type ActivityFilter = NonNullable<NonNullable<operations['process_activity_api_v1_processes_activity_get']['parameters']['query']>['status']>
+export type RetryFailedResponse = components['schemas']['RetryFailedResponse']
+export type RunNowResponse = components['schemas']['RunNowResponse']

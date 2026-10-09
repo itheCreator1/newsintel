@@ -40,7 +40,7 @@ test('annotations refine search and stop words use revisioned settings', async (
   await page.getByRole('button', { name: 'Save stop words' }).click()
   await expect(page.getByText(/Stop words saved as revision/)).toBeVisible()
 
-  await page.getByRole('link', { name: 'Jobs' }).click()
-  await expect(page.getByRole('heading', { name: 'NLP processing' })).toBeVisible()
-  await expect(page.getByText(/entities · disabled/)).toBeVisible()
+  await page.getByRole('link', { name: 'Processes' }).click()
+  const card = page.getByRole('article').filter({ has: page.getByRole('button', { name: 'NLP', exact: true }) })
+  await expect(card).toContainText('entities disabled')
 })
