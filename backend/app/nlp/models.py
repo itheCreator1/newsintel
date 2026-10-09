@@ -50,6 +50,7 @@ class NlpJob(Base):
             "article_id", "processor_name", "generation", name="uq_nlp_job_generation"
         ),
         Index("ix_nlp_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
+        Index("ix_nlp_jobs_created_at", "created_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     state_id: Mapped[uuid.UUID] = mapped_column(

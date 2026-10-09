@@ -1328,6 +1328,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Processes
+         * @description One card per background process: its counts, its newest run and its state.
+         */
+        get: operations["processes_api_v1_processes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processes/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Process Activity
+         * @description What every process did or is doing, newest first. `attention` is what is running or
+         *     retrying now and what failed in the window.
+         */
+        get: operations["process_activity_api_v1_processes_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/sources": {
         parameters: {
             query?: never;
@@ -1687,6 +1728,97 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityAttempt */
+        ActivityAttempt: {
+            /** Number */
+            number: number;
+            /** Stage */
+            stage: string;
+            /** Status */
+            status: string;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /** ActivityCounts */
+        ActivityCounts: {
+            /** Attention */
+            attention: number;
+            /** Failed */
+            failed: number;
+            /** Running */
+            running: number;
+            /** Queued */
+            queued: number;
+        };
+        /** ActivityItem */
+        ActivityItem: {
+            /**
+             * Process
+             * @enum {string}
+             */
+            process: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "retrying" | "failed" | "succeeded" | "stopped";
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string | null;
+            /** Link Kind */
+            link_kind: ("article" | "feed" | "entity" | "monitor") | null;
+            /** Link Id */
+            link_id: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Error Category */
+            error_category: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Attempt Count */
+            attempt_count: number | null;
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: components["schemas"]["ActivityAttempt"][];
+        };
+        /** ActivityPage */
+        ActivityPage: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Window Hours */
+            window_hours: number;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /** Items */
+            items: components["schemas"]["ActivityItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            counts: components["schemas"]["ActivityCounts"];
+        };
         /** AnnotationLookupItem */
         AnnotationLookupItem: {
             /**
@@ -3877,6 +4009,51 @@ export interface components {
              */
             checked_at: string;
         };
+        /** ProcessCard */
+        ProcessCard: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates";
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "per_item" | "bulk" | "scheduled";
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "working" | "retrying" | "stalled" | "failing" | "idle" | "off";
+            /** Queued */
+            queued?: number | null;
+            /** Running */
+            running?: number | null;
+            /** Retrying */
+            retrying?: number | null;
+            /** Failed */
+            failed?: number | null;
+            /** Lease Expired */
+            lease_expired?: number | null;
+            /** Oldest Wait Seconds */
+            oldest_wait_seconds?: number | null;
+            /** Done In Window */
+            done_in_window?: number | null;
+            /** Failed In Window */
+            failed_in_window?: number | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Active Run Id */
+            active_run_id?: string | null;
+            progress?: components["schemas"]["Progress"] | null;
+            /** Detail */
+            detail?: string | null;
+        };
         /** ProcessRequest */
         ProcessRequest: {
             /**
@@ -3897,6 +4074,23 @@ export interface components {
             status: string;
             /** Reused */
             reused: boolean;
+        };
+        /** ProcessesResponse */
+        ProcessesResponse: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Window Hours */
+            window_hours: number;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /** Processes */
+            processes: components["schemas"]["ProcessCard"][];
         };
         /** ProcessorOutcomeResponse */
         ProcessorOutcomeResponse: {
@@ -3922,6 +4116,13 @@ export interface components {
             detail?: string | null;
             /** Completed At */
             completed_at?: string | null;
+        };
+        /** Progress */
+        Progress: {
+            /** Done */
+            done: number;
+            /** Total */
+            total: number | null;
         };
         /** QueueDepth */
         QueueDepth: {
@@ -7682,6 +7883,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WikidataStatusResponse"];
+                };
+            };
+        };
+    };
+    processes_api_v1_processes_get: {
+        parameters: {
+            query?: {
+                /** @description Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts. */
+                hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    process_activity_api_v1_processes_activity_get: {
+        parameters: {
+            query?: {
+                /** @description Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts. */
+                hours?: number;
+                process?: ("feeds" | "articles" | "nlp" | "clustering" | "search" | "monitors" | "reprocessing" | "authority" | "rebuild" | "source_refresh" | "events" | "retention" | "wikidata_refresh" | "wikidata_candidates") | null;
+                status?: "attention" | "failed" | "running" | "queued" | "done" | "all";
+                q?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -5723,6 +5723,197 @@
         }
       }
     },
+    "/api/v1/processes": {
+      "get": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Processes",
+        "description": "One card per background process: its counts, its newest run and its state.",
+        "operationId": "processes_api_v1_processes_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts.",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/processes/activity": {
+      "get": {
+        "tags": [
+          "processes"
+        ],
+        "summary": "Process Activity",
+        "description": "What every process did or is doing, newest first. `attention` is what is running or\nretrying now and what failed in the window.",
+        "operationId": "process_activity_api_v1_processes_activity_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts.",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Window length in hours, ending now; it bounds what finished, while what is still queued or running always counts."
+          },
+          {
+            "name": "process",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "feeds",
+                    "articles",
+                    "nlp",
+                    "clustering",
+                    "search",
+                    "monitors",
+                    "reprocessing",
+                    "authority",
+                    "rebuild",
+                    "source_refresh",
+                    "events",
+                    "retention",
+                    "wikidata_refresh",
+                    "wikidata_candidates"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Process"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "attention",
+                "failed",
+                "running",
+                "queued",
+                "done",
+                "all"
+              ],
+              "type": "string",
+              "default": "attention",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/search/sources": {
       "get": {
         "tags": [
@@ -9481,6 +9672,282 @@
   },
   "components": {
     "schemas": {
+      "ActivityAttempt": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "stage",
+          "status",
+          "error_category",
+          "error_message",
+          "started_at"
+        ],
+        "title": "ActivityAttempt"
+      },
+      "ActivityCounts": {
+        "properties": {
+          "attention": {
+            "type": "integer",
+            "title": "Attention"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attention",
+          "failed",
+          "running",
+          "queued"
+        ],
+        "title": "ActivityCounts"
+      },
+      "ActivityItem": {
+        "properties": {
+          "process": {
+            "type": "string",
+            "enum": [
+              "feeds",
+              "articles",
+              "nlp",
+              "clustering",
+              "search",
+              "monitors",
+              "reprocessing",
+              "authority",
+              "rebuild",
+              "source_refresh",
+              "events",
+              "retention",
+              "wikidata_refresh",
+              "wikidata_candidates"
+            ],
+            "title": "Process"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "retrying",
+              "failed",
+              "succeeded",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "link_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "article",
+                  "feed",
+                  "entity",
+                  "monitor"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Kind"
+          },
+          "link_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "error_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Category"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "attempt_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Count"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityAttempt"
+            },
+            "type": "array",
+            "title": "Attempts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "process",
+          "id",
+          "status",
+          "title",
+          "detail",
+          "link_kind",
+          "link_id",
+          "at",
+          "error_category",
+          "error_message",
+          "attempt_count"
+        ],
+        "title": "ActivityItem"
+      },
+      "ActivityPage": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ActivityCounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window_hours",
+          "window_start",
+          "items",
+          "next_cursor",
+          "counts"
+        ],
+        "title": "ActivityPage"
+      },
       "AnnotationLookupItem": {
         "properties": {
           "id": {
@@ -15508,6 +15975,202 @@
         ],
         "title": "Probe"
       },
+      "ProcessCard": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "feeds",
+              "articles",
+              "nlp",
+              "clustering",
+              "search",
+              "monitors",
+              "reprocessing",
+              "authority",
+              "rebuild",
+              "source_refresh",
+              "events",
+              "retention",
+              "wikidata_refresh",
+              "wikidata_candidates"
+            ],
+            "title": "Key"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "per_item",
+              "bulk",
+              "scheduled"
+            ],
+            "title": "Group"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "working",
+              "retrying",
+              "stalled",
+              "failing",
+              "idle",
+              "off"
+            ],
+            "title": "State"
+          },
+          "queued": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running"
+          },
+          "retrying": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrying"
+          },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          },
+          "lease_expired": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expired"
+          },
+          "oldest_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Wait Seconds"
+          },
+          "done_in_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done In Window"
+          },
+          "failed_in_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed In Window"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "active_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Run Id"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Progress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "group",
+          "label",
+          "description",
+          "state"
+        ],
+        "title": "ProcessCard"
+      },
       "ProcessRequest": {
         "properties": {
           "mode": {
@@ -15546,6 +16209,39 @@
           "reused"
         ],
         "title": "ProcessResponse"
+      },
+      "ProcessesResponse": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessCard"
+            },
+            "type": "array",
+            "title": "Processes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window_hours",
+          "window_start",
+          "processes"
+        ],
+        "title": "ProcessesResponse"
       },
       "ProcessorOutcomeResponse": {
         "properties": {
@@ -15634,6 +16330,31 @@
           "input_fingerprint"
         ],
         "title": "ProcessorOutcomeResponse"
+      },
+      "Progress": {
+        "properties": {
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "done",
+          "total"
+        ],
+        "title": "Progress"
       },
       "QueueDepth": {
         "properties": {
