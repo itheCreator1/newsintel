@@ -87,7 +87,7 @@ async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:
         )
         if run is None:
             raise LookupError("NLP reprocessing run not found")
-        if run.status == "succeeded":
+        if run.status != "scanning":  # finished, or stopped by hand
             return 0
         query = select(Article.id).order_by(Article.id).limit(batch_size)
         if run.article_cursor:

@@ -27,10 +27,12 @@ from app.feeds.schemas import (
     RelatedArticle,
 )
 from app.feeds.service import (
+    QueueUnavailable,
     article_detail_response,
     article_response,
-    claim_feed,
     encode_cursor,
+    fetch_now,
+    send_fetch,
 )
 from app.search.service import request_source_refresh
 
@@ -118,28 +120,15 @@ async def retire_feed(feed_id: uuid.UUID, db: Db, _mutation: Mutation) -> Respon
     "/feeds/{feed_id}/poll", response_model=PollResponse, status_code=status.HTTP_202_ACCEPTED
 )
 async def poll_feed(feed_id: uuid.UUID, db: Db, _mutation: Mutation) -> PollResponse:
-    claimed = await claim_feed(db, feed_id)
+    try:
+        claimed = await fetch_now(db, feed_id, send_fetch)
+    except QueueUnavailable as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Polling queue unavailable"
+        ) from exc
     if claimed is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Feed is disabled or retired")
     fetch, reused = claimed
-    if not reused:
-        try:
-            from app.jobs.ingestion import ingest_feed
-
-            ingest_feed.send(str(feed_id), fetch.claim_token)
-        except Exception as exc:
-            fetch.status = "failed"
-            fetch.error_category = "queue"
-            fetch.error_message = str(exc)[:1000]
-            fetch.completed_at = datetime.now(UTC)
-            feed = await db.get(Feed, feed_id, with_for_update=True)
-            if feed and feed.claim_token == fetch.claim_token:
-                feed.claim_token = None
-                feed.claim_expires_at = None
-            await db.commit()
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE, "Polling queue unavailable"
-            ) from exc
     return PollResponse(fetch_id=fetch.id, status=fetch.status, reused=reused)
 
 

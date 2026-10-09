@@ -41,6 +41,7 @@ from app.feeds.service import decode_cursor, encode_cursor
 from app.monitors.models import Monitor
 from app.nlp.models import Entity, EntityAuthorityRun, NlpJob, NlpReprocessingRun
 from app.operations.models import MaintenanceRun
+from app.processes import states
 from app.processes.schemas import (
     ActivityAttempt,
     ActivityCounts,
@@ -310,7 +311,8 @@ async def activity(
                 detail=row.detail, link_kind=row.link_kind, link_id=row.link_id, at=row.at,
                 error_category=row.error_category, error_message=_cut(row.error_message),
                 attempt_count=len(tried) if row.process == "articles" else row.attempt_count,
-                attempts=tried,
+                attempts=tried, can_retry=states.can_retry(row.process, row.status),
+                can_stop=states.can_stop(row.process, row.status),
             )
         )  # fmt: skip
     following = None

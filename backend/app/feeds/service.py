@@ -1,5 +1,6 @@
 import base64
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
@@ -56,6 +57,43 @@ async def claim_feed(
     await db.commit()
     await db.refresh(fetch)
     return fetch, False
+
+
+class QueueUnavailable(Exception):
+    """The fetch was claimed but its message could not be queued; the fetch is marked failed."""
+
+
+async def fetch_now(
+    db: AsyncSession, feed_id: uuid.UUID, send: Callable[[str, str], None]
+) -> tuple[FeedFetch, bool] | None:
+    """Claim the feed and queue its fetch; None when it is disabled or retired. A fetch already
+    in hand is reused, not sent again. Commits: the worker must see the claim."""
+    claimed = await claim_feed(db, feed_id)
+    if claimed is None:
+        return None
+    fetch, reused = claimed
+    if reused:
+        return claimed
+    try:
+        send(str(feed_id), fetch.claim_token)
+    except Exception as exc:
+        fetch.status = "failed"
+        fetch.error_category = "queue"
+        fetch.error_message = str(exc)[:1000]
+        fetch.completed_at = datetime.now(UTC)
+        feed = await db.get(Feed, feed_id, with_for_update=True)
+        if feed and feed.claim_token == fetch.claim_token:
+            feed.claim_token = None
+            feed.claim_expires_at = None
+        await db.commit()
+        raise QueueUnavailable(str(exc)) from exc
+    return claimed
+
+
+def send_fetch(feed_id: str, claim_token: str) -> None:
+    from app.jobs.ingestion import ingest_feed
+
+    ingest_feed.send(feed_id, claim_token)
 
 
 def article_response(article: Article) -> ArticleResponse:

@@ -18,6 +18,8 @@ ProcessState = Literal["ok", "working", "retrying", "stalled", "failing", "idle"
 ActivityStatus = Literal["queued", "running", "retrying", "failed", "succeeded", "stopped"]
 ActivityFilter = Literal["attention", "failed", "running", "queued", "done", "all"]
 LinkKind = Literal["article", "feed", "entity", "monitor"]
+# What a card offers: retry everything that failed, run a scheduled process now, stop its run.
+ProcessAction = Literal["retry_failed", "run_now", "stop"]
 
 
 class Progress(BaseModel):
@@ -43,6 +45,7 @@ class ProcessCard(BaseModel):
     active_run_id: uuid.UUID | None = None
     progress: Progress | None = None
     detail: str | None = None
+    actions: list[ProcessAction] = []
 
 
 class ProcessesResponse(BaseModel):
@@ -74,6 +77,8 @@ class ActivityItem(BaseModel):
     error_message: str | None
     attempt_count: int | None
     attempts: list[ActivityAttempt] = []
+    can_retry: bool = False
+    can_stop: bool = False
 
 
 class ActivityCounts(BaseModel):
@@ -90,3 +95,22 @@ class ActivityPage(BaseModel):
     items: list[ActivityItem]
     next_cursor: str | None
     counts: ActivityCounts
+
+
+class RetryItemResponse(BaseModel):
+    status: Literal["queued"]
+
+
+class RetryFailedResponse(BaseModel):
+    retried: int
+    remaining: int
+
+
+class RunNowResponse(BaseModel):
+    # sent: the job is on the queue; queued: a run waits for the scheduler to hand it out.
+    status: Literal["sent", "queued"]
+    run_id: uuid.UUID | None = None
+
+
+class StopResponse(BaseModel):
+    status: Literal["stopped"]

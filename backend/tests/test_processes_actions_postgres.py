@@ -2,8 +2,8 @@
 
 import os
 import uuid
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -337,11 +337,17 @@ async def test_running_wikidata_now_queues_one_run_and_reuses_an_unfinished_one(
         await db.execute(WikidataRun.__table__.delete())
         first = await actions.run_now(db, key, SETTINGS, _senders())
         second = await actions.run_now(db, key, SETTINGS, _senders())
-        rows = list(await db.scalars(select(WikidataRun).where(WikidataRun.kind == kind)))
+        rows = (
+            await db.execute(
+                select(WikidataRun.id, WikidataRun.entity_id, WikidataRun.status).where(
+                    WikidataRun.kind == kind
+                )
+            )
+        ).all()
         await db.rollback()
     assert (first.status, second.status) == ("queued", "queued")
-    assert first.run_id == second.run_id == rows[0].id and len(rows) == 1
-    assert rows[0].entity_id is None and rows[0].status == "queued"
+    assert len(rows) == 1 and tuple(rows[0]) == (first.run_id, None, "queued")
+    assert second.run_id == first.run_id
 
 
 async def test_wikidata_cannot_run_while_it_is_switched_off() -> None:
@@ -436,7 +442,8 @@ async def test_the_action_routes_need_the_csrf_token_and_reject_other_processes(
     async with _client() as client:
         assert (await client.post("/processes/events/run")).status_code == 403
         assert (await client.post("/processes/rebuild/run", headers=CSRF)).status_code == 422
-        assert (await client.post("/processes/events/retry-failed", headers=CSRF)).status_code == 422
+        events = "/processes/events/retry-failed"
+        assert (await client.post(events, headers=CSRF)).status_code == 422
         missing = f"/processes/reprocessing/runs/{uuid.uuid4()}/stop"
         assert (await client.post(missing, headers=CSRF)).status_code == 409
         row = f"/processes/activity/articles/{uuid.uuid4()}/retry"

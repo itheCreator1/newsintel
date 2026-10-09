@@ -71,7 +71,7 @@ services:
     build: ../backend
     image: ${NEWSINTEL_IMAGE_BACKEND:-newsintel-backend:local}
     restart: ${NEWSINTEL_RESTART_POLICY:-unless-stopped}
-    command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "app.jobs.monitors", "app.jobs.wikidata", "--processes", "1", "--threads", "4"]
+    command: ["dramatiq", "app.jobs.diagnostics", "app.jobs.ingestion", "app.jobs.articles", "app.jobs.search", "app.jobs.monitors", "app.jobs.wikidata", "app.jobs.maintenance", "--processes", "1", "--threads", "4"]
     environment: *backend-env
     volumes: ["article-data:/var/lib/newsintel/articles"]
     depends_on:
