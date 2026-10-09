@@ -62,6 +62,7 @@ class _NoQueries:
         f"/clusters/{uuid.uuid4()}",
         "/nlp/failures",
         "/search/indexing/failures",
+        "/processes/activity",
         f"/entities/{uuid.uuid4()}/articles",
         f"/entities/{uuid.uuid4()}/clusters",
         f"/compare/articles?kind=entity&a={uuid.uuid4()}&b={uuid.uuid4()}&part=a",
