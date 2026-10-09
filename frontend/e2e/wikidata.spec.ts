@@ -56,8 +56,8 @@ test('wikidata workflow suggests, links and fetches an item', async ({ page }) =
   await expect(file.getByRole('link', { name: 'Q900001' })).toBeVisible()
   await expect(file.getByRole('link', { name: 'Ada Lindqvist' })).toBeVisible()
 
-  // Operations shows what was asked, within the budget, and the one link.
-  await page.goto('/operations')
+  // Processes shows what was asked, within the budget, and the one link.
+  await page.goto('/processes')
   const card = page.getByRole('region', { name: 'Wikidata' })
   await expect(card.getByText('Open', { exact: true })).toBeVisible()
   await expect(card.getByText('Linked entities').locator('xpath=following-sibling::dd')).toHaveText('1')

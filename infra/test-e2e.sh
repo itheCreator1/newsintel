@@ -254,7 +254,7 @@ case $group in
     rebuild_search
     e2e "relationships workflow"
     e2e "graph edge evidence workflow"
-    e2e "operations workflow"
+    e2e "processes workflow"
     e2e "map workflow"
     e2e "compare workflow"
     e2e "source dossier workflow"
@@ -277,7 +277,7 @@ case $group in
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.
     e2e "greek entities workflow"
-    # Last: the operations page must report a stopped Elasticsearch while every other panel renders.
+    # Last: the Processes page must report a stopped Elasticsearch while every other panel renders.
     $compose stop elasticsearch
     e2e "stopped Elasticsearch"
     ;;

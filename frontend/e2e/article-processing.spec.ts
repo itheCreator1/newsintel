@@ -36,10 +36,10 @@ test('failure and retry workflow', async ({ page }) => {
   await expect(page.getByText(/first readable fixture article/)).toBeVisible({ timeout: 45_000 })
   await expect(page.getByText(/HTML retained/)).toBeVisible()
 
-  await page.getByRole('link', { name: 'Jobs' }).click()
-  const failed = page.locator('.job-row').filter({ hasText: 'Recoverable fixture story' })
-  await expect(failed.getByText('failed', { exact: true })).toBeVisible({ timeout: 45_000 })
-  await expect(failed.getByText(/http_transient/)).toBeVisible()
+  await page.getByRole('link', { name: 'Processes' }).click()
+  const failed = page.getByRole('list', { name: 'Activity' }).getByRole('listitem').filter({ hasText: 'Recoverable fixture story' })
+  await expect(failed.getByText('Failed', { exact: true })).toBeVisible({ timeout: 45_000 })
+  await expect(failed.getByText('http_transient')).toBeVisible()
   await failed.getByRole('button', { name: 'Retry' }).click()
   await expect(page.getByText('Retry scheduled.')).toBeVisible()
 

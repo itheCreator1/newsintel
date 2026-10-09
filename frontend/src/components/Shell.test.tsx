@@ -39,8 +39,9 @@ describe('application shell', () => {
     expect(screen.getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/map/')
     expect(screen.getByRole('link', { name: 'Saved Searches' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Watchlist' })).toHaveAttribute('href', '/monitors/')
-    expect(screen.getByRole('link', { name: 'Jobs' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Operations' })).toHaveAttribute('href', '/operations/')
+    expect(screen.getByRole('link', { name: 'Processes' })).toHaveAttribute('href', '/processes/')
+    expect(screen.queryByRole('link', { name: 'Jobs' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Operations' })).toBeNull()
   })
 
   function signedIn() {
@@ -55,7 +56,7 @@ describe('application shell', () => {
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
     const groups = ['Explore', 'Archive', 'Investigations', 'System'].map(name => within(nav).getByText(name).parentElement!)
     expect(groups.map(group => within(group).getAllByRole('link').map(link => link.textContent))).toEqual([
-      ['Overview', 'Search', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Saved Searches', 'Watchlist'], ['Jobs', 'Operations', 'Settings'],
+      ['Overview', 'Search', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Saved Searches', 'Watchlist'], ['Processes', 'Settings'],
     ])
     expect(within(nav).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page').map(link => link.textContent)).toEqual(['Search'])
   })
