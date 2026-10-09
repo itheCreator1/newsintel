@@ -17,8 +17,10 @@ from sqlalchemy.orm import aliased
 
 from app.auth.models import Session
 from app.clustering.models import ClusterJob
+from app.db.session import session_factory
 from app.feeds.models import ArticleProcessingJob
 from app.nlp.models import NlpJob
+from app.operations.models import MaintenanceRun
 from app.search.models import SearchDelivery, SearchIndexTarget
 
 JOB_RETENTION = timedelta(days=30)
@@ -44,8 +46,6 @@ def _candidates(cutoff: datetime) -> dict[str, tuple[Any, Select[tuple[uuid.UUID
                 ),
             ),
         ),
-        # ponytail: nlp_jobs.created_at and search_deliveries.updated_at are unindexed, so these
-        # scan hourly; add indexes in the next migration if the pruning shows up in the logs.
         "nlp_jobs": (
             NlpJob,
             select(NlpJob.id).where(
@@ -85,6 +85,10 @@ def _candidates(cutoff: datetime) -> dict[str, tuple[Any, Select[tuple[uuid.UUID
             Session,
             select(Session.id).where(or_(Session.expires_at < cutoff, Session.revoked_at < cutoff)),
         ),
+        "maintenance_runs": (
+            MaintenanceRun,
+            select(MaintenanceRun.id).where(MaintenanceRun.started_at < cutoff),
+        ),
     }
 
 
@@ -98,4 +102,31 @@ async def prune_history(db: AsyncSession, now: datetime) -> dict[str, int]:
             .execution_options(synchronize_session=False)
         )
         deleted[name] = result.rowcount  # type: ignore[attr-defined]
+    return deleted
+
+
+async def run_retention(now: datetime) -> dict[str, int]:
+    """Prune once and record it in `maintenance_runs`, the Processes page's history cleanup card.
+
+    A failure is recorded too (the class and message), then raised for the caller to log.
+    """
+    try:
+        async with session_factory() as db, db.begin():
+            deleted = await prune_history(db, now)
+    except Exception as exc:
+        async with session_factory() as db, db.begin():
+            db.add(
+                MaintenanceRun(
+                    kind="retention", started_at=now, finished_at=datetime.now(now.tzinfo),
+                    error_message=f"{type(exc).__name__}: {exc}"[:1000],
+                )
+            )  # fmt: skip
+        raise
+    async with session_factory() as db, db.begin():
+        db.add(
+            MaintenanceRun(
+                kind="retention", started_at=now, finished_at=datetime.now(now.tzinfo),
+                deleted=deleted,
+            )
+        )  # fmt: skip
     return deleted

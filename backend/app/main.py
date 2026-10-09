@@ -21,6 +21,7 @@ from app.investigations.routes import router as investigations_router
 from app.monitors.routes import router as monitors_router
 from app.nlp.routes import router as nlp_router
 from app.operations.routes import router as operations_router
+from app.processes.routes import router as processes_router
 from app.search.elasticsearch import close_shared_client, open_shared_client
 from app.search.routes import router as search_router
 from app.sources.routes import router as sources_router
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(compare_router, prefix="/api/v1")
     app.include_router(geo_router, prefix="/api/v1")
     app.include_router(operations_router, prefix="/api/v1")
+    app.include_router(processes_router, prefix="/api/v1")
     app.include_router(search_router, prefix="/api/v1")
     app.include_router(graph_router, prefix="/api/v1")
     app.include_router(investigations_router, prefix="/api/v1")

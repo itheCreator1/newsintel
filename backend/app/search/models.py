@@ -32,6 +32,7 @@ class SearchDelivery(Base):
     __table_args__ = (
         UniqueConstraint("article_id", "target_id", name="uq_search_delivery_article_target"),
         Index("ix_search_deliveries_due", "status", "next_attempt_at", "claim_expires_at"),
+        Index("ix_search_deliveries_updated_at", "updated_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))

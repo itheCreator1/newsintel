@@ -97,7 +97,7 @@ def _window(now: datetime, hours: int) -> datetime:
     return now - timedelta(hours=hours)
 
 
-async def _job_pipeline(
+async def job_pipeline(
     db: AsyncSession, spec: JobSpec, now: datetime, start: datetime
 ) -> JobPipeline:
     m = spec.model
@@ -209,7 +209,7 @@ async def _monitors(db: AsyncSession, now: datetime) -> MonitorPipeline:
 
 async def pipelines(db: AsyncSession, now: datetime, hours: int) -> PipelinesResponse:
     start = _window(now, hours)
-    jobs = [await _job_pipeline(db, spec, now, start) for spec in JOB_SPECS]
+    jobs = [await job_pipeline(db, spec, now, start) for spec in JOB_SPECS]
     return PipelinesResponse(
         generated_at=now, window_hours=hours, window_start=start, jobs=jobs,
         events=await _events(db, now, start), monitors=await _monitors(db, now),

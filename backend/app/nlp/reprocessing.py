@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Select, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import session_factory
 from app.feeds.models import Article
@@ -58,18 +59,23 @@ def _parse_datetime(value: object) -> datetime | None:
 
 async def count_selection(selection: dict[str, object]) -> int:
     async with session_factory() as db:
-        query = select(func.count()).select_from(Article)
-        article_ids = selection.get("article_ids")
-        if isinstance(article_ids, list):
-            query = query.where(Article.id.in_([uuid.UUID(str(value)) for value in article_ids]))
-        from_date = _parse_datetime(selection.get("from_date"))
-        to_date = _parse_datetime(selection.get("to_date"))
-        if from_date:
-            query = query.where(Article.first_discovered_at >= from_date)
-        if to_date:
-            query = query.where(Article.first_discovered_at < to_date)
-        query = _in_language(query, selection.get("language"))
-        return int(await db.scalar(query) or 0)
+        return await selection_size(db, selection)
+
+
+async def selection_size(db: AsyncSession, selection: dict[str, object]) -> int:
+    """How many articles a run's selection covers: the total its progress counts towards."""
+    query = select(func.count()).select_from(Article)
+    article_ids = selection.get("article_ids")
+    if isinstance(article_ids, list):
+        query = query.where(Article.id.in_([uuid.UUID(str(value)) for value in article_ids]))
+    from_date = _parse_datetime(selection.get("from_date"))
+    to_date = _parse_datetime(selection.get("to_date"))
+    if from_date:
+        query = query.where(Article.first_discovered_at >= from_date)
+    if to_date:
+        query = query.where(Article.first_discovered_at < to_date)
+    query = _in_language(query, selection.get("language"))
+    return int(await db.scalar(query) or 0)
 
 
 async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:

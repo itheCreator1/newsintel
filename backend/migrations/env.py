@@ -39,6 +39,7 @@ from app.nlp.models import (  # noqa: F401
     NlpReprocessingRun,
     StopWordRevision,
 )
+from app.operations.models import MaintenanceRun  # noqa: F401
 from app.search.models import (  # noqa: F401
     ArticleSearchState,
     SearchDelivery,

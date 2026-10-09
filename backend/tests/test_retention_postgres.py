@@ -206,3 +206,59 @@ async def test_each_call_deletes_at_most_a_batch_per_table(monkeypatch) -> None:
         await db.rollback()
     assert all(count <= 1 for count in deleted.values())
     assert deleted["article_processing_jobs"] == 1
+
+
+async def test_each_cleanup_is_recorded_with_what_it_deleted(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.operations.models import MaintenanceRun
+
+    async def pruned(db, now):  # type: ignore[no-untyped-def]
+        return {"nlp_jobs": 3, "sessions": 0}
+
+    monkeypatch.setattr(retention, "prune_history", pruned)  # the shared rows stay as they are
+    started = datetime.now(UTC)
+    deleted = await retention.run_retention(started)
+    assert deleted == {"nlp_jobs": 3, "sessions": 0}
+    async with session_factory() as db:
+        runs = list(
+            await db.scalars(
+                select(MaintenanceRun)
+                .where(MaintenanceRun.kind == "retention", MaintenanceRun.started_at >= started)
+                .order_by(MaintenanceRun.started_at)
+            )
+        )
+    assert len(runs) == 1
+    assert runs[0].deleted == deleted
+    assert runs[0].finished_at is not None and runs[0].error_message is None
+
+
+async def test_a_failed_cleanup_is_recorded_and_still_raised(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.operations.models import MaintenanceRun
+
+    async def broken(db, now):  # type: ignore[no-untyped-def]
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(retention, "prune_history", broken)
+    started = datetime.now(UTC)
+    with pytest.raises(RuntimeError):
+        await retention.run_retention(started)
+    async with session_factory() as db:
+        run = await db.scalar(
+            select(MaintenanceRun).where(
+                MaintenanceRun.kind == "retention", MaintenanceRun.started_at >= started
+            )
+        )
+    assert run is not None and run.error_message == "RuntimeError: disk full"
+    assert run.finished_at is not None and run.deleted is None
+
+
+async def test_maintenance_runs_older_than_the_retention_are_deleted() -> None:
+    from app.operations.models import MaintenanceRun
+
+    async with session_factory() as db:
+        old = MaintenanceRun(kind="retention", started_at=OLD, finished_at=OLD, deleted={})
+        db.add(old)
+        await db.flush()
+        await retention.prune_history(db, NOW)
+        kept = await _kept(db, [old])
+        await db.rollback()
+    assert kept == set()

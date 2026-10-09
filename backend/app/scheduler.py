@@ -271,8 +271,7 @@ async def schedule_retention() -> None:
     if now - _retention["run"] < RETENTION_INTERVAL_SECONDS:
         return
     _retention["run"] = now
-    async with session_factory() as db, db.begin():
-        deleted = await retention.prune_history(db, datetime.now(UTC))
+    deleted = await retention.run_retention(datetime.now(UTC))
     if any(deleted.values()):
         log.info("history_pruned", **deleted)
 
