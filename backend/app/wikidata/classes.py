@@ -84,3 +84,32 @@ async def type_matches(
             known.update(await _known(db, missing, settings))
         frontier = {parent for qid in frontier for parent in known.get(qid, [])}
     return None if cut else False
+
+
+async def type_of(
+    db: AsyncSession, classes: Iterable[str], current: str | None = None
+) -> str | None:
+    """The type an item's classes point to, from the cached classes alone: reading a link never
+    asks Wikidata, so a class not fetched yet says nothing.
+
+    The root's own type wins when it is among those the classes fit; a place that is both a
+    country or city and a geographic location is a GPE.
+    """
+    frontier = set(classes)
+    seen: set[str] = set()
+    found: set[str] = set()
+    for depth in range(SUBCLASS_DEPTH + 1):
+        found |= {kind for kind, roots in TYPE_ROOTS.items() if frontier & set(roots)}
+        frontier -= seen
+        if depth == SUBCLASS_DEPTH or not frontier:
+            break
+        seen |= frontier
+        rows = await db.scalars(
+            select(WikidataClass.subclass_of).where(WikidataClass.qid.in_(sorted(frontier)))
+        )
+        frontier = {parent for parents in rows for parent in parents}
+    if current in found:
+        return current
+    if found == {"GPE", "LOCATION"}:
+        return "GPE"
+    return found.pop() if len(found) == 1 else None

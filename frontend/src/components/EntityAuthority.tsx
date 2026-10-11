@@ -1,10 +1,11 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { EntityAuthorityUpdate, EntityDossier, EntityHistory } from '../lib/api-types'
+import { typeLabel } from '../lib/authorities'
 import { entityHref } from '../lib/investigation'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../lib/ui-classes'
 import { wikidataChange } from '../lib/wikidata'
@@ -14,10 +15,17 @@ export interface Picked { id: string; text: string }
 
 const failure = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback
 
+/** Everything that shows a root's authority entry: the dossier, its panel and the authority file. */
+export function refreshAuthority(client: QueryClient) {
+  return Promise.all(['entity', 'entity-variants', 'entity-history', 'entity-wikidata', 'authorities', 'authority-history', 'authority-suggestions']
+    .map(key => client.invalidateQueries({ queryKey: [key] })))
+}
+
 function describe(change: Change): string {
+  const before = change.before ?? {}
   const after = change.after ?? {}
   switch (change.action) {
-    case 'merged': return 'Merged a name into this entity'
+    case 'merged': return after.by === 'claim' ? 'A name found under another type joined by its claim' : 'Merged a name into this entity'
     case 'split': return 'Split a name back out'
     case 'renamed': return after.preferred_text ? `Renamed to ${String(after.preferred_text)}` : 'Name reset to the spelling in the articles'
     case 'status_changed': return `Marked ${String(after.status)}`
@@ -27,6 +35,10 @@ function describe(change: Change): string {
     case 'relation_added': return 'Added a see-also link'
     case 'relation_changed': return 'Changed a see-also link'
     case 'relation_removed': return 'Removed a see-also link'
+    case 'type_changed': return `Type changed from ${typeLabel(String(before.entity_type))} to ${typeLabel(String(after.entity_type))}`
+    case 'hidden_changed': return after.hidden ? 'Hidden as not a name' : 'Shown again'
+    case 'claim_added': return `Claimed every type of “${String(after.normalized_text)}”`
+    case 'claim_removed': return `Stopped claiming “${String(before.normalized_text)}”`
     default: return wikidataChange(change) ?? change.action
   }
 }
@@ -67,8 +79,9 @@ function PickAndConfirm({ open, search, verb, exclude, pending, onConfirm }: {
   )
 }
 
-/** The authority file entry of one root: its names, status, note, history and the merge/split controls. */
-export function EntityAuthority({ entity }: { entity: EntityDossier }) {
+/** The authority file entry of one root: its names, status, note, history and the merge/split controls.
+ * A merge opens the root kept: `onMerged` when given, else its dossier. */
+export function EntityAuthority({ entity, onMerged }: { entity: EntityDossier; onMerged?: (rootId: string) => void }) {
   const client = useQueryClient()
   const router = useRouter()
   const rootId = entity.id
@@ -79,7 +92,7 @@ export function EntityAuthority({ entity }: { entity: EntityDossier }) {
 
   const variants = useQuery({ queryKey: ['entity-variants', rootId], queryFn: () => api.entityVariants(rootId), retry: false })
   const history = useQuery({ queryKey: ['entity-history', rootId], queryFn: () => api.entityHistory(rootId), retry: false })
-  const refresh = () => Promise.all(['entity', 'entity-variants', 'entity-history'].map(key => client.invalidateQueries({ queryKey: [key] })))
+  const refresh = () => refreshAuthority(client)
 
   const update = useMutation({
     mutationFn: (changes: EntityAuthorityUpdate) => api.updateEntity(rootId, changes),
@@ -87,7 +100,7 @@ export function EntityAuthority({ entity }: { entity: EntityDossier }) {
   })
   const merge = useMutation({
     mutationFn: (target: Picked) => api.mergeEntity(rootId, target.id),
-    onSuccess: run => { void refresh(); router.push(entityHref(run.root_id)) },
+    onSuccess: run => { void refresh(); if (onMerged) onMerged(run.root_id); else router.push(entityHref(run.root_id)) },
   })
   const split = useMutation({
     mutationFn: (variant: { id: string; display_name: string }) => api.splitEntity(variant.id),
@@ -161,14 +174,14 @@ export function EntityAuthority({ entity }: { entity: EntityDossier }) {
       {error && <p role="alert" className="error text-sm text-destructive">{failure(error, 'Could not change this entity.')}</p>}
 
       {history.data && history.data.items.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</strong>
-          <ul aria-label="Authority history" className="list-none pl-0 flex flex-col gap-1">
+        <details className="flex flex-col gap-2">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">{`History (${history.data.items.length})`}</summary>
+          <ul aria-label="Authority history" className="mt-2 list-none pl-0 flex flex-col gap-1">
             {history.data.items.map(change => (
               <li key={change.id} className="text-sm text-muted-foreground">{`${describe(change)} · ${new Date(change.created_at).toLocaleString()}`}</li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
     </div>
   )

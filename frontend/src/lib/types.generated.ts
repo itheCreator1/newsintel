@@ -5309,6 +5309,8 @@ export interface components {
             /** Search Pending */
             search_pending: boolean;
             redirect_holder: components["schemas"]["WikidataHolder"] | null;
+            /** Wikidata Type */
+            wikidata_type?: string | null;
         };
         /** WikidataName */
         WikidataName: {

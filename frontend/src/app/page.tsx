@@ -14,7 +14,7 @@ import { errorCode, isTransient } from '../lib/filter-ui'
 import { emptyInvestigation, queryFromState, refine, toHref } from '../lib/investigation'
 import { chipClass, fieldClass, labelClass } from '../lib/ui-classes'
 
-const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'OTHER'] as const
+const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'] as const
 
 function nextDay(day: string): string {
   const date = new Date(`${day}T00:00:00Z`)

@@ -19856,6 +19856,17 @@
                 "type": "null"
               }
             ]
+          },
+          "wikidata_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wikidata Type"
           }
         },
         "type": "object",

@@ -10,7 +10,7 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
-from app.wikidata import candidates, links, runs
+from app.wikidata import candidates, classes, links, runs
 from app.wikidata.models import WikidataCandidate, WikidataItem, WikidataRun
 from app.wikidata.names import Name
 from app.wikidata.schemas import (
@@ -80,6 +80,9 @@ async def _response(db: AsyncSession, found: links.LinkState) -> WikidataLinkRes
             entity_id=str(found.redirect_holder.id), display_name=found.redirect_holder.name
         )
         if found.redirect_holder is not None
+        else None,
+        wikidata_type=await classes.type_of(db, found.item.instance_of, root.kind)
+        if found.item is not None
         else None,
     )
 

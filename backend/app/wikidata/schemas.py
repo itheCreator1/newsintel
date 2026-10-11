@@ -61,6 +61,9 @@ class WikidataLinkResponse(BaseModel):
     search_pending: bool
     # The root holding the item this one was merged into: a merge to offer.
     redirect_holder: "WikidataHolder | None"
+    # The type the item's classes point to, when the cache can tell: "change type?" when it
+    # differs from the root's.
+    wikidata_type: str | None = None
 
 
 class WikidataCandidateResponse(BaseModel):

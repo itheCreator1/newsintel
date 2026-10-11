@@ -251,3 +251,26 @@ it('sends the Processes page actions as CSRF-protected POSTs', async () => {
     { url: '/api/v1/processes/wikidata_candidates/runs/run-1/stop', method: 'POST', csrf: 'token' },
   ])
 })
+
+it('lists the authority file by type, order and hidden names, claims names and changes roots in bulk', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => String(input).endsWith('/auth/csrf')
+    ? new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 })
+    : new Response('{}', { status: 200 }))
+
+  await api.authorities({ q: 'ai', type: ['ORG', 'TOPIC'], sort: 'articles', hidden: true }, 'next')
+  await api.authorities({}, undefined)
+  await api.claimName('ent-1')
+  await api.claimName('ent-1', 'ai')
+  await api.releaseClaim('ent-1', 'ai')
+  await api.bulkAuthorities({ action: 'set_type', ids: ['a', 'b'], entity_type: 'TOPIC' })
+
+  const calls = fetchMock.mock.calls.filter(([url]) => !String(url).endsWith('/auth/csrf')).map(([url, init]) => [url, init?.method ?? 'GET', init?.body])
+  expect(calls).toEqual([
+    ['/api/v1/authorities?q=ai&type=ORG&type=TOPIC&sort=articles&hidden=true&cursor=next', 'GET', undefined],
+    ['/api/v1/authorities', 'GET', undefined],
+    ['/api/v1/entities/ent-1/claims', 'POST', JSON.stringify({})],
+    ['/api/v1/entities/ent-1/claims', 'POST', JSON.stringify({ normalized_text: 'ai' })],
+    ['/api/v1/entities/ent-1/claims', 'DELETE', JSON.stringify({ normalized_text: 'ai' })],
+    ['/api/v1/authorities/bulk', 'POST', JSON.stringify({ action: 'set_type', ids: ['a', 'b'], entity_type: 'TOPIC' })],
+  ])
+})
