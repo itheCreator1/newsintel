@@ -29,6 +29,7 @@ from app.nlp.models import (
     EntityAuthorityChange,
     EntityAuthorityRun,
     EntityDistinct,
+    EntityNameClaim,
     EntityRelation,
 )
 from app.search.service import request_indexing
@@ -36,10 +37,12 @@ from app.wikidata.models import EntityExternalId
 
 __all__ = [
     "AuthorityError",
+    "ClaimResult",
     "EntityRef",
     "RowPart",
     "add_distinct",
     "adopt",
+    "claim_name",
     "advance_run",
     "combine_rows",
     "entity_group",
@@ -48,6 +51,7 @@ __all__ = [
     "merge",
     "merge_problem",
     "record",
+    "release_name",
     "remove_distinct",
     "rename",
     "resolve_root",
@@ -240,6 +244,13 @@ async def _move_external_ids(db: AsyncSession, variant_id: uuid.UUID, root_id: u
     )
 
 
+async def _move_claims(db: AsyncSession, variant_id: uuid.UUID, root_id: uuid.UUID) -> None:
+    """A merged root's name claims go with it: claims always name a root."""
+    await db.execute(
+        update(EntityNameClaim).where(EntityNameClaim.root_id == variant_id).values(root_id=root_id)
+    )
+
+
 async def _move_relations(db: AsyncSession, variant_id: uuid.UUID, root_id: uuid.UUID) -> None:
     """The variant's see-also links become the root's; one the root already has is dropped."""
     moving = list(
@@ -311,6 +322,7 @@ async def merge(
         raise AuthorityError(*problem)
     await _move_relations(db, variant.id, root.id)
     await _move_external_ids(db, variant.id, root.id)
+    await _move_claims(db, variant.id, root.id)
     # The variant's own variants follow it to the new root: never a chain.
     await db.execute(
         update(Entity).where(Entity.authority_id == variant.id).values(authority_id=root.id)
@@ -352,6 +364,7 @@ async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) 
         raise AuthorityError(409, "This entity has articles or variants; merge it instead")
     await _move_relations(db, variant.id, root.id)
     await _move_external_ids(db, variant.id, root.id)
+    await _move_claims(db, variant.id, root.id)
     variant.authority_id = root.id
     _record(
         db,
@@ -479,6 +492,132 @@ async def set_hidden(
     )
     entity.hidden = hidden
     return await _start_run(db, "reindex", entity.id, entity.id, events=True)
+
+
+@dataclass(frozen=True)
+class Skipped:
+    entity_id: uuid.UUID
+    reason: str
+
+
+@dataclass
+class ClaimResult:
+    runs: list[EntityAuthorityRun]
+    skipped: list[Skipped]
+
+
+async def claim_name(
+    db: AsyncSession, root_id: uuid.UUID, normalized_text: str | None = None
+) -> ClaimResult:
+    """Make the root take every type of one of its names ("AI" the ORG, PERSON and PRODUCT).
+
+    The name is the root's own unless `normalized_text` names one of its variants. Every other
+    root of that name merges in now, unless it may not (marked different, linked, another
+    Wikidata item); a name already under another root stays there. Both are reported. From
+    then on NER puts a name it finds under a new type straight under the root.
+    """
+    root = await _root_only(db, root_id)
+    if root.ambiguous:
+        raise AuthorityError(
+            409, "An ambiguous name may stand for several things; it cannot take all its types"
+        )
+    key = normalized_text if normalized_text is not None else root.normalized_text
+    own = key == root.normalized_text or await db.scalar(
+        select(
+            exists().where(
+                Entity.authority_id == root.id,
+                Entity.language == root.language,
+                Entity.normalized_text == key,
+            )
+        )
+    )
+    if not own:
+        raise AuthorityError(422, "Only one of this entity's own names can be claimed")
+    claim = await db.get(EntityNameClaim, (root.language, key))
+    if claim is not None and claim.root_id != root.id:
+        raise AuthorityError(409, "Another entity already takes every type of this name")
+    result = ClaimResult(runs=[], skipped=[])
+    others = list(
+        await db.scalars(
+            select(Entity)
+            .where(
+                Entity.language == root.language,
+                Entity.normalized_text == key,
+                Entity.id != root.id,
+                or_(Entity.authority_id.is_(None), Entity.authority_id != root.id),
+            )
+            .order_by(Entity.entity_type, Entity.id)
+        )
+    )
+    for other in others:
+        if other.authority_id is not None:
+            holder = await _get(db, other.authority_id)
+            result.skipped.append(
+                Skipped(
+                    other.id, f"Already a name of another entity, {holder.name}; split it first"
+                )
+            )
+            continue
+        problem = await _problem(db, other, root)
+        if problem is not None:
+            result.skipped.append(Skipped(other.id, problem[1]))
+            continue
+        result.runs.append(await merge(db, variant_id=other.id, target_id=root.id))
+    if claim is None:
+        db.add(EntityNameClaim(language=root.language, normalized_text=key, root_id=root.id))
+        _record(db, "claim_added", root.id, after={"normalized_text": key})
+    await db.flush()
+    return result
+
+
+async def release_name(db: AsyncSession, root_id: uuid.UUID, normalized_text: str) -> bool:
+    """Stop taking every type of the name; what merged stays merged. False if no such claim."""
+    root = await _root_only(db, root_id)
+    removed = await db.scalar(
+        delete(EntityNameClaim)
+        .where(
+            EntityNameClaim.language == root.language,
+            EntityNameClaim.normalized_text == normalized_text,
+            EntityNameClaim.root_id == root.id,
+        )
+        .returning(EntityNameClaim.root_id)
+    )
+    if removed is None:
+        return False
+    _record(db, "claim_removed", root.id, before={"normalized_text": normalized_text})
+    await db.flush()
+    return True
+
+
+async def claims_of(db: AsyncSession, root_id: uuid.UUID) -> list[str]:
+    return list(
+        await db.scalars(
+            select(EntityNameClaim.normalized_text)
+            .where(EntityNameClaim.root_id == root_id)
+            .order_by(EntityNameClaim.normalized_text)
+        )
+    )
+
+
+async def other_types(db: AsyncSession, root: Entity) -> list[Entity]:
+    """Other roots spelled like one of this root's names, under another type: what a claim of
+    that name would bring in."""
+    group = select(Entity.normalized_text).where(
+        or_(Entity.id == root.id, Entity.authority_id == root.id)
+    )
+    return list(
+        await db.scalars(
+            select(Entity)
+            .where(
+                Entity.language == root.language,
+                Entity.normalized_text.in_(group),
+                Entity.authority_id.is_(None),
+                Entity.id != root.id,
+                Entity.hidden.is_(False),
+            )
+            .order_by(Entity.normalized_text, Entity.entity_type, Entity.id)
+        )
+    )
 
 
 async def set_status(db: AsyncSession, entity_id: uuid.UUID, status: str) -> Entity:

@@ -17,6 +17,13 @@ EntityStatus = Literal["provisional", "established"]
 EntityType = Literal["PERSON", "ORG", "GPE", "LOCATION", "EVENT", "PRODUCT", "TOPIC", "OTHER"]
 
 
+class EntityNameRef(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+    normalized_text: str
+
+
 class EntityDossierResponse(BaseModel):
     id: uuid.UUID
     # The id asked for, when it was a variant: the dossier is always its root's.
@@ -32,6 +39,10 @@ class EntityDossierResponse(BaseModel):
     status: EntityStatus = "provisional"
     ambiguous: bool = False
     note: str | None = None
+    # The names this root takes every type of, and other roots a claim of one of its names
+    # would bring in ("AI" the PERSON beside this "AI" the ORG).
+    claims: list[str] = Field(default_factory=list)
+    other_types: list[EntityNameRef] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     aliases_status: Literal["unavailable"] = "unavailable"
     total_mentions: int
@@ -133,6 +144,34 @@ class EntityAuthorityRunResponse(BaseModel):
     status: Literal["running", "finished", "failed"]
     entity_id: uuid.UUID
     root_id: uuid.UUID
+
+
+class EntityClaimRequest(BaseModel):
+    """The name to claim every type of: one of the root's own; omitted, the root's own key."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    normalized_text: str | None = Field(default=None, min_length=1, max_length=1000)
+
+
+class EntityClaimRelease(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    normalized_text: str = Field(min_length=1, max_length=1000)
+
+
+class EntityClaimSkipped(BaseModel):
+    entity_id: uuid.UUID
+    display_name: str
+    entity_type: str
+    reason: str
+
+
+class EntityClaimResponse(BaseModel):
+    """The merge runs the claim started, and the names it left where they were, with why."""
+
+    runs: list["EntityAuthorityRunResponse"]
+    skipped: list[EntityClaimSkipped]
 
 
 class EntityVariantResponse(BaseModel):

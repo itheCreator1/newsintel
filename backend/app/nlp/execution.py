@@ -4,8 +4,9 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, literal_column, select, text, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.service import request_clustering
 from app.core.config import get_settings
@@ -18,6 +19,8 @@ from app.nlp.models import (
     ArticleLanguageAnnotation,
     ArticleNlpState,
     Entity,
+    EntityAuthorityChange,
+    EntityNameClaim,
     Keyword,
     NlpJob,
     NlpProcessorRun,
@@ -291,12 +294,13 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
             parts: dict[uuid.UUID, list[RowPart]] = {}
             for entity_value in result.entities:
                 # preferred_text is the user's and never written here.
-                observed_id, authority_id = (
+                language = loaded.context.language or "en"
+                observed_id, authority_id, created = (
                     await db.execute(
                         insert(Entity)
                         .values(
                             # Entities are extracted only for languages with a model ("en", "el").
-                            language=loaded.context.language or "en",
+                            language=language,
                             entity_type=entity_value.entity_type,
                             normalized_text=entity_value.normalized_text,
                             display_text=entity_value.text,
@@ -305,9 +309,14 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                             constraint="uq_nlp_entity_identity",
                             set_={"display_text": entity_value.text},
                         )
-                        .returning(Entity.id, Entity.authority_id)
+                        # xmax is 0 on a row this statement inserted, not on one it updated.
+                        .returning(Entity.id, Entity.authority_id, literal_column("xmax = 0"))
                     )
                 ).one()
+                if created and authority_id is None:
+                    authority_id = await _claimed_by(
+                        db, observed_id, language, entity_value.normalized_text
+                    )
                 # A known variant is counted under its root; the row keeps which variant the
                 # article used.
                 parts.setdefault(authority_id or observed_id, []).append(
@@ -384,6 +393,32 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
             await request_clustering(db, job.article_id)
         await request_indexing(db, job.article_id)
     return True
+
+
+async def _claimed_by(
+    db: AsyncSession, entity_id: uuid.UUID, language: str, normalized_text: str
+) -> uuid.UUID | None:
+    """A name new to the archive whose every type a root takes joins that root at once."""
+    root_id = await db.scalar(
+        select(EntityNameClaim.root_id).where(
+            EntityNameClaim.language == language,
+            EntityNameClaim.normalized_text == normalized_text,
+        )
+    )
+    if root_id is None:
+        return None
+    await db.execute(update(Entity).where(Entity.id == entity_id).values(authority_id=root_id))
+    db.add(
+        EntityAuthorityChange(
+            action="merged",
+            entity_id=entity_id,
+            other_id=root_id,
+            before={"authority_id": None},
+            after={"authority_id": str(root_id), "by": "claim"},
+            created_at=func.clock_timestamp(),
+        )
+    )
+    return root_id
 
 
 async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None:
