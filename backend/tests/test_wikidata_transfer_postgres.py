@@ -68,7 +68,7 @@ async def test_links_and_name_sources_travel_and_queue_a_fetch() -> None:
     async with session_factory() as db:
         exported = await export_authorities(db, language=source)
 
-    assert exported["version"] == 2
+    assert exported["version"] == 3
     (nora,) = exported["entities"]
     assert nora["external_ids"] == [
         {"scheme": "viaf", "value": "777", "source": "wikidata"},

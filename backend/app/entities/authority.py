@@ -23,6 +23,7 @@ from app.events.models import Event, EventCluster
 from app.events.service import refresh_event
 from app.nlp.authority import Combined, RowPart, combine_rows, split_occurrences
 from app.nlp.models import (
+    ENTITY_TYPES,
     ArticleEntity,
     Entity,
     EntityAuthorityChange,
@@ -52,8 +53,10 @@ __all__ = [
     "resolve_root",
     "scan_authority_runs",
     "set_ambiguous",
+    "set_hidden",
     "set_note",
     "set_status",
+    "set_type",
     "split",
     "split_occurrences",
     "start_reindex",
@@ -150,7 +153,7 @@ async def history(db: AsyncSession, root_id: uuid.UUID) -> list[EntityAuthorityC
 
 
 def _ref(entity: Entity) -> EntityRef:
-    return EntityRef(entity.id, entity.entity_type, entity.authority_id)
+    return EntityRef(entity.id, entity.kind, entity.authority_id)
 
 
 async def _locked(db: AsyncSession, entity_id: uuid.UUID) -> Entity:
@@ -387,11 +390,18 @@ async def split(db: AsyncSession, variant_id: uuid.UUID) -> EntityAuthorityRun:
 
 
 async def _start_run(
-    db: AsyncSession, kind: str, entity_id: uuid.UUID, root_id: uuid.UUID
+    db: AsyncSession,
+    kind: str,
+    entity_id: uuid.UUID,
+    root_id: uuid.UUID,
+    *,
+    events: bool = False,
 ) -> EntityAuthorityRun:
-    run = EntityAuthorityRun(
-        kind=kind, entity_id=entity_id, cursor=json.dumps({"root": str(root_id)})
-    )
+    """`events`: the root's events are recomputed too, as each batch is reindexed."""
+    cursor: dict[str, Any] = {"root": str(root_id)}
+    if events:
+        cursor["events"] = True
+    run = EntityAuthorityRun(kind=kind, entity_id=entity_id, cursor=json.dumps(cursor))
     db.add(run)
     await db.flush()
     return run
@@ -434,6 +444,48 @@ async def rename(
         await db.flush()
         return None
     return await _start_run(db, "reindex", entity.id, entity.id)
+
+
+async def set_type(
+    db: AsyncSession, entity_id: uuid.UUID, entity_type: str | None
+) -> EntityAuthorityRun | None:
+    """Show the root as `entity_type`; None, or the model's own type, goes back to the model's.
+
+    The search index and the events carry the type, so a change starts a run that reindexes the
+    root's articles and recomputes their events; the same type again changes nothing.
+    """
+    if entity_type is not None and entity_type not in ENTITY_TYPES:
+        raise AuthorityError(422, f"Type must be one of: {', '.join(ENTITY_TYPES)}")
+    entity = await _root_only(db, entity_id)
+    value = None if entity_type == entity.entity_type else entity_type
+    if value == entity.preferred_type:
+        return None
+    _record(
+        db,
+        "type_changed",
+        entity.id,
+        before={"entity_type": entity.kind},
+        after={"entity_type": value or entity.entity_type},
+    )
+    entity.preferred_type = value
+    return await _start_run(db, "reindex", entity.id, entity.id, events=True)
+
+
+async def set_hidden(
+    db: AsyncSession, entity_id: uuid.UUID, hidden: bool
+) -> EntityAuthorityRun | None:
+    """Hide a root that is not a name, or show it again; nothing about it is deleted.
+
+    Its articles are reindexed without it (or with it again) and their events recomputed.
+    """
+    entity = await _root_only(db, entity_id)
+    if hidden == entity.hidden:
+        return None
+    _record(
+        db, "hidden_changed", entity.id, before={"hidden": entity.hidden}, after={"hidden": hidden}
+    )
+    entity.hidden = hidden
+    return await _start_run(db, "reindex", entity.id, entity.id, events=True)
 
 
 async def set_status(db: AsyncSession, entity_id: uuid.UUID, status: str) -> Entity:
@@ -657,9 +709,10 @@ async def _move(
 
 
 async def _reindex(
-    db: AsyncSession, root_id: uuid.UUID, after: str | None, batch_size: int
+    db: AsyncSession, root_id: uuid.UUID, after: str | None, batch_size: int, *, events: bool
 ) -> list[uuid.UUID]:
-    """The next batch of the root's articles, each asked to be reindexed under its names now."""
+    """The next batch of the root's articles, each asked to be reindexed under its names now,
+    with their events recomputed when the run asks for it."""
     query = select(ArticleEntity.article_id).where(
         ArticleEntity.entity_id == root_id, ArticleEntity.is_current.is_(True)
     )
@@ -674,8 +727,11 @@ async def _reindex(
             )
         ).all()
     )
-    for article_id in article_ids:
-        await request_indexing(db, article_id)
+    if events and article_ids:
+        await _touch(db, article_ids, reindex=True)
+    else:
+        for article_id in article_ids:
+            await request_indexing(db, article_id)
     return article_ids
 
 
@@ -701,7 +757,9 @@ async def advance_run(db: AsyncSession, run_id: uuid.UUID, *, batch_size: int = 
         if moved:
             return len(moved)
         phase, cursor["after"] = "reindex", None
-    article_ids = await _reindex(db, root_id, cursor.get("after"), batch_size)
+    article_ids = await _reindex(
+        db, root_id, cursor.get("after"), batch_size, events=bool(cursor.get("events"))
+    )
     if article_ids:
         cursor.update(phase=phase, after=str(article_ids[-1]))
         run.cursor = json.dumps(cursor)

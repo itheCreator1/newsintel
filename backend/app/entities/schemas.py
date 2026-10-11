@@ -13,6 +13,8 @@ class MentionTimelineDay(BaseModel):
 
 
 EntityStatus = Literal["provisional", "established"]
+# app.nlp.models.ENTITY_TYPES, spelled out so the API contract lists them.
+EntityType = Literal["PERSON", "ORG", "GPE", "LOCATION", "EVENT", "PRODUCT", "TOPIC", "OTHER"]
 
 
 class EntityDossierResponse(BaseModel):
@@ -22,7 +24,10 @@ class EntityDossierResponse(BaseModel):
     display_name: str
     normalized_text: str
     language: str
+    # The type to show: the user's when they picked one, else the model's (ner_type).
     entity_type: str
+    ner_type: str
+    hidden: bool = False
     preferred_text: str | None = None
     status: EntityStatus = "provisional"
     ambiguous: bool = False
@@ -89,6 +94,9 @@ class EntityAuthorityResponse(BaseModel):
     id: uuid.UUID
     display_name: str
     preferred_text: str | None
+    entity_type: str
+    ner_type: str
+    hidden: bool
     status: EntityStatus
     ambiguous: bool
     note: str | None
@@ -96,11 +104,16 @@ class EntityAuthorityResponse(BaseModel):
 
 
 class EntityAuthorityUpdate(BaseModel):
-    """Only the fields sent change; null clears the preferred name or the note."""
+    """Only the fields sent change; null clears the preferred name, the type or the note.
+
+    A type or hidden change reindexes the root's articles, as a new name does.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     preferred_text: str | None = Field(default=None, max_length=500)
+    entity_type: EntityType | None = None
+    hidden: bool | None = None
     status: EntityStatus | None = None
     ambiguous: bool | None = None
     note: str | None = Field(default=None, max_length=4000)
@@ -157,6 +170,7 @@ class AuthorityRootResponse(BaseModel):
     language: str
     status: EntityStatus
     ambiguous: bool
+    hidden: bool
     variant_count: int
     # The Wikidata item the root is linked to, if any.
     qid: str | None

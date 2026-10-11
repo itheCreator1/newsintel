@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.entities import authority, relations
+from app.entities.schemas import EntityType
 from app.feeds.models import Article
 from app.nlp.models import ArticleEntity, Entity, EntityDistinct, EntityRelation
 from app.wikidata.links import queue_fetch
@@ -28,8 +29,9 @@ from app.wikidata.parsing import is_qid
 __all__ = ["FORMAT", "ImportReport", "export_authorities", "import_authorities", "parse_file"]
 
 FORMAT = "newsintel-authority-file"
-# 2 adds each root's external ids (its Wikidata link) and each name's source; 1 still imports.
-VERSION = 2
+# 2 adds each root's external ids (its Wikidata link) and each name's source; 3 adds the type
+# the user gave a root and whether it is hidden as not a name. Older versions still import.
+VERSION = 3
 NAME_SOURCES = Literal["ner", "seed", "wikidata", "user"]
 
 
@@ -61,6 +63,8 @@ class _ExternalId(BaseModel):
 
 class _Root(_Variant):
     preferred_text: str | None = None
+    preferred_type: EntityType | None = None
+    hidden: bool = False
     status: Literal["provisional", "established"] = "provisional"
     variants: list[_Variant] = Field(default_factory=list)
     external_ids: list[_ExternalId] = Field(default_factory=list)
@@ -83,7 +87,7 @@ class _File(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     format: Literal["newsintel-authority-file"]
-    version: Literal[1, 2]
+    version: Literal[1, 2, 3]
     exported_at: str | None = None
     entities: list[_Root] = Field(default_factory=list)
     distinct: list[tuple[_Name, _Name]] = Field(default_factory=list)
@@ -146,6 +150,8 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
             Entity.status != "provisional",
             Entity.note.is_not(None),
             Entity.ambiguous,
+            Entity.preferred_type.is_not(None),
+            Entity.hidden,
         ),
     )
     if language is not None:
@@ -188,6 +194,8 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
             {
                 **_name(root),
                 "preferred_text": root.preferred_text,
+                "preferred_type": root.preferred_type,
+                "hidden": root.hidden,
                 "status": root.status,
                 "ambiguous": root.ambiguous,
                 "note": root.note,
@@ -322,6 +330,29 @@ async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) ->
     if record.status != root.status:
         changed = True
         await authority.set_status(db, root.id, record.status)
+    # A name just created has no articles to reindex, so it is set without a run.
+    if record.preferred_type != root.preferred_type and record.preferred_type != root.entity_type:
+        changed = True
+        if created:
+            root.preferred_type = record.preferred_type
+            authority.record(
+                db,
+                "type_changed",
+                root.id,
+                before={"entity_type": root.entity_type},
+                after={"entity_type": record.preferred_type or root.entity_type},
+            )
+        else:
+            await authority.set_type(db, root.id, record.preferred_type)
+    if record.hidden != root.hidden:
+        changed = True
+        if created:
+            root.hidden = record.hidden
+            authority.record(
+                db, "hidden_changed", root.id, before={"hidden": False}, after={"hidden": True}
+            )
+        else:
+            await authority.set_hidden(db, root.id, record.hidden)
     if created:
         report.created += 1
     elif changed:

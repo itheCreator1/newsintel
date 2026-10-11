@@ -260,7 +260,7 @@ async def coverage(db: AsyncSession, source_id: uuid.UUID, days: int) -> SourceC
             select(Entity, entity_count)
             .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
             .join(scoped, scoped.c.article_id == ArticleEntity.article_id)
-            .where(ArticleEntity.is_current.is_(True))
+            .where(ArticleEntity.is_current.is_(True), Entity.hidden.is_(False))
             .group_by(Entity.id)
             .order_by(entity_count.desc(), Entity.id.asc())
             .limit(10)
@@ -303,7 +303,7 @@ async def coverage(db: AsyncSession, source_id: uuid.UUID, days: int) -> SourceC
                 display_name=item.display_text,
                 normalized_text=item.normalized_text,
                 language=item.language,
-                entity_type=item.entity_type,
+                entity_type=item.kind,
                 article_count=int(count),
             )
             for item, count in entity_rows

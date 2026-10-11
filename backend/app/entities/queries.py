@@ -88,7 +88,9 @@ async def dossier(db: AsyncSession, entity: Entity, days: int) -> EntityDossierR
         display_name=entity.name,
         normalized_text=entity.normalized_text,
         language=entity.language,
-        entity_type=entity.entity_type,
+        entity_type=entity.kind,
+        ner_type=entity.entity_type,
+        hidden=entity.hidden,
         preferred_text=entity.preferred_text,
         status=entity.status,
         ambiguous=entity.ambiguous,
@@ -222,7 +224,11 @@ async def relationships(
             select(Entity, entity_count)
             .join(ArticleEntity, ArticleEntity.entity_id == Entity.id)
             .join(scoped_articles, scoped_articles.c.article_id == ArticleEntity.article_id)
-            .where(ArticleEntity.is_current.is_(True), Entity.id != entity_id)
+            .where(
+                ArticleEntity.is_current.is_(True),
+                Entity.id != entity_id,
+                Entity.hidden.is_(False),
+            )
             .group_by(Entity.id)
             .order_by(entity_count.desc(), Entity.id.asc())
             .limit(10)
@@ -268,7 +274,7 @@ async def relationships(
                 display_name=item.name,
                 normalized_text=item.normalized_text,
                 language=item.language,
-                entity_type=item.entity_type,
+                entity_type=item.kind,
                 article_count=int(count),
             )
             for item, count in entity_rows

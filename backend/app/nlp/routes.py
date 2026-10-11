@@ -243,7 +243,7 @@ async def article_annotations(
                 id=value.id,
                 text=value.display_text,
                 normalized_text=value.normalized_text,
-                entity_type=value.entity_type,
+                entity_type=value.kind,
                 original_label=association.original_label,
                 occurrence_count=association.occurrence_count,
                 relevance=association.relevance,
@@ -483,7 +483,9 @@ async def _lookup(
             .where(variant.authority_id == Entity.id, link.is_current)
             .exists()
         )
-        query = select(Entity).where(Entity.authority_id.is_(None), or_(linked, variant_linked))
+        query = select(Entity).where(
+            Entity.authority_id.is_(None), Entity.hidden.is_(False), or_(linked, variant_linked)
+        )
     rank: ColumnElement[int] = literal(1)
     if q.strip():
         if model is Entity:
@@ -536,7 +538,7 @@ async def _lookup(
                 id=row.id,
                 text=row.name if isinstance(row, Entity) else row.display_text,
                 normalized_text=row.normalized_text,
-                kind=row.entity_type if isinstance(row, Entity) else row.kind,
+                kind=row.kind,
             )
             for row in rows[:limit]
         ],

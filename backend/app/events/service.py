@@ -141,7 +141,11 @@ async def refresh_event(db: AsyncSession, event: Event) -> bool:
         .join(StoryClusterMember, StoryClusterMember.article_id == ArticleEntity.article_id)
         .join(EventCluster, _event_articles(event.id))
         .join(Entity, Entity.id == ArticleEntity.entity_id)
-        .where(ArticleEntity.is_current.is_(True), Entity.entity_type.in_(CLUSTER_ENTITY_TYPES))
+        .where(
+            ArticleEntity.is_current.is_(True),
+            Entity.kind.in_(CLUSTER_ENTITY_TYPES),
+            Entity.hidden.is_(False),
+        )
         .group_by(ArticleEntity.entity_id)
     )
     await set_entities(db, event, {entity: count for entity, count in entity_rows})

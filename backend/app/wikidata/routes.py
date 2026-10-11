@@ -216,7 +216,7 @@ async def review_wikidata_candidates(
                 **_candidate(row, item, entity.language).model_dump(),
                 entity_id=str(entity.id),
                 display_name=entity.name,
-                entity_type=entity.entity_type,
+                entity_type=entity.kind,
                 language=entity.language,
             )
             for row, entity, item in rows

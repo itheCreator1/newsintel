@@ -295,11 +295,17 @@ async def test_the_type_and_hidden_travel_in_the_file() -> None:
 # -- migration 0025 ----------------------------------------------------------------------------
 
 
-async def test_the_downgrade_drops_the_columns_and_the_upgrade_brings_them_back() -> None:
+async def test_the_downgrade_keeps_the_choices_unless_told_and_the_upgrade_restores_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = Config("alembic.ini")
     async with session_factory() as db, db.begin():
         entity = await _entity(db, "Downgraded Topic", "ORG", preferred_type="TOPIC", hidden=True)
         entity_id = entity.id
+    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", raising=False)
+    with pytest.raises(RuntimeError, match="authority export"):
+        await asyncio.to_thread(command.downgrade, config, "0024")
+    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", "1")
     await asyncio.to_thread(command.downgrade, config, "0024")
     try:
         async with session_factory() as db:

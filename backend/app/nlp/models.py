@@ -114,15 +114,27 @@ class ArticleLanguageAnnotation(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+# Every type a root can be shown as. NER writes all but TOPIC; the user may pick any.
+ENTITY_TYPES = ("PERSON", "ORG", "GPE", "LOCATION", "EVENT", "PRODUCT", "TOPIC", "OTHER")
+
+
 class Entity(Base):
     __tablename__ = "nlp_entities"
     __table_args__ = (
         UniqueConstraint(
             "language", "entity_type", "normalized_text", name="uq_nlp_entity_identity"
         ),
+        CheckConstraint(
+            "preferred_type IS NULL OR preferred_type IN ("
+            + ", ".join(f"'{value}'" for value in ENTITY_TYPES)
+            + ")",
+            name="ck_nlp_entity_preferred_type",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     language: Mapped[str] = mapped_column(String(16))
+    # The model's type: part of the identity NER finds the name by, so it never changes. The
+    # user's own type goes in preferred_type, which NLP never writes; `kind` is the one to show.
     entity_type: Mapped[str] = mapped_column(String(32))
     normalized_text: Mapped[str] = mapped_column(Text)
     # The latest spelling NLP saw; the user's own choice goes in preferred_text, which NLP
@@ -139,6 +151,10 @@ class Entity(Base):
     # A name that may stand for several people: NER never folds it into a longer name.
     ambiguous: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     note: Mapped[str | None] = mapped_column(Text)
+    preferred_type: Mapped[str | None] = mapped_column(String(32))
+    # Not a name ("Last week", "Tuesday"): kept with its articles, left out of the search index,
+    # the graph, clustering and the suggestion queues.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     # Where the name came from: "ner" (an article), "seed" (the country seed), "wikidata" (a
     # label of the linked item) or "user" (an import or a name the user added).
     name_source: Mapped[str] = mapped_column(
@@ -154,6 +170,16 @@ class Entity(Base):
     @classmethod
     def _name_expression(cls) -> ColumnElement[str]:
         return func.coalesce(cls.preferred_text, cls.display_text)
+
+    @hybrid_property
+    def kind(self) -> str:
+        """The type to show and filter by: the user's, else the model's."""
+        return self.preferred_type or self.entity_type
+
+    @kind.inplace.expression
+    @classmethod
+    def _kind_expression(cls) -> ColumnElement[str]:
+        return func.coalesce(cls.preferred_type, cls.entity_type)
 
 
 class EntityDistinct(Base):

@@ -365,7 +365,7 @@ async def entity_graph(
             GraphNode(
                 id=catalogue[item.entity_id].id,
                 text=catalogue[item.entity_id].name,
-                type=catalogue[item.entity_id].entity_type,
+                type=catalogue[item.entity_id].kind,
                 article_count=counts.get(item.entity_id, item.article_count),
             )
             for item in resolved
@@ -500,7 +500,7 @@ async def clusters_by_id(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UU
 
 
 def _edge_entity(entity: Entity) -> EdgeEntity:
-    return EdgeEntity(id=entity.id, text=entity.name, type=entity.entity_type)
+    return EdgeEntity(id=entity.id, text=entity.name, type=entity.kind)
 
 
 def _edge_cluster(

@@ -100,6 +100,8 @@ async def _load_document(
                 .where(
                     ArticleEntity.article_id == article.id,
                     ArticleEntity.is_current.is_(True),
+                    # Not a name: kept in Postgres, never searched, faceted or graphed.
+                    Entity.hidden.is_(False),
                 )
             )
         ).all()
@@ -148,7 +150,7 @@ async def _load_document(
             entities=[
                 EntityDocument(
                     value.id,
-                    value.entity_type,
+                    value.kind,
                     value.name,
                     value.normalized_text,
                     other_names=other_names.get(value.id, ()),

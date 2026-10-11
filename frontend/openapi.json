@@ -2327,6 +2327,18 @@
             "description": "Only roots linked to a Wikidata item, or only those without one."
           },
           {
+            "name": "hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "List the roots hidden as not a name instead of the others.",
+              "default": false,
+              "title": "Hidden"
+            },
+            "description": "List the roots hidden as not a name instead of the others."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -11106,6 +11118,10 @@
             "type": "boolean",
             "title": "Ambiguous"
           },
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden"
+          },
           "variant_count": {
             "type": "integer",
             "title": "Variant Count"
@@ -11130,6 +11146,7 @@
           "language",
           "status",
           "ambiguous",
+          "hidden",
           "variant_count",
           "qid"
         ],
@@ -12223,6 +12240,18 @@
             ],
             "title": "Preferred Text"
           },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "ner_type": {
+            "type": "string",
+            "title": "Ner Type"
+          },
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -12264,6 +12293,9 @@
           "id",
           "display_name",
           "preferred_text",
+          "entity_type",
+          "ner_type",
+          "hidden",
           "status",
           "ambiguous",
           "note",
@@ -12331,6 +12363,38 @@
             ],
             "title": "Preferred Text"
           },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PERSON",
+                  "ORG",
+                  "GPE",
+                  "LOCATION",
+                  "EVENT",
+                  "PRODUCT",
+                  "TOPIC",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden"
+          },
           "status": {
             "anyOf": [
               {
@@ -12373,7 +12437,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "EntityAuthorityUpdate",
-        "description": "Only the fields sent change; null clears the preferred name or the note."
+        "description": "Only the fields sent change; null clears the preferred name, the type or the note.\n\nA type or hidden change reindexes the root's articles, as a new name does."
       },
       "EntityChange": {
         "properties": {
@@ -12536,6 +12600,15 @@
             "type": "string",
             "title": "Entity Type"
           },
+          "ner_type": {
+            "type": "string",
+            "title": "Ner Type"
+          },
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden",
+            "default": false
+          },
           "preferred_text": {
             "anyOf": [
               {
@@ -12640,6 +12713,7 @@
           "normalized_text",
           "language",
           "entity_type",
+          "ner_type",
           "total_mentions",
           "article_count",
           "cluster_count",

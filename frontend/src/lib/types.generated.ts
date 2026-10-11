@@ -2211,6 +2211,8 @@ export interface components {
             status: "provisional" | "established";
             /** Ambiguous */
             ambiguous: boolean;
+            /** Hidden */
+            hidden: boolean;
             /** Variant Count */
             variant_count: number;
             /** Qid */
@@ -2620,6 +2622,12 @@ export interface components {
             display_name: string;
             /** Preferred Text */
             preferred_text: string | null;
+            /** Entity Type */
+            entity_type: string;
+            /** Ner Type */
+            ner_type: string;
+            /** Hidden */
+            hidden: boolean;
             /**
              * Status
              * @enum {string}
@@ -2665,11 +2673,17 @@ export interface components {
         };
         /**
          * EntityAuthorityUpdate
-         * @description Only the fields sent change; null clears the preferred name or the note.
+         * @description Only the fields sent change; null clears the preferred name, the type or the note.
+         *
+         *     A type or hidden change reindexes the root's articles, as a new name does.
          */
         EntityAuthorityUpdate: {
             /** Preferred Text */
             preferred_text?: string | null;
+            /** Entity Type */
+            entity_type?: ("PERSON" | "ORG" | "GPE" | "LOCATION" | "EVENT" | "PRODUCT" | "TOPIC" | "OTHER") | null;
+            /** Hidden */
+            hidden?: boolean | null;
             /** Status */
             status?: ("provisional" | "established") | null;
             /** Ambiguous */
@@ -2734,6 +2748,13 @@ export interface components {
             language: string;
             /** Entity Type */
             entity_type: string;
+            /** Ner Type */
+            ner_type: string;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
             /** Preferred Text */
             preferred_text?: string | null;
             /**
@@ -6612,6 +6633,8 @@ export interface operations {
                 q?: string | null;
                 /** @description Only roots linked to a Wikidata item, or only those without one. */
                 wikidata?: ("linked" | "unlinked") | null;
+                /** @description List the roots hidden as not a name instead of the others. */
+                hidden?: boolean;
                 cursor?: string | null;
                 limit?: number;
             };

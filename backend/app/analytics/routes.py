@@ -142,7 +142,7 @@ async def top_entities(
     ranked = read_terms(aggregations.get("entities", {}), nested=True).buckets
     rows = (
         await db.execute(
-            select(Entity.id, Entity.display_text, Entity.entity_type).where(
+            select(Entity.id, Entity.display_text, Entity.kind.label("entity_type")).where(
                 Entity.id.in_([uuid.UUID(value) for value, _count in ranked])
             )
         )
