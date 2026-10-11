@@ -27,7 +27,7 @@ type Root = AuthorityRootPage['items'][number]
 const plural = (count: number, word: string, many = `${word}s`) => `${count} ${count === 1 ? word : many}`
 const failure = (error: unknown, fallback: string) => error instanceof ApiError ? error.message : fallback
 const sectionTitle = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground'
-const cellClass = 'px-3 py-2 align-middle'
+const cellClass = 'whitespace-nowrap px-3 py-2 align-middle'
 
 function EntityLink({ id, name }: { id: string | null; name: string | null }) {
   if (!id || !name) return <span>{name ?? 'Unknown entity'}</span>
@@ -328,7 +328,7 @@ function AuthorityTable({ view, onOpen }: { view: AuthoritiesView; onOpen(id: st
                   <td className={cellClass}>
                     <input type="checkbox" className="h-4 w-4 accent-primary" aria-label={`Select ${item.display_name}`} checked={chosen.has(item.id)} onChange={event => toggle(item, event.target.checked)} />
                   </td>
-                  <td className={cellClass}>
+                  <td className={cn(cellClass, 'whitespace-normal')}>
                     <button type="button" className="border-0 bg-transparent p-0 text-left font-semibold text-foreground hover:text-primary" onClick={() => onOpen(item.id)}>{item.display_name}</button>
                     {item.hidden && <span className={cn(chipClass, 'ml-2')}>Hidden</span>}
                   </td>
@@ -468,7 +468,7 @@ function AuthoritiesContent() {
           </button>
         ))}
       </div>
-      <div className={cn('grid items-start gap-6', view.entity && 'xl:grid-cols-[minmax(0,1fr)_28rem]')}>
+      <div className={cn('grid items-start gap-6', view.entity && 'xl:grid-cols-[minmax(0,1fr)_26rem]')}>
         <div role="tabpanel" aria-label={TAB_LABELS[view.tab]} className="min-w-0">
           {view.tab === 'names' && <NamesTab view={view} go={go} />}
           {view.tab === 'suggestions' && <SuggestionQueue language={view.language.trim()} />}
