@@ -329,7 +329,7 @@ function AuthorityTable({ view, onOpen }: { view: AuthoritiesView; onOpen(id: st
                     <input type="checkbox" className="h-4 w-4 accent-primary" aria-label={`Select ${item.display_name}`} checked={chosen.has(item.id)} onChange={event => toggle(item, event.target.checked)} />
                   </td>
                   <td className={cellClass}>
-                    <button type="button" className="text-left font-semibold text-foreground hover:text-primary" onClick={() => onOpen(item.id)}>{item.display_name}</button>
+                    <button type="button" className="border-0 bg-transparent p-0 text-left font-semibold text-foreground hover:text-primary" onClick={() => onOpen(item.id)}>{item.display_name}</button>
                     {item.hidden && <span className={cn(chipClass, 'ml-2')}>Hidden</span>}
                   </td>
                   <td className={cellClass}>{typeLabel(item.entity_type)}</td>
@@ -462,7 +462,7 @@ function AuthoritiesContent() {
       <div role="tablist" aria-label="Authority file sections" className="flex flex-wrap gap-1 border-b border-border">
         {(Object.keys(TAB_LABELS) as AuthorityTab[]).map(tab => (
           <button key={tab} type="button" role="tab" aria-selected={view.tab === tab} onClick={() => go({ tab })}
-            className={cn('-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold', view.tab === tab ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+            className={cn('-mb-px flex w-auto items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-2 text-sm font-semibold', view.tab === tab ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
             {TAB_LABELS[tab]}
             {counts[tab] ? <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">{counts[tab]}</span> : null}
           </button>

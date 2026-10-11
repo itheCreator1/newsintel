@@ -169,7 +169,7 @@ export function AuthorityPanel({ entityId, entity: given, onDossier = false, onC
       className={cn('fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col gap-5 overflow-y-auto border-l border-border bg-background p-5 font-sans shadow-2xl', className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-lg font-semibold text-foreground">{entity?.display_name ?? 'Loading…'}</h2>
+          <h2 className="font-sans text-lg font-semibold tracking-normal text-foreground">{entity?.display_name ?? 'Loading…'}</h2>
           {entity && <small className="text-xs text-muted-foreground">{`${typeLabel(entity.entity_type)} · ${entity.language} · ${plural(entity.article_count, 'article')}`}</small>}
           {entity && !onDossier && <Link className="text-sm text-primary hover:underline" href={entityHref(entity.id)}>Open dossier</Link>}
         </div>
