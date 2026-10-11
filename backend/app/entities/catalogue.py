@@ -6,28 +6,37 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import exists, func, literal, or_, select, tuple_
+from sqlalchemy import ColumnElement, exists, func, literal, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.feeds.service import encode_cursor
-from app.nlp.models import Entity, EntityAuthorityChange
+from app.nlp.models import ArticleEntity, Entity, EntityAuthorityChange
 from app.wikidata.models import EntityExternalId
 
-__all__ = ["decode_name_cursor", "recent_changes", "roots"]
+__all__ = ["RootCursor", "decode_root_cursor", "recent_changes", "roots"]
+
+# Where a page of roots ends: (article count, lowercased name, id), the count None when the
+# page is in name order.
+RootCursor = tuple[int | None, str, uuid.UUID]
 
 
-def _encode_name_cursor(name: str, item_id: uuid.UUID) -> str:
-    return base64.urlsafe_b64encode(json.dumps([name, str(item_id)]).encode()).decode()
+def _encode_root_cursor(count: int | None, name: str, item_id: uuid.UUID) -> str:
+    values: list[Any] = [name, str(item_id)] if count is None else [count, name, str(item_id)]
+    return base64.urlsafe_b64encode(json.dumps(values).encode()).decode()
 
 
-def decode_name_cursor(cursor: str) -> tuple[str, uuid.UUID]:
-    """The (lowercased name, id) a page of roots ends at; ValueError when malformed."""
+def decode_root_cursor(cursor: str, *, by_articles: bool) -> RootCursor:
+    """The place a page of roots in this order ends at; ValueError when malformed."""
     try:
-        name, item_id = json.loads(base64.urlsafe_b64decode(cursor.encode()))
-        if not isinstance(name, str):
+        values = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+        if not isinstance(values, list) or len(values) != (3 if by_articles else 2):
             raise ValueError("Invalid cursor")
-        return name, uuid.UUID(item_id)
+        count = values.pop(0) if by_articles else None
+        name, item_id = values
+        if not isinstance(name, str) or (by_articles and type(count) is not int):
+            raise ValueError("Invalid cursor")
+        return count, name, uuid.UUID(item_id)
     except (TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid cursor") from exc
 
@@ -39,14 +48,18 @@ async def roots(
     status: str | None,
     q: str | None,
     limit: int,
-    cursor: tuple[str, uuid.UUID] | None,
+    cursor: RootCursor | None,
     wikidata: str | None = None,
     hidden: bool = False,
-) -> tuple[list[tuple[Entity, int, str | None]], str | None]:
-    """Roots by name with their variant counts and QIDs; `q` finds a root by any of its names.
+    types: list[str] | None = None,
+    by_articles: bool = False,
+) -> tuple[list[tuple[Entity, int, str | None, int]], str | None]:
+    """Roots with their variant counts, QIDs and article counts; `q` finds a root by any of its
+    names. In name order, or with the most articles first (`by_articles`), then by name.
 
     `wikidata`: "linked" or "unlinked" keeps the roots with or without a QID. `hidden` lists the
-    roots hidden as not a name instead of the others.
+    roots hidden as not a name instead of the others. `types` keeps the roots shown as one of
+    these types.
     """
     variant = aliased(Entity)
     sort_name = func.lower(Entity.name)
@@ -62,9 +75,18 @@ async def roots(
         .correlate(Entity)
         .scalar_subquery()
     )
-    query = select(Entity, variant_count, sort_name, qid).where(
+    # The partial index on (entity_id, article_id) WHERE is_current serves this per root.
+    article_count = (
+        select(func.count(func.distinct(ArticleEntity.article_id)))
+        .where(ArticleEntity.entity_id == Entity.id, ArticleEntity.is_current.is_(True))
+        .correlate(Entity)
+        .scalar_subquery()
+    )
+    query = select(Entity, variant_count, sort_name, qid, article_count).where(
         Entity.authority_id.is_(None), Entity.hidden.is_(hidden)
     )
+    if types:
+        query = query.where(Entity.kind.in_(types))
     if wikidata == "linked":
         query = query.where(qid.is_not(None))
     elif wikidata == "unlinked":
@@ -86,18 +108,25 @@ async def roots(
                 ),
             )
         )
+    # Most articles first is ascending on the negated count, so one row comparison pages both.
+    keys: list[ColumnElement[Any]] = [sort_name, Entity.id.expression]
+    if by_articles:
+        keys.insert(0, -article_count)
     if cursor is not None:
-        query = query.where(
-            tuple_(sort_name, Entity.id) > tuple_(literal(cursor[0]), literal(cursor[1]))
-        )
-    rows = list(await db.execute(query.order_by(sort_name, Entity.id).limit(limit + 1)))
-    page = [(row[0], row[1], row[3]) for row in rows[:limit]]
+        count, name, item_id = cursor
+        after: list[ColumnElement[Any]] = [literal(name), literal(item_id)]
+        if by_articles:
+            after.insert(0, literal(-(count or 0)))
+        query = query.where(tuple_(*keys) > tuple_(*after))
+    rows = list(await db.execute(query.order_by(*keys).limit(limit + 1)))
+    page = [(row[0], row[1], row[3], int(row[4])) for row in rows[:limit]]
     # The database's own lowercase, so the next page starts exactly where this one ended.
-    next_cursor = (
-        _encode_name_cursor(rows[limit - 1][2], rows[limit - 1][0].id)
-        if len(rows) > limit
-        else None
-    )
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = _encode_root_cursor(
+            int(last[4]) if by_articles else None, last[2], last[0].id
+        )
     return page, next_cursor
 
 
