@@ -6,12 +6,13 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 import { ApiError, api } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
-import { EntityAuthority } from '../../components/EntityAuthority'
+import { AuthorityPanel } from '../../components/AuthorityPanel'
 import { EntityWikidata } from '../../components/EntityWikidata'
 import { SeeAlso } from '../../components/SeeAlso'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchForm } from '../../components/WatchForm'
+import { typeLabel } from '../../lib/authorities'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
@@ -32,6 +33,7 @@ function EntityContent() {
   const id = searchParams.get('id') ?? ''
   const currentHref = toHref(pathname, searchParams)
   const [days, setDays] = useState<number>(30)
+  const [editing, setEditing] = useState(false)
 
   const dossier = useQuery({ queryKey: ['entity', id, days], queryFn: () => api.entityDossier(id, days), enabled: Boolean(id), retry: false })
   const relationships = useQuery({ queryKey: ['entity-relationships', id, days], queryFn: () => api.entityRelationships(id, days), enabled: Boolean(id), retry: false })
@@ -96,10 +98,17 @@ function EntityContent() {
       </GlassPanel>
 
       {entity && (
-        <GlassPanel className="flex flex-col gap-3">
+        <GlassPanel className="flex flex-wrap items-center gap-3">
           <h3 className="text-sm font-semibold text-foreground">Authority file</h3>
-          <EntityAuthority key={entity.id} entity={entity} />
+          <span className={chipClass}>{entity.status === 'established' ? 'Established' : 'Provisional'}</span>
+          <span className={chipClass}>{typeLabel(entity.entity_type)}</span>
+          {entity.hidden && <span className={chipClass}>Hidden</span>}
+          <button type="button" className={ghostButtonClass} onClick={() => setEditing(true)}>Edit</button>
         </GlassPanel>
+      )}
+
+      {entity && editing && (
+        <AuthorityPanel key={entity.id} entityId={entity.id} entity={entity} onDossier onClose={() => setEditing(false)} />
       )}
 
       {entity && (

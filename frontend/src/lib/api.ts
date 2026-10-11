@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsFeeds, OpsHealth, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexStatus, IngestionTimeline, InvestigationState, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, ActivityFilter, ActivityPage, ProcessKey, ProcessesResponse, RetryFailedResponse, RunNowResponse, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
+import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityBulk, AuthorityBulkResult, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsFeeds, OpsHealth, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClaimResult, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexStatus, IngestionTimeline, InvestigationState, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, ActivityFilter, ActivityPage, ProcessKey, ProcessesResponse, RetryFailedResponse, RunNowResponse, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -106,7 +106,10 @@ export const api = {
   dismissWikidataCandidate: (id: string, qid: string) => mutate<void>(`/entities/${id}/wikidata/candidates/${qid}/dismiss`, 'POST'),
   wikidataCandidates: (cursor?: string) => request<WikidataReviewPage>(`/wikidata/candidates${query({ cursor })}`),
   approveExactWikidata: () => mutate<WikidataApprove>('/wikidata/candidates/approve-exact', 'POST'),
-  authorities: (filters: AuthorityFilters, cursor?: string) => request<AuthorityRootPage>(`/authorities${query({ ...filters, cursor })}`),
+  claimName: (id: string, normalizedText?: string) => mutate<EntityClaimResult>(`/entities/${id}/claims`, 'POST', normalizedText === undefined ? {} : { normalized_text: normalizedText }),
+  releaseClaim: (id: string, normalizedText: string) => mutate<void>(`/entities/${id}/claims`, 'DELETE', { normalized_text: normalizedText }),
+  authorities: ({ hidden, ...filters }: AuthorityFilters, cursor?: string) => request<AuthorityRootPage>(`/authorities${query({ ...filters, ...(hidden ? { hidden: 'true' } : {}), cursor })}`),
+  bulkAuthorities: (change: AuthorityBulk) => mutate<AuthorityBulkResult>('/authorities/bulk', 'POST', change),
   authoritySuggestions: (language?: string) => request<AuthoritySuggestionList>(`/authorities/suggestions${query({ language })}`),
   authorityHistory: (cursor?: string) => request<AuthorityHistoryPage>(`/authorities/history${query({ cursor })}`),
   events: (filters: EventFilters, cursor?: string) => request<EventPage>(`/events${query({ ...filters, cursor })}`),
@@ -177,7 +180,7 @@ function compareParams({ kind, a, b, role, days }: CompareSpec): Record<string, 
   return { kind, a, b, role, days: String(days) }
 }
 
-function query(params: Record<string, string | undefined>): string {
+function query(params: Filters): string {
   const search = filterParams(params)
   return search.size ? `?${search}` : ''
 }

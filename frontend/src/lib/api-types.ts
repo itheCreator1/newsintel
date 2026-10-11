@@ -53,8 +53,15 @@ export type SeeAlsoLabel = SeeAlsoItem['label']
 export type StatedEdge = components['schemas']['StatedEdge']
 export type SeeAlsoCreate = components['schemas']['SeeAlsoCreate']
 export type SeeAlsoUpdate = components['schemas']['SeeAlsoUpdate']
+export type EntityType = NonNullable<EntityAuthorityUpdate['entity_type']>
+export type AuthorityBulk = components['schemas']['AuthorityBulkRequest']
+export type AuthorityBulkResult = components['schemas']['AuthorityBulkResponse']
+export type EntityClaimResult = components['schemas']['EntityClaimResponse']
 /** Filters on the authority file; an absent key is not sent. */
-export type AuthorityFilters = { q?: string; status?: 'provisional' | 'established'; language?: string; wikidata?: 'linked' | 'unlinked' }
+export type AuthorityFilters = {
+  q?: string; status?: 'provisional' | 'established'; language?: string; wikidata?: 'linked' | 'unlinked'
+  type?: EntityType[]; sort?: 'name' | 'articles'; hidden?: boolean
+}
 export type WikidataLink = components['schemas']['WikidataLinkResponse']
 export type WikidataCandidate = components['schemas']['WikidataCandidateResponse']
 export type WikidataItemName = components['schemas']['WikidataNameResponse']
