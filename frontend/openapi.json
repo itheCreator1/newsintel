@@ -2058,6 +2058,137 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/claims": {
+      "post": {
+        "tags": [
+          "entities"
+        ],
+        "summary": "Claim Entity Name",
+        "description": "Take every type of one of the root's names: the other roots of that name merge in now,\nand a name NER finds later under a new type joins the root.",
+        "operationId": "claim_entity_name_api_v1_entities__entity_id__claims_post",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityClaimResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "entities"
+        ],
+        "summary": "Release Entity Name",
+        "description": "Stop taking every type of the name; the names already merged stay.",
+        "operationId": "release_entity_name_api_v1_entities__entity_id__claims_delete",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityClaimRelease"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/entities/{entity_id}/split": {
       "post": {
         "tags": [
@@ -12476,6 +12607,97 @@
         ],
         "title": "EntityChange"
       },
+      "EntityClaimRelease": {
+        "properties": {
+          "normalized_text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Normalized Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "normalized_text"
+        ],
+        "title": "EntityClaimRelease"
+      },
+      "EntityClaimRequest": {
+        "properties": {
+          "normalized_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EntityClaimRequest",
+        "description": "The name to claim every type of: one of the root's own; omitted, the root's own key."
+      },
+      "EntityClaimResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAuthorityRunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/EntityClaimSkipped"
+            },
+            "type": "array",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs",
+          "skipped"
+        ],
+        "title": "EntityClaimResponse",
+        "description": "The merge runs the claim started, and the names it left where they were, with why."
+      },
+      "EntityClaimSkipped": {
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_id",
+          "display_name",
+          "entity_type",
+          "reason"
+        ],
+        "title": "EntityClaimSkipped"
+      },
       "EntityClusterPage": {
         "properties": {
           "items": {
@@ -12644,6 +12866,20 @@
               }
             ],
             "title": "Note"
+          },
+          "claims": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Claims"
+          },
+          "other_types": {
+            "items": {
+              "$ref": "#/components/schemas/EntityNameRef"
+            },
+            "type": "array",
+            "title": "Other Types"
           },
           "aliases": {
             "items": {
@@ -12824,6 +13060,35 @@
           "target_id"
         ],
         "title": "EntityMergeRequest"
+      },
+      "EntityNameRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "normalized_text": {
+            "type": "string",
+            "title": "Normalized Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "entity_type",
+          "normalized_text"
+        ],
+        "title": "EntityNameRef"
       },
       "EntityRelationshipsResponse": {
         "properties": {

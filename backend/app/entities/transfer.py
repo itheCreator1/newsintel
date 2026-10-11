@@ -21,7 +21,13 @@ from sqlalchemy.orm import aliased
 from app.entities import authority, relations
 from app.entities.schemas import EntityType
 from app.feeds.models import Article
-from app.nlp.models import ArticleEntity, Entity, EntityDistinct, EntityRelation
+from app.nlp.models import (
+    ArticleEntity,
+    Entity,
+    EntityDistinct,
+    EntityNameClaim,
+    EntityRelation,
+)
 from app.wikidata.links import queue_fetch
 from app.wikidata.models import EntityExternalId
 from app.wikidata.parsing import is_qid
@@ -30,7 +36,8 @@ __all__ = ["FORMAT", "ImportReport", "export_authorities", "import_authorities",
 
 FORMAT = "newsintel-authority-file"
 # 2 adds each root's external ids (its Wikidata link) and each name's source; 3 adds the type
-# the user gave a root and whether it is hidden as not a name. Older versions still import.
+# the user gave a root, whether it is hidden as not a name, and the names it takes every type
+# of. Older versions still import.
 VERSION = 3
 NAME_SOURCES = Literal["ner", "seed", "wikidata", "user"]
 
@@ -65,6 +72,8 @@ class _Root(_Variant):
     preferred_text: str | None = None
     preferred_type: EntityType | None = None
     hidden: bool = False
+    # The names (normalized, the root's own or a variant's) it takes every type of.
+    claims: list[str] = Field(default_factory=list)
     status: Literal["provisional", "established"] = "provisional"
     variants: list[_Variant] = Field(default_factory=list)
     external_ids: list[_ExternalId] = Field(default_factory=list)
@@ -152,6 +161,7 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
             Entity.ambiguous,
             Entity.preferred_type.is_not(None),
             Entity.hidden,
+            exists().where(EntityNameClaim.root_id == Entity.id),
         ),
     )
     if language is not None:
@@ -172,6 +182,16 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
             select(EntityExternalId).where(EntityExternalId.entity_id.in_(ids))
         ):
             external[row.entity_id].append(row)
+
+    claims: dict[uuid.UUID, list[str]] = {}
+    for chunk_start in range(0, len(roots), 1000):
+        ids = [root.id for root in roots[chunk_start : chunk_start + 1000]]
+        for claim in await db.scalars(
+            select(EntityNameClaim)
+            .where(EntityNameClaim.root_id.in_(ids))
+            .order_by(EntityNameClaim.normalized_text)
+        ):
+            claims.setdefault(claim.root_id, []).append(claim.normalized_text)
 
     a, b = aliased(Entity), aliased(Entity)
     pairs = (
@@ -196,6 +216,7 @@ async def export_authorities(db: AsyncSession, *, language: str | None = None) -
                 "preferred_text": root.preferred_text,
                 "preferred_type": root.preferred_type,
                 "hidden": root.hidden,
+                "claims": claims.get(root.id, []),
                 "status": root.status,
                 "ambiguous": root.ambiguous,
                 "note": root.note,
@@ -381,6 +402,25 @@ async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) ->
         report.merged += 1
         # A conflicting name keeps its own marks; a joined one takes the file's.
         await _marks(db, variant, item)
+    await _import_claims(db, root, record, report)
+
+
+async def _import_claims(
+    db: AsyncSession, root: Entity, record: _Root, report: ImportReport
+) -> None:
+    """Claim the names the file says; a claim's merges count, what it left is a conflict."""
+    for key in record.claims:
+        if await db.get(EntityNameClaim, (root.language, key)) is not None:
+            continue
+        try:
+            result = await authority.claim_name(db, root.id, key)
+        except authority.AuthorityError as error:
+            report.conflicts.append(f"{record.label()} claiming {key}: {error.detail}")
+            continue
+        report.merged += len(result.runs)
+        report.conflicts.extend(
+            f"{record.label()} claiming {key}: {item.reason}" for item in result.skipped
+        )
 
 
 async def _import_external_ids(

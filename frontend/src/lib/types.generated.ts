@@ -582,6 +582,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Entity Name
+         * @description Take every type of one of the root's names: the other roots of that name merge in now,
+         *     and a name NER finds later under a new type joins the root.
+         */
+        post: operations["claim_entity_name_api_v1_entities__entity_id__claims_post"];
+        /**
+         * Release Entity Name
+         * @description Stop taking every type of the name; the names already merged stay.
+         */
+        delete: operations["release_entity_name_api_v1_entities__entity_id__claims_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entities/{entity_id}/split": {
         parameters: {
             query?: never;
@@ -2707,6 +2732,43 @@ export interface components {
             /** Evidence */
             evidence: components["schemas"]["ChangeEvidence"][];
         };
+        /** EntityClaimRelease */
+        EntityClaimRelease: {
+            /** Normalized Text */
+            normalized_text: string;
+        };
+        /**
+         * EntityClaimRequest
+         * @description The name to claim every type of: one of the root's own; omitted, the root's own key.
+         */
+        EntityClaimRequest: {
+            /** Normalized Text */
+            normalized_text?: string | null;
+        };
+        /**
+         * EntityClaimResponse
+         * @description The merge runs the claim started, and the names it left where they were, with why.
+         */
+        EntityClaimResponse: {
+            /** Runs */
+            runs: components["schemas"]["EntityAuthorityRunResponse"][];
+            /** Skipped */
+            skipped: components["schemas"]["EntityClaimSkipped"][];
+        };
+        /** EntityClaimSkipped */
+        EntityClaimSkipped: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Reason */
+            reason: string;
+        };
         /** EntityClusterPage */
         EntityClusterPage: {
             /** Items */
@@ -2770,6 +2832,10 @@ export interface components {
             ambiguous: boolean;
             /** Note */
             note?: string | null;
+            /** Claims */
+            claims?: string[];
+            /** Other Types */
+            other_types?: components["schemas"]["EntityNameRef"][];
             /** Aliases */
             aliases?: string[];
             /**
@@ -2835,6 +2901,20 @@ export interface components {
              * Format: uuid
              */
             target_id: string;
+        };
+        /** EntityNameRef */
+        EntityNameRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Normalized Text */
+            normalized_text: string;
         };
         /** EntityRelationshipsResponse */
         EntityRelationshipsResponse: {
@@ -6516,6 +6596,78 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EntityAuthorityRunResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_entity_name_api_v1_entities__entity_id__claims_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityClaimRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityClaimResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_entity_name_api_v1_entities__entity_id__claims_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityClaimRelease"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

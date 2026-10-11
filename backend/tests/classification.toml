@@ -83,6 +83,7 @@
 "test_monitor_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_monitor_results_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
 "test_monitors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_name_claims_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_nlp_intent.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_nlp_jobs_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_nlp_ner_model.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false, note = "Independently gated by its own NEWSINTEL_RUN_NER_TESTS var (pinned-version file read, no spaCy import); safe to run in quick." }

@@ -182,6 +182,20 @@ class Entity(Base):
         return func.coalesce(cls.preferred_type, cls.entity_type)
 
 
+class EntityNameClaim(Base):
+    """A root that takes every type of one name: the roots NER made of it under other types
+    were merged in when the claim was made, and a name NER finds later under a new type joins
+    the root as it is created."""
+
+    __tablename__ = "entity_name_claims"
+    language: Mapped[str] = mapped_column(String(16), primary_key=True)
+    normalized_text: Mapped[str] = mapped_column(Text, primary_key=True)
+    root_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("nlp_entities.id", ondelete="RESTRICT"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class EntityDistinct(Base):
     """Two entities the user said are different, so duplicate suggestions skip the pair."""
 

@@ -3,6 +3,7 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
@@ -23,11 +24,16 @@ from app.entities.schemas import (
     EntityAuthorityResponse,
     EntityAuthorityRunResponse,
     EntityAuthorityUpdate,
+    EntityClaimRelease,
+    EntityClaimRequest,
+    EntityClaimResponse,
+    EntityClaimSkipped,
     EntityClusterPage,
     EntityDossierResponse,
     EntityHistory,
     EntityHistoryItem,
     EntityMergeRequest,
+    EntityNameRef,
     EntityRelationshipsResponse,
     EntityStatus,
     EntityVariantList,
@@ -96,6 +102,16 @@ async def get_entity_dossier(
     found = await queries.dossier(db, entity, days)
     if entity.id != entity_id:
         found.redirected_from = entity_id
+    found.claims = await authority.claims_of(db, entity.id)
+    found.other_types = [
+        EntityNameRef(
+            id=item.id,
+            display_name=item.name,
+            entity_type=item.kind,
+            normalized_text=item.normalized_text,
+        )
+        for item in await authority.other_types(db, entity)
+    ]
     return found
 
 
@@ -177,6 +193,53 @@ async def merge_entity(
     response = _run_response(run)
     await db.commit()
     return response
+
+
+@router.post("/entities/{entity_id}/claims", response_model=EntityClaimResponse)
+async def claim_entity_name(
+    entity_id: uuid.UUID, payload: EntityClaimRequest, db: Db, _session: Mutation
+) -> EntityClaimResponse:
+    """Take every type of one of the root's names: the other roots of that name merge in now,
+    and a name NER finds later under a new type joins the root."""
+    try:
+        result = await authority.claim_name(db, entity_id, payload.normalized_text)
+    except authority.AuthorityError as error:
+        raise _refused(error) from None
+    names = {
+        entity.id: entity
+        for entity in await db.scalars(
+            select(Entity).where(Entity.id.in_([item.entity_id for item in result.skipped]))
+        )
+    }
+    response = EntityClaimResponse(
+        runs=[_run_response(run) for run in result.runs],
+        skipped=[
+            EntityClaimSkipped(
+                entity_id=item.entity_id,
+                display_name=names[item.entity_id].name,
+                entity_type=names[item.entity_id].kind,
+                reason=item.reason,
+            )
+            for item in result.skipped
+        ],
+    )
+    await db.commit()
+    return response
+
+
+@router.delete("/entities/{entity_id}/claims", status_code=status.HTTP_204_NO_CONTENT)
+async def release_entity_name(
+    entity_id: uuid.UUID, payload: EntityClaimRelease, db: Db, _session: Mutation
+) -> Response:
+    """Stop taking every type of the name; the names already merged stay."""
+    try:
+        released = await authority.release_name(db, entity_id, payload.normalized_text)
+    except authority.AuthorityError as error:
+        raise _refused(error) from None
+    if not released:
+        raise HTTPException(404, "This entity does not take every type of that name")
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
