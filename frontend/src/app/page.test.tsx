@@ -68,6 +68,15 @@ it('refetches top entities when the entity type filter changes', async () => {
   await vi.waitFor(() => expect(api.topEntities).toHaveBeenLastCalledWith('PERSON'))
 })
 
+it('offers the Topic type the user can give an entity', async () => {
+  renderWithQuery(() => <OverviewPage />)
+  await screen.findByRole('button', { name: /Top named entities/ })
+
+  fireEvent.change(screen.getByLabelText('Entity type'), { target: { value: 'TOPIC' } })
+
+  await vi.waitFor(() => expect(api.topEntities).toHaveBeenLastCalledWith('TOPIC'))
+})
+
 it('shows an empty-state message instead of a chart when a panel has no data', async () => {
   vi.mocked(api.ingestionTimeline).mockResolvedValue({ buckets: [] })
   vi.mocked(api.topEntities).mockResolvedValue({ entities: [] })

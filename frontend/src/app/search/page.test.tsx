@@ -457,3 +457,13 @@ it('opens the whole investigation in Map, which applies every criterion', async 
   const link = await screen.findByRole('link', { name: 'Open in Map' })
   expect(link.getAttribute('href')).toBe('/map/?scope=investigation&q=grid&source_country=GR&keyword_id=keyword-one')
 })
+
+it('filters by the Topic type the user can give an entity', async () => {
+  const { rerenderSame } = renderSearch('')
+
+  fireEvent.click(within(await screen.findByRole('group', { name: /^Entity type/ })).getByRole('checkbox', { name: 'TOPIC' }))
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('entity_type')).toEqual(['TOPIC'])
+})

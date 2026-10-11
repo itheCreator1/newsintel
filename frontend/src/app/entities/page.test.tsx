@@ -23,7 +23,7 @@ vi.mock('../../components/BarChart', () => ({
 
 const dossier = (over = {}) => ({
   id: 'ent-1', display_name: 'Barack Obama', normalized_text: 'barack obama', language: 'en', entity_type: 'PERSON', ner_type: 'PERSON',
-  redirected_from: null, preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null, hidden: false,
+  redirected_from: null, preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null, hidden: false, claims: [], other_types: [],
   aliases: [], aliases_status: 'unavailable' as const, total_mentions: 12, article_count: 5, cluster_count: 2,
   first_seen_at: '2026-09-01T00:00:00Z', last_seen_at: '2026-09-18T00:00:00Z', timeline_days: 30,
   timeline: [{ date: '2026-09-17', mentions: 4 }, { date: '2026-09-18', mentions: 8 }], ...over,
@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.mocked(api.entityHistory).mockResolvedValue({ items: [] })
   vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['member_of', 'leader_of', 'related'], items: [] })
   vi.mocked(api.wikidata).mockResolvedValue({
-    entity_id: 'ent-1', qid: null, identifiers: {}, item: null, fetch_pending: false, names: [], candidates: [], search_pending: false, redirect_holder: null,
+    entity_id: 'ent-1', qid: null, identifiers: {}, item: null, fetch_pending: false, names: [], candidates: [], search_pending: false, redirect_holder: null, wikidata_type: null,
   })
 })
 afterEach(cleanup)
@@ -157,6 +157,26 @@ const variant = { id: 'var-1', display_name: 'B. Obama', normalized_text: 'b oba
 const run = (kind: 'merge' | 'split', entity: string, root: string) => ({ id: `run-${kind}`, kind, status: 'running' as const, entity_id: entity, root_id: root })
 const authority = (over = {}) => ({ id: 'ent-1', display_name: 'Barack Obama', preferred_text: null, entity_type: 'PERSON', ner_type: 'PERSON', hidden: false, status: 'provisional' as const, ambiguous: false, note: null, authority_id: null, ...over })
 
+const openEditor = async () => fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+
+it('edits the entry in the same side panel as the authority file, without a link back to this page', async () => {
+  vi.mocked(api.entityDossier).mockResolvedValue(dossier({ entity_type: 'TOPIC', ner_type: 'ORG', hidden: true }))
+  renderWithQuery(() => <EntitiesPage />)
+
+  const summary = (await screen.findByRole('heading', { name: 'Authority file' })).parentElement!
+  expect(within(summary).getByText('Topic')).toBeTruthy()
+  expect(within(summary).getByText('Hidden')).toBeTruthy()
+  expect(screen.queryByLabelText('Type')).toBeNull()
+
+  fireEvent.click(within(summary).getByRole('button', { name: 'Edit' }))
+  const panel = await screen.findByRole('complementary', { name: 'Edit Barack Obama' })
+  expect((within(panel).getByLabelText('Type') as HTMLSelectElement).value).toBe('TOPIC')
+  expect(within(panel).queryByRole('link', { name: 'Open dossier' })).toBeNull()
+  expect(api.entityDossier).toHaveBeenCalledTimes(1)
+  fireEvent.click(within(panel).getByRole('button', { name: 'Close the editor' }))
+  expect(screen.queryByRole('complementary', { name: 'Edit Barack Obama' })).toBeNull()
+})
+
 it('shows the status, the variants and says when it was opened from a merged name', async () => {
   vi.mocked(api.entityDossier).mockResolvedValue(dossier({ redirected_from: 'var-1', status: 'established' }))
   vi.mocked(api.entityVariants).mockResolvedValue({ items: [variant] })
@@ -164,6 +184,7 @@ it('shows the status, the variants and says when it was opened from a merged nam
 
   expect(await screen.findByText('Opened from a name merged into this entity.')).toBeTruthy()
   expect(screen.getByText('Established')).toBeTruthy()
+  await openEditor()
   const variants = await screen.findByRole('list', { name: 'Other names' })
   expect(within(variants).getByText('B. Obama')).toBeTruthy()
   expect(api.entityVariants).toHaveBeenCalledWith('ent-1')
@@ -173,6 +194,7 @@ it('merges this entity into another one picked by name and opens the result', as
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-9', kind: 'PERSON', normalized_text: 'barack h obama', text: 'Barack H. Obama' }], next_cursor: null })
   vi.mocked(api.mergeEntity).mockResolvedValue(run('merge', 'ent-1', 'ent-9'))
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Merge with…' }))
   fireEvent.change(screen.getByLabelText('Find the entity to merge into'), { target: { value: 'barack' } })
@@ -187,6 +209,7 @@ it('shows why a merge was refused', async () => {
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-9', kind: 'PERSON', normalized_text: 'other', text: 'Other Obama' }], next_cursor: null })
   vi.mocked(api.mergeEntity).mockRejectedValue(new ApiError('These entities are marked as different', 409))
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Merge with…' }))
   fireEvent.change(screen.getByLabelText('Find the entity to merge into'), { target: { value: 'other' } })
@@ -201,6 +224,7 @@ it('splits a variant back out', async () => {
   vi.mocked(api.entityVariants).mockResolvedValue({ items: [variant] })
   vi.mocked(api.splitEntity).mockResolvedValue(run('split', 'var-1', 'ent-1'))
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Split B. Obama' }))
 
@@ -211,6 +235,7 @@ it('splits a variant back out', async () => {
 it('renames the entity, marks it established and keeps a note', async () => {
   vi.mocked(api.updateEntity).mockResolvedValue(authority())
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Rename' }))
   fireEvent.change(screen.getByLabelText('Preferred name'), { target: { value: 'Obama, Barack' } })
@@ -232,6 +257,7 @@ it('records that another entity is not the same', async () => {
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-7', kind: 'PERSON', normalized_text: 'michelle obama', text: 'Michelle Obama' }], next_cursor: null })
   vi.mocked(api.addDistinct).mockResolvedValue(undefined)
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Not the same as…' }))
   fireEvent.change(screen.getByLabelText('Find the entity that is different'), { target: { value: 'michelle' } })
@@ -252,6 +278,7 @@ it('lists the authority history, oldest first', async () => {
     { id: 'h6', action: 'wikidata_missing', entity_id: 'ent-1', other_id: null, before: { qid: 'Q76' }, after: null, created_at: '2026-10-08T15:00:00Z' },
   ] })
   renderWithQuery(() => <EntitiesPage />)
+  await openEditor()
 
   const history = await screen.findByRole('list', { name: 'Authority history' })
   const items = within(history).getAllByRole('listitem').map(item => item.textContent)
@@ -306,6 +333,8 @@ it('adds a link of a type this entity can take, to an entity picked by name', as
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-8', kind: 'ORG', normalized_text: 'democratic party', text: 'Democratic Party' }], next_cursor: null })
   vi.mocked(api.addRelation).mockResolvedValue(link('r9', 'leader_of', 'Democratic Party'))
   renderWithQuery(() => <EntitiesPage />)
+  // The editor's history follows a link added on the page.
+  await openEditor()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add link' }))
   const type = screen.getByLabelText('Link type')
