@@ -657,11 +657,32 @@ export interface paths {
         };
         /**
          * List Authorities
-         * @description The authority file: every root by name; `q` finds one by any of its names.
+         * @description The authority file: every root, with its article count; `q` finds one by any of its
+         *     names.
          */
         get: operations["list_authorities_api_v1_authorities_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authorities/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Authorities
+         * @description One change to several roots: all of it, or none of it with the first refusal named.
+         */
+        post: operations["change_authorities_api_v1_authorities_bulk_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2151,6 +2172,36 @@ export interface components {
             /** Completed At */
             completed_at: string | null;
         };
+        /**
+         * AuthorityBulkRequest
+         * @description One change to several roots at once, all or nothing.
+         *
+         *     merge: every id becomes a name of `target_id`'s root. set_type: `entity_type` (null goes
+         *     back to the model's type). set_status: `status`. hide, show: not a name, or a name again.
+         */
+        AuthorityBulkRequest: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "merge" | "set_type" | "set_status" | "hide" | "show";
+            /** Ids */
+            ids: string[];
+            /** Target Id */
+            target_id?: string | null;
+            /** Entity Type */
+            entity_type?: ("PERSON" | "ORG" | "GPE" | "LOCATION" | "EVENT" | "PRODUCT" | "TOPIC" | "OTHER") | null;
+            /** Status */
+            status?: ("provisional" | "established") | null;
+        };
+        /**
+         * AuthorityBulkResponse
+         * @description The runs the change started: merges, or reindexes of each root's articles.
+         */
+        AuthorityBulkResponse: {
+            /** Runs */
+            runs: components["schemas"]["EntityAuthorityRunResponse"][];
+        };
         /** AuthorityHistoryItem */
         AuthorityHistoryItem: {
             /**
@@ -2240,6 +2291,8 @@ export interface components {
             hidden: boolean;
             /** Variant Count */
             variant_count: number;
+            /** Article Count */
+            article_count: number;
             /** Qid */
             qid: string | null;
         };
@@ -2667,7 +2720,8 @@ export interface components {
         };
         /**
          * EntityAuthorityRunResponse
-         * @description The batched run that moves the article links; it advances on every scheduler cycle.
+         * @description The batched run that moves the article links, or reindexes a root's articles after a
+         *     change of type or of hidden; it advances on every scheduler cycle.
          */
         EntityAuthorityRunResponse: {
             /**
@@ -2679,7 +2733,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "merge" | "split";
+            kind: "merge" | "split" | "reindex";
             /**
              * Status
              * @enum {string}
@@ -6787,6 +6841,10 @@ export interface operations {
                 wikidata?: ("linked" | "unlinked") | null;
                 /** @description List the roots hidden as not a name instead of the others. */
                 hidden?: boolean;
+                /** @description Only roots shown as one of these types. */
+                type?: ("PERSON" | "ORG" | "GPE" | "LOCATION" | "EVENT" | "PRODUCT" | "TOPIC" | "OTHER")[] | null;
+                /** @description By name, or with the most articles first and then by name. */
+                sort?: "name" | "articles";
                 cursor?: string | null;
                 limit?: number;
             };
@@ -6803,6 +6861,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthorityRootPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_authorities_api_v1_authorities_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorityBulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorityBulkResponse"];
                 };
             };
             /** @description Validation Error */

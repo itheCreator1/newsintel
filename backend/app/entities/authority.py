@@ -44,6 +44,7 @@ __all__ = [
     "adopt",
     "claim_name",
     "advance_run",
+    "bulk",
     "combine_rows",
     "entity_group",
     "expand_for_search",
@@ -618,6 +619,44 @@ async def other_types(db: AsyncSession, root: Entity) -> list[Entity]:
             .order_by(Entity.normalized_text, Entity.entity_type, Entity.id)
         )
     )
+
+
+async def bulk(
+    db: AsyncSession,
+    action: str,
+    ids: list[uuid.UUID],
+    *,
+    target_id: uuid.UUID | None = None,
+    entity_type: str | None = None,
+    status: str | None = None,
+) -> list[EntityAuthorityRun]:
+    """One change to several entities, in the caller's transaction: the first refusal raises,
+    naming the entity, and the caller rolls the rest back."""
+    runs: list[EntityAuthorityRun] = []
+    for entity_id in dict.fromkeys(ids):
+        entity = await db.get(Entity, entity_id)
+        label = entity.name if entity is not None else str(entity_id)
+        try:
+            run: EntityAuthorityRun | None = None
+            if action == "merge":
+                assert target_id is not None
+                if entity_id == target_id:
+                    continue
+                run = await merge(db, variant_id=entity_id, target_id=target_id)
+            elif action == "set_type":
+                run = await set_type(db, entity_id, entity_type)
+            elif action == "set_status":
+                assert status is not None
+                await set_status(db, entity_id, status)
+            elif action in ("hide", "show"):
+                run = await set_hidden(db, entity_id, action == "hide")
+            else:
+                raise AuthorityError(422, f"Unknown action: {action}")
+        except AuthorityError as error:
+            raise AuthorityError(error.status_code, f"{label}: {error.detail}") from None
+        if run is not None:
+            runs.append(run)
+    return runs
 
 
 async def set_status(db: AsyncSession, entity_id: uuid.UUID, status: str) -> Entity:

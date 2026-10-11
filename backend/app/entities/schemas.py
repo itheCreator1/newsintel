@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.feeds.schemas import ArticleResponse
 
@@ -137,10 +137,11 @@ class EntityMergeRequest(BaseModel):
 
 
 class EntityAuthorityRunResponse(BaseModel):
-    """The batched run that moves the article links; it advances on every scheduler cycle."""
+    """The batched run that moves the article links, or reindexes a root's articles after a
+    change of type or of hidden; it advances on every scheduler cycle."""
 
     id: uuid.UUID
-    kind: Literal["merge", "split"]
+    kind: Literal["merge", "split", "reindex"]
     status: Literal["running", "finished", "failed"]
     entity_id: uuid.UUID
     root_id: uuid.UUID
@@ -211,8 +212,42 @@ class AuthorityRootResponse(BaseModel):
     ambiguous: bool
     hidden: bool
     variant_count: int
+    # Articles that name it now, under any of its names once a merge run has moved them.
+    article_count: int
     # The Wikidata item the root is linked to, if any.
     qid: str | None
+
+
+class AuthorityBulkRequest(BaseModel):
+    """One change to several roots at once, all or nothing.
+
+    merge: every id becomes a name of `target_id`'s root. set_type: `entity_type` (null goes
+    back to the model's type). set_status: `status`. hide, show: not a name, or a name again.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["merge", "set_type", "set_status", "hide", "show"]
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    target_id: uuid.UUID | None = None
+    entity_type: EntityType | None = None
+    status: EntityStatus | None = None
+
+    @model_validator(mode="after")
+    def _needs(self) -> "AuthorityBulkRequest":
+        if self.action == "merge" and self.target_id is None:
+            raise ValueError("merge needs target_id")
+        if self.action == "set_type" and "entity_type" not in self.model_fields_set:
+            raise ValueError("set_type needs entity_type (null for the model's own)")
+        if self.action == "set_status" and self.status is None:
+            raise ValueError("set_status needs status")
+        return self
+
+
+class AuthorityBulkResponse(BaseModel):
+    """The runs the change started: merges, or reindexes of each root's articles."""
+
+    runs: list[EntityAuthorityRunResponse]
 
 
 class AuthorityRootPage(BaseModel):

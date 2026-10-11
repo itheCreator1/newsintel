@@ -66,6 +66,8 @@ class _NoQueries:
         f"/entities/{uuid.uuid4()}/articles",
         f"/entities/{uuid.uuid4()}/clusters",
         f"/compare/articles?kind=entity&a={uuid.uuid4()}&b={uuid.uuid4()}&part=a",
+        "/authorities",
+        "/authorities?sort=articles",
     ],
 )
 @pytest.mark.parametrize("cursor", MALFORMED)

@@ -13,6 +13,8 @@ from app.auth.routes import current_session
 from app.db.session import get_db
 from app.entities import authority, catalogue, queries, relations
 from app.entities.schemas import (
+    AuthorityBulkRequest,
+    AuthorityBulkResponse,
     AuthorityHistoryItem,
     AuthorityHistoryPage,
     AuthorityNameResponse,
@@ -36,6 +38,7 @@ from app.entities.schemas import (
     EntityNameRef,
     EntityRelationshipsResponse,
     EntityStatus,
+    EntityType,
     EntityVariantList,
     EntityVariantResponse,
     SeeAlsoCreate,
@@ -329,12 +332,26 @@ async def list_authorities(
     hidden: Annotated[
         bool, Query(description="List the roots hidden as not a name instead of the others.")
     ] = False,
+    entity_type: Annotated[
+        list[EntityType] | None,
+        Query(alias="type", description="Only roots shown as one of these types."),
+    ] = None,
+    sort: Annotated[
+        Literal["name", "articles"],
+        Query(description="By name, or with the most articles first and then by name."),
+    ] = "name",
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> AuthorityRootPage:
-    """The authority file: every root by name; `q` finds one by any of its names."""
+    """The authority file: every root, with its article count; `q` finds one by any of its
+    names."""
+    by_articles = sort == "articles"
     try:
-        after = None if cursor is None else catalogue.decode_name_cursor(cursor)
+        after = (
+            None
+            if cursor is None
+            else catalogue.decode_root_cursor(cursor, by_articles=by_articles)
+        )
     except ValueError:
         raise HTTPException(400, "Invalid cursor") from None
     page, next_cursor = await catalogue.roots(
@@ -346,6 +363,8 @@ async def list_authorities(
         cursor=after,
         wikidata=wikidata,
         hidden=hidden,
+        types=list(entity_type or []),
+        by_articles=by_articles,
     )
     return AuthorityRootPage(
         items=[
@@ -358,12 +377,35 @@ async def list_authorities(
                 ambiguous=entity.ambiguous,
                 hidden=entity.hidden,
                 variant_count=count,
+                article_count=articles,
                 qid=qid,
             )
-            for entity, count, qid in page
+            for entity, count, qid, articles in page
         ],
         next_cursor=next_cursor,
     )
+
+
+@router.post("/authorities/bulk", response_model=AuthorityBulkResponse)
+async def change_authorities(
+    payload: AuthorityBulkRequest, db: Db, _session: Mutation
+) -> AuthorityBulkResponse:
+    """One change to several roots: all of it, or none of it with the first refusal named."""
+    try:
+        runs = await authority.bulk(
+            db,
+            payload.action,
+            payload.ids,
+            target_id=payload.target_id,
+            entity_type=payload.entity_type,
+            status=payload.status,
+        )
+    except authority.AuthorityError as error:
+        await db.rollback()
+        raise _refused(error) from None
+    response = AuthorityBulkResponse(runs=[_run_response(run) for run in runs])
+    await db.commit()
+    return response
 
 
 @router.get("/authorities/suggestions", response_model=AuthoritySuggestionList)

@@ -2378,7 +2378,7 @@
           "entities"
         ],
         "summary": "List Authorities",
-        "description": "The authority file: every root by name; `q` finds one by any of its names.",
+        "description": "The authority file: every root, with its article count; `q` finds one by any of its\nnames.",
         "operationId": "list_authorities_api_v1_authorities_get",
         "parameters": [
           {
@@ -2470,6 +2470,53 @@
             "description": "List the roots hidden as not a name instead of the others."
           },
           {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "PERSON",
+                      "ORG",
+                      "GPE",
+                      "LOCATION",
+                      "EVENT",
+                      "PRODUCT",
+                      "TOPIC",
+                      "OTHER"
+                    ],
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only roots shown as one of these types.",
+              "title": "Type"
+            },
+            "description": "Only roots shown as one of these types."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "name",
+                "articles"
+              ],
+              "type": "string",
+              "description": "By name, or with the most articles first and then by name.",
+              "default": "name",
+              "title": "Sort"
+            },
+            "description": "By name, or with the most articles first and then by name."
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -2505,6 +2552,66 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthorityRootPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/authorities/bulk": {
+      "post": {
+        "tags": [
+          "entities"
+        ],
+        "summary": "Change Authorities",
+        "description": "One change to several roots: all of it, or none of it with the first refusal named.",
+        "operationId": "change_authorities_api_v1_authorities_bulk_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorityBulkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorityBulkResponse"
                 }
               }
             }
@@ -11039,6 +11146,104 @@
         ],
         "title": "AttemptResponse"
       },
+      "AuthorityBulkRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "merge",
+              "set_type",
+              "set_status",
+              "hide",
+              "show"
+            ],
+            "title": "Action"
+          },
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PERSON",
+                  "ORG",
+                  "GPE",
+                  "LOCATION",
+                  "EVENT",
+                  "PRODUCT",
+                  "TOPIC",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "provisional",
+                  "established"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "ids"
+        ],
+        "title": "AuthorityBulkRequest",
+        "description": "One change to several roots at once, all or nothing.\n\nmerge: every id becomes a name of `target_id`'s root. set_type: `entity_type` (null goes\nback to the model's type). set_status: `status`. hide, show: not a name, or a name again."
+      },
+      "AuthorityBulkResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/EntityAuthorityRunResponse"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "runs"
+        ],
+        "title": "AuthorityBulkResponse",
+        "description": "The runs the change started: merges, or reindexes of each root's articles."
+      },
       "AuthorityHistoryItem": {
         "properties": {
           "id": {
@@ -11257,6 +11462,10 @@
             "type": "integer",
             "title": "Variant Count"
           },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          },
           "qid": {
             "anyOf": [
               {
@@ -11279,6 +11488,7 @@
           "ambiguous",
           "hidden",
           "variant_count",
+          "article_count",
           "qid"
         ],
         "title": "AuthorityRootResponse",
@@ -12445,7 +12655,8 @@
             "type": "string",
             "enum": [
               "merge",
-              "split"
+              "split",
+              "reindex"
             ],
             "title": "Kind"
           },
@@ -12478,7 +12689,7 @@
           "root_id"
         ],
         "title": "EntityAuthorityRunResponse",
-        "description": "The batched run that moves the article links; it advances on every scheduler cycle."
+        "description": "The batched run that moves the article links, or reindexes a root's articles after a\nchange of type or of hidden; it advances on every scheduler cycle."
       },
       "EntityAuthorityUpdate": {
         "properties": {
