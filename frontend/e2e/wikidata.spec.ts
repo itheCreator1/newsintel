@@ -16,9 +16,10 @@ test('wikidata workflow suggests, links and fetches an item', async ({ page }) =
   await login(page)
   await page.goto('/authorities')
   await page.getByLabel('Find a name').fill('lindqvist')
-  const file = page.getByRole('list', { name: 'Authority file' })
-  await expect(file.getByRole('listitem')).toHaveCount(1)
-  await file.getByRole('link', { name: 'Ada Lindqvist' }).click()
+  const file = page.getByRole('table', { name: 'Authority file' })
+  await expect(file.getByRole('row')).toHaveCount(2)
+  await file.getByRole('button', { name: 'Ada Lindqvist' }).click()
+  await page.getByRole('complementary', { name: 'Edit Ada Lindqvist' }).getByRole('link', { name: 'Open dossier' }).click()
   await expect(page.getByRole('heading', { level: 3, name: 'Ada Lindqvist' })).toBeVisible()
 
   // Nothing is asked of Wikidata until the button: then the run waits its turn, one request at a time.
@@ -39,22 +40,27 @@ test('wikidata workflow suggests, links and fetches an item', async ({ page }) =
   await page.getByRole('button', { name: 'Link to Q900001' }).click()
   await expect(page.getByText('Linked to Q900001')).toBeVisible()
 
-  // The labels are added at once; the full fetch brings the identifiers and the aliases to offer.
-  await expect(page.getByRole('list', { name: 'Other names' })).toContainText('Άντα Λίντκβιστ')
+  // The labels are added at once (checked in the editor below); the full fetch brings the
+  // identifiers and the aliases to offer.
   const ids = page.getByRole('list', { name: 'Identifiers' })
   await expect(ids.getByRole('link', { name: 'VIAF 900001' })).toHaveAttribute('href', 'https://viaf.org/viaf/900001', { timeout: 120_000 })
   await expect(ids.getByRole('link', { name: 'ISNI 0000 0000 9000 0001' })).toHaveAttribute('href', 'https://isni.org/isni/0000000090000001')
   await page.getByRole('checkbox', { name: 'A. Lindqvist (en, alias)' }).check()
   await page.getByRole('button', { name: 'Add selected names' }).click()
-  await expect(page.getByRole('list', { name: 'Other names' })).toContainText('A. Lindqvist')
-  await expect(page.getByRole('list', { name: 'Authority history' })).toContainText('Linked to Wikidata Q900001')
+  // The authority entry, edited beside the dossier, has the names and the link in its history.
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  const editor = page.getByRole('complementary', { name: 'Edit Ada Lindqvist' })
+  await expect(editor.getByRole('list', { name: 'Other names' })).toContainText('Άντα Λίντκβιστ')
+  await expect(editor.getByRole('list', { name: 'Other names' })).toContainText('A. Lindqvist')
+  await editor.getByText(/^History/).click()
+  await expect(editor.getByRole('list', { name: 'Authority history' })).toContainText('Linked to Wikidata Q900001')
 
   // The Authority file shows the QID and filters by it.
   await page.goto('/authorities')
   await page.getByRole('combobox', { name: /^Wikidata/ }).selectOption('linked')
-  await expect(file.getByRole('listitem')).toHaveCount(1)
+  await expect(file.getByRole('row')).toHaveCount(2)
   await expect(file.getByRole('link', { name: 'Q900001' })).toBeVisible()
-  await expect(file.getByRole('link', { name: 'Ada Lindqvist' })).toBeVisible()
+  await expect(file.getByRole('button', { name: 'Ada Lindqvist' })).toBeVisible()
 
   // Processes shows what was asked, within the budget, and the one link.
   await page.goto('/processes')

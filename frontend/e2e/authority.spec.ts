@@ -37,6 +37,7 @@ test('authority merge workflow merges, keeps old ids working, and splits back', 
   expect(await searched(page, nations)).toEqual(articles)
 
   await page.goto(`/entities?id=${nations}`)
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByRole('button', { name: 'Merge with…' }).click()
   await page.getByLabel('Find the entity to merge into').fill('Microsoft')
   await page.getByRole('button', { name: 'Microsoft (ORG)', exact: true }).click()
@@ -52,6 +53,7 @@ test('authority merge workflow merges, keeps old ids working, and splits back', 
   expect(await searched(page, nations)).toEqual(expect.arrayContaining(articles))
 
   await page.goto(`/entities?id=${microsoft}`)
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByRole('button', { name: 'Split United Nations' }).click()
   await expect(page.getByText('United Nations is its own entity again; its articles move back shortly.')).toBeVisible()
   await expect.poll(() => linked(page, nations), { timeout: 90_000 }).toEqual(articles)
@@ -68,6 +70,10 @@ test('authority file workflow approves and rejects suggested duplicates', async 
   await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Authority file' }).click()
   await expect(page).toHaveURL(/\/authorities\/$/)
   await page.getByLabel('Language').fill('zz')
+  const tabs = page.getByRole('tablist', { name: 'Authority file sections' })
+  await expect(tabs.getByRole('tab', { name: /^Maybe the same\?/ })).toHaveText('Maybe the same?2')
+  await tabs.getByRole('tab', { name: /^Maybe the same\?/ }).click()
+  await expect(page).toHaveURL(/tab=suggestions/)
 
   const queue = page.getByRole('list', { name: 'Maybe the same?' })
   await expect(queue.getByRole('listitem')).toHaveCount(2)
@@ -81,17 +87,78 @@ test('authority file workflow approves and rejects suggested duplicates', async 
   await expect(page.getByText('J. Tarr and Jon Tarr are recorded as different.')).toBeVisible()
   await expect(page.getByText('No likely duplicates right now.')).toBeVisible()
 
+  await tabs.getByRole('tab', { name: 'Names' }).click()
   await page.getByLabel('Find a name').fill('north')
-  const file = page.getByRole('list', { name: 'Authority file' })
-  await expect(file.getByRole('listitem')).toHaveCount(1)
-  await expect(file.getByText('ORG · zz · 1 other name')).toBeVisible()
-  await file.getByRole('link', { name: 'North Atlantic Council' }).click()
-  await expect(page.getByRole('list', { name: 'Other names' }).getByText('NAC')).toBeVisible()
+  const file = page.getByRole('table', { name: 'Authority file' })
+  await expect(file.getByRole('row')).toHaveCount(2)
+  await expect(file.getByRole('row').nth(1).getByRole('cell')).toHaveText(['', 'North Atlantic Council', 'Organization', 'zz', '0', '1', 'Provisional', '—'])
+  await file.getByRole('button', { name: 'North Atlantic Council' }).click()
+  const panel = page.getByRole('complementary', { name: 'Edit North Atlantic Council' })
+  await expect(panel.getByRole('list', { name: 'Other names' }).getByText('NAC')).toBeVisible()
+  await panel.getByRole('button', { name: 'Close the editor' }).click()
+  await expect(panel).toHaveCount(0)
 
-  await page.goBack()
+  await tabs.getByRole('tab', { name: 'Changes' }).click()
   const history = page.getByRole('list', { name: 'Recent changes' })
   await expect(history.getByRole('listitem').first()).toContainText(/(J\. Tarr and Jon Tarr|Jon Tarr and J\. Tarr) recorded as different/)
   await expect(history.getByRole('listitem').nth(1)).toContainText('NAC merged into North Atlantic Council')
+})
+
+// "AI" in three types, a weekday NER took for a name and two spellings of one company, in a
+// language of their own (seeded by infra/test-e2e.sh), so no other spec sees them.
+test('authority types workflow claims a name for every type, retypes, hides and merges in bulk', async ({ page }) => {
+  test.setTimeout(180_000)
+  await login(page, 'phase16a')
+  const roots = (q: string, hidden = false) =>
+    json<{ items: { display_name: string }[] }>(page, `/authorities?language=zy&q=${q}${hidden ? '&hidden=true' : ''}`).then(page => page.items.length)
+  await page.goto('/authorities?language=zy&q=ai')
+  const file = page.getByRole('table', { name: 'Authority file' })
+  await expect(file.getByRole('row')).toHaveCount(4)
+
+  // Bring every type of "AI" under the organization, then make it a topic.
+  await file.getByRole('row').filter({ hasText: 'Organization' }).getByRole('button', { name: 'AI' }).click()
+  const panel = page.getByRole('complementary', { name: 'Edit AI' })
+  await expect(panel.getByRole('list', { name: 'Same name, other types' }).getByRole('listitem')).toHaveCount(2)
+  await panel.getByRole('button', { name: 'Bring every type of “AI” here' }).click()
+  await expect(panel.getByText('Claimed “AI”: 2 names join shortly, and every “AI” found later joins too.')).toBeVisible()
+  await expect(panel.getByRole('list', { name: 'Claimed names' })).toContainText('“ai”: every type joins here')
+  await expect.poll(() => roots('ai'), { timeout: 90_000 }).toBe(1)
+  await panel.getByLabel('Type').selectOption('TOPIC')
+  await expect(panel.getByText('AI is now a Topic; search and the graph follow shortly.')).toBeVisible()
+  await page.reload()
+  await expect(file.getByRole('row')).toHaveCount(2)
+  await expect(file.getByRole('row').nth(1).getByRole('cell').nth(2)).toHaveText('Topic')
+  await expect(page.getByRole('complementary', { name: 'Edit AI' }).getByRole('list', { name: 'Other names' }).getByRole('listitem')).toHaveCount(2)
+
+  // A weekday is not a name: hidden, it leaves the list until asked for, and comes back.
+  await page.goto('/authorities?language=zy&q=monday')
+  await file.getByRole('button', { name: 'Monday' }).click()
+  await page.getByRole('complementary', { name: 'Edit Monday' }).getByRole('button', { name: 'Hide as not a name' }).click()
+  await expect(page.getByText('Hidden: left out of search, the graph and the suggestions.')).toBeVisible()
+  await expect.poll(() => roots('monday'), { timeout: 30_000 }).toBe(0)
+  await page.getByLabel('Hidden names only').check()
+  await expect(file.getByRole('row').nth(1)).toContainText('MondayHidden')
+  await page.getByRole('button', { name: 'Show again' }).click()
+  await expect.poll(() => roots('monday'), { timeout: 30_000 }).toBe(1)
+
+  // Two spellings of one company, merged in one go from the table.
+  await page.goto('/authorities?language=zy&q=acme')
+  await expect(file.getByRole('row')).toHaveCount(3)
+  await page.getByLabel('Select all shown').check()
+  const bar = page.getByRole('toolbar', { name: 'Bulk actions' })
+  await expect(bar).toContainText('2 selected')
+  await bar.getByLabel('Keep').selectOption({ label: 'Acme' })
+  await bar.getByRole('button', { name: 'Merge 1 into Acme' }).click()
+  await expect(page.getByText('1 name is merging into Acme; its articles move over shortly.')).toBeVisible()
+  await expect.poll(() => roots('acme'), { timeout: 90_000 }).toBe(1)
+
+  await page.goto('/authorities?tab=changes')
+  const history = page.getByRole('list', { name: 'Recent changes' })
+  await expect(history).toContainText('Acme Corp merged into Acme')
+  await expect(history).toContainText('Monday: shown again')
+  await expect(history).toContainText('Monday: hidden as not a name')
+  await expect(history).toContainText('AI: type changed from Organization to Topic')
+  await expect(history).toContainText('AI: claims every type of “ai”')
 })
 
 // Runs after `authority merge workflow` (a see-also link would block its merge) and removes both

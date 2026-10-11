@@ -177,7 +177,7 @@ case $group in
   investigations) users phase6 ;;
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
-  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d phase15a ;;
+  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d phase15a phase16a ;;
 esac
 ni_stage app.up
 $compose up -d $app_build_flag api worker nlp-worker scheduler frontend
@@ -265,6 +265,9 @@ case $group in
     # Two likely duplicate pairs in a language of their own, so the queue holds exactly these.
     [ "$(psql_app "with seeded as (insert into nlp_entities (id, language, entity_type, normalized_text, display_text) values (gen_random_uuid(), 'zz', 'PERSON', 'jon tarr', 'Jon Tarr'), (gen_random_uuid(), 'zz', 'PERSON', 'j. tarr', 'J. Tarr'), (gen_random_uuid(), 'zz', 'ORG', 'north atlantic council', 'North Atlantic Council'), (gen_random_uuid(), 'zz', 'ORG', 'nac', 'NAC') returning id) select count(*) from seeded")" = 4 ] || { echo "Authority suggestion seed failed" >&2; exit 1; }
     e2e "authority file workflow"
+    # "AI" in three types, a weekday taken for a name and two spellings of one company, in a language of their own.
+    [ "$(psql_app "with seeded as (insert into nlp_entities (id, language, entity_type, normalized_text, display_text) values (gen_random_uuid(), 'zy', 'ORG', 'ai', 'AI'), (gen_random_uuid(), 'zy', 'PERSON', 'ai', 'AI'), (gen_random_uuid(), 'zy', 'PRODUCT', 'ai', 'AI'), (gen_random_uuid(), 'zy', 'ORG', 'monday', 'Monday'), (gen_random_uuid(), 'zy', 'ORG', 'acme', 'Acme'), (gen_random_uuid(), 'zy', 'ORG', 'acme corp', 'Acme Corp') returning id) select count(*) from seeded")" = 6 ] || { echo "Authority types seed failed" >&2; exit 1; }
+    e2e "authority types workflow"
     # After the merge workflow, which a see-also link would block; it removes the links it adds.
     e2e "see also workflow"
     # A name no fixture article has, so the Wikidata stand-in's two items are its only suggestions.
