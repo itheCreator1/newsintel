@@ -96,6 +96,21 @@ it('lists the names as a table, most used first, with type, language, articles, 
   expect(api.authorities).toHaveBeenCalledWith({ sort: 'articles' }, undefined)
 })
 
+it('shows a filter change at once and keeps it while the URL catches up', async () => {
+  vi.mocked(api.authorities).mockResolvedValue({ items: [root('e1', 'Monday')], next_cursor: null })
+  open()
+  await screen.findByRole('button', { name: 'Monday' })
+  // The router has not re-rendered the page yet: the box stays ticked, and the next change keeps it.
+  navigationHarness.replace.mockImplementationOnce(() => undefined).mockImplementationOnce(() => undefined)
+
+  const hidden = screen.getByLabelText('Hidden names only') as HTMLInputElement
+  fireEvent.click(hidden)
+  expect(hidden.checked).toBe(true)
+  fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'name' } })
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/authorities/?sort=name&hidden=1')
+  expect((screen.getByLabelText('Sort') as HTMLSelectElement).value).toBe('name')
+})
+
 it('filters by name, language, type, status, Wikidata and hidden, sorts, and loads more, all through the URL', async () => {
   vi.mocked(api.authorities).mockImplementation(async (_filters, cursor) => cursor
     ? { items: [root('e9', 'Zora Lim')], next_cursor: null }
