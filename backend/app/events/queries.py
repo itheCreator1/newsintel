@@ -111,7 +111,7 @@ async def _top_entities(
             EventEntity.event_id,
             Entity.id,
             Entity.name,
-            Entity.entity_type,
+            Entity.kind,
             EventEntity.article_count,
             rank,
         )

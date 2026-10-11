@@ -14,7 +14,7 @@ vi.mock('../../lib/api', async importOriginal => ({
 }))
 
 const root = (id: string, name: string, over = {}) => ({
-  id, display_name: name, entity_type: 'PERSON', language: 'en', status: 'provisional' as const, ambiguous: false, variant_count: 0, qid: null as string | null, ...over,
+  id, display_name: name, entity_type: 'PERSON', language: 'en', status: 'provisional' as const, ambiguous: false, hidden: false, variant_count: 0, qid: null as string | null, ...over,
 })
 const name = (id: string, display: string, articles: number, type = 'PERSON') => ({ id, display_name: display, entity_type: type, article_count: articles })
 const suggestion = (over = {}) => ({

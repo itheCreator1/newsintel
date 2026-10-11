@@ -303,6 +303,7 @@ async def _score_root(
             score_item(
                 item,
                 language=entity.language,
+                # The names are NER keys, made under the model's type.
                 entity_type=entity.entity_type,
                 names=root.names,
                 type_match=types.get(item.qid),
@@ -318,7 +319,7 @@ async def _score_root(
     types: dict[str, bool | None] = {}
     for close in [value for value in first if value.label_match][:CLOSE_CALLS]:
         classes = await _instance_of(db, client, cached[close.qid], asked)
-        types[close.qid] = await type_matches(db, client, entity.entity_type, classes, settings)
+        types[close.qid] = await type_matches(db, client, entity.kind, classes, settings)
     await _write(db, entity.id, scored_with(types))
 
 

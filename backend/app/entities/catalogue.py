@@ -41,10 +41,12 @@ async def roots(
     limit: int,
     cursor: tuple[str, uuid.UUID] | None,
     wikidata: str | None = None,
+    hidden: bool = False,
 ) -> tuple[list[tuple[Entity, int, str | None]], str | None]:
     """Roots by name with their variant counts and QIDs; `q` finds a root by any of its names.
 
-    `wikidata`: "linked" or "unlinked" keeps the roots with or without a QID.
+    `wikidata`: "linked" or "unlinked" keeps the roots with or without a QID. `hidden` lists the
+    roots hidden as not a name instead of the others.
     """
     variant = aliased(Entity)
     sort_name = func.lower(Entity.name)
@@ -60,7 +62,9 @@ async def roots(
         .correlate(Entity)
         .scalar_subquery()
     )
-    query = select(Entity, variant_count, sort_name, qid).where(Entity.authority_id.is_(None))
+    query = select(Entity, variant_count, sort_name, qid).where(
+        Entity.authority_id.is_(None), Entity.hidden.is_(hidden)
+    )
     if wikidata == "linked":
         query = query.where(qid.is_not(None))
     elif wikidata == "unlinked":

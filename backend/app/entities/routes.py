@@ -64,6 +64,9 @@ def _authority_response(entity: Entity) -> EntityAuthorityResponse:
         id=entity.id,
         display_name=entity.name,
         preferred_text=entity.preferred_text,
+        entity_type=entity.kind,
+        ner_type=entity.entity_type,
+        hidden=entity.hidden,
         status=entity.status,
         ambiguous=entity.ambiguous,
         note=entity.note,
@@ -205,6 +208,10 @@ async def update_entity(
     try:
         if "preferred_text" in sent:
             await authority.rename(db, entity_id, payload.preferred_text)
+        if "entity_type" in sent:
+            await authority.set_type(db, entity_id, payload.entity_type)
+        if "hidden" in sent and payload.hidden is not None:
+            await authority.set_hidden(db, entity_id, payload.hidden)
         if "status" in sent and payload.status is not None:
             await authority.set_status(db, entity_id, payload.status)
         if "ambiguous" in sent and payload.ambiguous is not None:
@@ -256,6 +263,9 @@ async def list_authorities(
         Literal["linked", "unlinked"] | None,
         Query(description="Only roots linked to a Wikidata item, or only those without one."),
     ] = None,
+    hidden: Annotated[
+        bool, Query(description="List the roots hidden as not a name instead of the others.")
+    ] = False,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> AuthorityRootPage:
@@ -272,16 +282,18 @@ async def list_authorities(
         limit=limit,
         cursor=after,
         wikidata=wikidata,
+        hidden=hidden,
     )
     return AuthorityRootPage(
         items=[
             AuthorityRootResponse(
                 id=entity.id,
                 display_name=entity.name,
-                entity_type=entity.entity_type,
+                entity_type=entity.kind,
                 language=entity.language,
                 status=entity.status,
                 ambiguous=entity.ambiguous,
+                hidden=entity.hidden,
                 variant_count=count,
                 qid=qid,
             )
@@ -306,13 +318,13 @@ async def list_authority_suggestions(
                 root=AuthorityNameResponse(
                     id=item.root.id,
                     display_name=item.root.name,
-                    entity_type=item.root.entity_type,
+                    entity_type=item.root.kind,
                     article_count=item.root_articles,
                 ),
                 variant=AuthorityNameResponse(
                     id=item.variant.id,
                     display_name=item.variant.name,
-                    entity_type=item.variant.entity_type,
+                    entity_type=item.variant.kind,
                     article_count=item.variant_articles,
                 ),
                 score=item.score,
@@ -354,7 +366,7 @@ def _see_also_item(item: relations.SeeAlso) -> SeeAlsoItem:
         id=item.relation.id,
         label=item.label,
         entity=SeeAlsoEntity(
-            id=item.entity.id, display_name=item.entity.name, entity_type=item.entity.entity_type
+            id=item.entity.id, display_name=item.entity.name, entity_type=item.entity.kind
         ),
         valid_from=item.relation.valid_from,
         valid_to=item.relation.valid_to,
@@ -389,7 +401,7 @@ async def get_see_also(entity_id: uuid.UUID, db: Db, _auth: Auth) -> SeeAlsoResp
     """The links the user stated, both ways, labelled from this entity's side."""
     root = await _entity_or_404(db, entity_id)
     return SeeAlsoResponse(
-        labels=relations.labels_for(root.entity_type),
+        labels=relations.labels_for(root.kind),
         items=[_see_also_item(item) for item in await relations.see_also(db, root.id)],
     )
 

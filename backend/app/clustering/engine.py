@@ -292,7 +292,8 @@ async def load_features(
             .where(
                 ArticleEntity.article_id.in_(article_ids),
                 ArticleEntity.is_current.is_(True),
-                Entity.entity_type.in_(CLUSTER_ENTITY_TYPES),
+                Entity.kind.in_(CLUSTER_ENTITY_TYPES),
+                Entity.hidden.is_(False),
             )
         )
     ).all():

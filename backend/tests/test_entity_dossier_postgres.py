@@ -26,7 +26,8 @@ pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
 ]
 
-BASE = datetime(2026, 9, 10, 12, tzinfo=UTC)
+# Inside the dossier's 30-day window whenever the test runs; a fixed date fell out of it.
+BASE = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(days=5)
 DIGEST = "a" * 64
 
 

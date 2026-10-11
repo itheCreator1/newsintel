@@ -226,9 +226,7 @@ async def resolve_labels(
 
     feeds = await db.execute(select(Feed.id, Feed.name).where(Feed.id.in_(ids(feed_ids))))
     entities = await db.execute(
-        select(Entity.id, Entity.display_text, Entity.entity_type).where(
-            Entity.id.in_(ids(entity_ids))
-        )
+        select(Entity.id, Entity.display_text, Entity.kind).where(Entity.id.in_(ids(entity_ids)))
     )
     clusters = await db.execute(
         select(StoryCluster.id, Article.title)

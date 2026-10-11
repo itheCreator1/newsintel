@@ -22,8 +22,8 @@ vi.mock('../../components/BarChart', () => ({
 }))
 
 const dossier = (over = {}) => ({
-  id: 'ent-1', display_name: 'Barack Obama', normalized_text: 'barack obama', language: 'en', entity_type: 'PERSON',
-  redirected_from: null, preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null,
+  id: 'ent-1', display_name: 'Barack Obama', normalized_text: 'barack obama', language: 'en', entity_type: 'PERSON', ner_type: 'PERSON',
+  redirected_from: null, preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null, hidden: false,
   aliases: [], aliases_status: 'unavailable' as const, total_mentions: 12, article_count: 5, cluster_count: 2,
   first_seen_at: '2026-09-01T00:00:00Z', last_seen_at: '2026-09-18T00:00:00Z', timeline_days: 30,
   timeline: [{ date: '2026-09-17', mentions: 4 }, { date: '2026-09-18', mentions: 8 }], ...over,
@@ -155,7 +155,7 @@ it('watches this entity under its name', async () => {
 
 const variant = { id: 'var-1', display_name: 'B. Obama', normalized_text: 'b obama', language: 'en', entity_type: 'PERSON' }
 const run = (kind: 'merge' | 'split', entity: string, root: string) => ({ id: `run-${kind}`, kind, status: 'running' as const, entity_id: entity, root_id: root })
-const authority = (over = {}) => ({ id: 'ent-1', display_name: 'Barack Obama', preferred_text: null, status: 'provisional' as const, ambiguous: false, note: null, authority_id: null, ...over })
+const authority = (over = {}) => ({ id: 'ent-1', display_name: 'Barack Obama', preferred_text: null, entity_type: 'PERSON', ner_type: 'PERSON', hidden: false, status: 'provisional' as const, ambiguous: false, note: null, authority_id: null, ...over })
 
 it('shows the status, the variants and says when it was opened from a merged name', async () => {
   vi.mocked(api.entityDossier).mockResolvedValue(dossier({ redirected_from: 'var-1', status: 'established' }))

@@ -60,7 +60,8 @@ async def eligible_roots(
     query = select(Entity.id).where(
         Entity.authority_id.is_(None),
         Entity.ambiguous.is_(False),
-        Entity.entity_type.in_(list(TYPE_ROOTS)),
+        Entity.hidden.is_(False),
+        Entity.kind.in_(list(TYPE_ROOTS)),
         Entity.language.in_(list(settings.wikidata_languages)),
         ~exists().where(
             EntityExternalId.entity_id == Entity.id, EntityExternalId.scheme == "wikidata"

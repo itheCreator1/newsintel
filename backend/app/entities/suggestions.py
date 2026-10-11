@@ -161,8 +161,8 @@ def _chunks[T](items: Sequence[T]) -> Iterator[Sequence[T]]:
 
 
 async def _roots(db: AsyncSession, language: str | None) -> list[_Name]:
-    query = select(Entity.id, Entity.language, Entity.entity_type, Entity.normalized_text).where(
-        Entity.authority_id.is_(None), Entity.ambiguous.is_(False)
+    query = select(Entity.id, Entity.language, Entity.kind, Entity.normalized_text).where(
+        Entity.authority_id.is_(None), Entity.ambiguous.is_(False), Entity.hidden.is_(False)
     )
     if language is not None:
         query = query.where(Entity.language == language)
@@ -170,9 +170,7 @@ async def _roots(db: AsyncSession, language: str | None) -> list[_Name]:
     for row in await db.execute(query):
         words = tuple(_WORD.findall(row.normalized_text))
         if words:
-            names.append(
-                _Name(row.id, row.language, _group(row.entity_type), row.normalized_text, words)
-            )
+            names.append(_Name(row.id, row.language, _group(row.kind), row.normalized_text, words))
     return names
 
 
@@ -182,7 +180,7 @@ async def _similar(db: AsyncSession, language: str | None) -> list[tuple[uuid.UU
     a, b = aliased(Entity), aliased(Entity)
 
     def group(entity: type[Entity]) -> ColumnElement[str]:
-        return case((entity.entity_type.in_(PLACE_TYPES), "PLACE"), else_=entity.entity_type)
+        return case((entity.kind.in_(PLACE_TYPES), "PLACE"), else_=entity.kind)
 
     query = (
         select(a.id, b.id)
@@ -195,6 +193,8 @@ async def _similar(db: AsyncSession, language: str | None) -> list[tuple[uuid.UU
             b.authority_id.is_(None),
             a.ambiguous.is_(False),
             b.ambiguous.is_(False),
+            a.hidden.is_(False),
+            b.hidden.is_(False),
         )
         .order_by(func.similarity(a.normalized_text, b.normalized_text).desc(), a.id, b.id)
         .limit(TRIGRAM_PAIRS)
@@ -265,7 +265,9 @@ async def _wikidata_pairs(
     roots = {
         entity.id: entity
         for entity in await db.scalars(
-            select(Entity).where(Entity.id.in_(list(linked)), Entity.ambiguous.is_(False))
+            select(Entity).where(
+                Entity.id.in_(list(linked)), Entity.ambiguous.is_(False), Entity.hidden.is_(False)
+            )
         )
     }
     wanted: dict[tuple[str, str], set[tuple[uuid.UUID, str]]] = defaultdict(set)
@@ -274,21 +276,22 @@ async def _wikidata_pairs(
         if root is None or item is None or item.state != "ok":
             continue
         for name in item_names(item):
-            entity_type, normalized, _ = identity(root, name)
-            wanted[(name.language, normalized)].add((root_id, _group(entity_type)))
+            _type, normalized, _ = identity(root, name)
+            wanted[(name.language, normalized)].add((root_id, _group(root.kind)))
     found: set[tuple[uuid.UUID, uuid.UUID]] = set()
     keys = sorted(wanted)
     for chunk in _chunks(keys):
         rows = await db.execute(
-            select(Entity.id, Entity.language, Entity.entity_type, Entity.normalized_text).where(
+            select(Entity.id, Entity.language, Entity.kind, Entity.normalized_text).where(
                 tuple_(Entity.language, Entity.normalized_text).in_(chunk),
                 Entity.authority_id.is_(None),
                 Entity.ambiguous.is_(False),
+                Entity.hidden.is_(False),
             )
         )
         for row in rows:
             for root_id, group in wanted[(row.language, row.normalized_text)]:
-                if row.id == root_id or _group(row.entity_type) != group:
+                if row.id == root_id or _group(row.kind) != group:
                     continue
                 if language is not None and language not in (
                     row.language,

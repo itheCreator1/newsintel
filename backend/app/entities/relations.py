@@ -257,7 +257,7 @@ async def add_relation(
     if root.id == target.id:
         raise RelationError(422, "An entity cannot be linked to itself")
     subject, obj = (target, root) if asking_is_object else (root, target)
-    problem = type_problem(relation_type, subject.entity_type, obj.entity_type)
+    problem = type_problem(relation_type, subject.kind, obj.kind)
     if problem is not None:
         raise RelationError(422, problem)
     note = _clean(note)
