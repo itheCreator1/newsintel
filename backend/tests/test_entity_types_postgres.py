@@ -332,3 +332,32 @@ async def test_the_downgrade_keeps_the_choices_unless_told_and_the_upgrade_resto
                 text("UPDATE nlp_entities SET preferred_type = 'WIDGET' WHERE id = :id"),
                 {"id": entity_id},
             )
+
+
+# -- merges across types (PR-B) ----------------------------------------------------------------
+
+
+async def test_a_name_of_another_type_merges_and_counts_as_the_roots_type() -> None:
+    from app.entities.authority import merge
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "AI", "ORG")
+        variant = await _entity(db, "A.I.", "PERSON")
+        article_id = await _article(db, [(variant, [0, 9])])
+        root_id, variant_id = root.id, variant.id
+    async with session_factory() as db, db.begin():
+        run = await merge(db, variant_id=variant_id, target_id=root_id)
+        run_id = run.id
+    await _finish(run_id)
+
+    async with session_factory() as db:
+        variant = await db.get(Entity, variant_id)
+        root = await db.get(Entity, root_id)
+        assert variant is not None and root is not None
+        assert variant.authority_id == root_id
+        assert (root.kind, variant.entity_type) == ("ORG", "PERSON")
+    async with _client() as client:
+        dossier = (await client.get(f"/entities/{variant_id}")).json()
+        articles = (await client.get(f"/entities/{root_id}/articles")).json()
+    assert (dossier["id"], dossier["entity_type"]) == (str(root_id), "ORG")
+    assert [item["id"] for item in articles["items"]] == [str(article_id)]

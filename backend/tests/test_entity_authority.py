@@ -64,11 +64,10 @@ def test_merge_keeps_one_level_so_a_variant_must_be_split_first() -> None:
     )
 
 
-def test_merge_rejects_different_types_except_places() -> None:
-    assert merge_problem(_ref("PERSON"), _ref("ORG"), distinct=False) == (
-        422,
-        "Only entities of the same type can be merged",
-    )
+def test_merge_across_types_is_the_users_call() -> None:
+    # Decided 2026-10-11: "AI" tagged PERSON may join "AI" the ORG; the root's type stays.
+    assert merge_problem(_ref("PERSON"), _ref("ORG"), distinct=False) is None
+    assert merge_problem(_ref("TOPIC"), _ref("PRODUCT"), distinct=False) is None
     # Decided 2026-10-08: a country the model tagged LOC may join its GPE root.
     assert merge_problem(_ref("LOCATION"), _ref("GPE"), distinct=False) is None
     assert merge_problem(_ref("GPE"), _ref("LOCATION"), distinct=False) is None

@@ -49,9 +49,10 @@ async def test_suggests_initials_and_acronyms_of_the_same_type() -> None:
         await _named(db, language, "PERSON", "d. trump")
         await _named(db, language, "ORG", "european union")
         await _named(db, language, "ORG", "eu")
-        # Same letters, another type: never offered.
+        # Initials of another type: never offered.
         await _named(db, language, "ORG", "d trump holdings")
-        await _named(db, language, "GPE", "eu")
+        # The same name as another type is offered as such, never as an acronym of a place.
+        place = await _named(db, language, "GPE", "eu")
 
     async with session_factory() as db:
         found = await suggest(db, language=language)
@@ -59,7 +60,11 @@ async def test_suggests_initials_and_acronyms_of_the_same_type() -> None:
     assert _pairs(found) == {
         frozenset(("donald trump", "d. trump")),
         frozenset(("european union", "eu")),
+        frozenset(("eu",)),
     }
+    (same_name,) = [item for item in found if place.id in (item.root.id, item.variant.id)]
+    assert same_name.reasons == ["same name, other type"]
+    found = [item for item in found if item is not same_name]
     by_root = {item.root.normalized_text: item for item in found}
     # The fuller name is the one to keep when neither has more articles.
     assert by_root["donald trump"].variant.normalized_text == "d. trump"
@@ -167,3 +172,47 @@ async def test_an_acronym_may_skip_or_keep_the_connecting_words() -> None:
             frozenset(("united states of america", "usa")),
             frozenset(("bank of england", "boe")),
         }
+
+
+async def test_the_same_name_tagged_with_other_types_is_offered_once_per_pair() -> None:
+    from app.entities.suggestions import suggest
+
+    language = _language()
+    async with session_factory() as db, db.begin():
+        org = await _named(db, language, "ORG", "ai")
+        person = await _named(db, language, "PERSON", "ai")
+        product = await _named(db, language, "PRODUCT", "ai")
+        # The user's own type counts: this one is shown as ORG already.
+        await _named(db, language, "EVENT", "ai", preferred_type="ORG")
+        await _named(db, language, "PERSON", "zed")
+        ids = {org.id, person.id, product.id}
+
+    async with session_factory() as db:
+        found = await suggest(db, language=language)
+
+    same = [item for item in found if "same name, other type" in item.reasons]
+    assert len(same) == 6
+    assert all(item.score >= 0.85 for item in same)
+    assert {item.root.id for item in same} | {item.variant.id for item in same} >= ids
+
+
+async def test_an_acronym_crosses_types_unless_a_person_meets_a_place() -> None:
+    from app.entities.suggestions import suggest
+
+    language = _language()
+    async with session_factory() as db, db.begin():
+        await _named(db, language, "ORG", "artificial intelligence")
+        await _named(db, language, "PERSON", "ai")
+        await _named(db, language, "PERSON", "new york")
+        await _named(db, language, "GPE", "ny")
+        await _named(db, language, "TOPIC", "machine learning")
+        await _named(db, language, "PRODUCT", "ml")
+
+    async with session_factory() as db:
+        found = await suggest(db, language=language)
+
+    assert _pairs(found) == {
+        frozenset(("artificial intelligence", "ai")),
+        frozenset(("machine learning", "ml")),
+    }
+    assert all(item.reasons == ["acronym"] for item in found)

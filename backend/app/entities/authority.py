@@ -63,7 +63,7 @@ __all__ = [
     "variants",
 ]
 
-# Decided 2026-10-08: a country the model tagged LOC may join its GPE root; the root's type wins.
+# GPE and LOCATION are one group for the suggestions and the see-also rules.
 PLACE_TYPES = frozenset({"GPE", "LOCATION"})
 STATUSES = ("provisional", "established")
 # Articles moved per run per scheduler cycle, as NLP reprocessing does.
@@ -113,15 +113,8 @@ def merge_problem(
             f"Wikidata says these are two different things ({qids[0]} and {qids[1]});"
             " unlink one of them first",
         )
-    if (
-        variant.entity_type != root.entity_type
-        and not {
-            variant.entity_type,
-            root.entity_type,
-        }
-        <= PLACE_TYPES
-    ):
-        return 422, "Only entities of the same type can be merged"
+    # Decided 2026-10-11: the type is no bar ("AI" tagged PERSON joins "AI" the ORG); the
+    # root's type is the one that counts afterwards.
     return None
 
 

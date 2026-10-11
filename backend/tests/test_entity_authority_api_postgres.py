@@ -122,7 +122,7 @@ async def test_merge_endpoint_starts_a_run_that_moves_the_links() -> None:
     assert await _rows(article_id) == [(root_id, variant_id, 1)]
 
 
-async def test_merge_endpoint_refuses_a_pair_marked_distinct_and_mixed_types() -> None:
+async def test_merge_endpoint_refuses_a_pair_marked_distinct_but_not_mixed_types() -> None:
     async with session_factory() as db, db.begin():
         person = await _entity(db, "Rhea Cole")
         other = await _entity(db, "Rhea Cole")
@@ -145,7 +145,8 @@ async def test_merge_endpoint_refuses_a_pair_marked_distinct_and_mixed_types() -
     assert (added.status_code, removed.status_code) == (204, 204)
     assert distinct.status_code == 409
     assert distinct.json()["detail"] == "These entities are marked as different"
-    assert mixed.status_code == 422
+    # Decided 2026-10-11: the type is no bar; the root keeps its own.
+    assert mixed.status_code == 202
     assert allowed.status_code == 202
 
 

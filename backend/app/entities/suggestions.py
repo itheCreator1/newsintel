@@ -1,10 +1,12 @@
 """Pairs of names that may be the same entity, for the user to approve (merge) or reject.
 
-Nothing here changes data. A pair is two roots of the same language and type (a GPE and a
-LOCATION count as one type), never two names already joined, never a pair the user said is
-different, never two roots linked to different Wikidata items, and never a name marked
-ambiguous. Each rule that matches adds a reason; the score is the strongest rule's weight plus a
-little for every article both names appear in.
+Nothing here changes data. A pair is two roots of the same language and, for most rules, the
+same type (a GPE and a LOCATION count as one); the same name tagged with two types ("AI" the
+ORG and "AI" the PERSON) is a pair of its own, and an acronym may cross types where one side is
+a loose kind of thing (an ORG, a PRODUCT, a TOPIC) and neither is a place. Never two names
+already joined, never a pair the user said is different, never two roots linked to different
+Wikidata items, and never a name marked ambiguous. Each rule that matches adds a reason; the
+score is the strongest rule's weight plus a little for every article both names appear in.
 
 The strongest rule, "wikidata name", crosses languages: a root whose name is a label or alias of
 the item another root is linked to ("Τσίπρας" and the item linked to "Alexis Tsipras").
@@ -31,6 +33,7 @@ __all__ = ["Suggestion", "suggest"]
 
 WEIGHTS = {
     "wikidata name": 0.9,
+    "same name, other type": 0.85,
     "acronym": 0.8,
     "initials": 0.8,
     "surname": 0.6,
@@ -65,6 +68,8 @@ CONNECTORS = frozenset(
         "των",
     }
 )
+# Types the model mixes up among themselves and with people: "AI" comes out as any of them.
+LOOSE_GROUPS = frozenset({"ORG", "PRODUCT", "EVENT", "TOPIC", "OTHER"})
 # Bound parameters per statement stay far below asyncpg's limit.
 CHUNK = 1000
 _WORD = re.compile(r"\w+")
@@ -99,6 +104,11 @@ def _group(entity_type: str) -> str:
     return "PLACE" if entity_type in PLACE_TYPES else entity_type
 
 
+def _crosses(a: str, b: str) -> bool:
+    """Whether an acronym may join names of these two groups."""
+    return a == b or ("PLACE" not in (a, b) and bool({a, b} & LOOSE_GROUPS))
+
+
 def _initials(words: Iterable[str]) -> str:
     return "".join(word[0] for word in words)
 
@@ -121,12 +131,14 @@ def _rule_pairs(names: Sequence[_Name]) -> dict[tuple[uuid.UUID, uuid.UUID], _Pa
     def add(a: _Name, b: _Name, reason: str) -> None:
         pairs[(min(a.id, b.id), max(a.id, b.id))].reasons.add(reason)
 
-    single: dict[tuple[str, str], list[_Name]] = defaultdict(list)
+    single: dict[str, list[_Name]] = defaultdict(list)
+    by_text: dict[str, list[_Name]] = defaultdict(list)
     by_shape: dict[tuple[str, str, str], list[_Name]] = defaultdict(list)
     by_last: dict[tuple[str, str], list[_Name]] = defaultdict(list)
     for name in names:
+        by_text[name.text].append(name)
         if len(name.words) == 1:
-            single[(name.group, name.words[0])].append(name)
+            single[name.words[0]].append(name)
         else:
             by_shape[(name.group, _initials(name.words), name.words[-1])].append(name)
             by_last[(name.group, name.words[-1])].append(name)
@@ -138,12 +150,19 @@ def _rule_pairs(names: Sequence[_Name]) -> dict[tuple[uuid.UUID, uuid.UUID], _Pa
         kept = [word for word in name.words if word not in CONNECTORS]
         for acronym in {_initials(name.words), _initials(kept)}:
             if len(acronym) >= 2:
-                for other in single.get((name.group, acronym), []):
-                    add(name, other, "acronym")
+                for other in single.get(acronym, []):
+                    if _crosses(name.group, other.group):
+                        add(name, other, "acronym")
         # Surname: "angela merkel" and "merkel", for people only.
         if name.group == "PERSON" and len(name.words[-1]) >= 3:
-            for other in single.get((name.group, name.words[-1]), []):
-                add(name, other, "surname")
+            for other in single.get(name.words[-1], []):
+                if other.group == "PERSON":
+                    add(name, other, "surname")
+
+    # One name, two types: the identity is (type, name), so only the type can differ.
+    for bucket in by_text.values():
+        for a, b in combinations(bucket, 2):
+            add(a, b, "same name, other type")
 
     # Initials: "donald trump" and "d. trump" share the shape and the last word.
     for bucket in by_shape.values():
