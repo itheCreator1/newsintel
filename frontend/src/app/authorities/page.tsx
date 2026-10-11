@@ -441,8 +441,17 @@ const TAB_LABELS: Record<AuthorityTab, string> = { names: 'Names', suggestions: 
 
 function AuthoritiesContent() {
   const router = useRouter()
-  const view = readAuthoritiesQuery(useSearchParams())
-  const go = (next: Partial<AuthoritiesView>) => router.replace(authoritiesHref({ ...view, ...next }))
+  const query = useSearchParams()
+  const url = query.toString()
+  // The router updates the URL in a transition; until it lands, the page shows the view just asked
+  // for, so a ticked box stays ticked and a second change keeps the first.
+  const [asked, setAsked] = useState<{ url: string; view: AuthoritiesView } | null>(null)
+  const view = asked?.url === url ? asked.view : readAuthoritiesQuery(query)
+  const go = (next: Partial<AuthoritiesView>) => {
+    const target = { ...view, ...next }
+    setAsked({ url, view: target })
+    router.replace(authoritiesHref(target))
+  }
   const [language, setLanguage] = useText(view.language, value => go({ language: value }))
   const suggestions = useQuery(suggestionsQuery(view.language.trim()))
   const wikidata = useInfiniteQuery(wikidataQuery)
