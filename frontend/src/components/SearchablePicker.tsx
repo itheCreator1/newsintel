@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { cn } from '../lib/utils'
 import { fieldClass, labelClass } from '../lib/ui-classes'
 import { COUNTRY_OPTIONS, LANGUAGE_OPTIONS, countryLabel, languageLabel, matchesOption, type NamedOption } from '../lib/countries'
@@ -52,15 +52,18 @@ function NamedSelect({ label, value, emptyLabel, onChange, className, required, 
   options: NamedOption[]
   labelOf: (code: string) => string
 }) {
+  const id = useId()
   const missing = value !== '' && !options.some(option => option.value === value)
+  // Labelled by id, not by wrapping: a wrapping label's text would include every option name.
   return (
-    <label className={cn(labelClass, className)}>{label}
-      <select className={cn(fieldClass, 'mt-1')} value={value} required={required} onChange={event => onChange(event.target.value)}>
+    <div className={cn(labelClass, className)}>
+      <label htmlFor={id}>{label}</label>
+      <select id={id} className={fieldClass} value={value} required={required} onChange={event => onChange(event.target.value)}>
         <option value="">{emptyLabel}</option>
         {missing && <option value={value}>{labelOf(value)}</option>}
         {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
-    </label>
+    </div>
   )
 }
 
