@@ -59,3 +59,33 @@ test('event workflow moves from the list to stories, articles and entities', asy
   await page.getByRole('checkbox', { name: 'Show one-story events', exact: true }).click()
   await expect(page.locator('a[href^="/events/detail/"]').first()).toBeVisible()
 })
+
+test('an event is found by a word in its headline, searched within, and watched', async ({ page }) => {
+  await login(page)
+  const firstHeadline = () => page.evaluate(async () => {
+    const body = await (await fetch('/api/v1/events?min_stories=1')).json()
+    return (body.items as { headline: string | null }[] | undefined)?.find(item => item.headline)?.headline ?? ''
+  })
+  await expect.poll(firstHeadline, { timeout: 120_000, intervals: [2_000] }).not.toBe('')
+  const headline = await firstHeadline()
+  const word = headline.split(/\W+/).find(part => part.length >= 4) ?? headline
+
+  await page.goto('/events/?all=1')
+  await page.getByRole('searchbox', { name: 'Search events' }).fill(word)
+  await page.getByRole('search', { name: 'Search events' }).getByRole('button', { name: 'Search' }).click()
+  await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe(word)
+  await page.getByRole('link', { name: headline, exact: true }).first().click()
+  await expect(page).toHaveURL(/\/events\/detail\/\?id=/)
+
+  await page.getByRole('link', { name: 'Search within this event' }).click()
+  await expect(page).toHaveURL(/\/search\/\?event_id=/)
+  await expect(page.getByRole('button', { name: `Remove Event: ${headline}` })).toBeVisible()
+  // The event's headline is one of its stories' representative articles, so it is among the results.
+  await expect(page.locator('article.search-result').getByText(headline, { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+
+  await page.goBack()
+  await page.getByRole('button', { name: 'Watch', exact: true }).click()
+  await page.getByLabel('Monitor name').fill(`Event watch ${Date.now()}`)
+  await page.getByRole('button', { name: 'Watch event' }).click()
+  await expect(page.getByText(/Watching “Event watch/)).toBeVisible()
+})

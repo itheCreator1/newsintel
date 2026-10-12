@@ -189,7 +189,7 @@ export const api = {
 }
 
 type Filters = Record<string, string | string[] | undefined>
-export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
+export interface EventFilters { q?: string; status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
 /** Narrows the Articles list; dates are days of discovery in UTC and `before` is not included. */
 export interface ArticleFilters { feed_id?: string; unread?: boolean; starred?: boolean; language?: string; has_text?: boolean; after?: string; before?: string }
 

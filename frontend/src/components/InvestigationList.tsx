@@ -14,7 +14,7 @@ import { GlassPanel } from './GlassPanel'
 import { PageHeader } from './PageHeader'
 import { LoadError, Note } from './Feedback'
 
-const KIND_LABELS: Record<MonitorKind, string> = { search: 'Search', entity: 'Entity', source: 'Source', country: 'Country', cluster: 'Story' }
+const KIND_LABELS: Record<MonitorKind, string> = { search: 'Search', entity: 'Entity', source: 'Source', country: 'Country', cluster: 'Story', event: 'Event' }
 
 const searchHref = (item: Investigation) => item.saved_search?.state ? toHref('/search', queryFromState(fromSaved(item.saved_search.state))) : null
 const monitorHref = (id: string) => toHref('/monitors', new URLSearchParams({ id }))
