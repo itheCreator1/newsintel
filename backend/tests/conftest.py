@@ -37,3 +37,4 @@ def _downgrades_may_discard_the_users_entity_choices() -> None:
     os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", "1")
     os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_NAME_CLAIMS", "1")
     os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ARTICLE_MARKS", "1")
+    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_MONITOR_LINKS", "1")
