@@ -18,9 +18,11 @@ import { statedText } from '../../lib/see-also'
 import { api, ApiError } from '../../lib/api'
 import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 import { SourceTagPicker } from '../../components/SourceTagPicker'
-import { CountryPicker } from '../../components/SearchablePicker'
+import { CountryPicker, LanguagePicker } from '../../components/SearchablePicker'
+import { CheckboxPicker } from '../../components/CheckboxPicker'
 
 const MAX_NODES = 50
+const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER']
 /** The backend draws at most this many expansions at once. */
 const MAX_EXPANDED = 5
 const DEFAULT_MIN_WEIGHT = 2
@@ -30,7 +32,7 @@ const edgeKey = (a: string, b: string) => [a, b].sort().join(':')
 
 function formFromState(current: Investigation, nodeCount: number, minWeight: number) {
   return {
-    q: current.q, source_id: [...current.source_id], source_tag: [...current.source_tag], country: [...current.source_country], story_country: [...current.story_country],
+    q: current.q, source_id: [...current.source_id], source_tag: [...current.source_tag], country: [...current.source_country], language: [...current.language], story_country: [...current.story_country],
     entity_type: [...current.entity_type], after: current.after ?? '', before: current.before ?? '', nodes: String(nodeCount), min_weight: String(minWeight),
   }
 }
@@ -74,6 +76,11 @@ function GraphContent() {
 
   const sourcePages = useInfiniteQuery({ queryKey: ['graph-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const sources = sourcePages.data?.pages.flatMap(page => page.items) ?? []
+  // Picked sources keep their names while the search box lists others.
+  const [sourceNames, setSourceNames] = useState(() => new Map<string, string>())
+  useEffect(() => {
+    if (sources.some(source => !sourceNames.has(source.id))) setSourceNames(known => new Map([...known, ...sources.map(source => [source.id, source.name] as const)]))
+  }, [sources, sourceNames])
 
   // Only the fields the graph filter form exposes are sent: the graph endpoint accepts more (entity_id,
   // keyword_id, story_cluster_id, ...) via the shared search criteria, but leaking whatever happens to be
@@ -83,6 +90,7 @@ function GraphContent() {
   if (state.source_id.length) evidenceFilters.source_id = state.source_id
   if (state.source_tag.length) evidenceFilters.source_tag = state.source_tag
   if (state.source_country.length) evidenceFilters.source_country = state.source_country
+  if (state.language.length) evidenceFilters.language = state.language
   if (state.story_country.length) evidenceFilters.story_country = state.story_country
   if (state.entity_type.length) evidenceFilters.entity_type = state.entity_type
   if (state.after) evidenceFilters.after = state.after
@@ -115,6 +123,7 @@ function GraphContent() {
   const articleCriteria = panelNode ? {
     q: state.q || undefined, source_id: state.source_id.length ? state.source_id : undefined,
     source_tag: state.source_tag.length ? state.source_tag : undefined, source_country: state.source_country.length ? state.source_country : undefined,
+    language: state.language.length ? state.language : undefined,
     story_country: state.story_country.length ? state.story_country : undefined, after: state.after ?? undefined,
     before: state.before ?? undefined, entity_id: [panelNode.id],
   } : null
@@ -140,7 +149,7 @@ function GraphContent() {
   }
   function draftState(draft = form): Investigation {
     return {
-      ...state, q: draft.q.trim(), source_id: draft.source_id, source_tag: draft.source_tag, source_country: draft.country,
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_tag: draft.source_tag, source_country: draft.country, language: draft.language,
       story_country: draft.story_country, entity_type: draft.entity_type,
       after: draft.after || null, before: draft.before || null,
     }
@@ -150,7 +159,7 @@ function GraphContent() {
   const draftKey = (draft: typeof form) => `${queryFromState(draftState(draft))}|${Number(draft.nodes) || 30}|${draftMinWeight(draft)}`
   const draftDiffers = draftKey(form) !== draftKey(formFromState(state, nodeCount, minWeight))
   const chips = [
-    ...filterChips(state, GRAPH_CHIP_FIELDS, { source_id: new Map(sources.map(source => [source.id, source.name])) }),
+    ...filterChips(state, GRAPH_CHIP_FIELDS, { source_id: sourceNames }),
     ...(focus ? [{ key: 'focus', label: `Focused entity: ${focusNode?.text ?? focus}` }] : []),
     ...expand.map(entityId => ({ key: `expand:${entityId}`, label: `Expanded: ${nodeById.get(entityId)?.text ?? entityId}` })),
   ]
@@ -167,7 +176,6 @@ function GraphContent() {
   function expandEntity(entityId: string) { navigate(state, { expand: [...expand, entityId] }) }
   function selectEdge(source: string, target: string) { navigate(state, { edge: edgeKey(source, target) }) }
   function searchWithEntityHref(entityId: string) { return toHref('/search', queryFromState(refine(state, 'entity_id', entityId))) }
-  const selectedValues = (event: React.ChangeEvent<HTMLSelectElement>) => Array.from(event.target.selectedOptions, option => option.value)
 
   return (
     <div className="flex flex-col gap-6 font-sans">
@@ -187,11 +195,12 @@ function GraphContent() {
           <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced filters{advanced > 0 ? ` (${advanced})` : ''}</summary>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
-            <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selectedValues(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+            <CheckboxPicker legend="Source" options={sources.map(source => ({ value: source.id, label: `${source.name}${source.retired ? ' (retired)' : ''}` }))} selected={form.source_id} labels={sourceNames} onChange={values => setForm(f => ({ ...f, source_id: values }))} emptyText="No sources match." />
             <SourceTagPicker selected={form.source_tag} onChange={values => setForm(f => ({ ...f, source_tag: values }))} />
             <CountryPicker legend="Source country" selected={form.country} onChange={values => setForm(f => ({ ...f, country: values }))} />
+            <LanguagePicker legend="Detected language" selected={form.language} onChange={values => setForm(f => ({ ...f, language: values }))} />
             <CountryPicker legend="Story country" selected={form.story_country} onChange={values => setForm(f => ({ ...f, story_country: values }))} />
-            <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selectedValues(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
+            <CheckboxPicker legend="Entity type" options={ENTITY_TYPES.map(kind => ({ value: kind, label: kind }))} selected={form.entity_type} onChange={values => setForm(f => ({ ...f, entity_type: values }))} />
           </div>
         </details>
       </form>

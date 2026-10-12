@@ -312,3 +312,28 @@ it('draws and lists articles for the sources carrying a tag', async () => {
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ source_tag: ['greek'], source_country: ['GR'], entity_id: ['entity-two'] })))
   expect(within(screen.getByRole('group', { name: 'Source tag (1)' })).getByRole('checkbox', { name: 'greek (2)' })).toBeChecked()
 })
+
+it('picks sources, entity types and the article language from checkboxes, like Search', async () => {
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+  fireEvent.click(screen.getByText('Advanced filters'))
+
+  fireEvent.click(await within(screen.getByRole('group', { name: 'Source' })).findByRole('checkbox', { name: 'Wire' }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Entity type' })).getByRole('checkbox', { name: 'PERSON' }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Detected language' })).getByRole('checkbox', { name: /Greek/ }))
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('language')).toEqual(['el'])
+  await vi.waitFor(() => expect(api.entityGraph).toHaveBeenLastCalledWith(expect.objectContaining({ source_id: ['s1'], entity_type: ['PERSON'], language: ['el'] })))
+  expect(screen.getByRole('button', { name: /Remove Language: Greek/ })).toBeTruthy()
+})
+
+it('narrows evidence and side-panel articles to the chosen language too', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'language=el&edge=entity-one:entity-two&selected=entity-two' })
+  renderWithQuery(() => <GraphPage />)
+  await screen.findByText('Chart with 2 nodes')
+
+  await vi.waitFor(() => expect(api.edgeEvidence).toHaveBeenLastCalledWith(expect.objectContaining({ language: ['el'], source: 'entity-one' }), undefined))
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ language: ['el'], entity_id: ['entity-two'] })))
+})

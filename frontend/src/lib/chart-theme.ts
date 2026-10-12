@@ -5,6 +5,8 @@ import { useTheme, type Theme } from './theme'
 /** ECharts takes literal colors, not CSS variables, so the chart palettes live here, matched by hand
  * to the light and dark tokens in globals.css (Fluent brand blue on white, or on Fluent's dark neutrals). */
 const lightBase = {
+  // The card a chart sits on, for an exported image.
+  background: '#ffffff',
   axisLabel: '#616161',
   axisLine: '#d1d1d1',
   splitLine: '#ebebeb',
@@ -50,6 +52,7 @@ const darkEntities: Record<string, string> = {
 export const lightChart: ChartTheme = { ...lightBase, entities: lightEntities, groups: groupsOf(lightEntities, '#008b94') }
 
 export const darkChart: ChartTheme = {
+  background: '#292929',
   axisLabel: '#adadad',
   axisLine: '#575757',
   splitLine: '#383838',
