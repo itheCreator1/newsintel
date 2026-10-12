@@ -32,7 +32,8 @@ def _clean_database() -> None:
 @pytest.fixture(scope="session", autouse=True)
 def _downgrades_may_discard_the_users_entity_choices() -> None:
     # Rows stay behind between modules, so a module that downgrades below 0025 may meet a type,
-    # hidden mark or name claim another module set; tests may discard them. The tests of the
-    # refusals unset these themselves.
+    # hidden mark, name claim or article mark another module set; tests may discard them. The
+    # tests of the refusals unset these themselves.
     os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", "1")
     os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_NAME_CLAIMS", "1")
+    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ARTICLE_MARKS", "1")
