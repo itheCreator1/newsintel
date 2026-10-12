@@ -5,12 +5,10 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { init, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
-import { chartTheme } from '../lib/chart-theme'
+import { useChartTheme } from '../lib/chart-theme'
 
 use([EchartsBarChart, GridComponent, TooltipComponent, CanvasRenderer])
 
-const COLOR = chartTheme.bar
-const HIGHLIGHT_COLOR = chartTheme.highlight
 
 export interface BarChartItem {
   id: string
@@ -30,6 +28,7 @@ interface Props {
 export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabel, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
+  const chartTheme = useChartTheme()
   const stateRef = useRef({ items, onSelect })
   stateRef.current = { items, onSelect }
 
@@ -65,14 +64,14 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
         data: items.map(item => ({
           value: item.value,
           itemStyle: item.highlight
-            ? { color: HIGHLIGHT_COLOR, shadowBlur: 8, shadowColor: chartTheme.highlightShadow }
-            : { color: COLOR },
+            ? { color: chartTheme.highlight, shadowBlur: 8, shadowColor: chartTheme.highlightShadow }
+            : { color: chartTheme.bar },
         })),
         barMaxWidth: 28,
         itemStyle: { borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0] },
       }],
     }, true)
-  }, [items, orientation, valueLabel])
+  }, [items, orientation, valueLabel, chartTheme])
 
   return <div ref={elementRef} className="bar-chart" role="img" aria-label={ariaLabel} />
 }

@@ -6,7 +6,7 @@ import { init, registerMap, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import world from '../lib/world.geo.json'
-import { chartTheme } from '../lib/chart-theme'
+import { useChartTheme } from '../lib/chart-theme'
 
 use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
 // The outline is bundled with the app (Natural Earth, public domain), so nothing is fetched.
@@ -28,6 +28,7 @@ interface Props {
 
 export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
+  const chartTheme = useChartTheme()
   const pendingRef = useRef<Parameters<ECharts['setOption']>[0] | undefined>(undefined)
   const syncRef = useRef(() => {})
   const stateRef = useRef({ items, onSelect })
@@ -79,7 +80,7 @@ export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) 
       }],
     }
     syncRef.current()
-  }, [items, selected, unit])
+  }, [items, selected, unit, chartTheme])
 
   return <div ref={elementRef} className="geo-chart" role="img" aria-label={ariaLabel} />
 }

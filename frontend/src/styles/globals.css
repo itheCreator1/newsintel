@@ -61,10 +61,10 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 
 }
 
-/* Light design tokens, Fluent-inspired (Microsoft's Fluent 2 neutrals and brand blue). One palette,
-   not a light/dark pair, so there's no toggle to maintain. Soft grey canvas, white cards lifted by
-   Fluent's shadow ramp, #0f6cbd as the single accent. Every text/background pair here clears WCAG AA
-   (4.5:1): muted text #616161 is 5.7:1 even on the grey canvas. */
+/* Light design tokens, Fluent-inspired (Microsoft's Fluent 2 neutrals and brand blue). Soft grey
+   canvas, white cards lifted by Fluent's shadow ramp, #0f6cbd as the single accent. Every text/background
+   pair here clears WCAG AA (4.5:1): muted text #616161 is 5.7:1 even on the grey canvas. The dark pair
+   below is chosen in Settings or follows the system (lib/theme.ts sets `.dark` on <html>). */
 :root {
   --background: #f5f5f5;
   --foreground: #242424;
@@ -105,6 +105,53 @@ header { display: flex; align-items: center; justify-content: space-between; gap
   --sidebar-ring: #0f6cbd;
 }
 
+/* Dark design tokens: Fluent 2's dark neutrals with the brand blue lifted to #479ef5 so it reads as text
+   and as a button. Every text/background pair clears WCAG AA: muted text #adadad is 7.8:1 on the
+   canvas and 6.5:1 on a card; the blue is 5.2:1 on a card. Chart colours live in lib/chart-theme.ts. */
+.dark {
+  color-scheme: dark;
+  --background: #1a1a1a;
+  --foreground: #ededed;
+  --card: #292929;
+  --card-foreground: var(--foreground);
+  --popover: #292929;
+  --popover-foreground: var(--foreground);
+  --primary: #479ef5;
+  --primary-foreground: #141414;
+  --secondary: #333333;
+  --secondary-foreground: var(--foreground);
+  --muted: #333333;
+  --muted-foreground: #adadad;
+  --accent: #0e2a47;
+  --accent-foreground: #96c6fa;
+  --destructive: #f1707b;
+  --success: #54b054;
+  --success-muted: #0d2e0d;
+  --warning: #faa06b;
+  --warning-muted: #3d1f0a;
+  --highlight: #4d3c00;
+  --border: #3d3d3d;
+  --input: #575757;
+  --ring: #479ef5;
+  --chart-1: #479ef5;
+  --chart-2: #62abf5;
+  --chart-3: #2886de;
+  --chart-4: #115ea3;
+  --chart-5: #0c3b5e;
+  --sidebar: #1f1f1f;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: #479ef5;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: #0e2a47;
+  --sidebar-accent-foreground: #96c6fa;
+  --sidebar-border: #3d3d3d;
+  --sidebar-ring: #479ef5;
+  /* Shadows barely show on a dark canvas, so they deepen. */
+  --shadow-glow-sm: 0 0 2px rgb(0 0 0 / 40%), 0 1px 2px rgb(0 0 0 / 48%);
+  --shadow-card: 0 0 2px rgb(0 0 0 / 40%), 0 2px 4px rgb(0 0 0 / 48%);
+  --shadow-glow: 0 0 2px rgb(0 0 0 / 40%), 0 4px 8px rgb(0 0 0 / 48%);
+}
+
 /* Fluent's elevation ramp (shadow2 / shadow4 / shadow8). The glow names are kept so existing
    class strings pick up the new depth without edits: a resting control lifts slightly, hover lifts more. */
 @theme {
@@ -113,8 +160,8 @@ header { display: flex; align-items: center; justify-content: space-between; gap
   --shadow-glow: 0 0 2px rgb(0 0 0 / 12%), 0 4px 8px rgb(0 0 0 / 14%);
 }
 
-/* shadcn components carry `dark:` variants; without this they'd switch on whenever the OS is in dark
-   mode and half-darken a light page. Nothing sets `.dark`, so they stay off. */
+/* shadcn components carry `dark:` variants; they follow the `.dark` class lib/theme.ts sets, not the OS
+   media query, so a light choice on a dark system stays light throughout. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* The article reader's sheet: Typora's Newsprint theme (cream paper, PT Serif), a warmer page inside
@@ -134,3 +181,13 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .reader-newsprint mark[data-kind="keyword"] { background: rgb(176 137 32 / 14%); }
 .reader-newsprint mark:hover { background: rgb(6 85 136 / 18%); }
 .reader-newsprint mark a:hover, .reader-newsprint mark a:focus-visible { color: #065588; }
+
+/* Newsprint at night: the same page in warm dark paper, for a dark theme. */
+.dark .reader-newsprint { background: #23211d; color: #e6e1d6; color-scheme: dark; }
+.dark .reader-newsprint .reader-byline { color: #a8a298; border-bottom-color: #4a463f; }
+.dark .reader-newsprint .reader-empty { color: #a8a298; }
+.dark .reader-newsprint ::selection { background: rgba(150, 198, 250, 0.35); color: inherit; }
+.dark .reader-newsprint mark[data-kind="entity"] { background: rgb(150 198 250 / 12%); border-bottom-color: #96c6fa; }
+.dark .reader-newsprint mark[data-kind="keyword"] { background: rgb(240 200 90 / 16%); }
+.dark .reader-newsprint mark:hover { background: rgb(150 198 250 / 22%); }
+.dark .reader-newsprint mark a:hover, .dark .reader-newsprint mark a:focus-visible { color: #96c6fa; }

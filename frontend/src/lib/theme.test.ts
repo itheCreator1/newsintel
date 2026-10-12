@@ -20,7 +20,7 @@ beforeEach(() => {
   }))
   setThemeChoice('system')
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 const flipSystem = (dark: boolean) => act(() => { systemDark = dark; mediaListeners.forEach(listener => listener()) })
 

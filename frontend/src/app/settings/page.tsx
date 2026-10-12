@@ -10,6 +10,7 @@ import { fieldClass, ghostButtonClass, primaryButtonClass } from '../../lib/ui-c
 import { cn } from '../../lib/utils'
 import { LoadError } from '../../components/Feedback'
 import { NotificationSettingsPanel } from '../../components/NotificationSettingsPanel'
+import { useTheme, type ThemeChoice } from '../../lib/theme'
 
 type StopWordLanguage = 'en' | 'el'
 const STOP_WORD_LANGUAGES: [StopWordLanguage, string][] = [['en', 'English'], ['el', 'Greek']]
@@ -56,6 +57,27 @@ function StopWordsEditor({ language, name }: { language: StopWordLanguage; name:
   )
 }
 
+const THEMES: [ThemeChoice, string][] = [['system', 'Same as the system'], ['light', 'Light'], ['dark', 'Dark']]
+
+/** Kept by this browser, not the account: each device can follow its own system. */
+function AppearancePanel() {
+  const { choice, setChoice } = useTheme()
+  return (
+    <GlassPanel aria-label="Appearance" className="flex max-w-2xl flex-col gap-3">
+      <h3 className="text-sm font-semibold text-foreground">Appearance</h3>
+      <div role="radiogroup" aria-label="Theme" className="flex flex-wrap gap-4">
+        {THEMES.map(([value, label]) => (
+          <label key={value} className="flex items-center gap-2 text-sm text-foreground">
+            <input type="radio" name="theme" className="h-4 w-4 accent-primary" checked={choice === value} onChange={() => setChoice(value)} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">Saved in this browser. &ldquo;Same as the system&rdquo; turns dark when your desktop does.</p>
+    </GlassPanel>
+  )
+}
+
 export default function SettingsPage() {
   const client = useQueryClient()
   const [stopWordLanguage, setStopWordLanguage] = useState<StopWordLanguage>('en')
@@ -72,6 +94,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-6 font-sans">
       <PageHeader eyebrow="NLP configuration" title="Settings" />
+      <AppearancePanel />
       <GlassPanel className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold text-foreground">Processor capabilities</h3>
         {nlp.isPending && <p className="text-sm text-muted-foreground">Loading capabilities…</p>}
