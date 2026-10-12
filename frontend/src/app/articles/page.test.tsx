@@ -440,3 +440,14 @@ it('asks the server again only while the article or its annotations are being wo
     vi.useRealTimers()
   }
 })
+
+it('says outside Details when annotation processing failed', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  vi.mocked(api.articleAnnotations).mockResolvedValue(annotationsWith('failed', 2, 1))
+  renderWithQuery(() => <ArticlesPage />)
+
+  const notice = await screen.findByText('Some annotation processing failed. Open Details below to see which.')
+  expect(notice.closest('details')).toBeNull()
+})
