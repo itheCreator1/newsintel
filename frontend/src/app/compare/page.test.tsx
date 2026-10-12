@@ -8,7 +8,7 @@ import ComparePage from './page'
 
 vi.mock('../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
-  api: { compare: vi.fn(), compareArticles: vi.fn(), compareStories: vi.fn(), nlpEntities: vi.fn(), feeds: vi.fn() },
+  api: { compare: vi.fn(), compareArticles: vi.fn(), compareStories: vi.fn(), nlpEntities: vi.fn(), searchSources: vi.fn(), feed: vi.fn() },
 }))
 vi.mock('../../components/BarChart', () => ({
   BarChart: ({ items, ariaLabel, onSelect }: { items: { id: string; label: string }[]; ariaLabel: string; onSelect(item: { id: string }): void }) => (
@@ -17,7 +17,7 @@ vi.mock('../../components/BarChart', () => ({
 }))
 
 const subject = (ref: string, label: string, over = {}) => ({ kind: 'entity', ref, label, role: null, retired: false, ...over })
-const side = (ref: string, label: string, over = {}) => ({ subject: subject(ref, label), articles: 3, stories: 3, sources: 2, timeline: [{ date: '2026-09-20', article_count: 2 }, { date: '2026-09-21', article_count: 1 }], ...over })
+const side = (ref: string, label: string, over = {}) => ({ subject: subject(ref, label), articles: 3, stories: 3, sources: 2, timeline: [{ date: '2026-09-20', article_count: 2 }, { date: '2026-09-21', article_count: 1 }], previous: { articles: 1, stories: 1, sources: 1 }, ...over })
 const overlap = (only_a: number, both: number, only_b: number) => ({ only_a, both, only_b, union: only_a + both + only_b, jaccard: only_a + both + only_b ? both / (only_a + both + only_b) : null })
 const summary = (over = {}) => ({
   kind: 'entity', role: null, window_days: 30,
@@ -39,7 +39,7 @@ beforeEach(() => {
   vi.mocked(api.compareArticles).mockResolvedValue({ items: [article('a1', 'Engine notes')], next_cursor: null })
   vi.mocked(api.compareStories).mockResolvedValue({ items: [story('c1', 'Analytical engine story')], next_cursor: null })
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'e9', text: 'Grace Hopper', normalized_text: 'grace hopper', kind: 'PERSON' }], next_cursor: null })
-  vi.mocked(api.feeds).mockResolvedValue({ items: [{ id: 's1', name: 'The Wire' }, { id: 's2', name: 'Daily Post' }] as never, next_cursor: null })
+  vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's2', name: 'Daily Post', source_country: 'GB', retired: false }, { id: 's3', name: 'Daily Gazette', source_country: null, retired: true }], next_cursor: null })
 })
 afterEach(cleanup)
 
@@ -87,6 +87,14 @@ it('shows both subjects with counts over the window and links to their dossiers'
   expect(screen.getByText('Last 30 days: 3 articles · 2 stories · 2 sources')).toBeTruthy()
   expect(screen.getAllByRole('link', { name: 'Open dossier' }).map(link => link.getAttribute('href'))).toEqual(['/entities/?id=e1', '/entities/?id=e2'])
   expect(api.compare).toHaveBeenCalledWith({ kind: 'entity', a: 'e1', b: 'e2', days: 30 })
+})
+
+it('sets each subject beside its own previous window, then and now', async () => {
+  vi.mocked(api.compare).mockResolvedValue(summary({ b: side('e2', 'Charles Babbage', { previous: { articles: 0, stories: 0, sources: 0 } }) }))
+  renderWithQuery(() => <ComparePage />)
+
+  expect(await screen.findByText('The 30 days before: 1 article · 1 story · 1 source')).toBeTruthy()
+  expect(screen.getByText('The 30 days before: 0 articles · 0 stories · 0 sources')).toBeTruthy()
 })
 
 it('states each overlap with its denominator and defines the measure', async () => {
@@ -226,15 +234,24 @@ it('picks an entity by searching for it', async () => {
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=entity&a=e9')
 })
 
-it('picks a source from the list and a country by its name', async () => {
+it('picks a source by searching its name, among every source, and a country by its name', async () => {
   resetNavigationHarness({ pathname: '/compare/', search: 'kind=source' })
   const { unmount } = renderWithQuery(() => <ComparePage />)
 
-  const chooser = await screen.findByLabelText('Source B')
-  await screen.findAllByRole('option', { name: 'Daily Post' })
-  fireEvent.change(chooser, { target: { value: 's2' } })
+  fireEvent.change(screen.getByLabelText('Source B'), { target: { value: 'daily' } })
+  expect(await screen.findByRole('button', { name: 'Daily Gazette (retired)' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Daily Post' }))
+  expect(api.searchSources).toHaveBeenCalledWith('daily')
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=source&b=s2')
   unmount()
+
+  // A source that arrives in the URL, as from its dossier, is named.
+  vi.mocked(api.feed).mockResolvedValue({ id: 's1', name: 'The Wire' } as never)
+  resetNavigationHarness({ pathname: '/compare/', search: 'kind=source&a=s1' })
+  const named = renderWithQuery(() => <ComparePage />)
+  expect(await screen.findByText('Selected: The Wire')).toBeTruthy()
+  expect(api.feed).toHaveBeenCalledWith('s1')
+  named.unmount()
 
   resetNavigationHarness({ pathname: '/compare/', search: 'kind=country' })
   renderWithQuery(() => <ComparePage />)

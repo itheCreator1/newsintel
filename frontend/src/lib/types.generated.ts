@@ -2944,6 +2944,18 @@ export interface components {
             sources: components["schemas"]["Overlap"] | null;
         };
         /**
+         * ComparePeriod
+         * @description The same counts over the window of the same length just before this one.
+         */
+        ComparePeriod: {
+            /** Articles */
+            articles: number;
+            /** Stories */
+            stories: number;
+            /** Sources */
+            sources: number | null;
+        };
+        /**
          * CompareRelated
          * @description Top items over the union of both article sets, ranked by `a_articles + b_articles`. Zero
          *     means absent from that side. The compared subjects are left out.
@@ -2987,6 +2999,7 @@ export interface components {
             sources: number | null;
             /** Timeline */
             timeline: components["schemas"]["CompareDay"][];
+            previous: components["schemas"]["ComparePeriod"];
         };
         /** CountryAnnotationResponse */
         CountryAnnotationResponse: {
