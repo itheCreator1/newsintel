@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
-import { ApiError, api } from '../../../lib/api'
+import { ApiError, api, exportHref } from '../../../lib/api'
 import { BarChart } from '../../../components/BarChart'
 import { GlassPanel } from '../../../components/GlassPanel'
 import { PageHeader } from '../../../components/PageHeader'
@@ -14,6 +14,7 @@ import { chipClass, ghostButtonClass } from '../../../lib/ui-classes'
 import { clusterHref, entityHref, sourceHref, toHref } from '../../../lib/investigation'
 import { countryLabel } from '../../../lib/countries'
 import { Details } from '../../../components/Details'
+import { ExportMenu } from '../../../components/ExportMenu'
 
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
@@ -151,7 +152,10 @@ function EventContent() {
           </GlassPanel>
 
           <GlassPanel className="overflow-hidden p-0">
-            <h3 className="px-6 pt-4 text-sm font-semibold text-foreground">Articles</h3>
+            <div className="flex items-center justify-between gap-3 px-6 pt-4">
+              <h3 className="text-sm font-semibold text-foreground">Articles</h3>
+              <ExportMenu hrefFor={format => exportHref.event(id, format)} />
+            </div>
             {articles.isPending && <Note>Loading articles…</Note>}
             {articles.isError && <Note error>Could not load articles.</Note>}
             {articles.data && !articleItems.length && <Note>No articles yet.</Note>}

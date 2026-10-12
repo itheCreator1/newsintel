@@ -180,6 +180,16 @@ type Filters = Record<string, string | string[] | undefined>
 export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
 
 export interface NewFeed { name: string; url: string; source_country?: string | null; expected_language?: string | null; tags?: string[]; poll_interval_minutes?: number; fetching_mode?: 'rss' | 'full_text' | 'full_text_html' }
+export type ExportFormat = 'csv' | 'json'
+
+/** Download links: the browser sends the session cookie, so a plain link starts the download. */
+export const exportHref = {
+  search: (filters: Filters, format: ExportFormat) => `/api/v1/search/export${query({ ...filters, format })}`,
+  event: (id: string, format: ExportFormat) => `/api/v1/events/${id}/export${query({ format })}`,
+  entity: (id: string, format: ExportFormat) => `/api/v1/entities/${id}/export${query({ format })}`,
+  compare: (spec: CompareSpec, part: ComparePart, format: ExportFormat) => `/api/v1/compare/export${query({ ...compareParams(spec), part, format })}`,
+}
+
 /** Where the browser downloads every source that is not retired as OPML. */
 export const OPML_EXPORT_HREF = '/api/v1/feeds/opml'
 
