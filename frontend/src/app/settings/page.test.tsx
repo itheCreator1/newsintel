@@ -1,12 +1,13 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
-import type { NotificationSettings } from '../../lib/api-types'
+import type { NotificationSettings, OpsWikidata } from '../../lib/api-types'
+import { setTimeZoneChoice, TIME_ZONE_KEY } from '../../lib/datetime'
 import { resetNavigationHarness } from '../../test/navigation-harness'
 import { renderWithQuery } from '../../test/render'
 import SettingsPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { stopWords: vi.fn(), updateStopWords: vi.fn(), nlpStatus: vi.fn(), greekEntities: vi.fn(), updateGreekEntities: vi.fn(), notificationSettings: vi.fn(), updateNotificationSettings: vi.fn(), testNotification: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { stopWords: vi.fn(), updateStopWords: vi.fn(), nlpStatus: vi.fn(), greekEntities: vi.fn(), updateGreekEntities: vi.fn(), notificationSettings: vi.fn(), updateNotificationSettings: vi.fn(), testNotification: vi.fn(), changePassword: vi.fn(), otherSessions: vi.fn(), signOutOtherSessions: vi.fn(), opsWikidata: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -15,6 +16,13 @@ beforeEach(() => {
   vi.mocked(api.nlpStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, reprocessing: [], capabilities: [{ name: 'entities', state: 'available', version: '3.8.0', detail: null }] })
   vi.mocked(api.greekEntities).mockResolvedValue({ enabled: false, available: true, detail: null, greek_article_count: 12, reprocessing_run_id: null, queued_article_count: 0 })
   vi.mocked(api.notificationSettings).mockResolvedValue(notifications())
+  vi.mocked(api.otherSessions).mockResolvedValue({ others: 0 })
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata())
+})
+
+const wikidata = (overrides: Partial<OpsWikidata> = {}): OpsWikidata => ({
+  enabled: true, reason: null, links: 42, open_candidates: 3, due_refresh: 0, runs: [], last_refresh: null, counts: [],
+  throttle: { requests_today: 0, daily_budget: 2000, paused_until: null, pause_reason: null } as never, ...overrides,
 })
 
 const notifications = (overrides: Partial<NotificationSettings> = {}): NotificationSettings => ({
@@ -28,7 +36,6 @@ it('updates stop words with revision protection and explains archive reprocessin
   renderWithQuery(() => <SettingsPage />)
   expect(await screen.findByText(/revision 4/)).toBeTruthy()
   expect(screen.getByText(/Existing annotations require reprocessing/)).toBeTruthy()
-  expect(screen.getByText((_, node) => node?.textContent === 'entities · available · 3.8.0')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('English stop words'), { target: { value: 'and\npolicy' } })
   await fireEvent.click(screen.getByRole('button', { name: 'Save stop words' }))
   expect(api.updateStopWords).toHaveBeenCalledWith(4, ['and', 'policy'], 'en')
@@ -149,4 +156,72 @@ it('switches between the system, light and dark themes under Appearance', async 
   expect(document.documentElement).not.toHaveClass('dark')
   fireEvent.click(within(theme).getByRole('radio', { name: 'Same as the system' }))
   vi.unstubAllGlobals()
+})
+
+it('leaves processor capabilities to the Processes page', async () => {
+  renderWithQuery(() => <SettingsPage />)
+  await screen.findByText(/revision 4/)
+  expect(screen.queryByText('Processor capabilities')).toBeNull()
+  expect(screen.queryByText(/entities · available/)).toBeNull()
+})
+
+it('chooses the time zone dates are shown in, for this browser', async () => {
+  renderWithQuery(() => <SettingsPage />)
+  const zone = within(screen.getByRole('region', { name: 'Appearance' })).getByLabelText('Time zone for dates')
+  expect(zone).toHaveValue('browser')
+
+  fireEvent.change(zone, { target: { value: 'UTC' } })
+
+  expect(zone).toHaveValue('UTC')
+  expect(localStorage.getItem(TIME_ZONE_KEY)).toBe('UTC')
+  setTimeZoneChoice('browser')
+})
+
+it('changes the password once the two new ones match', async () => {
+  vi.mocked(api.changePassword).mockRejectedValueOnce(new ApiError('The current password is not right.', 400)).mockResolvedValueOnce(undefined)
+  renderWithQuery(() => <SettingsPage />)
+  const account = screen.getByRole('region', { name: 'Account' })
+  const fill = (current: string, next: string, again: string) => {
+    fireEvent.change(within(account).getByLabelText('Current password'), { target: { value: current } })
+    fireEvent.change(within(account).getByLabelText('New password'), { target: { value: next } })
+    fireEvent.change(within(account).getByLabelText('New password again'), { target: { value: again } })
+    fireEvent.click(within(account).getByRole('button', { name: 'Change password' }))
+  }
+
+  fill('old-password-1', 'new-password-2', 'new-password-3')
+  expect(await within(account).findByRole('alert')).toHaveTextContent('The new passwords do not match.')
+  expect(api.changePassword).not.toHaveBeenCalled()
+
+  fill('wrong-password', 'new-password-2', 'new-password-2')
+  expect(await within(account).findByText('The current password is not right.')).toBeTruthy()
+
+  fill('old-password-1', 'new-password-2', 'new-password-2')
+  expect(await within(account).findByText('Password changed. Every other browser was signed out.')).toBeTruthy()
+  expect(api.changePassword).toHaveBeenLastCalledWith('old-password-1', 'new-password-2')
+  expect(within(account).getByLabelText('Current password')).toHaveValue('')
+})
+
+it('signs out every other browser and says how many', async () => {
+  vi.mocked(api.otherSessions).mockResolvedValueOnce({ others: 2 }).mockResolvedValue({ others: 0 })
+  vi.mocked(api.signOutOtherSessions).mockResolvedValue({ signed_out: 2 })
+  renderWithQuery(() => <SettingsPage />)
+  const account = screen.getByRole('region', { name: 'Account' })
+
+  expect(await within(account).findByText('Signed in on 2 other browsers.')).toBeTruthy()
+  fireEvent.click(within(account).getByRole('button', { name: 'Sign out other browsers' }))
+
+  expect(await within(account).findByText('Signed out 2 browsers.')).toBeTruthy()
+  expect(await within(account).findByText('No other browser is signed in.')).toBeTruthy()
+  expect(within(account).getByRole('button', { name: 'Sign out other browsers' })).toBeDisabled()
+})
+
+it('shows whether Wikidata is on and how to change it', async () => {
+  vi.mocked(api.opsWikidata).mockResolvedValue(wikidata({ enabled: false, reason: 'Set NEWSINTEL_WIKIDATA_CONTACT to an email or URL' }))
+  renderWithQuery(() => <SettingsPage />)
+  const panel = screen.getByRole('region', { name: 'Wikidata' })
+
+  expect(await within(panel).findByText('Off: Set NEWSINTEL_WIKIDATA_CONTACT to an email or URL')).toBeTruthy()
+  expect(within(panel).getByText(/42 entities linked/)).toBeTruthy()
+  expect(within(panel).getByText(/NEWSINTEL_WIKIDATA_ENABLED=false/)).toBeTruthy()
+  expect(within(panel).getByRole('link', { name: 'Open Processes' })).toHaveAttribute('href', '/processes/')
 })

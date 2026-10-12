@@ -15,8 +15,8 @@ import { clusterHref, entityHref, sourceHref, toHref } from '../../../lib/invest
 import { countryLabel } from '../../../lib/countries'
 import { Details } from '../../../components/Details'
 import { ExportMenu } from '../../../components/ExportMenu'
+import { when } from '../../../lib/datetime'
 
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
   queryFn: ({ pageParam }: { pageParam: string | undefined }) => load(pageParam),

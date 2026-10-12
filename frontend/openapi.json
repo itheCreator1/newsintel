@@ -198,6 +198,129 @@
         }
       }
     },
+    "/api/v1/auth/password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Password",
+        "description": "Change the password; every other browser is signed out, this one stays.",
+        "operationId": "password_api_v1_auth_password_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sessions",
+        "operationId": "sessions_api_v1_auth_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtherSessions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/sign-out-others": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign Out Others",
+        "operationId": "sign_out_others_api_v1_auth_sessions_sign_out_others_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/feeds": {
       "get": {
         "tags": [
@@ -19479,6 +19602,19 @@
         ],
         "title": "OpmlPreviewRequest"
       },
+      "OtherSessions": {
+        "properties": {
+          "others": {
+            "type": "integer",
+            "title": "Others"
+          }
+        },
+        "type": "object",
+        "required": [
+          "others"
+        ],
+        "title": "OtherSessions"
+      },
       "Overlap": {
         "properties": {
           "only_a": {
@@ -19519,6 +19655,28 @@
         ],
         "title": "Overlap",
         "description": "Two sets, A and B. `jaccard` is `both / union` and null when the union is empty."
+      },
+      "PasswordChange": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 12,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordChange"
       },
       "PipelinesResponse": {
         "properties": {
@@ -21222,6 +21380,19 @@
         "type": "object",
         "title": "SeeAlsoUpdate",
         "description": "Only the fields sent change; null clears one."
+      },
+      "SignedOut": {
+        "properties": {
+          "signed_out": {
+            "type": "integer",
+            "title": "Signed Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signed_out"
+        ],
+        "title": "SignedOut"
       },
       "SourceArticlePage": {
         "properties": {

@@ -16,6 +16,7 @@ import { LoadError, Note } from '../../components/Feedback'
 import { countryLabel } from '../../lib/countries'
 import { CountrySelect } from '../../components/SearchablePicker'
 import { ExportMenu } from '../../components/ExportMenu'
+import { when } from '../../lib/datetime'
 
 const KINDS: { value: CompareKind; label: string }[] = [{ value: 'entity', label: 'Entities' }, { value: 'source', label: 'Sources' }, { value: 'country', label: 'Countries' }]
 const ROLES: { value: CompareRole; label: string }[] = [{ value: 'story', label: 'Story country' }, { value: 'mentioned', label: 'Mentioned country' }, { value: 'source', label: 'Source country' }]
@@ -23,7 +24,6 @@ const WINDOWS = [7, 30, 90, 365]
 const COUNTRY = /^[A-Za-z]{2}$/
 const DAY_MS = 86_400_000
 const nextDay = (day: string) => new Date(Date.parse(day) + DAY_MS).toISOString().slice(0, 10)
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
   queryFn: ({ pageParam }: { pageParam: string | undefined }) => load(pageParam),

@@ -17,6 +17,7 @@ import { compareHref, emptyInvestigation, eventHref, mapHref, mapStateFromQuery,
 import { countryName, plural } from '../../lib/utils'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { LoadError, Note } from '../../components/Feedback'
+import { when } from '../../lib/datetime'
 
 // One role per map: the four location roles mean different things and are never added together.
 const ROLES: { value: GeoRole; label: string; note: string }[] = [
@@ -31,7 +32,6 @@ const SEARCH_FIELD: Record<GeoArticleRole, ListField> = { story: 'story_country'
 // Only mentioned/source can already be filtered by the investigation on the same field a role maps to;
 // story is one value per article, so replacing it always narrows (see canRefine below).
 const FILTER_LABEL: Partial<Record<ListField, string>> = { mentioned_country: 'mentioned countries', source_country: 'source countries' }
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
   queryFn: ({ pageParam }: { pageParam: string | undefined }) => load(pageParam),

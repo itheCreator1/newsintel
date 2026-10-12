@@ -1,6 +1,7 @@
 import { ApiError } from '../../lib/api'
+import { when } from '../../lib/datetime'
 
-export const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
+export { when }
 
 export function Stat({ label, value }: { label: string; value: string | number }) {
   return <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="m-0 font-mono text-sm text-foreground">{value}</dd></div>

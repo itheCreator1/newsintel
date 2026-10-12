@@ -7,9 +7,10 @@ import { clusterHref, entityHref, toHref } from '../lib/investigation'
 import { chipClass, ghostButtonClass } from '../lib/ui-classes'
 import { cn, plural } from '../lib/utils'
 import { glassPanelClassName } from './GlassPanel'
+import { formatDate } from '../lib/datetime'
 
 type Filters = Record<string, string | string[] | undefined>
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString() : '—'
+const when = (value: string | null | undefined) => value ? formatDate(value) : '—'
 
 function failure(reason: unknown) {
   if (reason instanceof ApiError) {

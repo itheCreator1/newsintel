@@ -1,5 +1,6 @@
 import type { Monitor, MonitorChanges } from './api-types'
 import { plural } from './utils'
+import { when } from './datetime'
 
 export type MonitorStatus = 'invalid' | 'paused' | 'error' | 'waiting' | 'pending' | 'active'
 
@@ -27,7 +28,7 @@ export const countsLabel = (item: Monitor) => `${plural(item.unseen_article_coun
 /** Monitors with something new to look at; paused ones keep old counts, so they do not call for attention. */
 export const unseenMonitors = (items: Monitor[] | undefined) => items?.filter(item => item.enabled && item.unseen_article_count > 0).length ?? 0
 
-export const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
+export { when }
 
 /** One sentence for every state that stops the counters from being the whole story; `null` when the monitor is simply active. */
 export function statusText(item: Monitor, now = Date.now()): string | null {

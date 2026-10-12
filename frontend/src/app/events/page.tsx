@@ -13,13 +13,13 @@ import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/u
 import { entityHref, eventHref, mapHref, toHref } from '../../lib/investigation'
 import { countryLabel } from '../../lib/countries'
 import { CountrySelect } from '../../components/SearchablePicker'
+import { when } from '../../lib/datetime'
 
 const STATUSES = ['active', 'closed', 'superseded'] as const
 // Fixed order keeps a filtered list's URL stable and bookmarkable.
 const KEYS = ['status', 'country', 'entity_id', 'from', 'to', 'sort', 'all'] as const
 type Key = typeof KEYS[number]
 const DAY = /^\d{4}-\d{2}-\d{2}$/
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 
 function Note({ children, error }: { children: string; error?: boolean }) {
   return <p className={error ? 'error px-6 py-4 text-sm text-destructive' : 'px-6 py-4 text-sm text-muted-foreground'}>{children}</p>

@@ -18,6 +18,7 @@ import { cn } from '../../lib/utils'
 import { Details } from '../../components/Details'
 import { LoadError } from '../../components/Feedback'
 import { countryLabel, LANGUAGE_OPTIONS, languageLabel } from '../../lib/countries'
+import { formatDateTime } from '../../lib/datetime'
 
 const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
 const SHORTCUTS: [string, string][] = [['j', 'Next article'], ['k', 'Previous article'], ['f', 'Focus mode'], ['s', 'Star or unstar'], ['o', 'Open the original article'], ['?', 'Show these shortcuts'], ['Esc', 'Close focus mode or this list']]
@@ -246,7 +247,7 @@ function ArticlesContent() {
                 {!article.read && <span className="sr-only">Unread</span>}
                 {article.starred && <span className="ml-auto text-primary" role="img" aria-label="Starred">★</span>}
               </span>
-              <span className="text-xs text-muted-foreground">{new Date(article.first_discovered_at).toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground">{formatDateTime(article.first_discovered_at)}</span>
               <small className="text-xs text-muted-foreground">{article.provenance.map(p => p.feed_name).join(', ')}</small>
             </button>
           ))}
@@ -298,7 +299,7 @@ function ArticlesContent() {
               {process.isSuccess && <p className="text-sm text-primary">Processing scheduled.</p>}
               {process.error && <p className="error text-sm text-destructive">Could not schedule processing.</p>}
               {detail.data.content ? (
-                <p className="text-sm text-muted-foreground">Extracted {new Date(detail.data.content.extracted_at).toLocaleString()} · {detail.data.content.change_count} changes · HTML {detail.data.content.html_retained ? 'retained' : 'temporary'}</p>
+                <p className="text-sm text-muted-foreground">Extracted {formatDateTime(detail.data.content.extracted_at)} · {detail.data.content.change_count} changes · HTML {detail.data.content.html_retained ? 'retained' : 'temporary'}</p>
               ) : (
                 <section className="processing flex flex-col gap-1 border-t border-border pt-4">
                   <strong className="text-sm font-semibold text-foreground">Content status</strong>
@@ -389,8 +390,8 @@ function ArticlesContent() {
               </section>
               <RelatedCoveragePanel articleId={selectedId} hrefFor={articleHref} />
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-border pt-4 text-sm">
-                <dt className="text-muted-foreground">Published</dt><dd className="text-foreground">{detail.data.published_at ? new Date(detail.data.published_at).toLocaleString() : 'Not supplied'}</dd>
-                <dt className="text-muted-foreground">First discovered</dt><dd className="text-foreground">{new Date(detail.data.first_discovered_at).toLocaleString()}</dd>
+                <dt className="text-muted-foreground">Published</dt><dd className="text-foreground">{detail.data.published_at ? formatDateTime(detail.data.published_at) : 'Not supplied'}</dd>
+                <dt className="text-muted-foreground">First discovered</dt><dd className="text-foreground">{formatDateTime(detail.data.first_discovered_at)}</dd>
               </dl>
               {detail.data.provenance.map(source => (
                 <article key={source.feed_id} className="provenance flex flex-col gap-1 border-t border-border pt-4">

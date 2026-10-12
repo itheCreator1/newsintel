@@ -11,6 +11,7 @@ import { GlassPanel } from '../GlassPanel'
 import { LoadError, Note } from '../Feedback'
 import { StatusBadge } from '../StatusBadge'
 import { count, failure } from './parts'
+import { formatDateTime } from '../../lib/datetime'
 
 type Labels = Partial<Record<ProcessKey, { label: string; group: string }>>
 const chipClass = 'w-auto rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-ring aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-foreground'
@@ -46,7 +47,7 @@ function Row({ item, label, generatedAt, busy, onRetry, onStop }: {
       </div>
       <div className="flex flex-row items-center justify-between gap-2 sm:flex-col sm:items-end">
         <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-        <time className="whitespace-nowrap text-xs text-muted-foreground" dateTime={item.at} title={new Date(item.at).toLocaleString()}>{`${since(item.at, generatedAt)} ago`}</time>
+        <time className="whitespace-nowrap text-xs text-muted-foreground" dateTime={item.at} title={formatDateTime(item.at)}>{`${since(item.at, generatedAt)} ago`}</time>
         {item.can_retry && <button type="button" className={ghostButtonClass} disabled={busy} onClick={onRetry}>Retry</button>}
         {item.can_stop && <button type="button" className={ghostButtonClass} disabled={busy} onClick={onStop}>Stop</button>}
       </div>
