@@ -16,7 +16,7 @@ import { LoadError, Note } from '../../components/Feedback'
 import { countryLabel } from '../../lib/countries'
 import { CountrySelect } from '../../components/SearchablePicker'
 import { ExportMenu } from '../../components/ExportMenu'
-import { when } from '../../lib/datetime'
+import { ArticleRow } from '../../components/ArticleRow'
 
 const KINDS: { value: CompareKind; label: string }[] = [{ value: 'entity', label: 'Entities' }, { value: 'source', label: 'Sources' }, { value: 'country', label: 'Countries' }]
 const ROLES: { value: CompareRole; label: string }[] = [{ value: 'story', label: 'Story country' }, { value: 'mentioned', label: 'Mentioned country' }, { value: 'source', label: 'Source country' }]
@@ -271,10 +271,7 @@ function CompareContent() {
                 {articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
                 {articles.data && !articleItems.length && <Note>No articles in this part.</Note>}
                 {articleItems.map(article => (
-                  <div key={article.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
-                    <Link className="text-[15px] font-semibold text-foreground hover:underline" href={openArticle(article.id)}>{article.title}</Link>
-                    <span className="text-xs text-muted-foreground">{when(article.published_at ?? article.first_discovered_at)}</span>
-                  </div>
+                  <ArticleRow key={article.id} className="border-border px-6 py-3" article={article} href={openArticle(article.id)} />
                 ))}
                 {articles.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={articles.isFetchingNextPage} onClick={() => articles.fetchNextPage()}>{articles.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button></div>}
               </>

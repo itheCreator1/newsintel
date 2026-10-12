@@ -13,6 +13,8 @@ from test_monitor_evaluation_elasticsearch import _evaluate, _index, _watch
 
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.marks.schemas import ArticleMarkUpdate
+from app.marks.service import update_mark
 from app.monitors import evaluation, results
 from app.monitors.models import Monitor
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
@@ -98,10 +100,18 @@ async def test_results_are_the_counted_articles_and_viewing_never_hides_unseen_o
     counted = await _evaluate(monitor_id, now1)
     assert counted.unseen_article_count == 3
     expected = [str(fresh[2].id), str(fresh[1].id), str(fresh[0].id)]  # newest first
+    async with session_factory() as db, db.begin():
+        await update_mark(db, fresh[1].id, ArticleMarkUpdate(starred=True, note="Check the port"))
 
     async with _client(await _owner(monitor_id)) as client:
         first = await _page(client, monitor_id)
         assert [item["article_id"] for item in first["items"]] == expected
+        # The reader's marks ride along, as in Search.
+        assert [(item["starred"], item["note"]) for item in first["items"]] == [
+            (False, None),
+            (True, "Check the port"),
+            (False, None),
+        ]
         assert first["window_end"] == counted.eval_cursor_at.isoformat().replace("+00:00", "Z")
 
         # Later evaluations move the cursor mid-scroll; the page chain keeps its own window.

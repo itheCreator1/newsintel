@@ -330,6 +330,12 @@ def paged(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     monkeypatch.setattr("app.geo.investigation.articles_by_id", found)
     monkeypatch.setattr("app.geo.investigation.article_response", _article)
+
+    async def unmarked(_db: object, _items: object) -> None:
+        return None
+
+    # The reader's marks are filled by the route; their own tests cover them.
+    monkeypatch.setattr("app.geo.routes.with_marks", unmarked)
     _PitAdapter.responses, _PitAdapter.bodies, _PitAdapter.closed = [], [], []
     return {
         "db": _Database(),

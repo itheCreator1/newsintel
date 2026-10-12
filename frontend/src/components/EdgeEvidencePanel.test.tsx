@@ -6,7 +6,7 @@ import { EdgeEvidencePanel } from './EdgeEvidencePanel'
 
 vi.mock('../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../lib/api')>()), api: { edgeEvidence: vi.fn() } }))
 
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-14T12:00:00Z', first_discovered_at: '2026-09-14T13:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-14T12:00:00Z', first_discovered_at: '2026-09-14T13:00:00Z', provenance: [], read: false, starred: false })
 const evidence = (over = {}) => ({
   source: { id: 'ent-1', text: 'Harbour Authority', type: 'ORG' }, target: { id: 'ent-2', text: 'Ada Reyes', type: 'PERSON' },
   meaning: 'Both entities are mentioned in the same article. This is co-occurrence, not a stated relationship.',
@@ -107,4 +107,12 @@ it('shows loading and distinct error states', async () => {
   vi.mocked(api.edgeEvidence).mockRejectedValue(new Error('boom'))
   renderPanel()
   expect(await screen.findByText('Could not load relationship evidence.')).toBeTruthy()
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.edgeEvidence).mockResolvedValue(evidence({ articles: [{ ...article('a1', 'Harbour hires Reyes'), read: true, starred: true }] }))
+  renderPanel()
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read$/)).toBeTruthy()
 })

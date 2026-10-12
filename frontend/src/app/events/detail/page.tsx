@@ -17,6 +17,7 @@ import { countryLabel } from '../../../lib/countries'
 import { Details } from '../../../components/Details'
 import { ExportMenu } from '../../../components/ExportMenu'
 import { when } from '../../../lib/datetime'
+import { ArticleRow } from '../../../components/ArticleRow'
 
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
   initialPageParam: undefined as string | undefined,
@@ -166,10 +167,9 @@ function EventContent() {
             {articles.isError && <Note error>Could not load articles.</Note>}
             {articles.data && !articleItems.length && <Note>No articles yet.</Note>}
             {articleItems.map(article => (
-              <div key={article.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
-                <Link className="text-[15px] font-semibold text-foreground hover:underline" href={openArticle(article.id)}>{article.title}</Link>
-                <span className="text-xs text-muted-foreground">{when(article.published_at ?? article.first_discovered_at)} · <Link className="hover:underline" href={clusterHref(article.cluster_id, currentHref)}>Story</Link></span>
-              </div>
+              <ArticleRow key={article.id} className="border-border px-6 py-3" article={article} href={openArticle(article.id)}>
+                {' · '}<Link className="hover:underline" href={clusterHref(article.cluster_id, currentHref)}>Story</Link>
+              </ArticleRow>
             ))}
             {articles.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={articles.isFetchingNextPage} onClick={() => articles.fetchNextPage()}>{articles.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button></div>}
           </GlassPanel>

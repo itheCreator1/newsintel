@@ -23,7 +23,7 @@ const response = (over = {}) => ({
   items: [row('GR'), row('FR', { articles: 2, stories: 1 }), row('XK', { articles: 1, stories: 1 })],
   ...over,
 } as unknown as GeoCountriesResponse)
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [], read: false, starred: false })
 const eventItem = (id: string, headline: string) => ({ id, headline, status: 'active', started_at: '2026-09-18T10:00:00Z', ended_at: '2026-09-19T10:00:00Z', primary_country: 'GR', cluster_count: 2, article_count: 4, source_count: 2, entities: [] })
 
 function open(search = '') {
@@ -288,4 +288,13 @@ it('keeps Search and Watch when the investigation has no filter on this role\'s 
   const panel = await screen.findByRole('region', { name: 'Greece' })
   expect(within(panel).getByRole('link', { name: 'Search these articles' })).toBeTruthy()
   expect(within(panel).getByRole('button', { name: 'Watch country' })).toBeTruthy()
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.geoArticles).mockResolvedValue({ items: [{ ...article('a1', 'Harbour talks'), read: true, starred: true }], next_cursor: null } as never)
+  open('country=GR')
+
+  const panel = await screen.findByRole('region', { name: 'Greece' })
+  expect(await within(panel).findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(within(panel).getByText(/ · Read$/)).toBeTruthy()
 })

@@ -10,6 +10,7 @@ from app.auth.routes import current_session
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.feeds.schemas import FetchPage
+from app.marks.service import with_marks
 from app.sources import queries
 from app.sources.schemas import (
     SourceArticlePage,
@@ -60,7 +61,9 @@ async def get_source_articles(
     source_id: uuid.UUID, db: Db, _auth: Auth, cursor: str | None = None, limit: Limit = 30
 ) -> SourceArticlePage:
     await _source_or_404(db, source_id)
-    return await queries.articles(db, source_id, limit, cursor_or_400(cursor))
+    page = await queries.articles(db, source_id, limit, cursor_or_400(cursor))
+    await with_marks(db, page.items)
+    return page
 
 
 @router.get("/sources/{source_id}/clusters", response_model=SourceClusterPage)

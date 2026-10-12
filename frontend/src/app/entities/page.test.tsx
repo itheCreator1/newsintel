@@ -28,7 +28,7 @@ const dossier = (over = {}) => ({
   first_seen_at: '2026-09-01T00:00:00Z', last_seen_at: '2026-09-18T00:00:00Z', timeline_days: 30,
   timeline: [{ date: '2026-09-17', mentions: 4 }, { date: '2026-09-18', mentions: 8 }], ...over,
 })
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [], read: false, starred: false })
 const articles = (items: ReturnType<typeof article>[], next: string | null = null) => ({ items, next_cursor: next })
 const cluster = { id: 'c1', article_count: 3, source_count: 2, first_published_at: '2026-09-17T00:00:00Z', last_published_at: '2026-09-18T00:00:00Z', representative_article: article('a9', 'Story headline') }
 const relationships = (over = {}) => ({
@@ -478,4 +478,13 @@ it('follows the URL when another entity or Back changes it', async () => {
   navigationHarness.back()
   rerenderSame()
   expect(screen.getByRole('tab', { name: 'Relationships' })).toHaveAttribute('aria-selected', 'true')
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.entityArticles).mockResolvedValue(articles([{ ...article('a1', 'First report'), read: true, starred: true } as never]))
+  renderWithQuery(() => <EntitiesPage />)
+  await openTab('Articles & stories')
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read$/)).toBeTruthy()
 })

@@ -20,6 +20,7 @@ from app.events.schemas import (
     EventTimelinePage,
 )
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
+from app.marks.service import with_marks
 
 router = APIRouter(tags=["events"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -106,7 +107,9 @@ async def get_event_articles(
     event_id: uuid.UUID, db: Db, _auth: Auth, cursor: str | None = None, limit: Limit = 30
 ) -> EventArticlePage:
     await _event_or_404(db, event_id)
-    return await queries.articles(db, event_id, limit, cursor_or_400(cursor))
+    page = await queries.articles(db, event_id, limit, cursor_or_400(cursor))
+    await with_marks(db, page.items)
+    return page
 
 
 @router.get("/events/{event_id}/export")

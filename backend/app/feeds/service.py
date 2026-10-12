@@ -130,6 +130,8 @@ def article_detail_response(
 ) -> ArticleDetailResponse:
     basic = article_response(article)
     content = article.content
+    if mark is not None:
+        basic.read, basic.starred = mark.read, mark.starred
     return ArticleDetailResponse(
         **basic.model_dump(),
         content=(

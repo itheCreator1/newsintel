@@ -143,6 +143,9 @@ class ArticleResponse(BaseModel):
     published_at: datetime | None
     first_discovered_at: datetime
     provenance: list[ArticleProvenance]
+    # The reader's own marks, filled wherever articles are listed.
+    read: bool = False
+    starred: bool = False
 
 
 class ArticleContentResponse(BaseModel):

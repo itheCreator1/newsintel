@@ -22,6 +22,7 @@ from app.graph.schemas import (
     GraphResponse,
     StatedEdge,
 )
+from app.marks.service import apply_marks, marks_for
 from app.nlp.models import Entity, EntityRelation
 from app.search.aggregations import ROOT_ORDER
 from app.search.elasticsearch import ElasticsearchAdapter
@@ -552,6 +553,8 @@ async def edge_evidence(
     ]
     found = await articles_by_id(db, [*hits.article_ids, *representatives])
     page = [found[article_id] for article_id in hits.article_ids if article_id in found]
+    articles = [article_response(article) for article in page]
+    apply_marks(articles, await marks_for(db, [article.id for article in articles]))
     return EdgeEvidenceResponse(
         source=_edge_entity(source),
         target=_edge_entity(target),
@@ -561,7 +564,7 @@ async def edge_evidence(
         cluster_count_estimated=True,
         first_at=hits.first_at,
         last_at=hits.last_at,
-        articles=[article_response(article) for article in page],
+        articles=articles,
         next_cursor=encode_after(hits.next_after) if hits.next_after else None,
         clusters=[
             _edge_cluster(stories[cluster_id], count, found)

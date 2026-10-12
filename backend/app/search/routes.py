@@ -20,7 +20,7 @@ from app.db.session import get_db
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 from app.feeds.models import Feed
 from app.feeds.service import encode_cursor
-from app.marks.service import marks_for
+from app.marks.service import with_marks, with_result_marks
 from app.search.aggregations import date_histogram
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
@@ -265,10 +265,7 @@ async def search_articles(
     found = response.get("hits", {}).get("hits", [])
     hits = found[:limit]
     items = [search_result(hit) for hit in hits]
-    marks = await marks_for(db, [item.article_id for item in items])
-    for item in items:
-        if mark := marks.get(item.article_id):
-            item.read, item.starred, item.note = mark.read_at is not None, mark.starred, mark.note
+    await with_result_marks(db, items)
     pit_id = response.get("pit_id", pit_id)
     next_cursor = None
     if len(found) <= limit:
@@ -427,11 +424,13 @@ async def related_coverage(
     """Articles worded like this one, outside its story: similarity, not a stated connection."""
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        return await related_articles(db, adapter, article_id, limit)
+        found = await related_articles(db, adapter, article_id, limit)
     except ElasticsearchUnavailable as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Related coverage is unavailable"
         ) from exc
+    await with_marks(db, [item.article for item in found.items])
+    return found
 
 
 @router.get("/search/indexing/status", response_model=IndexStatus)

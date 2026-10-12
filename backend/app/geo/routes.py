@@ -11,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.geo import investigation, queries
 from app.geo.schemas import ArticleRole, GeoArticlePage, GeoCountriesResponse, MapScope, Role
+from app.marks.service import with_marks
 from app.search.criteria import SearchCriteria, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter
 
@@ -92,8 +93,12 @@ async def geo_articles(
         raise HTTPException(422, "A country is a two-letter code")
     window = recent_days(scope, criteria, days)
     if window is not None:
-        return await queries.articles(db, role, code.upper(), window, limit, cursor_or_400(cursor))
-    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
-    return await investigation.articles(
-        db, adapter, settings.secret_key, session.id, role, code.upper(), criteria, limit, cursor
-    )
+        page = await queries.articles(db, role, code.upper(), window, limit, cursor_or_400(cursor))
+    else:
+        adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+        key, owner = settings.secret_key, session.id
+        page = await investigation.articles(
+            db, adapter, key, owner, role, code.upper(), criteria, limit, cursor
+        )
+    await with_marks(db, page.items)
+    return page

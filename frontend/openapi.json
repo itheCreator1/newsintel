@@ -13101,6 +13101,16 @@
             "type": "array",
             "title": "Provenance"
           },
+          "read": {
+            "type": "boolean",
+            "title": "Read",
+            "default": false
+          },
+          "starred": {
+            "type": "boolean",
+            "title": "Starred",
+            "default": false
+          },
           "content": {
             "anyOf": [
               {
@@ -13528,6 +13538,16 @@
             },
             "type": "array",
             "title": "Provenance"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read",
+            "default": false
+          },
+          "starred": {
+            "type": "boolean",
+            "title": "Starred",
+            "default": false
           }
         },
         "type": "object",
@@ -15997,6 +16017,16 @@
             },
             "type": "array",
             "title": "Provenance"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read",
+            "default": false
+          },
+          "starred": {
+            "type": "boolean",
+            "title": "Starred",
+            "default": false
           },
           "cluster_id": {
             "type": "string",

@@ -29,7 +29,7 @@ const summary = (over = {}) => ({
     sources: [{ id: 's1', label: 'The Wire', a_articles: 3, b_articles: 2 }],
   }, ...over,
 } as unknown as CompareResponse)
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [], read: false, starred: false })
 const story = (id: string, title: string, over = {}) => ({ id, article_count: 3, source_count: 2, first_published_at: null, last_published_at: null, representative_article: article(`rep-${id}`, title), a_articles: 1, b_articles: 2, ...over })
 
 beforeEach(() => {
@@ -273,4 +273,12 @@ it('exports the part of the comparison on screen', async () => {
   fireEvent.change(await screen.findByLabelText('Show'), { target: { value: 'b' } })
   fireEvent.click(screen.getByRole('button', { name: 'Export' }))
   expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/v1/compare/export?kind=entity&a=e1&b=e2&days=30&part=b&format=csv')
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.compareArticles).mockResolvedValue({ items: [{ ...article('a1', 'Engine notes'), read: true, starred: true }], next_cursor: null })
+  renderWithQuery(() => <ComparePage />)
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read$/)).toBeTruthy()
 })

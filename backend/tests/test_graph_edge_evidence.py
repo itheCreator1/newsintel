@@ -18,6 +18,7 @@ from app.graph.service import (
     focus_query,
     parse_evidence,
 )
+from app.marks.models import ArticleMark
 from app.nlp.models import Entity
 from app.search.criteria import SearchCriteria, build_query
 from app.search.elasticsearch import ElasticsearchUnavailable
@@ -274,7 +275,7 @@ async def _evidence(
 
 @pytest.fixture
 def hydrated(monkeypatch: pytest.MonkeyPatch) -> dict[str, dict[uuid.UUID, Any]]:
-    stores: dict[str, dict[uuid.UUID, Any]] = {"articles": {}, "clusters": {}}
+    stores: dict[str, dict[uuid.UUID, Any]] = {"articles": {}, "clusters": {}, "marks": {}}
 
     async def articles(_db: object, ids: list[uuid.UUID]) -> dict[uuid.UUID, Article]:
         return {value: stores["articles"][value] for value in ids if value in stores["articles"]}
@@ -283,7 +284,12 @@ def hydrated(monkeypatch: pytest.MonkeyPatch) -> dict[str, dict[uuid.UUID, Any]]
         return {value: stores["clusters"][value] for value in ids if value in stores["clusters"]}
 
     monkeypatch.setattr("app.graph.service.articles_by_id", articles)
+
+    async def marks(_db: object, ids: list[uuid.UUID]) -> dict[uuid.UUID, ArticleMark]:
+        return {value: stores["marks"][value] for value in ids if value in stores["marks"]}
+
     monkeypatch.setattr("app.graph.service.clusters_by_id", clusters)
+    monkeypatch.setattr("app.graph.service.marks_for", marks, raising=False)
     return stores
 
 
@@ -342,6 +348,20 @@ async def test_evidence_lists_canonical_articles_and_stories(
     ((index_name, body),) = adapter.bodies
     assert index_name == "articles-v2-test"
     assert body["query"]["bool"]["filter"][0] == build_query(criteria, 2)
+
+
+@pytest.mark.asyncio
+async def test_evidence_says_which_articles_are_read_and_starred(
+    adapter: type[_Adapter], hydrated: dict[str, dict[uuid.UUID, Any]]
+) -> None:
+    starred, plain = uuid.uuid4(), uuid.uuid4()
+    hydrated["articles"] = {starred: _article(starred, "Starred"), plain: _article(plain, "Plain")}
+    hydrated["marks"] = {starred: ArticleMark(article_id=starred, starred=True, read_at=DAY)}
+    adapter.responses = [_response([_hit(starred, [2, "a"]), _hit(plain, [1, "b"])])]
+
+    result = await _evidence(_database())
+
+    assert [(item.read, item.starred) for item in result.articles] == [(True, True), (False, False)]
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,7 @@ import { countryName, plural } from '../../lib/utils'
 import { fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { LoadError, Note } from '../../components/Feedback'
 import { when } from '../../lib/datetime'
+import { ArticleRow } from '../../components/ArticleRow'
 
 // One role per map: the four location roles mean different things and are never added together.
 const ROLES: { value: GeoRole; label: string; note: string }[] = [
@@ -207,10 +208,7 @@ function MapContent() {
               {articles.isPending && <Note>Loading articles…</Note>}
               {articles.isError && <LoadError className="px-6 py-4" query={articles} message={errorCode(articles.error) === 'restart_search' ? 'The article list expired. Select the country again to start over.' : 'Could not load articles.'} />}
               {articleItems.map(article => (
-                <div key={article.id} className="flex flex-col gap-0.5 px-6 py-3">
-                  <Link className="text-[15px] font-semibold text-foreground hover:underline" href={openArticle(article.id)}>{article.title}</Link>
-                  <span className="text-xs text-muted-foreground">{when(article.published_at ?? article.first_discovered_at)}</span>
-                </div>
+                <ArticleRow key={article.id} className="px-6 py-3" article={article} href={openArticle(article.id)} />
               ))}
               {skipped > 0 && <Note>{`${skipped} matching ${skipped === 1 ? 'article is' : 'articles are'} no longer available and not listed.`}</Note>}
               {articles.hasNextPage && <div className="px-6 pb-4"><button className={ghostButtonClass} disabled={articles.isFetchingNextPage} onClick={() => articles.fetchNextPage()}>{articles.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button></div>}

@@ -2410,6 +2410,16 @@ export interface components {
             first_discovered_at: string;
             /** Provenance */
             provenance: components["schemas"]["ArticleProvenance"][];
+            /**
+             * Read
+             * @default false
+             */
+            read: boolean;
+            /**
+             * Starred
+             * @default false
+             */
+            starred: boolean;
             content: components["schemas"]["ArticleContentResponse"] | null;
             /** Processing */
             processing: components["schemas"]["ArticleJobSummary"][];
@@ -2552,6 +2562,16 @@ export interface components {
             first_discovered_at: string;
             /** Provenance */
             provenance: components["schemas"]["ArticleProvenance"][];
+            /**
+             * Read
+             * @default false
+             */
+            read: boolean;
+            /**
+             * Starred
+             * @default false
+             */
+            starred: boolean;
         };
         /** ArticleStoryCluster */
         ArticleStoryCluster: {
@@ -3464,6 +3484,16 @@ export interface components {
             first_discovered_at: string;
             /** Provenance */
             provenance: components["schemas"]["ArticleProvenance"][];
+            /**
+             * Read
+             * @default false
+             */
+            read: boolean;
+            /**
+             * Starred
+             * @default false
+             */
+            starred: boolean;
             /**
              * Cluster Id
              * Format: uuid

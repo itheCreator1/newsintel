@@ -22,7 +22,7 @@ const detail = (over = {}) => ({
   sources: [{ id: 'feed-1', name: 'Athens Daily', article_count: 4 }],
   entities: [{ id: 'ent-1', display_name: 'Barack Obama', entity_type: 'PERSON', article_count: 4 }], ...over,
 })
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [], read: false, starred: false })
 const day = (date: string, title: string) => ({ date, article_count: 3, source_count: 2, clusters_started: 1, evidence: [{ article_id: `ev-${date}`, title }] })
 const cluster = {
   id: 'c1', article_count: 3, source_count: 2, first_published_at: '2026-09-17T00:00:00Z', last_published_at: '2026-09-18T00:00:00Z',
@@ -176,4 +176,12 @@ it('searches within this event and watches it, named after its headline', async 
   expect(screen.getByLabelText('Monitor name')).toHaveProperty('value', 'Wildfire reaches Athens')
   fireEvent.click(screen.getByRole('button', { name: 'Watch event' }))
   await waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Wildfire reaches Athens', expect.objectContaining({ event_id: ['ev-1'], q: '' }), 'event'))
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.eventArticles).mockResolvedValue({ items: [{ ...member('a1', 'Fire spreads'), read: true, starred: true }], next_cursor: null })
+  renderWithQuery(() => <EventDetailPage />)
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read ·$/)).toBeTruthy()
 })

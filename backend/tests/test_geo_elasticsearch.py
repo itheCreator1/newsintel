@@ -12,7 +12,10 @@ from test_monitor_api_postgres import _client, _user
 from test_monitor_evaluation_elasticsearch import _index
 
 from app.core.config import get_settings
+from app.db.session import session_factory
 from app.geo import investigation
+from app.marks.schemas import ArticleMarkUpdate
+from app.marks.service import update_mark
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchAdapter
 
@@ -124,6 +127,19 @@ async def test_investigation_evidence_pages_through_each_role_like_the_recent_ma
                 assert len(set(full)) == len(full) == expected, (role, code)
                 for size in (1, 2):
                     assert await _walk(client, size, role=role, code=code) == full, (role, size)
+
+
+async def test_investigation_evidence_says_which_articles_are_read(world: Any) -> None:
+    params = {"scope": "investigation", "role": "story", "code": world.us, "limit": 100}
+    async with _client(await _user()) as client:
+        before = (await client.get("/api/v1/geo/articles", params=params)).json()["items"]
+        marked = before[0]["id"]
+        async with session_factory() as db, db.begin():
+            await update_mark(db, uuid.UUID(marked), ArticleMarkUpdate(read=True))
+        after = (await client.get("/api/v1/geo/articles", params=params)).json()["items"]
+    assert {item["id"]: item["read"] for item in after} == {
+        item["id"]: item["id"] == marked for item in before
+    }
 
 
 async def test_an_investigation_cursor_is_bound_and_released(world: Any) -> None:

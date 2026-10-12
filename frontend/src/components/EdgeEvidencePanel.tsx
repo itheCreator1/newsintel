@@ -8,6 +8,7 @@ import { chipClass, ghostButtonClass } from '../lib/ui-classes'
 import { cn, plural } from '../lib/utils'
 import { glassPanelClassName } from './GlassPanel'
 import { formatDate } from '../lib/datetime'
+import { ArticleRow } from './ArticleRow'
 
 type Filters = Record<string, string | string[] | undefined>
 const when = (value: string | null | undefined) => value ? formatDate(value) : '—'
@@ -67,10 +68,7 @@ export function EdgeEvidencePanel({ source, target, filters, returnHref }: { sou
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Articles</strong>
               <ul className="list-none pl-0 mt-2 flex flex-col gap-2">
                 {articles.map(article => (
-                  <li key={article.id} className="flex flex-col gap-0.5">
-                    <Link className="text-sm text-primary underline-offset-4 hover:underline" href={toHref('/articles', new URLSearchParams({ article: article.id, from: returnHref }))}>{article.title}</Link>
-                    <span className="text-xs text-muted-foreground">{when(article.published_at ?? article.first_discovered_at)}</span>
-                  </li>
+                  <ArticleRow key={article.id} as="li" compact article={article} href={toHref('/articles', new URLSearchParams({ article: article.id, from: returnHref }))} />
                 ))}
               </ul>
               {evidence.hasNextPage && <button type="button" className={cn(ghostButtonClass, 'mt-3')} disabled={evidence.isFetchingNextPage} onClick={() => evidence.fetchNextPage()}>{evidence.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button>}
