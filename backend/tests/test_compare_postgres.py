@@ -356,6 +356,20 @@ async def test_the_window_bounds_both_subjects_and_the_timeline_is_zero_filled()
     ]
 
 
+async def test_each_side_counts_the_window_before_it_for_then_and_now() -> None:
+    w = await _world()
+    body = await _get("/compare", **_entities(w))
+    # Only the 40-day-old article falls in the 30 days before the window: one source, no story.
+    for side in ("a", "b"):
+        assert body[side]["previous"] == {"articles": 1, "stories": 0, "sources": 1}
+    # With 20-day windows the window before ends 20 days ago and starts 40 days ago, after it.
+    short = await _get("/compare", **_entities(w, days=20))
+    assert short["a"]["previous"] == {"articles": 0, "stories": 0, "sources": 0}
+    sources = await _get("/compare", kind="source", a=str(w.s1), b=str(w.s2))
+    assert sources["a"]["previous"] == {"articles": 1, "stories": 0, "sources": None}
+    assert sources["b"]["previous"] == {"articles": 0, "stories": 0, "sources": None}
+
+
 async def test_empty_subjects_give_zero_counts_and_a_null_jaccard() -> None:
     async with session_factory() as db, db.begin():
         first, second = await entities(db, 2)
