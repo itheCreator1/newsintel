@@ -14,16 +14,19 @@ import { GlassPanel } from './GlassPanel'
 import { MonitorChanges } from './MonitorChanges'
 import { PageHeader } from './PageHeader'
 import { LoadError, Note } from './Feedback'
+import { ArticleRow } from './ArticleRow'
 
 const message = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
 
-// ponytail: a small row of its own instead of extracting Search's inline result card; share it when a third list needs it.
+// A search result with its sources; the shared ArticleRow gives the title, date and the reader's marks.
 function ResultRow({ result, currentHref }: { result: MonitorResult; currentHref: string }) {
   const otherSources = (result.story_cluster?.source_count ?? 0) - result.distinct_source_count
   return (
     <article className="border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
-      <Link className="text-[15px] font-semibold text-foreground hover:underline" href={toHref('/articles', new URLSearchParams({ article: result.article_id, from: currentHref }))}>{result.title}</Link>
-      <p className="text-xs text-muted-foreground">{when(result.effective_date)} · {plural(result.distinct_source_count, 'source')}</p>
+      <ArticleRow article={{ ...result, published_at: result.effective_date }} href={toHref('/articles', new URLSearchParams({ article: result.article_id, from: currentHref }))}>
+        {` · ${plural(result.distinct_source_count, 'source')}`}
+      </ArticleRow>
+      {result.note && <p className="mt-1 border-l-2 border-primary pl-2 text-sm text-foreground"><span className="sr-only">Your note: </span>{result.note}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
         {result.source_refs.map(source => <Link key={source.id} className={chipClass} href={sourceHref(source.id, currentHref)}>{source.name}</Link>)}
         {result.story_cluster && otherSources > 0 && <Link className={chipClass} href={clusterHref(result.story_cluster.id, currentHref)}>Also reported by {plural(otherSources, 'other source')}</Link>}

@@ -16,6 +16,7 @@ import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromStat
 import { LoadError, Note } from '../../../components/Feedback'
 import { countryLabel, languageLabel } from '../../../lib/countries'
 import { when } from '../../../lib/datetime'
+import { ArticleRow } from '../../../components/ArticleRow'
 
 const WINDOWS = [7, 30, 90]
 const DAY_MS = 86_400_000
@@ -181,10 +182,7 @@ function SourceContent() {
             {articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
             {articles.data && !articleItems.length && <Note>No articles yet.</Note>}
             {articleItems.map(article => (
-              <div key={article.id} className="flex flex-col gap-0.5 border-border px-6 py-3">
-                <Link className="text-[15px] font-semibold text-foreground hover:underline" href={openArticle(article.id)}>{article.title}</Link>
-                <span className="text-xs text-muted-foreground">{when(article.published_at ?? article.first_discovered_at)}</span>
-              </div>
+              <ArticleRow key={article.id} className="border-border px-6 py-3" article={article} href={openArticle(article.id)} />
             ))}
             {articles.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={articles.isFetchingNextPage} onClick={() => articles.fetchNextPage()}>{articles.isFetchingNextPage ? 'Loading…' : 'Load more articles'}</button></div>}
           </GlassPanel>

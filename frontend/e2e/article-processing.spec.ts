@@ -52,6 +52,12 @@ test('failure and retry workflow', async ({ page }) => {
   await expect(rows.filter({ hasText: 'Fixture story' })).toHaveCount(1)
   await page.getByRole('button', { name: 'Clear filters' }).click()
   await expect(rows.filter({ hasText: 'Recoverable fixture story' })).not.toHaveCount(0)
+  // The source's dossier lists the same article with its star and read state.
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Sources/ }).click()
+  await page.getByRole('link', { name: 'Dossier for Browser fixture' }).first().click()
+  const starredRow = page.locator('div').filter({ has: page.getByRole('link', { name: 'Fixture story', exact: true }) }).filter({ has: page.getByRole('img', { name: 'Starred' }) }).last()
+  await expect(starredRow).toBeVisible({ timeout: 30_000 })
+  await expect(starredRow).toContainText('· Read')
 
   await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Processes/ }).click()
   const failed = page.getByRole('list', { name: 'Activity' }).getByRole('listitem').filter({ hasText: 'Recoverable fixture story' })
