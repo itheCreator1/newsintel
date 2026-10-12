@@ -51,6 +51,14 @@ class Monitor(Base):
         CheckConstraint("state_version > 0", name="ck_monitors_state_version"),
         CheckConstraint("unseen_article_count >= 0", name="ck_monitors_unseen_articles"),
         CheckConstraint("unseen_cluster_count >= 0", name="ck_monitors_unseen_clusters"),
+        CheckConstraint(
+            "pending_notification_articles >= 0", name="ck_monitors_pending_notifications"
+        ),
+        Index(
+            "ix_monitors_pending_notifications",
+            "id",
+            postgresql_where=text("pending_notification_articles > 0"),
+        ),
         Index(
             "uq_monitors_saved_search",
             "saved_search_id",
@@ -82,6 +90,13 @@ class Monitor(Base):
     )
     unseen_article_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     unseen_cluster_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Push news from this monitor (when notifications are set up), how many articles are still to
+    # be announced, and the evaluation boundary up to which new articles have been counted for it.
+    notify: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    pending_notification_articles: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )
+    notified_through: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Evaluation lease and outcome, shaped like the article/NLP/cluster job rows.
     next_evaluation_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

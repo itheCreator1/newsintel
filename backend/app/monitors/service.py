@@ -100,6 +100,7 @@ def monitor_response(item: Monitor) -> MonitorResponse:
         name=item.name,
         kind=cast(MonitorKind, item.kind),
         enabled=item.enabled,
+        notify=item.notify,
         state_version=item.state_version,
         state=state,
         problem=problem,
@@ -199,6 +200,10 @@ async def update_monitor(db: AsyncSession, item: Monitor, payload: MonitorUpdate
                 .where(SavedSearch.id == item.saved_search_id)
                 .values(name=payload.name)
             )
+    if payload.notify is not None:
+        item.notify = payload.notify
+        if not payload.notify:
+            item.pending_notification_articles = 0
     if payload.enabled is not None:
         if payload.enabled and not item.enabled:
             item.next_evaluation_at = datetime.now(UTC)
@@ -231,6 +236,8 @@ async def mark_viewed(db: AsyncSession, item: Monitor, through: datetime) -> Mon
         item.next_evaluation_at = datetime.now(UTC)
     item.viewed_cursor_at = through
     item.unseen_article_count = item.unseen_cluster_count = 0
+    # Seen in the app, so there is nothing left to announce.
+    item.pending_notification_articles = 0
     # An evaluation still running was counted against the old boundary; it must not publish.
     item.claim_token = item.claim_expires_at = None
     return await _commit(db, item)

@@ -63,6 +63,7 @@ export function MonitorDetail({ id }: { id: string }) {
   const store = (updated: Monitor) => { client.setQueryData(monitorKeys.detail(id), updated); client.invalidateQueries({ queryKey: ['monitors', 'list'] }) }
   const rename = useMutation({ mutationFn: (name: string) => api.updateMonitor(id, { name }), onSuccess: updated => { setRenaming(false); store(updated) } })
   const toggle = useMutation({ mutationFn: (enabled: boolean) => api.updateMonitor(id, { enabled }), onSuccess: store })
+  const notify = useMutation({ mutationFn: (on: boolean) => api.updateMonitor(id, { notify: on }), onSuccess: store })
   const markSeen = useMutation({ mutationFn: (through: string) => api.markMonitorViewed(id, through), onSuccess: store, onError: () => client.invalidateQueries({ queryKey: monitorKeys.detail(id) }) })
   const remove = useMutation({ mutationFn: () => api.deleteMonitor(id), onSuccess: () => { client.invalidateQueries({ queryKey: ['monitors', 'list'] }); router.push('/investigations/') } })
 
@@ -99,10 +100,11 @@ export function MonitorDetail({ id }: { id: string }) {
               {item.state && <Link className={chipClass} href={toHref('/search', queryFromState(fromSaved(item.state)))}>Open in search</Link>}
               {item.state && <Link className={chipClass} href={toHref('/search', new URLSearchParams([...queryFromState(fromSaved(item.state)), ['monitor', id]]))}>Edit criteria</Link>}
               {item.state && <button type="button" className={ghostButtonClass} disabled={toggle.isPending} onClick={() => toggle.mutate(!item.enabled)}>{item.enabled ? 'Pause monitor' : 'Resume monitor'}</button>}
+              <button type="button" aria-pressed={item.notify} title="Push news from this monitor when notifications are set up in Settings" className={cn(ghostButtonClass, item.notify && 'border-ring text-foreground')} disabled={notify.isPending} onClick={() => notify.mutate(!item.notify)}>Notify me</button>
               {!renaming && <button type="button" className={ghostButtonClass} onClick={() => { rename.reset(); setNewName(item.name); setRenaming(true) }}>Rename monitor</button>}
               <button type="button" className={cn(ghostButtonClass, 'border-destructive/30 text-destructive hover:border-destructive hover:text-destructive')} disabled={remove.isPending} onClick={() => { if (window.confirm(`Delete the monitor “${item.name}”?`)) remove.mutate() }}>Delete monitor</button>
             </div>
-            {(toggle.isError || remove.isError) && <p role="alert" className="error text-sm text-destructive">{message(toggle.error ?? remove.error, 'Could not change this monitor.')}</p>}
+            {(toggle.isError || notify.isError || remove.isError) && <p role="alert" className="error text-sm text-destructive">{message(toggle.error ?? notify.error ?? remove.error, 'Could not change this monitor.')}</p>}
           </>
         )}
       </GlassPanel>

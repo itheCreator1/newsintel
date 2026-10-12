@@ -96,6 +96,8 @@
 "test_nlp_jobs_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_nlp_ner_model.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false, note = "Independently gated by its own NEWSINTEL_RUN_NER_TESTS var (pinned-version file read, no spaCy import); safe to run in quick." }
 "test_nlp_processors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_notifications.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_notifications_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_operations_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_operations_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Mentions Elasticsearch only to assert graceful degradation when ES is unreachable (asserts probe state is down when the ES url ends in \":1\"); does not require a live cluster." }
 "test_processes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }

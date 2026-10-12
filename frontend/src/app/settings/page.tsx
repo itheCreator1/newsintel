@@ -9,6 +9,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { fieldClass, ghostButtonClass, primaryButtonClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 import { LoadError } from '../../components/Feedback'
+import { NotificationSettingsPanel } from '../../components/NotificationSettingsPanel'
 
 type StopWordLanguage = 'en' | 'el'
 const STOP_WORD_LANGUAGES: [StopWordLanguage, string][] = [['en', 'English'], ['el', 'Greek']]
@@ -105,6 +106,7 @@ export default function SettingsPage() {
         {toggleGreek.isSuccess && !toggleGreek.data.enabled && <p className="text-sm text-primary">Greek entities are off.</p>}
         {toggleGreek.isError && <p className="error text-sm text-destructive">Could not change the setting. {toggleGreek.error.message}</p>}
       </GlassPanel>
+      <NotificationSettingsPanel />
       <GlassPanel className="flex max-w-2xl flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">Stop words</h3>
         <p className="text-sm text-muted-foreground">Words left out of keywords and story titles, one list per language. Changes affect new processing immediately. Existing annotations require reprocessing before they reflect this revision.</p>

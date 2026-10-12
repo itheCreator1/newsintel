@@ -408,6 +408,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Notification Settings */
+        get: operations["get_notification_settings_api_v1_notifications_settings_get"];
+        /**
+         * Put Notification Settings
+         * @description Replace the settings; the token is kept when left out and removed when empty.
+         */
+        put: operations["put_notification_settings_api_v1_notifications_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test Notification
+         * @description Send one message now with the saved settings, whether or not they are switched on.
+         */
+        post: operations["send_test_notification_api_v1_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/articles/{article_id}/annotations": {
         parameters: {
             query?: never;
@@ -4426,6 +4467,11 @@ export interface components {
             kind: "search" | "entity" | "source" | "country" | "cluster";
             /** Enabled */
             enabled: boolean;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
             /** State Version */
             state_version: number;
             state: components["schemas"]["InvestigationState"] | null;
@@ -4482,6 +4528,8 @@ export interface components {
             name?: string | null;
             /** Enabled */
             enabled?: boolean | null;
+            /** Notify */
+            notify?: boolean | null;
             /** Kind */
             kind?: ("search" | "entity" | "source" | "country" | "cluster") | null;
             state?: components["schemas"]["InvestigationState"] | null;
@@ -4562,6 +4610,70 @@ export interface components {
             reprocessing: {
                 [key: string]: unknown;
             }[];
+        };
+        /** NotificationSettingsResponse */
+        NotificationSettingsResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Server */
+            server: string | null;
+            /** Topic */
+            topic: string | null;
+            /** Has Token */
+            has_token: boolean;
+            /** Public Url */
+            public_url: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Quiet Start */
+            quiet_start: string | null;
+            /** Quiet End */
+            quiet_end: string | null;
+            /** Digest Enabled */
+            digest_enabled: boolean;
+            /** Digest Hour */
+            digest_hour: number;
+            /** Last Sent At */
+            last_sent_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Last Error At */
+            last_error_at: string | null;
+        };
+        /** NotificationSettingsUpdate */
+        NotificationSettingsUpdate: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Server */
+            server?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Token */
+            token?: string | null;
+            /** Public Url */
+            public_url?: string | null;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string;
+            /** Quiet Start */
+            quiet_start?: string | null;
+            /** Quiet End */
+            quiet_end?: string | null;
+            /**
+             * Digest Enabled
+             * @default false
+             */
+            digest_enabled: boolean;
+            /**
+             * Digest Hour
+             * @default 8
+             */
+            digest_hour: number;
         };
         /** OccurrenceResponse */
         OccurrenceResponse: {
@@ -6812,6 +6924,90 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ArticleMarkResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_notification_settings_api_v1_notifications_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+        };
+    };
+    put_notification_settings_api_v1_notifications_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_test_notification_api_v1_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

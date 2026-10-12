@@ -31,6 +31,7 @@ def _stored(
         state_version=version,
         state=state,
         enabled=True,
+        notify=True,
         unseen_article_count=0,
         unseen_cluster_count=0,
         next_evaluation_at=now,

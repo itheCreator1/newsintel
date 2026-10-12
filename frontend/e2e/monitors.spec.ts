@@ -26,6 +26,17 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   test.setTimeout(240_000)
   await login(page)
 
+  // Notifications go to the fixture server's stand-in ntfy; the test message proves the address works.
+  await page.goto('/settings')
+  const notifications = page.getByRole('region', { name: 'Notifications' })
+  await notifications.getByLabel('Send notifications').check()
+  await notifications.getByLabel('ntfy server').fill('http://fixture/ntfy')
+  await notifications.getByLabel('Topic').fill('e2e-monitors')
+  await notifications.getByRole('button', { name: 'Save notifications' }).click()
+  await expect(notifications.getByText('Notifications saved.')).toBeVisible()
+  await notifications.getByRole('button', { name: 'Send test message' }).click()
+  await expect(notifications.getByText('Test message sent. Check your device.')).toBeVisible()
+
   // Watch before anything is collected: the first evaluation baselines, so only later articles count as new.
   await page.goto('/search?q=Harbor')
   await page.getByRole('button', { name: 'Watch', exact: true }).click()
@@ -37,6 +48,9 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Harbor Wire', url: 'http://fixture/investigations-wire.xml', source_country: 'GR' } })
   await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Harbor Daily', url: 'http://fixture/investigations-daily.xml', source_country: 'US' } })
   await expect.poll(async () => (await monitors(page))[0]?.unseen_article_count, { timeout: 150_000, intervals: [2_000] }).toBe(6)
+
+  // The six new articles were pushed as well.
+  await expect.poll(async () => (await apiJson<{ last_sent_at: string | null }>(page, '/notifications/settings')).last_sent_at, { timeout: 60_000, intervals: [2_000] }).not.toBeNull()
 
   await page.goto('/investigations')
   const nav = page.getByRole('navigation', { name: 'Main navigation' })
@@ -64,6 +78,8 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await expect(page).toHaveURL(/scope=recent/)
   await expect(page.locator('main article')).toHaveCount(6)
 
+  await page.getByRole('button', { name: 'Notify me' }).click()
+  await expect(page.getByRole('button', { name: 'Notify me' })).toHaveAttribute('aria-pressed', 'false')
   await page.getByRole('button', { name: 'Pause monitor' }).click()
   await expect(page.getByText('Paused', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Resume monitor' }).click()

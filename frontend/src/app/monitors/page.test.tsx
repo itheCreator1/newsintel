@@ -233,3 +233,15 @@ it('reports a failed load and refetches once the counters move', async () => {
 
   expect(await screen.findByText('No changes since you last looked.')).toBeTruthy()
 })
+
+it('mutes and unmutes this monitor\'s notifications', async () => {
+  arrange()
+  vi.mocked(api.updateMonitor).mockResolvedValue(monitor({ id: 'm1', notify: false }))
+  renderWithQuery(() => <MonitorsPage />)
+
+  const notify = await screen.findByRole('button', { name: 'Notify me' })
+  expect(notify).toHaveAttribute('aria-pressed', 'true')
+  await fireEvent.click(notify)
+  await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenCalledWith('m1', { notify: false }))
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Notify me' })).toHaveAttribute('aria-pressed', 'false'))
+})

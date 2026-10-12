@@ -28,6 +28,7 @@ from app.nlp.models import NlpJob
 from app.nlp.reprocessing import scan_active_reprocessing
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import job_due as nlp_job_due
+from app.notifications.service import schedule_notifications
 from app.operations import heartbeat, retention
 from app.search.models import SearchDelivery, SourceSearchRefresh
 from app.search.service import (
@@ -306,6 +307,7 @@ async def run_scheduler(interval_seconds: float = 10) -> None:
             schedule_due_clustering,
             schedule_due_search,
             schedule_due_monitors,
+            schedule_notifications,
             schedule_due_events,
             schedule_source_refreshes,
             schedule_wikidata,

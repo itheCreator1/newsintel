@@ -306,3 +306,22 @@ it('lists investigations in an order and watches a saved search in place', async
     ['/api/v1/auth/csrf', 'GET'], ['/api/v1/saved-searches/saved-one/watch', 'POST'],
   ])
 })
+
+it('reads and saves notification settings and sends a test message', async () => {
+  const csrf = () => new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 })
+  const fetchMock = vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response(null, { status: 204 }))
+  const payload = { enabled: true, server: 'https://ntfy.sh', topic: 'news', public_url: null, timezone: 'UTC', quiet_start: null, quiet_end: null, digest_enabled: false, digest_hour: 8 }
+
+  await api.notificationSettings()
+  await api.updateNotificationSettings(payload)
+  await api.testNotification()
+
+  expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method ?? 'GET', init?.body])).toEqual([
+    ['/api/v1/notifications/settings', 'GET', undefined],
+    ['/api/v1/auth/csrf', 'GET', undefined], ['/api/v1/notifications/settings', 'PUT', JSON.stringify(payload)],
+    ['/api/v1/auth/csrf', 'GET', undefined], ['/api/v1/notifications/test', 'POST', undefined],
+  ])
+})
