@@ -16,6 +16,7 @@ from app.feeds.schemas import (
     ArticleStoryCluster,
     RelatedArticle,
 )
+from app.marks.schemas import ArticleMarkResponse
 
 
 def encode_cursor(created: datetime, item_id: uuid.UUID) -> str:
@@ -125,6 +126,7 @@ def article_detail_response(
     clustering_status: str | None = None,
     story_cluster: ArticleStoryCluster | None = None,
     related: list[RelatedArticle] | None = None,
+    mark: ArticleMarkResponse | None = None,
 ) -> ArticleDetailResponse:
     basic = article_response(article)
     content = article.content
@@ -154,4 +156,5 @@ def article_detail_response(
         clustering_status=clustering_status,
         story_cluster=story_cluster,
         related=related or [],
+        mark=mark,
     )

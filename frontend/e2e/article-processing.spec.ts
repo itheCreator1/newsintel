@@ -35,6 +35,16 @@ test('failure and retry workflow', async ({ page }) => {
   await page.getByText('Fixture story', { exact: true }).first().click()
   await expect(page.getByText(/first readable fixture article/)).toBeVisible({ timeout: 45_000 })
   await expect(page.getByText(/HTML retained/)).toBeVisible()
+  // Opening it marked it read; a star and a note are kept across a reload.
+  await expect(page.getByRole('button', { name: 'Mark as unread' })).toBeVisible()
+  await page.getByRole('button', { name: 'Star', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Star', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByLabel('Note').fill('Fixture note')
+  await page.getByRole('button', { name: 'Save note' }).click()
+  await expect(page.getByText('Note saved.')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Star', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 })
+  await expect(page.getByLabel('Note')).toHaveValue('Fixture note')
 
   await page.getByRole('link', { name: 'Processes' }).click()
   const failed = page.getByRole('list', { name: 'Activity' }).getByRole('listitem').filter({ hasText: 'Recoverable fixture story' })

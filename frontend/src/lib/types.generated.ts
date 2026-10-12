@@ -387,6 +387,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/articles/{article_id}/mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mark */
+        get: operations["get_mark_api_v1_articles__article_id__mark_get"];
+        /** Put Mark */
+        put: operations["put_mark_api_v1_articles__article_id__mark_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/articles/{article_id}/annotations": {
         parameters: {
             query?: never;
@@ -2242,6 +2260,7 @@ export interface components {
             story_cluster?: components["schemas"]["ArticleStoryCluster"] | null;
             /** Related */
             related?: components["schemas"]["RelatedArticle"][];
+            mark?: components["schemas"]["ArticleMarkResponse"] | null;
         };
         /** ArticleJobSummary */
         ArticleJobSummary: {
@@ -2268,10 +2287,65 @@ export interface components {
             /** Completed At */
             completed_at: string | null;
         };
+        /** ArticleListItem */
+        ArticleListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Original Url */
+            original_url: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Title */
+            title: string;
+            /** Published At */
+            published_at: string | null;
+            /**
+             * First Discovered At
+             * Format: date-time
+             */
+            first_discovered_at: string;
+            /** Provenance */
+            provenance: components["schemas"]["ArticleProvenance"][];
+            /** Read */
+            read: boolean;
+            /** Starred */
+            starred: boolean;
+        };
+        /** ArticleMarkResponse */
+        ArticleMarkResponse: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Read */
+            read: boolean;
+            /** Read At */
+            read_at: string | null;
+            /** Starred */
+            starred: boolean;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * ArticleMarkUpdate
+         * @description Only the fields sent change. An empty note clears it.
+         */
+        ArticleMarkUpdate: {
+            /** Read */
+            read?: boolean | null;
+            /** Starred */
+            starred?: boolean | null;
+            /** Note */
+            note?: string | null;
+        };
         /** ArticlePage */
         ArticlePage: {
             /** Items */
-            items: components["schemas"]["ArticleResponse"][];
+            items: components["schemas"]["ArticleListItem"][];
             /** Next Cursor */
             next_cursor: string | null;
         };
@@ -6589,6 +6663,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mark_api_v1_articles__article_id__mark_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMarkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_mark_api_v1_articles__article_id__mark_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleMarkUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMarkResponse"];
                 };
             };
             /** @description Validation Error */
