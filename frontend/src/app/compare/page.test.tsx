@@ -249,3 +249,11 @@ it('never ranks the subjects or names a winner', async () => {
 
   expect(document.body.textContent).not.toMatch(/\b(winner|wins|best|score|ranking|leads?|ahead)\b/i)
 })
+
+it('exports the part of the comparison on screen', async () => {
+  renderWithQuery(() => <ComparePage />)
+
+  fireEvent.change(await screen.findByLabelText('Show'), { target: { value: 'b' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+  expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/v1/compare/export?kind=entity&a=e1&b=e2&days=30&part=b&format=csv')
+})

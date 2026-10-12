@@ -159,3 +159,10 @@ it('keeps the algorithm version and record times in a closed Details section', a
   const line = await screen.findByText(/^Algorithm rule-1/)
   expect(line.closest('details')?.open).toBe(false)
 })
+
+it('exports the event\'s articles', async () => {
+  renderWithQuery(() => <EventDetailPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Export' }))
+  expect(screen.getByRole('link', { name: 'JSON' })).toHaveAttribute('href', '/api/v1/events/ev-1/export?format=json')
+})

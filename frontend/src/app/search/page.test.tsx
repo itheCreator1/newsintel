@@ -569,3 +569,15 @@ it('shows a result\'s main entities and filters by one', async () => {
   // The applied chip is named from the result, even when the entity picker has not loaded it.
   expect(await within(screen.getByRole('region', { name: 'Applied filters' })).findByRole('button', { name: 'Remove Entity: Ministry of Health' })).toBeTruthy()
 })
+
+it('exports the search on screen as CSV or JSON', async () => {
+  renderSearch('q=grid&country=GR&sort=newest')
+  await screen.findByText('Safe <script> title')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Export' }))
+  const dialog = screen.getByRole('dialog', { name: 'Export articles' })
+  expect(within(dialog).getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/v1/search/export?q=grid&source_country=GR&sort=newest&format=csv')
+  expect(within(dialog).getByRole('link', { name: 'JSON' })).toHaveAttribute('href', '/api/v1/search/export?q=grid&source_country=GR&sort=newest&format=json')
+  expect(within(dialog).getByRole('link', { name: 'CSV' })).toHaveAttribute('download')
+  expect(within(dialog).getByText('Up to 5,000 articles, in this order.')).toBeTruthy()
+})
