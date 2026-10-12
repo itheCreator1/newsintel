@@ -14,7 +14,7 @@ interface Step { done: boolean; title: string; detail: ReactNode; action?: React
 
 const command = (text: string) => <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">{text}</code>
 
-/** First-run checklist for Overview: hidden until every check has answered, and gone once the archive has sources, articles and an index. */
+/** First-run checklist for Today: hidden until every check has answered, and gone once the archive has sources, articles and an index. */
 export function GettingStarted() {
   const poll = (done: boolean | undefined) => (done ? false : POLL_MS)
   const feeds = useQuery({ queryKey: ['getting-started', 'feeds'], queryFn: () => api.feeds(), refetchInterval: query => poll(Boolean(query.state.data?.items.length)) })
@@ -22,7 +22,7 @@ export function GettingStarted() {
   const index = useQuery({ queryKey: ['indexing-status'], queryFn: api.indexingStatus, retry: false, refetchInterval: query => poll(query.state.data?.index_ready) })
   if (feeds.isPending || articles.isPending || index.isPending) return null
 
-  // A check that failed is left out rather than shown as undone: Overview's own panels report outages.
+  // A check that failed is left out rather than shown as undone: Today's own panels and health line report outages.
   const steps: Step[] = []
   if (feeds.isSuccess) steps.push({
     done: feeds.data.items.length > 0, title: 'Add a source',

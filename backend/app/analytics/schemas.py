@@ -32,3 +32,16 @@ class TopCountry(BaseModel):
 
 class TopCountriesResponse(BaseModel):
     countries: list[TopCountry]
+
+
+class RisingEntity(BaseModel):
+    entity_id: uuid.UUID
+    display_text: str
+    entity_type: str
+    # Articles naming it in the last 24 hours, and per day over the 7 days before.
+    today: int
+    daily_average: float
+
+
+class RisingEntitiesResponse(BaseModel):
+    entities: list[RisingEntity]

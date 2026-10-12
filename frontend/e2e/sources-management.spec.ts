@@ -6,7 +6,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase17a')
   await page.getByLabel('Password').fill('phase17a-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 const OPML = `<?xml version="1.0" encoding="UTF-8"?>

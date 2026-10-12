@@ -57,7 +57,7 @@ describe('application shell', () => {
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
     const groups = ['Explore', 'Archive', 'System'].map(name => within(nav).getByText(name).parentElement!)
     expect(groups.map(group => within(group).getAllByRole('link').map(link => link.textContent))).toEqual([
-      ['Overview', 'Search', 'Investigations', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Processes', 'Settings'],
+      ['Today', 'Search', 'Investigations', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Processes', 'Settings'],
     ])
     expect(within(nav).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page').map(link => link.textContent)).toEqual(['Search'])
   })
@@ -93,7 +93,7 @@ describe('application shell', () => {
     expect(document.activeElement).toBe(menu)
 
     fireEvent.click(menu)
-    fireEvent.click(within(panel).getByRole('link', { name: 'Overview' }))
+    fireEvent.click(within(panel).getByRole('link', { name: 'Today' }))
     expect(menu).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(menu)

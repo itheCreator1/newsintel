@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase13a')
   await page.getByLabel('Password').fill('phase13a-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 // Runs after `relationships seed`: "Relationships Wire" published both shared stories a day before "Relationships Daily".

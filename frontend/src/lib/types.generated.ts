@@ -2140,6 +2140,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/rising-entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rising Entities
+         * @description Names in many more articles over the last 24 hours than on an average day of the 7 before.
+         */
+        get: operations["rising_entities_api_v1_analytics_rising_entities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5039,6 +5059,27 @@ export interface components {
              * @constant
              */
             status: "queued";
+        };
+        /** RisingEntitiesResponse */
+        RisingEntitiesResponse: {
+            /** Entities */
+            entities: components["schemas"]["RisingEntity"][];
+        };
+        /** RisingEntity */
+        RisingEntity: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Display Text */
+            display_text: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Today */
+            today: number;
+            /** Daily Average */
+            daily_average: number;
         };
         /** RunError */
         RunError: {
@@ -10667,6 +10708,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopCountriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rising_entities_api_v1_analytics_rising_entities_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RisingEntitiesResponse"];
                 };
             };
             /** @description Validation Error */

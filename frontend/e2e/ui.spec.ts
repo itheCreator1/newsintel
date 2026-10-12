@@ -73,10 +73,17 @@ test('ui polish workflow', async ({ page }) => {
     }
   }
 
-  // Reduced motion stills the status ping.
+  // Reduced motion stills any looping animation (Today no longer shows a status ping, so probe with one).
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
-  expect(await page.locator('.animate-ping').evaluate(node => getComputedStyle(node).animationIterationCount)).toBe('1')
+  expect(await page.evaluate(() => {
+    const probe = document.createElement('span')
+    probe.style.animation = 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite'
+    document.body.append(probe)
+    const count = getComputedStyle(probe).animationIterationCount
+    probe.remove()
+    return count
+  })).toBe('1')
 
   // Wide screens: the sidebar shows every group, marks the current page, and the skip link reaches main.
   await page.goto('/graph/')

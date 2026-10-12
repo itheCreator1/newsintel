@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analytics.schemas import (
     IngestionTimelineBucket,
     IngestionTimelineResponse,
+    RisingEntitiesResponse,
+    RisingEntity,
     TopCountriesResponse,
     TopCountry,
     TopEntitiesResponse,
@@ -43,6 +45,11 @@ Scope = Literal["recent", "investigation"]
 # place, as the SQL join did. ponytail: more than TOP_N misses in one ranking still comes back
 # short, fetch more candidates or reindex if merges ever outpace indexing.
 ENTITY_CANDIDATES = TOP_N * 2
+# Rising: at least this many articles in the last day, and at least twice the usual day.
+RISING_DAYS = 7
+RISING_MINIMUM = 3
+RISING_FACTOR = 2
+RISING_CANDIDATES = TOP_N * 5
 
 
 def _since(scope: Scope) -> datetime | None:
@@ -177,4 +184,69 @@ async def top_countries(
     ranked = read_terms(aggregations.get("countries", {}), nested=False).buckets
     return TopCountriesResponse(
         countries=[TopCountry(country_code=value, count=count) for value, count in ranked]
+    )
+
+
+@router.get("/analytics/rising-entities", response_model=RisingEntitiesResponse)
+async def rising_entities(
+    db: Db, _auth: Auth, settings: Config, criteria: Criteria
+) -> RisingEntitiesResponse:
+    """Names in many more articles over the last 24 hours than on an average day of the 7 before."""
+    now = datetime.now(UTC)
+    day_ago = now - timedelta(days=1)
+    # The busiest names of the last day, each with its articles over the whole 8 days.
+    top = {
+        "terms": {
+            "field": "entities.id",
+            "size": RISING_CANDIDATES,
+            "order": [{"back>today": "desc"}, {"_key": "asc"}],
+        },
+        "aggs": {
+            "back": {
+                "reverse_nested": {},
+                "aggs": {
+                    "today": {
+                        "filter": {"range": {"first_discovered_at": {"gte": day_ago.isoformat()}}}
+                    }
+                },
+            }
+        },
+    }
+    aggregations = await _aggregate(
+        db,
+        settings,
+        criteria,
+        {"entities": {"nested": {"path": "entities"}, "aggs": {"top": top}}},
+        minimum=2,
+        since=day_ago - timedelta(days=RISING_DAYS),
+    )
+    counts: list[tuple[str, int, float]] = []
+    for bucket in aggregations.get("entities", {}).get("top", {}).get("buckets", []):
+        today = int(bucket["back"]["today"]["doc_count"])
+        average = (int(bucket["back"]["doc_count"]) - today) / RISING_DAYS
+        if today >= RISING_MINIMUM and today >= RISING_FACTOR * average:
+            counts.append((str(bucket["key"]), today, average))
+    rows = (
+        await db.execute(
+            select(Entity.id, Entity.display_text, Entity.kind.label("entity_type")).where(
+                Entity.id.in_([uuid.UUID(value) for value, _today, _average in counts]),
+                Entity.hidden.is_(False),
+            )
+        )
+    ).all()
+    catalogue = {str(row.id): row for row in rows}
+    # Smoothed so a name new today ranks by its count rather than dividing by zero.
+    counts.sort(key=lambda item: (-item[1] / (item[2] + 1), -item[1], item[0]))
+    return RisingEntitiesResponse(
+        entities=[
+            RisingEntity(
+                entity_id=row.id,
+                display_text=row.display_text,
+                entity_type=row.entity_type,
+                today=today,
+                daily_average=round(average, 1),
+            )
+            for value, today, average in counts
+            if (row := catalogue.get(value)) is not None
+        ][:TOP_N]
     )

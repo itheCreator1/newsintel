@@ -143,3 +143,39 @@ async def test_investigation_scope_drops_the_discovery_cutoff_and_keeps_the_crit
         # Recent scope applies the same criteria on top of its discovery cutoff.
         recent = await _get(client, "top-countries", after=week)
         assert _pairs(recent["countries"], "country_code") == [("GR", 1), ("US", 1)]
+
+
+async def test_rising_entities_rank_names_busier_today_than_on_their_usual_day(
+    index_name: str,
+) -> None:
+    now = datetime.now(UTC)
+    async with session_factory() as db, db.begin():
+        wire = await _feed(db, "Rising Wire")
+        surge = await _entity(db, f"Surge {uuid.uuid4().hex[:6]}", "ORG")
+        steady = await _entity(db, f"Steady {uuid.uuid4().hex[:6]}", "ORG")
+        # (hours ago, entities): surge has 4 today and 1 the week before; steady 3 a day.
+        rows = [(hours, [surge]) for hours in (1, 2, 3, 4, 50)] + [
+            (hours, [steady])
+            for day in range(8)
+            for hours in (day * 24 + 2, day * 24 + 5, day * 24 + 9)
+        ]
+        ids = []
+        for hours, entities in rows:
+            article = await _article(
+                db,
+                feeds=[wire],
+                title=f"Rising {uuid.uuid4().hex}",
+                title_hash=uuid.uuid4().hex,
+                discovered=now - timedelta(hours=hours),
+            )
+            await annotate(db, article.id, entities, "GR")
+            ids.append(article.id)
+        await db.flush()
+    await _index(index_name, ids)
+
+    async with _client(await _user()) as client:
+        body = await _get(client, "rising-entities")
+
+    rising = [(item["display_text"], item["today"]) for item in body["entities"]]
+    assert rising == [(surge.display_text, 4)]
+    assert body["entities"][0]["daily_average"] == round(1 / 7, 1)

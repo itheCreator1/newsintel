@@ -325,3 +325,11 @@ it('reads and saves notification settings and sends a test message', async () =>
     ['/api/v1/auth/csrf', 'GET', undefined], ['/api/v1/notifications/test', 'POST', undefined],
   ])
 })
+
+it('requests the names rising today', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200 }))
+
+  await api.risingEntities()
+
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/analytics/rising-entities')
+})
