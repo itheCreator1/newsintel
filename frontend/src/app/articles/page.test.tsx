@@ -16,6 +16,7 @@ vi.mock('../../lib/api', async importOriginal => ({
     relatedArticles: vi.fn(),
     processArticle: vi.fn(),
     reprocessArticle: vi.fn(),
+    updateMark: vi.fn(),
     seeAlso: vi.fn(),
     addRelation: vi.fn(),
   },
@@ -450,4 +451,78 @@ it('says outside Details when annotation processing failed', async () => {
 
   const notice = await screen.findByText('Some annotation processing failed. Open Details below to see which.')
   expect(notice.closest('details')).toBeNull()
+})
+
+const mark = (over = {}) => ({ article_id: 'one', read: false, read_at: null, starred: false, note: null, ...over })
+function openOne(over = {}) {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [{ ...article('one', 'First article'), read: false, starred: false }], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [], mark: mark(over) })
+  vi.mocked(api.updateMark).mockImplementation(async (_id, change) => mark({ ...over, ...change }))
+  return renderWithQuery(() => <ArticlesPage />)
+}
+
+it('marks an unread article read once when it is opened, and can mark it unread again', async () => {
+  openOne()
+  await vi.waitFor(() => expect(api.updateMark).toHaveBeenCalledWith('one', { read: true }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Mark as unread' }))
+  await vi.waitFor(() => expect(api.updateMark).toHaveBeenLastCalledWith('one', { read: false }))
+  expect(api.updateMark).toHaveBeenCalledTimes(2)
+  cleanup()
+
+  vi.mocked(api.updateMark).mockClear()
+  openOne({ read: true, read_at: '2026-09-13T12:00:00Z' })
+  await screen.findByRole('button', { name: 'Mark as unread' })
+  expect(api.updateMark).not.toHaveBeenCalled()
+})
+
+it('stars an article from the button or with s, and opens the original with o', async () => {
+  const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  openOne({ read: true })
+  const star = await screen.findByRole('button', { name: 'Star' })
+  expect(star).toHaveAttribute('aria-pressed', 'false')
+  fireEvent.click(star)
+  await vi.waitFor(() => expect(api.updateMark).toHaveBeenLastCalledWith('one', { starred: true }))
+  await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Star' })).toHaveAttribute('aria-pressed', 'true'))
+  fireEvent.keyDown(window, { key: 's' })
+  await vi.waitFor(() => expect(api.updateMark).toHaveBeenLastCalledWith('one', { starred: false }))
+
+  fireEvent.keyDown(window, { key: 'o' })
+  expect(open).toHaveBeenCalledWith('https://example.com/one', '_blank', 'noopener,noreferrer')
+  open.mockRestore()
+})
+
+it('keeps a note on the article', async () => {
+  openOne({ read: true, note: 'Old note' })
+  const note = await screen.findByLabelText('Note')
+  expect(note).toHaveValue('Old note')
+  fireEvent.change(note, { target: { value: 'Check the port figures' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save note' }))
+  await vi.waitFor(() => expect(api.updateMark).toHaveBeenLastCalledWith('one', { note: 'Check the port figures' }))
+  expect(await screen.findByText('Note saved.')).toBeTruthy()
+})
+
+it('lists the shortcuts with ?', async () => {
+  openOne({ read: true })
+  await screen.findByRole('button', { name: 'Star' })
+  fireEvent.keyDown(window, { key: '?' })
+  const dialog = screen.getByRole('dialog', { name: 'Keyboard shortcuts' })
+  for (const line of ['j', 'k', 'f', 's', 'o', '?']) expect(within(dialog).getByText(line, { selector: 'kbd' })).toBeTruthy()
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+})
+
+it('shows which listed articles are unread or starred', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [
+    { ...article('one', 'First article'), read: false, starred: true },
+    { ...article('two', 'Second article'), read: true, starred: false },
+  ], next_cursor: null })
+  renderWithQuery(() => <ArticlesPage />)
+
+  const first = await screen.findByRole('button', { name: /First article/ })
+  expect(within(first).getByText('Unread')).toBeTruthy()
+  expect(within(first).getByLabelText('Starred')).toBeTruthy()
+  const second = screen.getByRole('button', { name: /Second article/ })
+  expect(within(second).queryByText('Unread')).toBeNull()
+  expect(within(second).queryByLabelText('Starred')).toBeNull()
 })
