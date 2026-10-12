@@ -7,11 +7,17 @@ import uuid
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from event_fixtures import entities, story
+from sqlalchemy import select, text
+from test_compare_postgres import _get, build_world
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
+from test_event_api_postgres import _make, _version
 
+from app.clustering.models import StoryClusterMember
 from app.db.session import session_factory
+from app.marks.schemas import ArticleMarkUpdate
+from app.marks.service import update_mark
 
 pytestmark = [
     pytest.mark.skipif(
@@ -64,6 +70,9 @@ async def test_marks_change_one_at_a_time_and_an_empty_note_clears_it() -> None:
         )
         assert body["read_at"] is not None and body["read_at"] == read.json()["read_at"]
         assert starred.json()["note"] is None
+        # The article itself says the same as its mark.
+        detail = (await client.get(f"/articles/{article_id}")).json()
+        assert (detail["read"], detail["starred"]) == (True, True)
 
         cleared = await client.put(
             f"/articles/{article_id}/mark", json={"note": "", "read": False}, headers=CSRF
@@ -101,6 +110,45 @@ async def test_the_article_list_says_which_are_read_and_starred() -> None:
     assert marks[str(read_id)] == (True, False)
     assert marks[str(starred_id)] == (False, True)
     assert marks[str(plain_id)] == (False, False)
+
+
+def _marks(items: list[dict[str, object]]) -> dict[str, tuple[object, object]]:
+    return {str(item["id"]): (item["read"], item["starred"]) for item in items}
+
+
+async def test_every_article_list_says_which_are_read_and_starred() -> None:
+    w = await build_world()
+    async with session_factory() as db, db.begin():
+        await update_mark(db, w.a.a1, ArticleMarkUpdate(starred=True))
+        await update_mark(db, w.a.a2, ArticleMarkUpdate(read=True))
+        cluster = await story(db, await entities(db, 1), articles=2)
+        event = await _make(db, _version(), [cluster])
+        members = list(
+            await db.scalars(
+                select(StoryClusterMember.article_id).where(
+                    StoryClusterMember.cluster_id == cluster.id
+                )
+            )
+        )
+        await update_mark(db, members[0], ArticleMarkUpdate(read=True, starred=True))
+    a1, a2, a4 = str(w.a.a1), str(w.a.a2), str(w.a.a4)
+
+    for path in (f"/entities/{w.e1}/articles", f"/sources/{w.s1}/articles"):
+        marks = _marks((await _get(path, limit=100))["items"])
+        assert (marks[a1], marks[a2], marks[a4]) == ((False, True), (True, False), (False, False))
+    compared = {"kind": "entity", "a": str(w.e1), "b": str(w.e2)}
+    assert _marks((await _get("/compare/articles", **compared, part="a"))["items"]) == {
+        a2: (True, False)
+    }
+    assert _marks((await _get("/compare/articles", **compared, part="both"))["items"]) == {
+        a1: (False, True),
+        a4: (False, False),
+    }
+    mapped = _marks((await _get("/geo/articles", role="story", code=w.us, limit=100))["items"])
+    assert (mapped[a1], mapped[a4]) == ((False, True), (False, False))
+    events = _marks((await _get(f"/events/{event.id}/articles"))["items"])
+    assert events[str(members[0])] == (True, True)
+    assert events[str(members[1])] == (False, False)
 
 
 async def test_the_downgrade_keeps_marks_unless_told(monkeypatch: pytest.MonkeyPatch) -> None:

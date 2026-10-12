@@ -16,6 +16,8 @@ from app.clustering.models import StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import Article, FeedArticle
+from app.marks.schemas import ArticleMarkUpdate
+from app.marks.service import update_mark
 from app.search import related
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3, ArticleDocument
 from app.search.elasticsearch import ElasticsearchAdapter
@@ -164,6 +166,15 @@ async def test_related_coverage_is_similar_wording_outside_the_story(world: Any)
     assert sorted(_ids(body)) == sorted([str(w.delays.id), str(w.echo.id)])
     assert body["skipped_stale"] == 1  # late, dropped by the PostgreSQL recheck
     assert {item["article"]["title"] for item in body["items"]} == {DELAYS[0]}
+
+
+async def test_related_coverage_says_which_articles_are_starred(world: Any) -> None:
+    w = world
+    async with session_factory() as db, db.begin():
+        await update_mark(db, w.echo.id, ArticleMarkUpdate(starred=True))
+    body = await _related(w.target.id)
+    starred = {item["article"]["id"]: item["article"]["starred"] for item in body["items"]}
+    assert starred == {str(w.delays.id): False, str(w.echo.id): True}
 
 
 async def test_equal_scores_are_ordered_by_id_and_the_limit_applies(world: Any) -> None:

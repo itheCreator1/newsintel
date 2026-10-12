@@ -186,7 +186,16 @@ _WORLD: SimpleNamespace | None = None
 
 
 async def _world() -> SimpleNamespace:
-    """A small hand-made world, built once (its numbers are asserted below).
+    """This module's world, built once. Other modules build their own: later tests (clustering
+    among them) rewrite the stories of articles they find, so a world built early goes stale."""
+    global _WORLD
+    if _WORLD is None:
+        _WORLD = await build_world()
+    return _WORLD
+
+
+async def build_world() -> SimpleNamespace:
+    """A small hand-made world (its numbers are asserted below).
 
     a1  s1     e1 e2   story US  cluster c1 (a1, a3)
     a2  s1     e1      story GR  cluster c2 (a2)
@@ -195,9 +204,6 @@ async def _world() -> SimpleNamespace:
     a5  s3     e3      mentioned GR (current) and US (not current)
     old s1     e1 e2   40 days before now, outside a 30-day window
     """
-    global _WORLD
-    if _WORLD is not None:
-        return _WORLD
     async with session_factory() as db, db.begin():
         us, gr = await _free_code(db), await _free_code(db)
         assert us != gr
@@ -224,12 +230,11 @@ async def _world() -> SimpleNamespace:
         c1 = await _cluster(db, [a1, a3], 2)
         c2 = await _cluster(db, [a2], 1)
         c3 = await _cluster(db, [a4, a5], 2)
-        _WORLD = SimpleNamespace(
+        return SimpleNamespace(
             us=us, gr=gr, s1=s1.id, s2=s2.id, s3=s3.id, e1=e1.id, e2=e2.id, e3=e3.id,
             a=SimpleNamespace(a1=a1.id, a2=a2.id, a3=a3.id, a4=a4.id, a5=a5.id, old=old.id),
             c1=c1.id, c2=c2.id, c3=c3.id,
         )  # fmt: skip
-    return _WORLD
 
 
 def _entities(w: SimpleNamespace, a: str = "e1", b: str = "e2", **extra: Any) -> dict[str, Any]:
