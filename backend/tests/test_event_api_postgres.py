@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from collections.abc import AsyncIterator
@@ -7,12 +8,14 @@ from typing import Any
 
 import httpx
 import pytest
+from alembic import command
+from alembic.config import Config
 from event_fixtures import BASE, entities, feed, story
 from sqlalchemy import event as sa_event
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from app.auth.models import Session
+from app.auth.models import Session, User
 from app.auth.routes import current_session
 from app.clustering.models import StoryCluster
 from app.db.session import session_factory
@@ -20,6 +23,7 @@ from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.models import Event
 from app.events.service import associate_cluster, create_event, refresh_event, set_status
 from app.main import create_app
+from app.search.criteria import search_criteria
 
 pytestmark = [
     pytest.mark.skipif(
@@ -36,12 +40,14 @@ def _version() -> str:
 
 
 @asynccontextmanager
-async def _client(signed_in: bool = True) -> AsyncIterator[httpx.AsyncClient]:
+async def _client(
+    signed_in: bool = True, user_id: uuid.UUID | None = None
+) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app()
     if signed_in:
         login = Session(
             id=uuid.uuid4(),
-            user_id=uuid.uuid4(),
+            user_id=user_id or uuid.uuid4(),
             csrf_token="csrf-token",
             token_hash=uuid.uuid4().hex,
             expires_at=datetime.now(UTC) + timedelta(hours=1),
@@ -457,3 +463,107 @@ async def test_the_entity_filter_follows_the_authority_file() -> None:
     assert await found(root.id) == ids
     assert await found(late.id) == ids
     assert await found(early.id) == ids
+
+
+async def test_words_find_events_by_their_stories_titles_or_their_entities_names() -> None:
+    version = _version()
+    async with session_factory() as db, db.begin():
+        ents = await entities(db, 2)
+        ents[1].display_text = f"Norvane {uuid.uuid4().hex[:6]}"
+        fire = await _make(db, version, [await story(db, ents[:1], title="Harbour warehouse fire")])
+        strike = await _make(
+            db, version, [await story(db, ents[1:], title="Port strike spreads", hours=3)]
+        )
+        ids = {"fire": str(fire.id), "strike": str(strike.id)}
+
+    async def found(q: str) -> set[str]:
+        page = await _get("/events", algorithm_version=version, q=q)
+        return {e["id"] for e in page["items"]}
+
+    assert await found("warehouse") == {ids["fire"]}
+    assert await found("WAREHOUSE") == {ids["fire"]}
+    assert await found("norvane") == {ids["strike"]}
+    # Every word must match, each in a title or a name.
+    assert await found("strike norvane") == {ids["strike"]}
+    assert await found("fire strike") == set()
+    # Wildcards are words like any other.
+    assert await found("100%") == set()
+    assert await found("  ") == {ids["fire"], ids["strike"]}
+
+
+async def test_an_event_in_search_criteria_resolves_to_its_stories() -> None:
+    version = _version()
+    async with session_factory() as db:
+        async with db.begin():
+            ents = await entities(db, 1)
+            first, second = await story(db, ents), await story(db, ents, hours=2)
+            event = await _make(db, version, [first, second])
+            lonely = await create_event(db, version)
+        criteria = await search_criteria(db, event_id=[event.id])
+        assert criteria.event_ids == [str(event.id)]
+        assert criteria.event_clusters == sorted([str(first.id), str(second.id)])
+        assert criteria.fingerprint()["events"] == criteria.event_ids
+        assert not criteria.empty
+        assert (await search_criteria(db, event_id=[lonely.id])).event_clusters == []
+        # Without an event, the fingerprint is the one saved monitors already hold.
+        assert "events" not in (await search_criteria(db, q="grid")).fingerprint()
+
+
+async def _user() -> uuid.UUID:
+    """Monitors belong to a real account."""
+    async with session_factory() as db:
+        user = User(username=f"analyst-{uuid.uuid4().hex}", password_hash="unused")
+        db.add(user)
+        await db.commit()
+        return user.id
+
+
+def _watch(name: str, event_id: uuid.UUID) -> dict[str, Any]:
+    return {"name": name, "kind": "event", "state": {"event_id": [str(event_id)]}}
+
+
+async def test_an_event_can_be_watched_like_a_story() -> None:
+    version = _version()
+    async with session_factory() as db, db.begin():
+        event = await _make(db, version, [await story(db, await entities(db, 1))])
+    async with _client(user_id=await _user()) as client:
+        made = await client.post(
+            "/api/v1/monitors",
+            json=_watch(f"Event {event.id}", event.id),
+            headers={"X-CSRF-Token": "csrf-token"},
+        )
+        assert made.status_code == 201, made.text
+        assert made.json()["kind"] == "event"
+        two = await client.post(
+            "/api/v1/monitors",
+            json={"name": f"Two {event.id}", "kind": "event", "state": {"q": "grid"}},
+            headers={"X-CSRF-Token": "csrf-token"},
+        )
+        assert two.status_code == 422
+
+
+async def test_the_downgrade_keeps_event_monitors_unless_told(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    version = _version()
+    async with session_factory() as db, db.begin():
+        event = await _make(db, version, [await story(db, await entities(db, 1))])
+    async with _client(user_id=await _user()) as client:
+        made = await client.post(
+            "/api/v1/monitors",
+            json=_watch(f"Kept {event.id}", event.id),
+            headers={"X-CSRF-Token": "csrf-token"},
+        )
+        assert made.status_code == 201, made.text
+    config = Config("alembic.ini")
+    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_EVENT_MONITORS", raising=False)
+    with pytest.raises(RuntimeError, match="event monitors"):
+        await asyncio.to_thread(command.downgrade, config, "0030")
+    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_EVENT_MONITORS", "1")
+    await asyncio.to_thread(command.downgrade, config, "0030")
+    try:
+        async with session_factory() as db:
+            kinds = set(await db.scalars(text("SELECT DISTINCT kind FROM monitors")))
+        assert "event" not in kinds
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
