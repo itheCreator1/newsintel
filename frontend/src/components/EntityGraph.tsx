@@ -6,23 +6,15 @@ import { init, use, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import type { GraphEdge, GraphNode, StatedEdge } from '../lib/api-types'
-import { chartTheme, entityColors, groupColors } from '../lib/chart-theme'
+import { lightChart, useChartTheme, type ChartTheme } from '../lib/chart-theme'
 import { communities } from '../lib/graph-communities'
 import { isNewEdge } from '../lib/graph-edges'
 import { statedText } from '../lib/see-also'
 
 use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
-const TYPE_COLORS = entityColors
-const FALLBACK_COLOR = entityColors.OTHER
-const HIGHLIGHT = chartTheme.highlight
-/** Group colours, largest group first; smaller groups share the fallback grey as "Other groups". */
-const GROUP_COLORS = groupColors
+/** Smaller groups than the palette has colours for share the fallback grey as "Other groups". */
 const OTHER_GROUPS = 'Other groups'
-/** Connections whose every article falls in the recent span. */
-const NEW_EDGE = chartTheme.newEdge
-/** See-also links the user stated, drawn beside co-occurrence. */
-const STATED_EDGE = chartTheme.statedEdge
 /** Only the busiest nodes carry a permanent label; hovering reveals the rest. */
 const LABELLED_NODES = 12
 
@@ -39,6 +31,7 @@ interface OptionInput {
   colourBy?: ColourBy
   recentSince?: string | null
   stated?: StatedEdge[]
+  theme?: ChartTheme
 }
 
 /** One drawn line: a co-occurrence edge, or a stated see-also link. */
@@ -56,23 +49,24 @@ interface GraphLine {
 }
 
 
-function colouring(nodes: GraphNode[], edges: GraphEdge[], colourBy: ColourBy) {
+function colouring(nodes: GraphNode[], edges: GraphEdge[], colourBy: ColourBy, theme: ChartTheme) {
+  const fallback = theme.entities.OTHER
   if (colourBy === 'type') {
     const names = [...new Set(nodes.map(node => node.type))]
-    return { names, colours: names.map(name => TYPE_COLORS[name] ?? FALLBACK_COLOR), of: (node: GraphNode) => names.indexOf(node.type) }
+    return { names, colours: names.map(name => theme.entities[name] ?? fallback), of: (node: GraphNode) => names.indexOf(node.type) }
   }
   const { group, names: groupNames } = communities(nodes, edges)
-  const named = groupNames.slice(0, GROUP_COLORS.length)
+  const named = groupNames.slice(0, theme.groups.length)
   const names = groupNames.length > named.length ? [...named.map(name => `${name} group`), OTHER_GROUPS] : named.map(name => `${name} group`)
   return {
     names,
-    colours: names.map((_, index) => GROUP_COLORS[index] ?? FALLBACK_COLOR),
+    colours: names.map((_, index) => theme.groups[index] ?? fallback),
     of: (node: GraphNode) => Math.min(group.get(node.id) ?? named.length, named.length),
   }
 }
 
-export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'type', recentSince, stated = [] }: OptionInput) {
-  const { names: categories, colours, of: categoryOf } = colouring(nodes, edges, colourBy)
+export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'type', recentSince, stated = [], theme = lightChart }: OptionInput) {
+  const { names: categories, colours, of: categoryOf } = colouring(nodes, edges, colourBy, theme)
   // Fewer nodes get more room; a crowded graph is pulled tighter so it still fits the panel.
   const crowded = nodes.length > 40
   const names = new Map(nodes.map(node => [node.id, node.text]))
@@ -101,7 +95,7 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
         return ''
       },
     },
-    legend: [{ type: 'scroll', data: categories, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: chartTheme.axisLabel }, pageTextStyle: { color: chartTheme.axisLabel }, top: 0 }],
+    legend: [{ type: 'scroll', data: categories, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: theme.axisLabel }, pageTextStyle: { color: theme.axisLabel }, top: 0 }],
     series: [{
       type: 'graph',
       layout: 'force',
@@ -113,10 +107,10 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
       // labels overlapping where nodes end up (and it would ignore prefers-reduced-motion).
       // An edge's value is its link strength, so strongly linked pairs sit closer together.
       force: { repulsion: clamp(Math.round(7000 / Math.max(nodes.length, 1)), 90, 320), gravity: crowded ? 0.24 : 0.14, edgeLength: crowded ? [35, 120] : [55, 170], friction: 0.2, layoutAnimation: false },
-      label: { show: false, position: 'right', color: chartTheme.labelText, fontSize: 12, overflow: 'truncate', width: 120, textBorderColor: chartTheme.labelHalo, textBorderWidth: 3 },
+      label: { show: false, position: 'right', color: theme.labelText, fontSize: 12, overflow: 'truncate', width: 120, textBorderColor: theme.labelHalo, textBorderWidth: 3 },
       labelLayout: { hideOverlap: true },
-      lineStyle: { color: chartTheme.edge, curveness: 0.1 },
-      itemStyle: { borderColor: chartTheme.nodeBorder, borderWidth: 1 },
+      lineStyle: { color: theme.edge, curveness: 0.1 },
+      itemStyle: { borderColor: theme.nodeBorder, borderWidth: 1 },
       emphasis: { focus: 'adjacency', label: { show: true }, lineStyle: { opacity: 0.9 } },
       blur: { itemStyle: { opacity: 0.15 }, lineStyle: { opacity: 0.05 }, label: { show: false } },
       data: nodes.map(node => {
@@ -131,7 +125,7 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
           category: categoryOf(node),
           label: { show: highlighted || (labelled.has(node.id) && !dimmed(node.id)), fontWeight: highlighted ? 600 : 400 },
           itemStyle: highlighted
-            ? { borderColor: HIGHLIGHT, borderWidth: 3, shadowBlur: 14, shadowColor: chartTheme.highlightShadow }
+            ? { borderColor: theme.highlight, borderWidth: 3, shadowBlur: 14, shadowColor: theme.highlightShadow }
             : { opacity: dimmed(node.id) ? 0.25 : 1 },
         }
       }),
@@ -147,8 +141,8 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
           weight: edge.weight,
           isNew,
           lineStyle: isSelected
-            ? { color: HIGHLIGHT, width: 7, opacity: 1 }
-            : { width: 1 + 5 * ratio, opacity: faded ? 0.05 : isNew ? 0.55 + 0.4 * ratio : 0.15 + 0.45 * ratio, ...(isNew ? { color: NEW_EDGE, type: 'dashed' as const } : {}) },
+            ? { color: theme.highlight, width: 7, opacity: 1 }
+            : { width: 1 + 5 * ratio, opacity: faded ? 0.05 : isNew ? 0.55 + 0.4 * ratio : 0.15 + 0.45 * ratio, ...(isNew ? { color: theme.newEdge, type: 'dashed' as const } : {}) },
         }
       }).concat(stated.filter(link => names.has(link.source) && names.has(link.target)).map((link): GraphLine => {
         const faded = neighbourhood && link.source !== focus && link.target !== focus
@@ -160,8 +154,8 @@ export function graphOption({ nodes, edges, focus, selectedEdge, colourBy = 'typ
           stated: true,
           text,
           ignoreForceLayout: true,
-          label: { show: true, formatter: text, color: STATED_EDGE, fontSize: 11 },
-          lineStyle: { color: STATED_EDGE, type: 'dotted' as const, width: 2, curveness: 0.3, opacity: faded ? 0.1 : 0.9 },
+          label: { show: true, formatter: text, color: theme.statedEdge, fontSize: 11 },
+          lineStyle: { color: theme.statedEdge, type: 'dotted' as const, width: 2, curveness: 0.3, opacity: faded ? 0.1 : 0.9 },
         }
       })),
     }],
@@ -183,6 +177,7 @@ interface Props {
 export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, onSelect, onSelectEdge }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
+  const theme = useChartTheme()
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
   const onSelectEdgeRef = useRef(onSelectEdge)
@@ -205,8 +200,8 @@ export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recen
   useEffect(() => {
     // Merge rather than replace: the series model keeps its node positions by id, so selecting a node
     // restyles the graph in place, and expanding one adds its neighbours around the nodes already drawn.
-    chartRef.current?.setOption(graphOption({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated }))
-  }, [nodes, edges, focus, selectedEdge, colourBy, recentSince, stated])
+    chartRef.current?.setOption(graphOption({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, theme }))
+  }, [nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, theme])
 
   return <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity and connection lists below to select one.`} />
 }

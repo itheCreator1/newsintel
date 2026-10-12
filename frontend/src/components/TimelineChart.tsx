@@ -7,7 +7,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import { bucketEnd } from '../lib/investigation'
 import type { SearchTimeline } from '../lib/api-types'
-import { chartTheme } from '../lib/chart-theme'
+import { useChartTheme } from '../lib/chart-theme'
 
 use([BarChart, BrushComponent, GridComponent, TooltipComponent, CanvasRenderer])
 
@@ -20,6 +20,7 @@ interface Props {
 export function TimelineChart({ buckets, interval, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
+  const chartTheme = useChartTheme()
   const stateRef = useRef({ buckets, interval, onSelect })
   stateRef.current = { buckets, interval, onSelect }
 
@@ -67,7 +68,7 @@ export function TimelineChart({ buckets, interval, onSelect }: Props) {
       series: [{ type: 'bar', data: buckets.map(bucket => bucket.count), itemStyle: { color: chartTheme.barStrong, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 28 }],
     }, true)
     chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
-  }, [buckets, interval])
+  }, [buckets, interval, chartTheme])
 
   return <div ref={elementRef} className="timeline-chart" role="img" aria-label={`Article counts per ${interval} across ${buckets.length} buckets. Drag across bars or click one to filter by date.`} />
 }
