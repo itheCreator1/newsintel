@@ -93,3 +93,24 @@ async def test_a_hidden_root_leaves_the_index_and_comes_back(index_name: str) ->
         str(kept_id): "PERSON",
         str(noise_id): "EVENT",
     }
+
+
+async def test_an_article_s_entities_are_indexed_most_relevant_first(index_name: str) -> None:  # noqa: F811
+    async with session_factory() as db, db.begin():
+        once = await _entity(db, "Once Mentioned")
+        beta = await _entity(db, "Beta Group", "ORG")
+        twice = await _entity(db, "Twice Mentioned")
+        alpha = await _entity(db, "Alpha Group", "ORG")
+        # Relevance follows the mention count; equal ones are ordered by name.
+        article_id = await _article(
+            db, [(once, [0]), (beta, [1, 2, 3]), (twice, [4, 5]), (alpha, [6, 7, 8])]
+        )
+        expected = [str(item.id) for item in (alpha, beta, twice, once)]
+    await _index(index_name, [article_id])
+
+    adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
+    response = await adapter.search_index(
+        index_name, {"size": 1, "query": {"term": {"article_id": str(article_id)}}}
+    )
+    (hit,) = response["hits"]["hits"]
+    assert [item["id"] for item in hit["_source"]["entities"]] == expected

@@ -19,7 +19,7 @@ from app.monitors.service import (
     _decode_activity_cursor,
     _encode_activity_cursor,
 )
-from app.search.routes import search_result
+from app.search.routes import RESULT_FIELDS, search_result
 
 UPTO = datetime(2026, 9, 20, 12, tzinfo=UTC)
 AFTER = UPTO - timedelta(hours=1)
@@ -119,6 +119,34 @@ def test_search_result_maps_a_hit_without_highlights() -> None:
     assert result.source_refs[0].country == "GR"
     assert result.story_cluster is not None and result.story_cluster.source_count == 3
     assert result.summary is None and result.highlights == []
+
+
+def test_search_result_names_the_first_three_entities_of_a_hit() -> None:
+    names = ["Athens", "Ministry of Health", "Kyriakos Mitsotakis", "Piraeus"]
+    entities = [
+        {"id": str(uuid.uuid4()), "type": kind, "text": name, "normalized_text": name.lower()}
+        for name, kind in zip(names, ["GPE", "ORG", "PERSON", "GPE"], strict=True)
+    ]
+    hit = {
+        "_source": {
+            "article_id": str(uuid.uuid4()),
+            "title": "Hospital strike",
+            "effective_date": UPTO.isoformat(),
+            "distinct_source_count": 1,
+            "provenance": [],
+            "entities": entities,
+        }
+    }
+
+    result = search_result(hit)
+
+    # Indexing orders an article's entities by relevance, so the first three are its main ones.
+    assert "entities" in RESULT_FIELDS
+    assert [(str(item.id), item.text, item.type) for item in result.entities] == [
+        (item["id"], item["text"], item["type"]) for item in entities[:3]
+    ]
+    del hit["_source"]["entities"]
+    assert search_result(hit).entities == []
 
 
 @pytest.mark.asyncio

@@ -104,6 +104,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await expect(page.getByLabel('Timeline interval')).toHaveValue('week')
   const investigation = new URL(page.url())
 
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByLabel('Saved search name').fill('Wire watch')
   await page.getByRole('button', { name: 'Save search' }).click()
   await expect(page.getByText('Saved “Wire watch”.')).toBeVisible()
@@ -115,6 +116,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
 
   await page.goto('/search?q=Harbor%20AND%20daily')
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByLabel('Saved search name').fill('Stale investigation')
   await page.getByRole('button', { name: 'Save search' }).click()
   await expect(page.getByText('Saved “Stale investigation”.')).toBeVisible()

@@ -18760,6 +18760,14 @@
             },
             "type": "array",
             "title": "Highlights"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultEntity"
+            },
+            "type": "array",
+            "title": "Entities",
+            "default": []
           }
         },
         "type": "object",
@@ -18774,6 +18782,30 @@
           "highlights"
         ],
         "title": "SearchResult"
+      },
+      "SearchResultEntity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "type"
+        ],
+        "title": "SearchResultEntity"
       },
       "SearchResultSource": {
         "properties": {

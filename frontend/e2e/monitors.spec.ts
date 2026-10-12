@@ -28,6 +28,7 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
 
   // Watch before anything is collected: the first evaluation baselines, so only later articles count as new.
   await page.goto('/search?q=Harbor')
+  await page.getByRole('button', { name: 'Watch', exact: true }).click()
   await page.getByLabel('Monitor name').fill('Harbor watch')
   await page.getByRole('button', { name: 'Watch search' }).click()
   await expect(page.getByText('Watching “Harbor watch”.')).toBeVisible()

@@ -3,7 +3,7 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useId, useRef, useState } from 'react'
 import { api, ApiError } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
 import { ActiveFilterBar } from '../../components/ActiveFilterBar'
@@ -15,6 +15,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
 import { FacetPanel } from '../../components/FacetPanel'
+import { Popover } from '../../components/Popover'
 import { SourceTagPicker } from '../../components/SourceTagPicker'
 import { CountryPicker, LanguagePicker } from '../../components/SearchablePicker'
 import { countryLabel } from '../../lib/countries'
@@ -34,6 +35,18 @@ function formFromState(current: Investigation) {
 
 const EXPANSION_OPTIONS = [{ value: 'names', label: 'Earlier and later names' }, { value: 'parts', label: 'Parts' }]
 
+/** Clicking one fills the Query field; the clauses combine, and adjacent terms also use AND. */
+const QUERY_EXAMPLES = [
+  { query: '"sea level"', meaning: 'An exact phrase' },
+  { query: 'climate AND flooding', meaning: 'Both words (AND is optional)' },
+  { query: 'source:Reuters country:GR', meaning: 'From one source, or from sources in a country' },
+  { query: 'after:2026-01-01 before:2026-02-01', meaning: 'Published in a date range (before is exclusive)' },
+  { query: 'entity:"Kyriakos Mitsotakis"', meaning: 'Articles that mention an entity' },
+  { query: 'keyword:inflation', meaning: 'Articles with a keyword' },
+  { query: 'language:el', meaning: 'Articles detected in a language' },
+  { query: 'story_country:UA mentioned_country:FR', meaning: 'About a country, or mentioning one' },
+]
+
 
 function SearchContent() {
   const router = useRouter()
@@ -49,6 +62,8 @@ function SearchContent() {
   const [entityTerm, setEntityTerm] = useState('')
   const [keywordTerm, setKeywordTerm] = useState('')
   const [saveName, setSaveName] = useState('')
+  const queryInput = useRef<HTMLInputElement>(null)
+  const searchFormId = useId()
   const advanced = advancedCount(state, SEARCH_ADVANCED, { content: true })
   const [advancedOpen, setAdvancedOpen] = useState(advanced > 0)
 
@@ -99,9 +114,10 @@ function SearchContent() {
   function submit() { navigate(draftState()) }
   // Compared through the same form round trip, so a URL the form cannot represent exactly never reads as an edit.
   const draftDiffers = queryFromState(draftState()).toString() !== queryFromState(draftState(formFromState(state))).toString()
+  const resultEntities = results.flatMap(result => result.entities.map(entity => [entity.id, entity.text] as const))
   const pickerLabels = {
     source_id: new Map([...facetLabels('sources'), ...sources.map(source => [source.id, source.name] as const)]),
-    entity_id: new Map([...facetLabels('entities'), ...entities.map(entity => [entity.id, entity.text] as const)]),
+    entity_id: new Map([...resultEntities, ...facetLabels('entities'), ...entities.map(entity => [entity.id, entity.text] as const)]),
     keyword_id: new Map([...facetLabels('keywords'), ...keywords.map(keyword => [keyword.id, keyword.text] as const)]),
   }
   const chips = filterChips(state, SEARCH_CHIP_FIELDS, { ...pickerLabels, story_cluster_id: new Map(facetLabels('story_clusters')) }, { content: true })
@@ -116,6 +132,10 @@ function SearchContent() {
     navigate({ ...state, after: after && after > brushed.after ? after : brushed.after, before: before && before < brushed.before ? before : brushed.before })
   }
   function setTimelineInterval(interval: string) { navigate({ ...state, interval: INTERVALS.find(item => item === interval) ?? 'auto' }) }
+  function applyExample(query: string) {
+    setForm(f => ({ ...f, q: query }))
+    queryInput.current?.focus()
+  }
   function saveSearch() { if (saveName.trim()) save.mutate(saveName.trim()) }
   function restart() { search.refetch() }
   function openArticleHref(id: string) { const params = new URLSearchParams({ article: id, from: currentHref }); return toHref('/articles', params) }
@@ -131,20 +151,46 @@ function SearchContent() {
 
       <details className="rounded-2xl border border-border bg-card/40 px-5 py-4 text-sm text-muted-foreground backdrop-blur-xl">
         <summary className="cursor-pointer font-medium text-foreground">Query syntax</summary>
-        <p className="mt-2 leading-relaxed">Use quoted phrases, explicit AND, source:, country:, after:, and before:. Country means source country. Annotation clauses include entity:, keyword:, language:, story_country:, and mentioned_country:. Adjacent terms also use AND.</p>
+        <p className="mt-2 leading-relaxed">Country means source country. Click an example to put it in the Query field.</p>
+        <table aria-label="Query examples" className="mt-3 w-full text-left text-sm">
+          <tbody>
+            {QUERY_EXAMPLES.map(example => (
+              <tr key={example.query} className="border-t border-border/60">
+                <td className="py-1.5 pr-4"><button type="button" className={cn(chipClass, 'font-mono')} onClick={() => applyExample(example.query)}>{example.query}</button></td>
+                <td className="py-1.5">{example.meaning}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </details>
 
-      <form className={cn(glassPanelClassName, 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4')} role="search" onSubmit={event => { event.preventDefault(); submit() }}>
-        <label className={cn(labelClass, 'sm:col-span-2')}>Query<input className={cn(fieldClass, 'mt-1')} value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
-        <label className={labelClass}>After<input className={cn(fieldClass, 'mt-1')} value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
-        <div className="flex flex-col gap-1">
-          <label className={labelClass}>Before<input aria-describedby="search-before-help" className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
-          <p id="search-before-help" className="text-[11px] text-muted-foreground">Exclusive: up to the start of this day.</p>
+      <div className={cn(glassPanelClassName, 'flex flex-col gap-4')}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <form id={searchFormId} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]" role="search" onSubmit={event => { event.preventDefault(); submit() }}>
+            <label className={labelClass}>Query<input ref={queryInput} className={cn(fieldClass, 'mt-1')} value={form.q} onChange={e => setForm(f => ({ ...f, q: e.target.value }))} placeholder='climate AND "sea level"' /></label>
+            <label className={labelClass}>After<input className={cn(fieldClass, 'mt-1')} value={form.after} onChange={e => setForm(f => ({ ...f, after: e.target.value }))} type="date" /></label>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Before<input aria-describedby="search-before-help" className={cn(fieldClass, 'mt-1')} value={form.before} onChange={e => setForm(f => ({ ...f, before: e.target.value }))} type="date" /></label>
+              <p id="search-before-help" className="text-[11px] text-muted-foreground">Exclusive: up to the start of this day.</p>
+            </div>
+            <label className={labelClass}>Sort<select className={cn(fieldClass, 'mt-1')} value={form.sort} onChange={e => setForm(f => ({ ...f, sort: e.target.value as Investigation['sort'] }))}><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="most_sources">Most sources</option></select></label>
+          </form>
+          {/* Outside the search form: Save and Watch hold forms of their own. */}
+          <div className="flex flex-wrap items-stretch gap-2 lg:mb-5">
+            <button type="submit" form={searchFormId} className={primaryButtonClass}>Search archive</button>
+            <Popover label="Save" title="Save search">
+              <form className="flex flex-col gap-3" onSubmit={event => { event.preventDefault(); saveSearch() }}>
+                <label className={labelClass}>Saved search name<input className={cn(fieldClass, 'mt-1')} value={saveName} onChange={e => setSaveName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
+                <button type="submit" disabled={save.isPending} className={primaryButtonClass}>{save.isPending ? 'Saving…' : 'Save search'}</button>
+                {save.isError ? <p role="alert" className="error text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
+                  : save.isSuccess && <p role="status" className="text-sm text-primary">Saved “{save.variables}”.</p>}
+              </form>
+            </Popover>
+            {!editing && <Popover label="Watch" title="Watch search"><WatchForm className="" state={state} /></Popover>}
+          </div>
         </div>
-        <label className={labelClass}>Sort<select className={cn(fieldClass, 'mt-1')} value={form.sort} onChange={e => setForm(f => ({ ...f, sort: e.target.value as Investigation['sort'] }))}><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="most_sources">Most sources</option></select></label>
-        <button type="submit" className={cn(primaryButtonClass, 'self-end sm:col-span-2 lg:col-span-1 lg:col-start-4')}>Search archive</button>
-        {/* Collapsing hides the fields but keeps them mounted, so draft edits survive. */}
-        <details className="sm:col-span-2 lg:col-span-4" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
+        {/* Collapsing hides the fields but keeps them mounted, so draft edits survive. Search archive applies them. */}
+        <details open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
           <summary className="cursor-pointer text-sm font-medium text-foreground">Advanced filters{advanced > 0 ? ` (${advanced})` : ''}</summary>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
@@ -164,109 +210,107 @@ function SearchContent() {
             <label className={labelClass}>Processing<select className={cn(fieldClass, 'mt-1')} value={form.processing_status} onChange={e => setForm(f => ({ ...f, processing_status: e.target.value }))}><option value="">Any</option>{['queued', 'running', 'retrying', 'succeeded', 'failed'].map(value => <option key={value}>{value}</option>)}</select></label>
           </div>
         </details>
-      </form>
+      </div>
 
       <ActiveFilterBar items={chips} onRemove={key => navigate(removeFilter(state, key))} onClear={clearAll} draftDiffers={draftDiffers} />
 
-      <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-        <Link className={cn(ghostButtonClass, 'w-auto')} href={graphHref(state)}>Open in Graph</Link>
-        {ignoredByGraph.length > 0 && <span>Graph does not apply: {ignoredByGraph.join(', ')}.</span>}
-        <Link className={cn(ghostButtonClass, 'w-auto')} href={mapHref({ investigation: state })}>Open in Map</Link>
-      </p>
+      {editing && <EditMonitorBar key={editing} id={editing} state={state} stopHref={toHref('/search', queryFromState(state))} />}
 
-      <GlassPanel aria-labelledby="timeline-heading">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <h3 id="timeline-heading" className="text-sm font-semibold text-foreground">{timeline.data?.total ? `${timeline.data.total} matching articles over time` : 'Timeline'}</h3>
-          <div className="flex flex-wrap items-end gap-3">
-            {(state.after || state.before) && <button type="button" className={ghostButtonClass} onClick={() => navigate({ ...state, after: null, before: null })}>Clear date range</button>}
-            <label className={labelClass}>Timeline interval
-              <select className={cn(fieldClass, 'mt-1')} value={state.interval} onChange={e => setTimelineInterval(e.target.value)}>
-                {INTERVALS.map(interval => <option key={interval} value={interval}>{interval === 'auto' ? `Automatic${timeline.data && state.interval === 'auto' ? ` (${timeline.data.interval})` : ''}` : interval}</option>)}
-              </select>
-            </label>
-          </div>
-        </div>
-        {timeline.isPending && <LoadingState label="Charting matches…" variant="chart" />}
-        {timeline.isError && (timelineTooFine ? (
-          <>
-            <p className="error text-sm text-destructive">{`${(timeline.error as ApiError).message}. Choose a larger interval.`}</p>
-            <button type="button" className={cn(ghostButtonClass, 'mt-2')} onClick={() => setTimelineInterval('auto')}>Use automatic interval</button>
-          </>
-        ) : <ErrorNotice message="Could not load the timeline." onRetry={isTransient(timeline.error) ? () => void timeline.refetch() : undefined} retrying={timeline.isFetching} />)}
-        {timeline.isSuccess && !timeline.data.buckets.length && <p className="text-sm text-muted-foreground">No matching articles to chart.</p>}
-        {Boolean(timeline.data?.buckets.length) && (
-          <TimelineChart buckets={timeline.data!.buckets} interval={timeline.data!.interval} onSelect={selectRange} />
-        )}
-      </GlassPanel>
-
-      <GlassPanel aria-labelledby="facets-heading">
-        <h3 id="facets-heading" className="mb-4 text-sm font-semibold text-foreground">Refine by</h3>
-        {facets.isPending && <LoadingState label="Counting facets…" />}
-        {facets.isError && (
-          <ErrorNotice
-            message={facetsUpgrade ? 'Search upgrade required. Rebuild the search index to see facets.' : facetsDown ? 'Facets are temporarily unavailable.' : 'Could not load facets.'}
-            onRetry={isTransient(facets.error) ? () => void facets.refetch() : undefined} retrying={facets.isFetching}
-          />
-        )}
-        {facets.data && <FacetPanel facets={facets.data} state={state} onToggle={(field, value) => navigate(toggle(state, field, value))} />}
-      </GlassPanel>
-
-      <form className={cn(glassPanelClassName, 'flex flex-wrap items-end gap-4')} onSubmit={event => { event.preventDefault(); saveSearch() }}>
-        <label className={cn(labelClass, 'min-w-[220px] flex-1')}>Saved search name<input className={cn(fieldClass, 'mt-1')} value={saveName} onChange={e => setSaveName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
-        <button type="submit" disabled={save.isPending} className={primaryButtonClass}>{save.isPending ? 'Saving…' : 'Save search'}</button>
-        {save.isError ? <p role="alert" className="error w-full text-sm text-destructive">{save.error instanceof ApiError ? save.error.message : 'Could not save this search.'}</p>
-          : save.isSuccess && <p role="status" className="w-full text-sm text-primary">Saved “{save.variables}”.</p>}
-      </form>
-
-      {editing ? <EditMonitorBar key={editing} id={editing} state={state} stopHref={toHref('/search', queryFromState(state))} /> : <WatchForm state={state} />}
-
-      <GlassPanel className="overflow-hidden p-0">
-        {state.story_cluster_id.length > 0 && (
-          <p className="flex items-center gap-3 px-6 py-4 text-sm text-muted-foreground">Filtered to one story <button type="button" className={ghostButtonClass} onClick={() => navigate({ ...state, story_cluster_id: [] })}>Clear story filter</button></p>
-        )}
-        {search.isPending && <div className="px-6 py-4"><LoadingState label="Searching archive…" /></div>}
-        {search.isError && (
-          <div className="px-6 py-4">
-            {expired ? (
-              <>
-                <p role="alert" className="error text-sm text-destructive">This search snapshot expired. Restart the search.</p>
-                <button className={cn(ghostButtonClass, 'mt-2')} onClick={restart}>Restart search</button>
-              </>
-            ) : (
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <aside aria-label="Refine results" className="flex flex-col gap-4 lg:sticky lg:top-6">
+          <GlassPanel aria-labelledby="facets-heading" className="p-4">
+            <h3 id="facets-heading" className="mb-4 text-sm font-semibold text-foreground">Refine by</h3>
+            {facets.isPending && <LoadingState label="Counting facets…" />}
+            {facets.isError && (
               <ErrorNotice
-                message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}
-                onRetry={!upgradeRequired && isTransient(search.error) ? restart : undefined} retrying={search.isFetching}
+                message={facetsUpgrade ? 'Search upgrade required. Rebuild the search index to see facets.' : facetsDown ? 'Facets are temporarily unavailable.' : 'Could not load facets.'}
+                onRetry={isTransient(facets.error) ? () => void facets.refetch() : undefined} retrying={facets.isFetching}
               />
             )}
-          </div>
-        )}
-        {search.isSuccess && !results.length && (
-          <div className="px-6 py-4">
-            {chips.length
-              ? <EmptyState title="No articles match this search." description="Try removing a filter or widening the dates." action={<button type="button" className={cn(ghostButtonClass, 'w-auto')} onClick={clearAll}>Clear all filters</button>} />
-              : <EmptyState title="No articles match this search." description="Matches appear once sources have been collected and indexed." />}
-          </div>
-        )}
-        {results.map(result => (
-          <article key={result.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
-            <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(result.article_id))}>
-              <strong className="text-[15px] font-semibold text-foreground">{result.title}</strong>
-              <span className="text-xs text-muted-foreground">{new Date(result.effective_date).toLocaleString()} · {result.distinct_source_count} sources</span>
-              {result.highlights.length ? <p className="text-sm text-muted-foreground [&_mark]:rounded [&_mark]:bg-primary/25 [&_mark]:text-foreground">{result.highlights.map((segment, index) => segment.marked ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>)}</p>
-                : result.summary && <p className="text-sm text-muted-foreground">{result.summary}</p>}
-            </button>
-            <div className="result-filters mt-2 flex flex-wrap gap-2">
-              {result.source_refs.map(source => <button key={source.id} type="button" className={chipClass} aria-label={`Filter by source ${source.name}`} onClick={() => crossFilter('source_id', source.id)}>{source.name}</button>)}
-              {sourceCountries(result.source_refs).map(country => <button key={`source-${country}`} type="button" className={chipClass} aria-label={`Filter by source country ${country}`} onClick={() => crossFilter('source_country', country)}>{countryLabel(country)}</button>)}
-              {result.story_country && <button type="button" className={chipClass} aria-label={`Filter by story country ${result.story_country}`} onClick={() => crossFilter('story_country', result.story_country!)}>Story: {countryLabel(result.story_country)}</button>}
-              {result.story_cluster && otherSources(result) > 0 && (
-                <Link className={chipClass} href={clusterHref(result.story_cluster.id, currentHref)}>Also reported by {otherSources(result)} other source{otherSources(result) === 1 ? '' : 's'}</Link>
-              )}
+            {facets.data && <FacetPanel facets={facets.data} state={state} onToggle={(field, value) => navigate(toggle(state, field, value))} />}
+          </GlassPanel>
+        </aside>
+
+        <div className="flex min-w-0 flex-col gap-6">
+          <p className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <Link className={cn(ghostButtonClass, 'w-auto')} href={graphHref(state)}>Open in Graph</Link>
+            {ignoredByGraph.length > 0 && <span>Graph does not apply: {ignoredByGraph.join(', ')}.</span>}
+            <Link className={cn(ghostButtonClass, 'w-auto')} href={mapHref({ investigation: state })}>Open in Map</Link>
+          </p>
+          <GlassPanel aria-labelledby="timeline-heading" className="p-4">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+              <h3 id="timeline-heading" className="text-sm font-semibold text-foreground">{timeline.data?.total ? `${timeline.data.total} matching articles over time` : 'Timeline'}</h3>
+              <div className="flex flex-wrap items-end gap-3">
+                {(state.after || state.before) && <button type="button" className={ghostButtonClass} onClick={() => navigate({ ...state, after: null, before: null })}>Clear date range</button>}
+                <label className={labelClass}>Timeline interval
+                  <select className={cn(fieldClass, 'mt-1')} value={state.interval} onChange={e => setTimelineInterval(e.target.value)}>
+                    {INTERVALS.map(interval => <option key={interval} value={interval}>{interval === 'auto' ? `Automatic${timeline.data && state.interval === 'auto' ? ` (${timeline.data.interval})` : ''}` : interval}</option>)}
+                  </select>
+                </label>
+              </div>
             </div>
-          </article>
-        ))}
-        {search.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={search.isFetchingNextPage} onClick={() => search.fetchNextPage()}>{search.isFetchingNextPage ? 'Loading…' : 'Load more'}</button></div>}
-      </GlassPanel>
+            {timeline.isPending && <LoadingState label="Charting matches…" variant="chart" />}
+            {timeline.isError && (timelineTooFine ? (
+              <>
+                <p className="error text-sm text-destructive">{`${(timeline.error as ApiError).message}. Choose a larger interval.`}</p>
+                <button type="button" className={cn(ghostButtonClass, 'mt-2')} onClick={() => setTimelineInterval('auto')}>Use automatic interval</button>
+              </>
+            ) : <ErrorNotice message="Could not load the timeline." onRetry={isTransient(timeline.error) ? () => void timeline.refetch() : undefined} retrying={timeline.isFetching} />)}
+            {timeline.isSuccess && !timeline.data.buckets.length && <p className="text-sm text-muted-foreground">No matching articles to chart.</p>}
+            {Boolean(timeline.data?.buckets.length) && (
+              <TimelineChart buckets={timeline.data!.buckets} interval={timeline.data!.interval} onSelect={selectRange} />
+            )}
+          </GlassPanel>
+          <GlassPanel aria-label="Results" className="overflow-hidden p-0">
+            {state.story_cluster_id.length > 0 && (
+              <p className="flex items-center gap-3 px-6 py-4 text-sm text-muted-foreground">Filtered to one story <button type="button" className={ghostButtonClass} onClick={() => navigate({ ...state, story_cluster_id: [] })}>Clear story filter</button></p>
+            )}
+            {search.isPending && <div className="px-6 py-4"><LoadingState label="Searching archive…" /></div>}
+            {search.isError && (
+              <div className="px-6 py-4">
+                {expired ? (
+                  <>
+                    <p role="alert" className="error text-sm text-destructive">This search snapshot expired. Restart the search.</p>
+                    <button className={cn(ghostButtonClass, 'mt-2')} onClick={restart}>Restart search</button>
+                  </>
+                ) : (
+                  <ErrorNotice
+                    message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}
+                    onRetry={!upgradeRequired && isTransient(search.error) ? restart : undefined} retrying={search.isFetching}
+                  />
+                )}
+              </div>
+            )}
+            {search.isSuccess && !results.length && (
+              <div className="px-6 py-4">
+                {chips.length
+                  ? <EmptyState title="No articles match this search." description="Try removing a filter or widening the dates." action={<button type="button" className={cn(ghostButtonClass, 'w-auto')} onClick={clearAll}>Clear all filters</button>} />
+                  : <EmptyState title="No articles match this search." description="Matches appear once sources have been collected and indexed." />}
+              </div>
+            )}
+            {results.map(result => (
+              <article key={result.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
+                <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(result.article_id))}>
+                  <strong className="text-[15px] font-semibold text-foreground">{result.title}</strong>
+                  <span className="text-xs text-muted-foreground">{new Date(result.effective_date).toLocaleString()} · {result.distinct_source_count} sources</span>
+                  {result.highlights.length ? <p className="text-sm text-muted-foreground [&_mark]:rounded [&_mark]:bg-primary/25 [&_mark]:text-foreground">{result.highlights.map((segment, index) => segment.marked ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>)}</p>
+                    : result.summary && <p className="text-sm text-muted-foreground">{result.summary}</p>}
+                </button>
+                <div className="result-filters mt-2 flex flex-wrap gap-2">
+                  {result.source_refs.map(source => <button key={source.id} type="button" className={chipClass} aria-label={`Filter by source ${source.name}`} onClick={() => crossFilter('source_id', source.id)}>{source.name}</button>)}
+                  {sourceCountries(result.source_refs).map(country => <button key={`source-${country}`} type="button" className={chipClass} aria-label={`Filter by source country ${country}`} onClick={() => crossFilter('source_country', country)}>{countryLabel(country)}</button>)}
+                  {result.story_country && <button type="button" className={chipClass} aria-label={`Filter by story country ${result.story_country}`} onClick={() => crossFilter('story_country', result.story_country!)}>Story: {countryLabel(result.story_country)}</button>}
+                  {result.entities.map(entity => <button key={`entity-${entity.id}`} type="button" className={chipClass} aria-label={`Filter by entity ${entity.text} (${entity.type})`} onClick={() => crossFilter('entity_id', entity.id)}>{entity.text}</button>)}
+                  {result.story_cluster && otherSources(result) > 0 && (
+                    <Link className={chipClass} href={clusterHref(result.story_cluster.id, currentHref)}>Also reported by {otherSources(result)} other source{otherSources(result) === 1 ? '' : 's'}</Link>
+                  )}
+                </div>
+              </article>
+            ))}
+            {search.hasNextPage && <div className="px-6 py-4"><button className={ghostButtonClass} disabled={search.isFetchingNextPage} onClick={() => search.fetchNextPage()}>{search.isFetchingNextPage ? 'Loading…' : 'Load more'}</button></div>}
+          </GlassPanel>
+        </div>
+      </div>
     </div>
   )
 }

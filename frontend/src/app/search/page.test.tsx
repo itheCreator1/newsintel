@@ -13,7 +13,7 @@ vi.mock('../../components/TimelineChart', () => ({
     <button type="button" onClick={() => props.onSelect({ start: '2026-01-05T00:00:00Z', end: '2026-01-19T00:00:00Z' })}>{`Brush ${props.buckets?.length} ${props.interval} buckets`}</button>,
 }))
 
-const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }] }
+const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }], entities: [] }
 
 const bucketless = { buckets: [], truncated: false }
 const noFacets = { total: 0, sources: bucketless, source_countries: bucketless, story_countries: bucketless, mentioned_countries: bucketless, languages: bucketless, entities: bucketless, entity_types: bucketless, keywords: bucketless, story_clusters: bucketless }
@@ -30,6 +30,10 @@ beforeEach(() => {
   vi.mocked(api.nlpKeywords).mockResolvedValue({ items: [{ id: 'keyword-one', kind: 'keyword', normalized_text: 'climate policy', text: 'climate policy' }], next_cursor: null })
 })
 afterEach(cleanup)
+
+function openPopover(name: 'Save' | 'Watch') {
+  fireEvent.click(screen.getByRole('button', { name }))
+}
 
 function renderSearch(search = '') {
   resetNavigationHarness({ pathname: '/search/', search })
@@ -68,7 +72,6 @@ it('restores annotation criteria and explains annotation syntax', async () => {
 
   expect(navigationHarness.searchParams.getAll('keyword_id')).toEqual(['keyword-one'])
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ language: ['en'], story_country: ['DE'], entity_id: ['entity-one'], keyword_id: ['keyword-one'] }), undefined))
-  expect(screen.getByText(/entity:, keyword:, language:, story_country:/)).toBeTruthy()
 })
 
 it('preserves repeated picker selections as OR values in the URL', async () => {
@@ -194,6 +197,7 @@ it('saves the complete investigation state by name', async () => {
   renderSearch('q=grid&country=GR&entity_id=entity-one&sort=newest&interval=month&before=2026-02-01')
   await screen.findByText('Safe <script> title')
 
+  openPopover('Save')
   fireEvent.change(screen.getByLabelText('Saved search name'), { target: { value: 'Greek grid' } })
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))
 
@@ -231,6 +235,7 @@ it('watches the complete investigation state by name and reports a duplicate', a
   renderSearch('q=grid&country=GR&sort=newest')
   await screen.findByText('Safe <script> title')
 
+  openPopover('Watch')
   fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Greek grid' } })
   await fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
 
@@ -344,12 +349,14 @@ it('shows pending and announced success while saving and watching', async () => 
   renderSearch('q=grid')
   await screen.findByText('Safe <script> title')
 
+  openPopover('Save')
   fireEvent.change(screen.getByLabelText('Saved search name'), { target: { value: 'Grid' } })
   fireEvent.click(screen.getByRole('button', { name: 'Save search' }))
   expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled()
   finishSave({} as never)
   expect((await screen.findByText('Saved “Grid”.')).getAttribute('role')).toBe('status')
 
+  openPopover('Watch')
   fireEvent.change(screen.getByLabelText('Monitor name'), { target: { value: 'Grid watch' } })
   fireEvent.click(screen.getByRole('button', { name: 'Watch search' }))
   expect((await screen.findByText(/Watching “Grid watch”/)).getAttribute('role')).toBe('status')
@@ -361,7 +368,7 @@ it('saves the search on screen as the monitor criteria, keeping its kind, and re
   renderSearch('q=grid&entity_id=entity-one&monitor=m1')
 
   expect(await screen.findByText('Editing the criteria of “Acme watch” (entity)')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Watch search' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Watch' })).toBeNull()
   expect(screen.getByRole('link', { name: 'Stop editing' })).toHaveAttribute('href', '/search/?q=grid&entity_id=entity-one')
   fireEvent.click(screen.getByRole('button', { name: 'Save criteria' }))
   await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenCalledWith('m1', { kind: 'entity', state: expect.objectContaining({ q: 'grid', entity_id: ['entity-one'] }) }))
@@ -388,6 +395,7 @@ it('falls back to watching when the monitor being edited cannot be loaded', asyn
   vi.mocked(api.monitor).mockRejectedValue(new ApiError('Not found', 404))
   renderSearch('q=grid&monitor=gone')
   expect(await screen.findByText(/could not be loaded/)).toBeTruthy()
+  openPopover('Watch')
   expect(screen.getByRole('button', { name: 'Watch search' })).toBeTruthy()
 })
 
@@ -498,4 +506,66 @@ it('narrows to the sources carrying a tag', async () => {
   expect(navigationHarness.searchParams.getAll('source_tag')).toEqual(['greek'])
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ source_tag: ['greek'] }), undefined))
   expect(within(screen.getByRole('region', { name: 'Applied filters' })).getByRole('button', { name: 'Remove Source tag: greek' })).toBeTruthy()
+})
+
+it('keeps saving and watching in popovers next to Search archive, so results follow the filters', async () => {
+  renderSearch('q=grid')
+  await screen.findByText('Safe <script> title')
+  expect(screen.queryByLabelText('Saved search name')).toBeNull()
+  expect(screen.queryByLabelText('Monitor name')).toBeNull()
+
+  const save = screen.getByRole('button', { name: 'Save' })
+  expect(save).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(save)
+  expect(save).toHaveAttribute('aria-expanded', 'true')
+  const dialog = screen.getByRole('dialog', { name: 'Save search' })
+  expect(within(dialog).getByLabelText('Saved search name')).toHaveFocus()
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(screen.queryByRole('dialog', { name: 'Save search' })).toBeNull()
+  expect(save).toHaveFocus()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Watch' }))
+  expect(within(screen.getByRole('dialog', { name: 'Watch search' })).getByLabelText('Monitor name')).toHaveFocus()
+  fireEvent.mouseDown(screen.getByText('Safe <script> title'))
+  expect(screen.queryByRole('dialog', { name: 'Watch search' })).toBeNull()
+
+  // Facets sit beside the results; the timeline and the results share the main column.
+  const filters = screen.getByRole('complementary', { name: 'Refine results' })
+  expect(within(filters).getByRole('region', { name: 'Refine by' })).toBeTruthy()
+  const results = screen.getByRole('region', { name: 'Results' })
+  expect(within(results).getByText('Safe <script> title')).toBeTruthy()
+})
+
+it('fills the query from a syntax example without searching', async () => {
+  const { rerenderSame } = renderSearch('q=grid')
+  await screen.findByText('Safe <script> title')
+  fireEvent.click(screen.getByText('Query syntax'))
+  const examples = screen.getByRole('table', { name: 'Query examples' })
+  expect(within(examples).getByText('Articles that mention an entity')).toBeTruthy()
+
+  fireEvent.click(within(examples).getByRole('button', { name: 'source:Reuters country:GR' }))
+  expect(screen.getByLabelText('Query')).toHaveValue('source:Reuters country:GR')
+  expect(screen.getByLabelText('Query')).toHaveFocus()
+  expect(navigationHarness.searchParams.get('q')).toBe('grid')
+
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+  expect(navigationHarness.searchParams.get('q')).toBe('source:Reuters country:GR')
+})
+
+it('shows a result\'s main entities and filters by one', async () => {
+  vi.mocked(api.search).mockResolvedValue({ items: [{ ...result, entities: [
+    { id: 'e-athens', text: 'Athens', type: 'GPE' },
+    { id: 'e-health', text: 'Ministry of Health', type: 'ORG' },
+  ] }], next_cursor: null })
+  const { rerenderSame } = renderSearch('q=grid')
+
+  const chip = await screen.findByRole('button', { name: 'Filter by entity Ministry of Health (ORG)' })
+  expect(chip).toHaveTextContent('Ministry of Health')
+  fireEvent.click(chip)
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('entity_id')).toEqual(['e-health'])
+  // The applied chip is named from the result, even when the entity picker has not loaded it.
+  expect(await within(screen.getByRole('region', { name: 'Applied filters' })).findByRole('button', { name: 'Remove Entity: Ministry of Health' })).toBeTruthy()
 })

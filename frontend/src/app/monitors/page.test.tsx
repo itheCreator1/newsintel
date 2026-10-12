@@ -15,7 +15,7 @@ vi.mock('../../lib/api', async importOriginal => ({
 const NOW = Date.parse('2026-09-20T12:00:00Z')
 const result = (id: string, title: string, overrides: Partial<MonitorResult> = {}): MonitorResult => ({
   article_id: id, title, effective_date: '2026-09-20T11:50:00Z', distinct_source_count: 1, sources: ['Wire'],
-  source_refs: [{ id: 's1', name: 'Wire', country: 'GR' }], story_country: null, story_cluster: null, summary: null, highlights: [], ...overrides,
+  source_refs: [{ id: 's1', name: 'Wire', country: 'GR' }], story_country: null, story_cluster: null, summary: null, highlights: [], entities: [], ...overrides,
 })
 const page = (items: MonitorResult[], overrides: Partial<MonitorResultPage> = {}): MonitorResultPage => ({
   items, next_cursor: null, window_start: '2026-09-20T11:00:00Z', window_end: '2026-09-20T11:55:00Z', ...overrides,
