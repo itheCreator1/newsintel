@@ -233,6 +233,7 @@ function ArticlesContent() {
                     {selectedId && <ArticleEntityLink key={selectedId} articleId={selectedId} entities={annotations.data.entities} />}
                   </>
                 )}
+                {annotations.data?.processors.some(item => item.status === 'failed') && <p className="error text-sm text-destructive">Some annotation processing failed. Open Details below to see which.</p>}
                 {reprocess.isSuccess && <p className="text-sm text-primary">Annotation processing scheduled.</p>}
                 {reprocess.isError && <p className="error text-sm text-destructive">Could not schedule annotation processing.</p>}
               </section>
