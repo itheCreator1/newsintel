@@ -78,7 +78,7 @@ it('shows the identity, health and the origin link', async () => {
 
   expect(await screen.findByRole('heading', { name: 'Relationships Wire' })).toBeTruthy()
   expect(screen.getByText('Healthy')).toBeTruthy()
-  expect(screen.getByText(/Country GR · Language el · full text · polls every 30 min/)).toBeTruthy()
+  expect(screen.getByText(/Country Greece \(GR\) · Language Greek \(el\) · full text · polls every 30 min/)).toBeTruthy()
   expect(screen.getByText(/Last attempt success/)).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Back to entity' }).getAttribute('href')).toBe('/entities/?id=e1')
 })
@@ -128,7 +128,7 @@ it('lists coverage with the country roles kept apart', async () => {
   renderWithQuery(() => <SourceDetailPage />)
 
   expect((await screen.findByRole('link', { name: /Barack Obama/ })).getAttribute('href')).toBe('/entities/?id=ent-1')
-  expect(screen.getByText('GR · primary · 50 articles')).toBeTruthy()
+  expect(screen.getByText('Greece (GR) · story · 50 articles')).toBeTruthy()
   expect(screen.getByText('FR · mentioned · 7 articles')).toBeTruthy()
   expect(screen.getByText('el · 200 articles')).toBeTruthy()
 })

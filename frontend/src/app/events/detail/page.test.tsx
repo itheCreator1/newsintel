@@ -53,7 +53,7 @@ it('shows the header, counts, country, span and entity links', async () => {
 
   expect(await screen.findByRole('heading', { name: 'Wildfire reaches Athens' })).toBeTruthy()
   expect(screen.getByText('2 stories · 5 articles · 3 sources')).toBeTruthy()
-  expect(screen.getByText(/Country GR/)).toBeTruthy()
+  expect(screen.getByText(/Country Greece \(GR\)/)).toBeTruthy()
   expect(screen.getByRole('link', { name: /Barack Obama/ }).getAttribute('href')).toBe('/entities/?id=ent-1')
   expect(screen.getByRole('link', { name: 'Back to events' }).getAttribute('href')).toBe('/events/?status=active')
 })

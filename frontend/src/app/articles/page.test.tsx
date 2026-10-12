@@ -128,8 +128,8 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
   renderWithQuery(() => <ArticlesPage />)
 
   expect(await screen.findByText('Detected language: en')).toBeTruthy()
-  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Source countries: FR')).toBeTruthy()
-  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Primary story country: DE (inferred)')).toBeTruthy()
+  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Source countries: France (FR)')).toBeTruthy()
+  expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Primary story country: Germany (DE) (inferred)')).toBeTruthy()
   expect(screen.getByText(/keywords · stale · queued/)).toBeTruthy()
   expect(screen.getByText((_, node) => node?.textContent === 'entities · disabled · NER is disabled')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'climate policy' })).toHaveAttribute('href', '/search/?q=energy&country=US&keyword_id=keyword-one')
@@ -194,9 +194,9 @@ it('shows the story section with related articles and links to the full cluster 
 
 it.each([
   ['Filter by source Wire', '/search/?q=energy&source_id=feed-wire&country=US&after=2026-01-01'],
-  ['Filter by source country FR', '/search/?q=energy&country=FR&after=2026-01-01'],
-  ['Filter by mentioned country DE', '/search/?q=energy&country=US&mentioned_country=DE&after=2026-01-01'],
-  ['Filter by story country GR', '/search/?q=energy&country=US&story_country=GR&after=2026-01-01'],
+  ['Filter by source country France (FR)', '/search/?q=energy&country=FR&after=2026-01-01'],
+  ['Filter by mentioned country Germany (DE)', '/search/?q=energy&country=US&mentioned_country=DE&after=2026-01-01'],
+  ['Filter by story country Greece (GR)', '/search/?q=energy&country=US&story_country=GR&after=2026-01-01'],
 ])('cross-filters the originating investigation from %s', async (name, expectedHref) => {
   resetNavigationHarness({ pathname: '/articles/', search: 'article=one&from=%2Fsearch%3Fq%3Denergy%26country%3DUS%26after%3D2026-01-01' })
   vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })

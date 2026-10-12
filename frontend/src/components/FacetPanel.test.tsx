@@ -19,14 +19,14 @@ it('lists non-empty groups with counts, marks applied values, and notes truncati
   expect(within(sources).getByRole('button', { name: 'Harbor Wire 3' }).getAttribute('aria-pressed')).toBe('true')
   expect(within(sources).getByRole('button', { name: 'Harbor Daily 3' }).getAttribute('aria-pressed')).toBe('false')
   expect(within(sources).getByText('Top 2 shown.')).toBeTruthy()
-  expect(within(screen.getByRole('region', { name: 'Story countries' })).getByRole('button', { name: 'GR 2' })).toBeTruthy()
+  expect(within(screen.getByRole('region', { name: 'Story countries' })).getByRole('button', { name: 'Greece (GR) 2' })).toBeTruthy()
   expect(screen.queryByRole('region', { name: 'Keywords' })).toBeNull()
 })
 
 it('toggles the value on its URL field', () => {
   const onToggle = vi.fn()
   render(<FacetPanel facets={facets} state={stateFromQuery(new URLSearchParams())} onToggle={onToggle} />)
-  fireEvent.click(screen.getByRole('button', { name: 'GR 2' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Greece (GR) 2' }))
   expect(onToggle).toHaveBeenCalledWith('story_country', 'GR')
   fireEvent.click(screen.getByRole('button', { name: 'Harbor Daily 3' }))
   expect(onToggle).toHaveBeenLastCalledWith('source_id', 's2')

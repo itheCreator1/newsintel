@@ -31,7 +31,7 @@ it('lists events with headline, counts, country, entities and a link to the doss
   expect(link.getAttribute('href')).toMatch(/^\/events\/detail\/\?id=ev-1&from=/)
   expect(screen.getByText('2 stories · 5 articles · 3 sources')).toBeTruthy()
   expect(screen.getByText('active', { selector: 'span' })).toBeTruthy()
-  expect(screen.getByText(/ · GR$/)).toBeTruthy()
+  expect(screen.getByText(/ · Greece \(GR\)$/)).toBeTruthy()
   expect(screen.getByRole('link', { name: /Barack Obama/ }).getAttribute('href')).toBe('/entities/?id=ent-1')
   expect(api.events).toHaveBeenCalledWith({ min_stories: '2' }, undefined)
 })
@@ -71,7 +71,7 @@ it('writes changed filters back to the URL and drops emptied ones', async () => 
 
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'active' } })
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?status=active')
-  fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'gr' } })
+  fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'GR' } })
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?status=closed&country=GR')
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-09-01' } })
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?status=closed&from=2026-09-01')
