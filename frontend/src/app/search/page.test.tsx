@@ -581,3 +581,19 @@ it('exports the search on screen as CSV or JSON', async () => {
   expect(within(dialog).getByRole('link', { name: 'CSV' })).toHaveAttribute('download')
   expect(within(dialog).getByText('Up to 5,000 articles, in this order.')).toBeTruthy()
 })
+
+it('shows the reader\'s star, note and read state on a result', async () => {
+  vi.mocked(api.search).mockResolvedValue({ items: [
+    { ...result, starred: true, read: true, note: 'Port figures for the report' },
+    { ...result, article_id: 'a2', title: 'Unmarked result' },
+  ], next_cursor: null })
+  renderSearch('q=grid')
+
+  const marked = (await screen.findByText('Safe <script> title')).closest('article')!
+  expect(within(marked).getByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(within(marked).getByText('Port figures for the report')).toBeTruthy()
+  expect(within(marked).getByText('Read')).toBeTruthy()
+  const plain = screen.getByText('Unmarked result').closest('article')!
+  expect(within(plain).queryByRole('img', { name: 'Starred' })).toBeNull()
+  expect(within(plain).queryByText('Read')).toBeNull()
+})

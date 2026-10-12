@@ -56,7 +56,7 @@ it('loads the next cursor page without replacing earlier articles', async () => 
 
   expect(await screen.findByText('Second article')).toBeTruthy()
   expect(screen.getByText('First article')).toBeTruthy()
-  expect(api.articles).toHaveBeenLastCalledWith(undefined, 'next')
+  expect(api.articles).toHaveBeenLastCalledWith({}, 'next')
 })
 
 it('disables processing actions while a request is pending', async () => {
@@ -88,8 +88,8 @@ it('loads sources beyond the first page into the filter', async () => {
 
 it('starts article pagination over when the source filter changes', async () => {
   vi.mocked(api.feeds).mockResolvedValue({ items: [{ id: 'feed-one', name: 'First source' } as never], next_cursor: null })
-  vi.mocked(api.articles).mockReset().mockImplementation(async (feedId, cursor) => {
-    if (feedId === 'feed-one') return { items: [article('filtered', 'Filtered article')], next_cursor: null }
+  vi.mocked(api.articles).mockReset().mockImplementation(async (filters, cursor) => {
+    if (filters?.feed_id === 'feed-one') return { items: [article('filtered', 'Filtered article')], next_cursor: null }
     if (cursor === 'next') return { items: [article('two', 'Second article')], next_cursor: null }
     return { items: [article('one', 'First article')], next_cursor: 'next' }
   })
@@ -98,7 +98,7 @@ it('starts article pagination over when the source filter changes', async () => 
   fireEvent.change(screen.getByRole('combobox', { name: 'Source' }), { target: { value: 'feed-one' } })
   rerenderSame()
 
-  await vi.waitFor(() => expect(api.articles).toHaveBeenLastCalledWith('feed-one', undefined))
+  await vi.waitFor(() => expect(api.articles).toHaveBeenLastCalledWith({ feed_id: 'feed-one' }, undefined))
 })
 
 it('shows scheduling success and clears it when another article is selected', async () => {
@@ -258,7 +258,7 @@ it('loads the next page when stepping past the last loaded article', async () =>
   await fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
 
   await vi.waitFor(() => expect(navigationHarness.searchParams.get('article')).toBe('two'))
-  expect(api.articles).toHaveBeenLastCalledWith(undefined, 'next')
+  expect(api.articles).toHaveBeenLastCalledWith({}, 'next')
 })
 
 it('ignores reading shortcuts typed into a field or with a modifier held', async () => {
@@ -527,4 +527,51 @@ it('shows which listed articles are unread or starred', async () => {
   const second = screen.getByRole('button', { name: /Second article/ })
   expect(within(second).queryByText('Unread')).toBeNull()
   expect(within(second).queryByLabelText('Starred')).toBeNull()
+})
+
+it('filters the list by unread, starred, language, full text and dates from the address', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [], next_cursor: null })
+  resetNavigationHarness({ pathname: '/articles/', search: 'show=unread&lang=el&text=1&after=2026-01-05&until=2026-01-19' })
+  renderWithQuery(() => <ArticlesPage />)
+
+  // "Until" is the last day shown; the list asks for everything before the next day.
+  await vi.waitFor(() => expect(api.articles).toHaveBeenLastCalledWith(
+    { unread: true, language: 'el', has_text: true, after: '2026-01-05', before: '2026-01-20' }, undefined))
+  expect(screen.getByRole('combobox', { name: 'Show' })).toHaveValue('unread')
+  expect(screen.getByRole('combobox', { name: 'Language' })).toHaveValue('el')
+  expect(screen.getByRole('checkbox', { name: 'Full text only' })).toBeChecked()
+  expect(screen.getByLabelText('From')).toHaveValue('2026-01-05')
+  expect(screen.getByLabelText('Until')).toHaveValue('2026-01-19')
+  expect(await screen.findByText('No articles match these filters.')).toBeTruthy()
+})
+
+it('sets each list filter in the address and clears them together', async () => {
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  const { rerenderSame } = renderWithQuery(() => <ArticlesPage />)
+  await screen.findAllByText('First article')
+
+  fireEvent.change(screen.getByRole('combobox', { name: 'Show' }), { target: { value: 'starred' } })
+  rerenderSame()
+  fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), { target: { value: 'en' } })
+  rerenderSame()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Full text only' }))
+  rerenderSame()
+  fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-02-01' } })
+  rerenderSame()
+  fireEvent.change(screen.getByLabelText('Until'), { target: { value: '2026-02-28' } })
+  rerenderSame()
+
+  const params = navigationHarness.searchParams
+  expect([params.get('show'), params.get('lang'), params.get('text'), params.get('after'), params.get('until')])
+    .toEqual(['starred', 'en', '1', '2026-02-01', '2026-02-28'])
+  // The open article stays open while the list narrows.
+  expect(params.get('article')).toBe('one')
+  await vi.waitFor(() => expect(api.articles).toHaveBeenLastCalledWith(
+    { starred: true, language: 'en', has_text: true, after: '2026-02-01', before: '2026-03-01' }, undefined))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+  rerenderSame()
+  expect(['show', 'lang', 'text', 'after', 'until'].map(key => navigationHarness.searchParams.get(key))).toEqual([null, null, null, null, null])
 })
