@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -61,3 +62,47 @@ class StoryClusterDetailResponse(BaseModel):
     last_published_at: datetime | None
     representative_article_id: uuid.UUID | None
     members: ClusterMemberPage
+
+
+class StoryEntity(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+    article_count: int
+
+
+class StoryEventRef(BaseModel):
+    id: uuid.UUID
+    headline: str | None
+
+
+class StoryTimelineBucket(BaseModel):
+    start: datetime
+    count: int
+
+
+class StoryTimeline(BaseModel):
+    interval: Literal["hour", "day"]
+    buckets: list[StoryTimelineBucket]
+
+
+class StorySource(BaseModel):
+    id: uuid.UUID
+    name: str
+    first_reported_at: datetime
+    minutes_behind: float
+
+
+class StorySummary(BaseModel):
+    """The story page's header. `title` is the representative article's, else the earliest's.
+
+    `sources` lists each source once, at its first article, earliest first: the first one
+    reported the story first.
+    """
+
+    id: uuid.UUID
+    title: str | None
+    entities: list[StoryEntity]
+    event: StoryEventRef | None
+    timeline: StoryTimeline
+    sources: list[StorySource]

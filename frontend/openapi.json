@@ -4006,6 +4006,49 @@
         }
       }
     },
+    "/api/v1/clusters/{cluster_id}/summary": {
+      "get": {
+        "tags": [
+          "clustering"
+        ],
+        "summary": "Get Cluster Summary",
+        "operationId": "get_cluster_summary_api_v1_clusters__cluster_id__summary_get",
+        "parameters": [
+          {
+            "name": "cluster_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Cluster Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorySummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clustering/jobs/{job_id}/retry": {
       "post": {
         "tags": [
@@ -20209,6 +20252,193 @@
           "source_count"
         ],
         "title": "StoryClusterRef"
+      },
+      "StoryEntity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "article_count": {
+            "type": "integer",
+            "title": "Article Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "entity_type",
+          "article_count"
+        ],
+        "title": "StoryEntity"
+      },
+      "StoryEventRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "headline"
+        ],
+        "title": "StoryEventRef"
+      },
+      "StorySource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "first_reported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Reported At"
+          },
+          "minutes_behind": {
+            "type": "number",
+            "title": "Minutes Behind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "first_reported_at",
+          "minutes_behind"
+        ],
+        "title": "StorySource"
+      },
+      "StorySummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/StoryEntity"
+            },
+            "type": "array",
+            "title": "Entities"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryEventRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeline": {
+            "$ref": "#/components/schemas/StoryTimeline"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/StorySource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "entities",
+          "event",
+          "timeline",
+          "sources"
+        ],
+        "title": "StorySummary",
+        "description": "The story page's header. `title` is the representative article's, else the earliest's.\n\n`sources` lists each source once, at its first article, earliest first: the first one\nreported the story first."
+      },
+      "StoryTimeline": {
+        "properties": {
+          "interval": {
+            "type": "string",
+            "enum": [
+              "hour",
+              "day"
+            ],
+            "title": "Interval"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/StoryTimelineBucket"
+            },
+            "type": "array",
+            "title": "Buckets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interval",
+          "buckets"
+        ],
+        "title": "StoryTimeline"
+      },
+      "StoryTimelineBucket": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "count"
+        ],
+        "title": "StoryTimelineBucket"
       },
       "Subject": {
         "properties": {
