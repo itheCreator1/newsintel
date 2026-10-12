@@ -31,6 +31,8 @@ const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string
   retry: false,
 })
 // The annotation role `primary` is what the rest of the app calls the story country.
+const counts = ({ articles, stories, sources }: { articles: number; stories: number; sources: number | null }) =>
+  `${plural(articles, 'article')} · ${plural(stories, 'story', 'stories')}${sources === null ? '' : ` · ${plural(sources, 'source')}`}`
 const roleName = (role: string) => role === 'primary' ? 'story' : role
 const searchField = (kind: CompareKind, role?: CompareRole): ListField => kind === 'entity' ? 'entity_id' : kind === 'source' ? 'source_id' : role === 'mentioned' ? 'mentioned_country' : role === 'source' ? 'source_country' : 'story_country'
 
@@ -39,21 +41,25 @@ interface PickerProps { kind: CompareKind; slot: 'A' | 'B'; value: string; label
 
 function SubjectPicker({ kind, slot, value, label, onPick }: PickerProps) {
   const [text, setText] = useState('')
-  const lookup = useQuery({ queryKey: ['compare-entities', text.trim()], queryFn: () => api.nlpEntities(text.trim()), enabled: kind === 'entity' && text.trim().length >= 2, retry: false })
-  const feeds = useInfiniteQuery({ queryKey: ['compare-feeds'], ...pageOf(cursor => api.feeds(cursor)), enabled: kind === 'source' })
-  const options = feeds.data?.pages.flatMap(page => page.items) ?? []
+  const term = text.trim()
+  const lookup = useQuery({ queryKey: ['compare-entities', term], queryFn: () => api.nlpEntities(term), enabled: kind === 'entity' && term.length >= 2, retry: false })
+  // Every source, retired ones included, matched by name on the server, so none is out of reach.
+  const sources = useQuery({ queryKey: ['compare-sources', term], queryFn: () => api.searchSources(term), enabled: kind === 'source' && term.length >= 1, retry: false })
+  // A source that came in the URL (from its dossier) is named from its feed.
+  const named = useQuery({ queryKey: ['feed', value], queryFn: () => api.feed(value), enabled: kind === 'source' && Boolean(value) && label === value, retry: false })
 
   if (kind === 'source') {
     return (
       <div className="flex flex-col gap-2">
         <label className={labelClass}>{`Source ${slot}`}
-          <select className={fieldClass} value={value} onChange={event => onPick(event.target.value, options.find(feed => feed.id === event.target.value)?.name)}>
-            <option value="">Choose a source</option>
-            {value && !options.some(feed => feed.id === value) && <option value={value}>{label}</option>}
-            {options.map(feed => <option key={feed.id} value={feed.id}>{feed.name}</option>)}
-          </select>
+          <input className={fieldClass} placeholder="Search sources" value={text} onChange={event => setText(event.target.value)} />
         </label>
-        {feeds.hasNextPage && <button className={ghostButtonClass} disabled={feeds.isFetchingNextPage} onClick={() => feeds.fetchNextPage()}>Load more sources</button>}
+        {value && <p className="text-sm text-foreground">{`Selected: ${label === value ? named.data?.name ?? label : label}`}</p>}
+        {sources.isError && <p className="error text-sm text-destructive">Could not search sources.</p>}
+        {sources.data && !sources.data.items.length && <p className="text-sm text-muted-foreground">No sources match.</p>}
+        <div className="flex flex-wrap gap-2">
+          {sources.data?.items.map(source => <button key={source.id} className={chipClass} onClick={() => { onPick(source.id, source.name); setText('') }}>{source.retired ? `${source.name} (retired)` : source.name}</button>)}
+        </div>
       </div>
     )
   }
@@ -204,7 +210,8 @@ function CompareContent() {
                   <h3 className="text-lg font-semibold text-foreground">{side.subject.label}</h3>
                   <p className="text-sm text-muted-foreground">{`${slot.toUpperCase()} · ${side.subject.kind}${side.subject.role ? ` · ${side.subject.role} country` : ''}`}</p>
                   {side.subject.retired && <p className="text-sm text-muted-foreground">Retired. Its archive is kept.</p>}
-                  <p className="text-sm text-foreground">{`Last ${data.window_days} days: ${plural(side.articles, 'article')} · ${plural(side.stories, 'story', 'stories')}${side.sources === null ? '' : ` · ${plural(side.sources, 'source')}`}`}</p>
+                  <p className="text-sm text-foreground">{`Last ${data.window_days} days: ${counts(side)}`}</p>
+                  <p className="text-sm text-muted-foreground">{`The ${data.window_days} days before: ${counts(side.previous)}`}</p>
                   {side.subject.kind !== 'country' && <Link className={chipClass} href={side.subject.kind === 'entity' ? entityHref(side.subject.ref) : sourceHref(side.subject.ref, currentHref)}>Open dossier</Link>}
                 </GlassPanel>
               )

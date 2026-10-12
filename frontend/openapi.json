@@ -14563,6 +14563,37 @@
         "title": "CompareOverlap",
         "description": "Articles are distinct articles; stories are clusters holding an article of the subject; a\nstory is `both` when it holds one of each. `sources` (distinct feeds) is null for sources."
       },
+      "ComparePeriod": {
+        "properties": {
+          "articles": {
+            "type": "integer",
+            "title": "Articles"
+          },
+          "stories": {
+            "type": "integer",
+            "title": "Stories"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "articles",
+          "stories",
+          "sources"
+        ],
+        "title": "ComparePeriod",
+        "description": "The same counts over the window of the same length just before this one."
+      },
       "CompareRelated": {
         "properties": {
           "entities": {
@@ -14689,6 +14720,9 @@
             },
             "type": "array",
             "title": "Timeline"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/ComparePeriod"
           }
         },
         "type": "object",
@@ -14697,7 +14731,8 @@
           "articles",
           "stories",
           "sources",
-          "timeline"
+          "timeline",
+          "previous"
         ],
         "title": "CompareSide",
         "description": "Counts are over the subject's articles dated in the window. `sources` is null when the\nsubject is itself a source."

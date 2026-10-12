@@ -16,15 +16,17 @@ test('compare workflow moves from a source dossier to shared evidence and back',
   await page.getByRole('link', { name: 'Dossier for Relationships Wire' }).click()
   await page.getByRole('link', { name: 'Compare with another source' }).click()
   await expect(page).toHaveURL(/\/compare\/\?kind=source&a=/)
-  await expect(page.getByLabel('Source A')).not.toHaveValue('')
+  await expect(page.getByText('Selected: Relationships Wire')).toBeVisible()
 
   await page.getByLabel('Window').selectOption('365')
-  await page.getByLabel('Source B').selectOption({ label: 'Relationships Daily' })
+  await page.getByLabel('Source B').fill('Relationships D')
+  await page.getByRole('button', { name: 'Relationships Daily', exact: true }).click()
   await expect(page).toHaveURL(/kind=source&a=.+&b=.+&days=365/)
   await expect(page.getByRole('heading', { name: 'Relationships Wire', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Relationships Daily', exact: true })).toBeVisible()
   await expect(page.getByLabel('Stories overlap')).toContainText(/^Stories\s*[1-9]\d* of \d+ stories in either set appear in both · Jaccard \d\.\d\d/)
   await expect(page.getByLabel('Articles overlap')).toContainText(/of \d+ articles in either set appear in both/)
+  await expect(page.getByText(/^The 365 days before: \d+ articles? · \d+ stor(y|ies)$/).first()).toBeVisible()
 
   // The stories both sources carry, then one of them and back with the comparison intact.
   await page.getByLabel('Stories overlap').getByRole('button', { name: /^Both: / }).click()
@@ -32,7 +34,7 @@ test('compare workflow moves from a source dossier to shared evidence and back',
   await page.locator('a[href^="/clusters/?id="]').first().click()
   await expect(page).toHaveURL(/\/clusters\/\?id=/)
   await page.goBack()
-  await expect(page.getByLabel('Source B')).toHaveValue(/.+/)
+  await expect(page.getByText('Selected: Relationships Daily')).toBeVisible()
   await expect(page.getByLabel('Stories overlap')).toBeVisible()
 
   // An article carries the way back to the comparison. Two sources rarely carry the same article, so

@@ -62,6 +62,7 @@ export const api = {
   previewOpml: (opml: string) => mutate<OpmlPreview>('/feeds/opml/preview', 'POST', { opml }),
   importFeeds: (feeds: NewFeed[]) => mutate<FeedImportResult>('/feeds/import', 'POST', { feeds }),
   createFeed: (payload: NewFeed) => mutate<Feed>('/feeds', 'POST', payload),
+  feed: (id: string) => request<Feed>(`/feeds/${id}`),
   updateFeed: (id: string, payload: Partial<Feed>) => mutate<Feed>(`/feeds/${id}`, 'PATCH', payload),
   retireFeed: (id: string) => mutate<void>(`/feeds/${id}`, 'DELETE'),
   pollFeed: (id: string) => mutate<{ fetch_id: string; status: string; reused: boolean }>(`/feeds/${id}/poll`, 'POST'),
