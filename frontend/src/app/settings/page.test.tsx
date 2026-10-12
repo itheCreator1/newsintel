@@ -133,3 +133,20 @@ it('sends a test message and shows the last delivery and the last error', async 
   await fireEvent.click(within(panel).getByRole('button', { name: 'Send test message' }))
   expect(await within(panel).findByText('Test message sent. Check your device.')).toBeTruthy()
 })
+
+it('switches between the system, light and dark themes under Appearance', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
+  renderWithQuery(() => <SettingsPage />)
+  const appearance = screen.getByRole('region', { name: 'Appearance' })
+  const theme = within(appearance).getByRole('radiogroup', { name: 'Theme' })
+  expect(within(theme).getByRole('radio', { name: 'Same as the system' })).toBeChecked()
+
+  fireEvent.click(within(theme).getByRole('radio', { name: 'Dark' }))
+  expect(document.documentElement).toHaveClass('dark')
+  expect(within(theme).getByRole('radio', { name: 'Dark' })).toBeChecked()
+
+  fireEvent.click(within(theme).getByRole('radio', { name: 'Light' }))
+  expect(document.documentElement).not.toHaveClass('dark')
+  fireEvent.click(within(theme).getByRole('radio', { name: 'Same as the system' }))
+  vi.unstubAllGlobals()
+})

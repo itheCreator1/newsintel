@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { graphOption } from './EntityGraph'
+import { darkChart, lightChart } from '../lib/chart-theme'
 
 const node = (id: string, type: string, article_count: number) => ({ id, text: id.toUpperCase(), type, article_count })
 const edge = (source: string, target: string, weight: number, score = weight / 10, recent_weight = 0) => ({ source, target, weight, score, recent_weight })
@@ -80,4 +81,11 @@ it('stated edges do not change communities', () => {
 it('drops a stated link whose entity is not drawn', () => {
   const s = graphOption({ nodes, edges, stated: [{ source: 'a', target: 'missing', label: 'part_of' }] }).series[0]
   expect(s.edges.some(e => e.stated)).toBe(false)
+})
+
+it('draws in the palette it is given, light by default', () => {
+  const dark = graphOption({ nodes, edges, theme: darkChart })
+  expect(dark.legend[0].textStyle.color).toBe(darkChart.axisLabel)
+  expect(dark.series[0].categories[0].itemStyle.color).toBe(darkChart.entities[nodes[0].type])
+  expect(graphOption({ nodes, edges }).legend[0].textStyle.color).toBe(lightChart.axisLabel)
 })
