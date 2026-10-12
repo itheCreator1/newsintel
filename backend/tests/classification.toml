@@ -56,6 +56,8 @@
 "test_event_engine_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_event_model_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_events.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_exports.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_exports_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_feed_discovery.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_feed_fetch_status_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_feed_http.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
