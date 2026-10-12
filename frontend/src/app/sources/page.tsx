@@ -2,10 +2,10 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useId, useState } from 'react'
+import { useId, useState, type ChangeEvent } from 'react'
 import { LoadError, LoadingState, Note } from '../../components/Feedback'
-import { api, ApiError, type FeedListParams } from '../../lib/api'
-import type { Feed } from '../../lib/api-types'
+import { api, ApiError, OPML_EXPORT_HREF, type FeedListParams, type NewFeed } from '../../lib/api'
+import type { Feed, FeedTest, OpmlPreview } from '../../lib/api-types'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge, type BadgeTone } from '../../components/StatusBadge'
@@ -115,6 +115,96 @@ function EditSource({ feed, onDone }: { feed: Feed; onDone: () => void }) {
   )
 }
 
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`
+
+/** What testing an address found: the feed, where it was found, and whether it is a source already. */
+function FeedTestResult({ result, onUse }: { result: FeedTest; onUse: () => void }) {
+  const summary = [result.title ?? 'Untitled feed', plural(result.entry_count, 'entry', 'entries'), result.language && languageLabel(result.language)].filter(Boolean).join(' · ')
+  return (
+    <div role="status" aria-label="Feed test" className="flex flex-col gap-1.5 rounded-lg border border-border bg-background/40 p-3 text-sm">
+      <p className="font-medium text-foreground">{summary}</p>
+      {result.latest_entry_at && <p className="text-xs text-muted-foreground">{`Latest entry ${new Date(result.latest_entry_at).toLocaleString()}`}</p>}
+      {result.discovered_from && <p className="text-xs text-muted-foreground">{`Found the feed linked from ${result.discovered_from}`}</p>}
+      {result.existing_feed_id && <p className="text-xs text-foreground">This feed is already a source. <Link className="text-primary underline" href={sourceHref(result.existing_feed_id)}>Open its dossier</Link></p>}
+      <button type="button" className={cn(ghostButtonClass, 'self-start')} onClick={onUse}>Use these details</button>
+    </div>
+  )
+}
+
+/** An OPML file read in the browser, previewed by the server, then the ticked new sources added. */
+function OpmlImport() {
+  const client = useQueryClient()
+  const [preview, setPreview] = useState<OpmlPreview>()
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const read = useMutation({
+    mutationFn: async (file: File) => api.previewOpml(await file.text()),
+    onSuccess: result => { setPreview(result); setPicked(new Set(result.items.filter(item => !item.existing_feed_id).map(item => item.url))) },
+  })
+  const add = useMutation({
+    mutationFn: (feeds: NewFeed[]) => api.importFeeds(feeds),
+    onSuccess: () => { setPreview(undefined); client.invalidateQueries({ queryKey: ['feeds'] }) },
+  })
+
+  function choose(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    add.reset()
+    if (file) read.mutate(file)
+    event.target.value = ''
+  }
+  function toggle(url: string, checked: boolean) {
+    setPicked(current => { const next = new Set(current); if (checked) next.add(url); else next.delete(url); return next })
+  }
+  const chosen = preview?.items.filter(item => !item.existing_feed_id && picked.has(item.url)) ?? []
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className={cn(ghostButtonClass, 'cursor-pointer')}>Import OPML
+          <input type="file" accept=".opml,.xml,text/x-opml,text/xml,application/xml" className="sr-only" onChange={choose} />
+        </label>
+        <a className={ghostButtonClass} href={OPML_EXPORT_HREF} download>Export OPML</a>
+      </div>
+      {read.isPending && <p className="text-sm text-muted-foreground">Reading the file…</p>}
+      {read.isError && <p role="alert" className="error text-sm text-destructive">{message(read.error, 'Could not read this file.')}</p>}
+      {add.isError && <p role="alert" className="error text-sm text-destructive">{message(add.error, 'Could not add these sources.')}</p>}
+      {add.isSuccess && <p role="status" className="text-sm text-primary">{`Added ${plural(add.data.created, 'source')}.${add.data.skipped ? ` ${plural(add.data.skipped, 'address', 'addresses')} already collected.` : ''}`}</p>}
+      {preview && (
+        <section aria-label="OPML preview" className="flex flex-col gap-2 rounded-lg border border-border bg-background/40 p-3">
+          {preview.invalid > 0 && <p className="text-xs text-muted-foreground">{`${plural(preview.invalid, 'entry', 'entries')} ${preview.invalid === 1 ? 'was' : 'were'} left out: they had no web address, or repeated one.`}</p>}
+          {!preview.items.length && <p className="text-sm text-muted-foreground">The file lists no feeds.</p>}
+          <ul className="flex max-h-72 list-none flex-col gap-1 overflow-y-auto pl-0">
+            {preview.items.map(item => {
+              const details = [item.tags.join(', '), item.source_country && countryLabel(item.source_country), item.expected_language && languageLabel(item.expected_language)].filter(Boolean).join(' · ')
+              return (
+                <li key={item.url} className="flex items-start gap-2 text-sm">
+                  {item.existing_feed_id
+                    ? <span className="mt-0.5 h-4 w-4 shrink-0" />
+                    : <input id={`opml-${item.url}`} type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-primary" checked={picked.has(item.url)} onChange={event => toggle(item.url, event.target.checked)} />}
+                  <span className="flex min-w-0 flex-col">
+                    {item.existing_feed_id
+                      ? <span className="text-muted-foreground">{item.name}</span>
+                      : <label htmlFor={`opml-${item.url}`} className="cursor-pointer text-foreground">{item.name}</label>}
+                    <small className="break-all text-xs text-muted-foreground">{item.url}</small>
+                    {details && <small className="text-xs text-muted-foreground">{details}</small>}
+                    {item.existing_feed_id && <small className="text-xs text-muted-foreground">Already a source</small>}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={primaryButtonClass} disabled={!chosen.length || add.isPending}
+              onClick={() => add.mutate(chosen.map(({ name, url, tags, source_country, expected_language }) => ({ name, url, tags, source_country, expected_language })))}>
+              {add.isPending ? 'Adding…' : `Add ${plural(chosen.length, 'source')}`}
+            </button>
+            <button type="button" className={ghostButtonClass} onClick={() => setPreview(undefined)}>Cancel</button>
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
 export default function SourcesPage() {
   const client = useQueryClient()
   // Cursors of the pages before the one shown, so Previous goes back without refetching from the start.
@@ -139,6 +229,13 @@ export default function SourcesPage() {
     onSuccess: () => { setName(''); setUrl(''); client.invalidateQueries({ queryKey: ['feeds'] }) },
   })
   const poll = useMutation({ mutationFn: api.pollFeed, onSuccess: () => client.invalidateQueries({ queryKey: ['feeds'] }) })
+  const probe = useMutation({ mutationFn: (address: string) => api.testFeed(address) })
+  function applyProbe(result: FeedTest) {
+    if (!name.trim() && result.title) setName(result.title.slice(0, 200))
+    setUrl(result.url)
+    if (result.language && !language) setLanguage(result.language)
+    probe.reset()
+  }
 
   function filter(changes: FeedListParams) { setFilters(current => ({ ...current, ...changes })); setCursors([undefined]) }
   const filtered = Object.keys(params).some(key => key !== 'sort')
@@ -151,9 +248,14 @@ export default function SourcesPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <GlassPanel className="flex flex-col gap-4 self-start">
           <h3 className="text-sm font-semibold text-foreground">Add source</h3>
-          <form className="flex flex-col gap-4" onSubmit={event => { event.preventDefault(); save.mutate() }}>
+          <form aria-label="Add source" className="flex flex-col gap-4" onSubmit={event => { event.preventDefault(); save.mutate() }}>
             <label className={labelClass}>Name<input className={cn(fieldClass, 'mt-1')} value={name} onChange={event => setName(event.target.value)} required maxLength={200} /></label>
-            <label className={labelClass}>Feed URL<input className={cn(fieldClass, 'mt-1')} value={url} onChange={event => setUrl(event.target.value)} required type="url" /></label>
+            <div className="flex items-end gap-2">
+              <label className={cn(labelClass, 'flex-1')}>Feed URL<input className={cn(fieldClass, 'mt-1')} value={url} onChange={event => { setUrl(event.target.value); probe.reset() }} required type="url" placeholder="A feed, or a site that links one" /></label>
+              <button type="button" className={ghostButtonClass} disabled={!url.trim() || probe.isPending} onClick={() => probe.mutate(url.trim())}>{probe.isPending ? 'Testing…' : 'Test feed'}</button>
+            </div>
+            {probe.isError && <p role="alert" className="error text-sm text-destructive">{message(probe.error, 'Could not test this address.')}</p>}
+            {probe.data && <FeedTestResult result={probe.data} onUse={() => applyProbe(probe.data)} />}
             <div className="grid grid-cols-2 gap-4">
               <CountrySelect label="Source country" value={country} emptyLabel="Not set" onChange={setCountry} />
               <LanguageSelect label="Expected language" value={language} emptyLabel="Not set" onChange={setLanguage} />
@@ -168,6 +270,9 @@ export default function SourcesPage() {
             {save.isError && <p role="alert" className="error text-sm text-destructive">{message(save.error, 'Could not add this source.')}</p>}
             {save.isSuccess && <p role="status" className="text-sm text-primary">Source added. Its first poll is scheduled now; articles appear under Articles once it has run.</p>}
           </form>
+          <h3 className="mt-2 text-sm font-semibold text-foreground">Import and export</h3>
+          <p className="-mt-2 text-xs text-muted-foreground">OPML is the list format feed readers import and export. Folders and categories become tags.</p>
+          <OpmlImport />
         </GlassPanel>
 
         <GlassPanel className="overflow-hidden p-0">

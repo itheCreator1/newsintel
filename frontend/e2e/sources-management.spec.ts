@@ -39,10 +39,10 @@ test('sources management workflow tests, edits, imports and exports sources', as
   await expect(edit).toBeHidden()
   await page.getByLabel('Find a source').fill('')
   await page.getByRole('button', { name: 'Filter by tag greek' }).click()
-  await expect(page.getByLabel('Tag')).toHaveValue('greek')
+  await expect(page.getByLabel('Tag', { exact: true })).toHaveValue('greek')
   await expect(page.locator('.source-row')).toHaveCount(1)
   await expect(page.locator('.source-row').getByText('Greek Wire', { exact: true })).toBeVisible()
-  await page.getByLabel('Tag').selectOption('')
+  await page.getByLabel('Tag', { exact: true }).selectOption('')
 
   // An OPML file adds only what is new.
   await page.getByLabel('Import OPML').setInputFiles({ name: 'reader.opml', mimeType: 'text/x-opml', buffer: Buffer.from(OPML) })
