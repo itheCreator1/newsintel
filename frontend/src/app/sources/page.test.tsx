@@ -1,10 +1,10 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { api, ApiError } from '../../lib/api'
 import { renderWithQuery } from '../../test/render'
 import SourcesPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feeds: vi.fn(), fetches: vi.fn(), createFeed: vi.fn(), updateFeed: vi.fn(), pollFeed: vi.fn(), retireFeed: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feeds: vi.fn(), feedTags: vi.fn(), fetches: vi.fn(), createFeed: vi.fn(), updateFeed: vi.fn(), pollFeed: vi.fn(), retireFeed: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -12,7 +12,10 @@ beforeEach(() => {
     items: [{ id: 'f1', name: 'Wire', url: 'https://wire.example/rss', source_country: 'GR', expected_language: null, tags: [], enabled: true, poll_interval_minutes: 30, fetching_mode: 'rss', next_poll_at: '2026-09-21T10:30:00Z', last_success_at: '2026-09-21T10:00:00Z', created_at: '2026-08-01T00:00:00Z' }],
     next_cursor: null,
   })
+  vi.mocked(api.feedTags).mockResolvedValue([{ tag: 'greek', count: 2 }, { tag: 'economy', count: 1 }])
 })
+
+const wire = { id: 'f1', name: 'Wire', url: 'https://wire.example/rss', source_country: 'GR', expected_language: null, tags: ['greek'], enabled: true, poll_interval_minutes: 30, fetching_mode: 'rss' as const, next_poll_at: '2026-09-21T10:30:00Z', last_success_at: '2026-09-21T10:00:00Z', created_at: '2026-08-01T00:00:00Z', retired_at: null, last_fetch_status: 'success', last_fetch_error: null, last_fetch_at: '2026-09-21T10:00:00Z' }
 afterEach(cleanup)
 
 it('links each managed source to its dossier', async () => {
@@ -21,16 +24,113 @@ it('links each managed source to its dossier', async () => {
   expect((await screen.findByRole('link', { name: 'Dossier for Wire' })).getAttribute('href')).toBe('/sources/detail/?id=f1')
 })
 
-it('saves a valid poll interval on blur and ignores an out-of-range or empty one', async () => {
+it('edits a source and sends only what changed', async () => {
+  vi.mocked(api.feeds).mockResolvedValue({ items: [wire], next_cursor: null })
+  vi.mocked(api.updateFeed).mockResolvedValue({ ...wire, name: 'Wire GR' })
   renderWithQuery(() => <SourcesPage />)
-  const input = await screen.findByLabelText('Poll interval for Wire') as HTMLInputElement
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Wire' }))
+  const form = within(screen.getByRole('form', { name: 'Edit Wire' }))
 
-  for (const value of ['2', '', '60']) {
-    fireEvent.change(input, { target: { value } })
-    fireEvent.blur(input)
-  }
-  await waitFor(() => expect(api.updateFeed).toHaveBeenCalled())
-  expect(vi.mocked(api.updateFeed).mock.calls).toEqual([['f1', { poll_interval_minutes: 60 }]])
+  expect(form.getByLabelText('Name')).toHaveValue('Wire')
+  expect(form.getByLabelText('Source country')).toHaveValue('GR')
+  expect(form.getByLabelText('Tags')).toHaveValue('greek')
+  fireEvent.change(form.getByLabelText('Name'), { target: { value: 'Wire GR' } })
+  fireEvent.change(form.getByLabelText('Expected language'), { target: { value: 'el' } })
+  fireEvent.change(form.getByLabelText('Tags'), { target: { value: 'greek, economy' } })
+  fireEvent.change(form.getByLabelText('Poll interval (minutes)'), { target: { value: '15' } })
+  fireEvent.click(form.getByRole('button', { name: 'Save changes' }))
+
+  await waitFor(() => expect(api.updateFeed).toHaveBeenCalledWith('f1', { name: 'Wire GR', expected_language: 'el', tags: ['greek', 'economy'], poll_interval_minutes: 15 }))
+  await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit Wire' })).toBeNull())
+})
+
+it('clears a country, turns collection off, and says why a change was refused', async () => {
+  vi.mocked(api.feeds).mockResolvedValue({ items: [wire], next_cursor: null })
+  vi.mocked(api.updateFeed).mockRejectedValue(new ApiError('url: Feed URL must use http or https', 422))
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Wire' }))
+  const form = within(screen.getByRole('form', { name: 'Edit Wire' }))
+  fireEvent.change(form.getByLabelText('Source country'), { target: { value: '' } })
+  fireEvent.click(form.getByRole('checkbox', { name: 'Collect from this source' }))
+  fireEvent.click(form.getByRole('button', { name: 'Save changes' }))
+
+  await waitFor(() => expect(api.updateFeed).toHaveBeenCalledWith('f1', { source_country: null, enabled: false }))
+  expect(await form.findByRole('alert')).toHaveTextContent('url: Feed URL must use http or https')
+  expect(screen.getByRole('form', { name: 'Edit Wire' })).toBeTruthy()
+})
+
+it('retires a source from its edit form after asking', async () => {
+  vi.mocked(api.feeds).mockResolvedValue({ items: [wire], next_cursor: null })
+  vi.mocked(api.retireFeed).mockResolvedValue(undefined)
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Wire' }))
+  fireEvent.click(within(screen.getByRole('form', { name: 'Edit Wire' })).getByRole('button', { name: 'Retire source' }))
+
+  expect(confirm).toHaveBeenCalled()
+  await waitFor(() => expect(api.retireFeed).toHaveBeenCalledWith('f1'))
+  confirm.mockRestore()
+})
+
+it('finds, filters, sorts and pages the sources', async () => {
+  vi.mocked(api.feeds).mockImplementation(async cursor => cursor
+    ? { items: [{ ...wire, id: 'f2', name: 'Daily' }], next_cursor: null }
+    : { items: [wire], next_cursor: 'page-2' })
+  renderWithQuery(() => <SourcesPage />)
+  await screen.findByRole('link', { name: 'Dossier for Wire' })
+
+  fireEvent.change(screen.getByLabelText('Find a source'), { target: { value: 'wire' } })
+  await waitFor(() => expect(api.feeds).toHaveBeenLastCalledWith(undefined, { q: 'wire' }))
+  fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'failing' } })
+  await waitFor(() => expect(api.feeds).toHaveBeenLastCalledWith(undefined, { q: 'wire', status: 'failing' }))
+  expect(await screen.findByRole('option', { name: 'greek (2)' })).toBeTruthy()
+  fireEvent.change(screen.getByLabelText('Tag'), { target: { value: 'greek' } })
+  fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'name' } })
+  await waitFor(() => expect(api.feeds).toHaveBeenLastCalledWith(undefined, { q: 'wire', status: 'failing', tag: 'greek', sort: 'name' }))
+
+  expect(screen.queryByRole('button', { name: 'Previous page' })).toBeNull()
+  fireEvent.click(await screen.findByRole('button', { name: 'Next page' }))
+  expect(await screen.findByRole('link', { name: 'Dossier for Daily' })).toBeTruthy()
+  expect(api.feeds).toHaveBeenLastCalledWith('page-2', { q: 'wire', status: 'failing', tag: 'greek', sort: 'name' })
+  fireEvent.click(screen.getByRole('button', { name: 'Previous page' }))
+  expect(await screen.findByRole('link', { name: 'Dossier for Wire' })).toBeTruthy()
+
+  // A new filter starts again from the first page.
+  fireEvent.click(await screen.findByRole('button', { name: 'Next page' }))
+  await screen.findByRole('link', { name: 'Dossier for Daily' })
+  fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'newest' } })
+  await waitFor(() => expect(api.feeds).toHaveBeenLastCalledWith(undefined, { q: 'wire', status: 'failing', tag: 'greek' }))
+})
+
+it('filters by a tag from a source row', async () => {
+  vi.mocked(api.feeds).mockResolvedValue({ items: [wire], next_cursor: null })
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag greek' }))
+  await waitFor(() => expect(api.feeds).toHaveBeenLastCalledWith(undefined, { tag: 'greek' }))
+  expect(screen.getByLabelText('Tag')).toHaveValue('greek')
+})
+
+it('shows country, language and the last error, and a retired source without actions', async () => {
+  vi.mocked(api.feeds).mockResolvedValue({ items: [
+    { ...wire, expected_language: 'el', last_fetch_status: 'failed', last_fetch_error: 'http: HTTP 500' },
+    { ...wire, id: 'f9', name: 'Old wire', enabled: false, retired_at: '2026-09-01T00:00:00Z' },
+  ], next_cursor: null })
+  renderWithQuery(() => <SourcesPage />)
+  const row = (await screen.findByText('Wire')).closest('.source-row') as HTMLElement
+  expect(within(row).getByText('Greece (GR) · Greek (el) · rss · every 30 min')).toBeTruthy()
+  expect(within(row).getByText('Failing')).toBeTruthy()
+  expect(within(row).getByText('Last fetch failed: http: HTTP 500')).toBeTruthy()
+
+  const retired = screen.getByText('Old wire').closest('.source-row') as HTMLElement
+  expect(within(retired).getByText('Retired')).toBeTruthy()
+  expect(within(retired).queryByRole('button')).toBeNull()
+})
+
+it('leaves the fetch history to the dossier', async () => {
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.click(await screen.findByText('Wire'))
+  expect(screen.queryByText(/fetch history/i)).toBeNull()
+  expect(api.fetches).not.toHaveBeenCalled()
 })
 
 it('tells a failed load apart from an empty list and offers Retry', async () => {

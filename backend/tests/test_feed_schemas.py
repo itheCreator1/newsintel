@@ -25,3 +25,29 @@ def test_feed_accepts_all_collection_modes(mode: str) -> None:
 def test_feed_rejects_unknown_collection_mode() -> None:
     with pytest.raises(ValidationError):
         FeedUpdate(fetching_mode="full")  # type: ignore[arg-type]
+
+
+def test_feed_tags_are_trimmed_and_deduplicated_ignoring_case() -> None:
+    feed = FeedCreate(
+        name="Wire",
+        url="https://example.com/rss",
+        tags=["  Ελληνικά ", "economy", "Economy", "", "world   news"],
+    )
+    assert feed.tags == ["Ελληνικά", "economy", "world news"]
+    assert FeedUpdate(tags=[" a ", "A"]).tags == ["a"]
+    assert FeedUpdate().tags is None
+
+
+def test_feed_tag_has_a_length_limit() -> None:
+    with pytest.raises(ValidationError):
+        FeedCreate(name="Wire", url="https://example.com/rss", tags=["x" * 41])
+
+
+def test_feed_country_and_language_codes_are_normalised() -> None:
+    feed = FeedCreate(
+        name="Wire", url="https://example.com/rss", source_country="gr", expected_language="EL"
+    )
+    assert (feed.source_country, feed.expected_language) == ("GR", "el")
+    update = FeedUpdate(source_country="de", expected_language="De")
+    assert (update.source_country, update.expected_language) == ("DE", "de")
+    assert FeedUpdate(source_country=None).source_country is None
