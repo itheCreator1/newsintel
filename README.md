@@ -30,7 +30,7 @@ dc run --rm api python -m app.cli rebuild-search  # build the search index once
 Open http://127.0.0.1:8080 (or your `NEWSINTEL_PORT`), sign in, and add a feed under **Sources**. The Today page keeps a short checklist until the archive has sources, articles and a search index.
 
 - **Entities are off by default.** The default image leaves out spaCy, so the entity charts, the graph and the entity dossiers stay empty, and story clustering and event association work without their entity signal. Add `-f docker/compose.ner.yaml` to every `dc` command (and rebuild) to turn named-entity recognition on.
-- **Sign-in limit.** Ten failed sign-ins for one name within 15 minutes hold that name for 15 minutes; the CLI still works meanwhile.
+- **Sign-in limit.** Ten failed sign-ins for one name within 15 minutes hold that name for 15 minutes, after which the hold lifts on its own.
 - **More accounts**, or a first account without the `.env` variables: `dc run --rm api python -m app.cli create-user <name>` asks for a password.
 
 ## Contents
