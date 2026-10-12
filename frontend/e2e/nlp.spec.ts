@@ -35,7 +35,7 @@ test('annotations refine search and stop words use revisioned settings', async (
   await page.getByRole('button', { name: 'Search archive' }).click()
   await expect(page).not.toHaveURL(/story_country=/)
 
-  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Settings/ }).click()
   await expect(page.getByRole('switch')).toBeDisabled()
   await expect(page.getByText(/Not available: Entity recognition is off/)).toBeVisible()
   const words = page.getByLabel('English stop words')
@@ -44,7 +44,7 @@ test('annotations refine search and stop words use revisioned settings', async (
   await page.getByRole('button', { name: 'Save stop words' }).click()
   await expect(page.getByText(/Stop words saved as revision/)).toBeVisible()
 
-  await page.getByRole('link', { name: 'Processes' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Processes/ }).click()
   const card = page.getByRole('article').filter({ has: page.getByRole('button', { name: 'NLP', exact: true }) })
   await expect(card).toContainText('entities disabled')
 })

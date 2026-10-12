@@ -6,7 +6,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase6')
   await page.getByLabel('Password').fill('phase6-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 async function apiJson<T>(page: Page, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -130,13 +130,13 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await page.getByRole('button', { name: 'Save search' }).click()
   await expect(page.getByText('Saved “Stale investigation”.')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Investigations' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ }).click()
   await page.getByRole('link', { name: 'Open Wire watch' }).click()
   await expect(page).toHaveURL(/\/search\/\?/)
   expect(Object.fromEntries([...new URL(page.url()).searchParams].sort())).toEqual(Object.fromEntries([...investigation.searchParams].sort()))
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
 
-  await page.getByRole('link', { name: 'Investigations' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ }).click()
   await page.getByRole('button', { name: 'Rename Wire watch' }).click()
   await page.getByLabel('New name for Wire watch').fill('Harbor wire watch')
   await page.getByRole('button', { name: 'Save name' }).click()
@@ -161,7 +161,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
 
 test('invalid saved search explains why it cannot be opened', async ({ page }) => {
   await login(page)
-  await page.getByRole('link', { name: 'Investigations' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ }).click()
   await expect(page.getByText('Stale investigation')).toBeVisible()
   await expect(page.getByText(/This saved search can no longer be opened: .*Extra inputs are not permitted/)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open Stale investigation' })).toHaveCount(0)

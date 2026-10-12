@@ -11,7 +11,7 @@ import { InvestigationsLink } from './InvestigationsLink'
 const fontVars = `${displayFont.variable} ${monoFont.variable}`
 
 const NAV_GROUPS: [string, [string, string][]][] = [
-  ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/investigations', 'Investigations'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
+  ['Explore', [['/', 'Today'], ['/search', 'Search'], ['/investigations', 'Investigations'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
   ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles'], ['/authorities', 'Authority file']]],
   ['System', [['/processes', 'Processes'], ['/settings', 'Settings']]],
 ]
@@ -26,7 +26,7 @@ const PAGE_NAMES = new Map<string, string>([
 export function pageTitle(pathname: string, signedIn: boolean): string {
   if (!signedIn) return 'Sign in · NewsIntel'
   const name = PAGE_NAMES.get(normalize(pathname))
-  return name && name !== 'Overview' ? `${name} · NewsIntel` : 'NewsIntel'
+  return name && name !== 'Today' ? `${name} · NewsIntel` : 'NewsIntel'
 }
 
 export function Shell({ children }: { children: ReactNode }) {

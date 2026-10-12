@@ -10,8 +10,8 @@ async function login(page: import('@playwright/test').Page) {
 test('failure and retry workflow', async ({ page }) => {
   await login(page)
 
-  await page.getByRole('link', { name: 'Sources' }).click()
-  await page.getByLabel('Name').fill('Browser fixture')
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Sources/ }).click()
+  await page.getByLabel('Name', { exact: true }).fill('Browser fixture')
   await page.getByLabel('Feed URL').fill('http://fixture/e2e-feed.xml')
   await page.getByLabel('Collection mode').first().selectOption('full_text_html')
   await page.getByRole('button', { name: 'Add source' }).click()
@@ -53,7 +53,7 @@ test('failure and retry workflow', async ({ page }) => {
   await page.getByRole('button', { name: 'Clear filters' }).click()
   await expect(rows.filter({ hasText: 'Recoverable fixture story' })).not.toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Processes' }).click()
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Processes/ }).click()
   const failed = page.getByRole('list', { name: 'Activity' }).getByRole('listitem').filter({ hasText: 'Recoverable fixture story' })
   await expect(failed.getByText('Failed', { exact: true })).toBeVisible({ timeout: 45_000 })
   await expect(failed.getByText('http_transient')).toBeVisible()
