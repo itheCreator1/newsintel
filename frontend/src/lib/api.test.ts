@@ -288,3 +288,21 @@ it('requests the article list with only the filters that are set', async () => {
     '/api/v1/articles?starred=true',
   ])
 })
+
+it('lists investigations in an order and watches a saved search in place', async () => {
+  const csrf = () => new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 })
+  const fetchMock = vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+  await api.investigations('activity')
+  await api.investigations('name', 'c+1')
+  await api.watchSavedSearch('saved-one')
+
+  expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method ?? 'GET'])).toEqual([
+    ['/api/v1/investigations?order=activity', 'GET'],
+    ['/api/v1/investigations?order=name&cursor=c%2B1', 'GET'],
+    ['/api/v1/auth/csrf', 'GET'], ['/api/v1/saved-searches/saved-one/watch', 'POST'],
+  ])
+})

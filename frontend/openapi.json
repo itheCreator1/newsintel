@@ -10109,6 +10109,142 @@
         }
       }
     },
+    "/api/v1/saved-searches/{saved_search_id}/watch": {
+      "post": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "Watch Search",
+        "description": "Watch the saved search in place: one monitor per saved search, resumed if paused.",
+        "operationId": "watch_search_api_v1_saved_searches__saved_search_id__watch_post",
+        "parameters": [
+          {
+            "name": "saved_search_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Saved Search Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/investigations": {
+      "get": {
+        "tags": [
+          "investigations"
+        ],
+        "summary": "List All Investigations",
+        "description": "Saved searches and monitors together; a saved search watched in place is one item.",
+        "operationId": "list_all_investigations_api_v1_investigations_get",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "name",
+                "activity"
+              ],
+              "type": "string",
+              "default": "name",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvestigationPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/monitors": {
       "get": {
         "tags": [
@@ -17250,6 +17386,75 @@
           "buckets"
         ],
         "title": "IngestionTimelineResponse"
+      },
+      "Investigation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "saved_search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavedSearchResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monitor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MonitorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "saved_search",
+          "monitor"
+        ],
+        "title": "Investigation"
+      },
+      "InvestigationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Investigation"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "InvestigationPage"
       },
       "InvestigationState": {
         "properties": {

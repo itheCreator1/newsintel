@@ -30,7 +30,7 @@ export function WatchForm({ state, kind = 'search', defaultName = '', label = 'W
       <label className={cn(labelClass, 'min-w-[220px] flex-1')}>Monitor name<input className={cn(fieldClass, 'mt-1')} value={name} onChange={e => setName(e.target.value)} maxLength={120} placeholder="Energy grid watch" /></label>
       <button type="submit" disabled={watch.isPending} className={primaryButtonClass}>{watch.isPending ? 'Watching…' : label}</button>
       {watch.isError ? <p role="alert" className="error w-full text-sm text-destructive">{watch.error instanceof ApiError ? watch.error.message : 'Could not create this monitor.'}</p>
-        : watch.isSuccess && <p role="status" className="w-full text-sm text-primary">Watching “{watch.variables}”. <Link className={chipClass} href="/monitors/">Open watchlist</Link></p>}
+        : watch.isSuccess && <p role="status" className="w-full text-sm text-primary">Watching “{watch.variables}”. <Link className={chipClass} href="/investigations/">Open investigations</Link></p>}
     </form>
   )
 }

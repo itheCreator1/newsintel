@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase12d')
   await page.getByLabel('Password').fill('phase12d-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 // Runs after `relationships seed` has collected and clustered the shared fixture articles; the scheduler

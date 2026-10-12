@@ -1920,6 +1920,46 @@ export interface paths {
         patch: operations["update_search_api_v1_saved_searches__saved_search_id__patch"];
         trace?: never;
     };
+    "/api/v1/saved-searches/{saved_search_id}/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Watch Search
+         * @description Watch the saved search in place: one monitor per saved search, resumed if paused.
+         */
+        post: operations["watch_search_api_v1_saved_searches__saved_search_id__watch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investigations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Investigations
+         * @description Saved searches and monitors together; a saved search watched in place is one item.
+         */
+        get: operations["list_all_investigations_api_v1_investigations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/monitors": {
         parameters: {
             query?: never;
@@ -4104,6 +4144,25 @@ export interface components {
         IngestionTimelineResponse: {
             /** Buckets */
             buckets: components["schemas"]["IngestionTimelineBucket"][];
+        };
+        /** Investigation */
+        Investigation: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            saved_search: components["schemas"]["SavedSearchResponse"] | null;
+            monitor: components["schemas"]["MonitorResponse"] | null;
+        };
+        /** InvestigationPage */
+        InvestigationPage: {
+            /** Items */
+            items: components["schemas"]["Investigation"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /**
          * InvestigationState
@@ -9936,6 +9995,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SavedSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watch_search_api_v1_saved_searches__saved_search_id__watch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                saved_search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_investigations_api_v1_investigations_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+                order?: "name" | "activity";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationPage"];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase6')
   await page.getByLabel('Password').fill('phase6-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
 }
 
 async function apiJson<T>(page: Page, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -121,7 +121,7 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await page.getByRole('button', { name: 'Save search' }).click()
   // Next.js's App Router always renders a second, empty role="alert" node (its built-in route
   // announcer for screen readers) alongside the app's own error banner; scope to the latter.
-  await expect(page.locator('p.error[role="alert"]')).toHaveText('A saved search with this name already exists')
+  await expect(page.locator('p.error[role="alert"]')).toHaveText('A saved search or monitor with this name already exists')
 
   await page.goto('/search?q=Harbor%20AND%20daily')
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
@@ -130,25 +130,38 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await page.getByRole('button', { name: 'Save search' }).click()
   await expect(page.getByText('Saved “Stale investigation”.')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Saved Searches' }).click()
+  await page.getByRole('link', { name: 'Investigations' }).click()
   await page.getByRole('link', { name: 'Open Wire watch' }).click()
   await expect(page).toHaveURL(/\/search\/\?/)
   expect(Object.fromEntries([...new URL(page.url()).searchParams].sort())).toEqual(Object.fromEntries([...investigation.searchParams].sort()))
   await expect(heading(page)).toHaveText('3 matching articles over time', { timeout: 30_000 })
 
-  await page.getByRole('link', { name: 'Saved Searches' }).click()
+  await page.getByRole('link', { name: 'Investigations' }).click()
   await page.getByRole('button', { name: 'Rename Wire watch' }).click()
   await page.getByLabel('New name for Wire watch').fill('Harbor wire watch')
   await page.getByRole('button', { name: 'Save name' }).click()
   await expect(page.getByRole('link', { name: 'Open Harbor wire watch' })).toBeVisible()
-  page.once('dialog', dialog => dialog.accept())
+
+  // Watching the saved search keeps one row; Open then goes to its new results, Search to the search.
+  const row = page.getByRole('article', { name: 'Harbor wire watch' })
+  await expect(row.getByText('Not watched')).toBeVisible()
+  await row.getByRole('switch', { name: 'Watch Harbor wire watch' }).click()
+  await expect(row.getByRole('switch', { name: 'Watch Harbor wire watch' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('article', { name: 'Harbor wire watch' })).toHaveCount(1)
+  await expect(row.getByRole('link', { name: 'Open Harbor wire watch' })).toHaveAttribute('href', /^\/monitors\/\?id=/)
+  await expect(row.getByRole('link', { name: 'Search Harbor wire watch' })).toHaveAttribute('href', /^\/search\/\?/)
+  await row.getByRole('switch', { name: 'Watch Harbor wire watch' }).click()
+  await expect(row.getByRole('switch', { name: 'Watch Harbor wire watch' })).toHaveAttribute('aria-checked', 'false')
+  await expect(row.getByText('Paused', { exact: true })).toBeVisible()
+
+  page.once('dialog', dialog => { expect(dialog.message()).toBe('Delete “Harbor wire watch” and stop watching it?'); void dialog.accept() })
   await page.getByRole('button', { name: 'Delete Harbor wire watch' }).click()
   await expect(page.getByText('Harbor wire watch')).toHaveCount(0)
 })
 
 test('invalid saved search explains why it cannot be opened', async ({ page }) => {
   await login(page)
-  await page.getByRole('link', { name: 'Saved Searches' }).click()
+  await page.getByRole('link', { name: 'Investigations' }).click()
   await expect(page.getByText('Stale investigation')).toBeVisible()
   await expect(page.getByText(/This saved search can no longer be opened: .*Extra inputs are not permitted/)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open Stale investigation' })).toHaveCount(0)

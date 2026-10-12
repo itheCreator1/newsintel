@@ -40,7 +40,8 @@ it('focuses on "/" unless another field has focus', () => {
 it('titles each tab after its page', () => {
   expect(pageTitle('/', true)).toBe('NewsIntel')
   expect(pageTitle('/search/', true)).toBe('Search · NewsIntel')
-  expect(pageTitle('/monitors/', true)).toBe('Watchlist · NewsIntel')
+  expect(pageTitle('/investigations/', true)).toBe('Investigations · NewsIntel')
+  expect(pageTitle('/monitors/', true)).toBe('Monitor · NewsIntel')
   expect(pageTitle('/sources/detail/', true)).toBe('Source · NewsIntel')
   expect(pageTitle('/authorities/', true)).toBe('Authority file · NewsIntel')
   expect(pageTitle('/search/', false)).toBe('Sign in · NewsIntel')

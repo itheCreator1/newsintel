@@ -6,10 +6,12 @@ from datetime import UTC, datetime
 from typing import Any, Literal, cast
 
 from pydantic import ValidationError
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Executable
 
+from app.investigations.models import SavedSearch
 from app.investigations.schemas import STATE_VERSION, InvestigationState
 from app.monitors.models import Monitor
 from app.monitors.schemas import (
@@ -160,12 +162,16 @@ async def get_monitor(
     return item
 
 
-async def _commit(db: AsyncSession, item: Monitor) -> Monitor:
+async def _commit(db: AsyncSession, item: Monitor, *linked: Executable) -> Monitor:
     try:
+        for statement in linked:
+            await db.execute(statement)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise MonitorNameConflict("A monitor with this name already exists") from exc
+        raise MonitorNameConflict(
+            "A monitor or saved search with this name already exists"
+        ) from exc
     await db.refresh(item)
     return item
 
@@ -183,8 +189,16 @@ async def create_monitor(db: AsyncSession, user_id: uuid.UUID, payload: MonitorC
 
 
 async def update_monitor(db: AsyncSession, item: Monitor, payload: MonitorUpdate) -> Monitor:
+    linked = []
     if payload.name is not None:
         item.name = payload.name
+        if item.saved_search_id is not None:
+            # The saved search it watches in place is the same investigation.
+            linked.append(
+                update(SavedSearch)
+                .where(SavedSearch.id == item.saved_search_id)
+                .values(name=payload.name)
+            )
     if payload.enabled is not None:
         if payload.enabled and not item.enabled:
             item.next_evaluation_at = datetime.now(UTC)
@@ -197,7 +211,7 @@ async def update_monitor(db: AsyncSession, item: Monitor, payload: MonitorUpdate
                 setattr(item, field, None)
             item.unseen_article_count = item.unseen_cluster_count = 0
             item.next_evaluation_at = datetime.now(UTC)
-    return await _commit(db, item)
+    return await _commit(db, item, *linked)
 
 
 async def mark_viewed(db: AsyncSession, item: Monitor, through: datetime) -> Monitor:

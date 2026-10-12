@@ -5,7 +5,7 @@ async function login(page: Page, user = 'phase15a') {
   await page.getByLabel('Username').fill(user)
   await page.getByLabel('Password').fill(`${user}-password`)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 // The worker asks the fixture server's stand-in for api.php (docker/compose.e2e.yaml), never

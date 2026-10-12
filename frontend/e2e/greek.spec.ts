@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase14a')
   await page.getByLabel('Password').fill('phase14a-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 async function apiJson<T>(page: Page, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {

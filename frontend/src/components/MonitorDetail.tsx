@@ -64,7 +64,7 @@ export function MonitorDetail({ id }: { id: string }) {
   const rename = useMutation({ mutationFn: (name: string) => api.updateMonitor(id, { name }), onSuccess: updated => { setRenaming(false); store(updated) } })
   const toggle = useMutation({ mutationFn: (enabled: boolean) => api.updateMonitor(id, { enabled }), onSuccess: store })
   const markSeen = useMutation({ mutationFn: (through: string) => api.markMonitorViewed(id, through), onSuccess: store, onError: () => client.invalidateQueries({ queryKey: monitorKeys.detail(id) }) })
-  const remove = useMutation({ mutationFn: () => api.deleteMonitor(id), onSuccess: () => { client.invalidateQueries({ queryKey: ['monitors', 'list'] }); router.push('/monitors/') } })
+  const remove = useMutation({ mutationFn: () => api.deleteMonitor(id), onSuccess: () => { client.invalidateQueries({ queryKey: ['monitors', 'list'] }); router.push('/investigations/') } })
 
   const rows = results.data?.pages.flatMap(page => page.items) ?? []
   // The boundary of the list the analyst is looking at, never a fresher one: the API recounts anything after it.
@@ -76,7 +76,7 @@ export function MonitorDetail({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <PageHeader eyebrow="Watchlist" title="Monitor"><Link className={chipClass} href="/monitors/">Back to watchlist</Link></PageHeader>
+      <PageHeader eyebrow="Investigations" title="Monitor"><Link className={chipClass} href="/investigations/">Back to investigations</Link></PageHeader>
       <GlassPanel className="flex flex-col gap-3">
         {detail.isPending && <p className="text-sm text-muted-foreground">Loading monitor…</p>}
         {detail.isError && <p className="error text-sm text-destructive">{detail.error instanceof ApiError && detail.error.status === 404 ? 'Monitor not found.' : 'Could not load this monitor.'}</p>}

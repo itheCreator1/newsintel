@@ -5,7 +5,7 @@ async function login(page: Page, user = 'phase14b') {
   await page.getByLabel('Username').fill(user)
   await page.getByLabel('Password').fill(`${user}-password`)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: /^Investigations/ })).toBeVisible()
 }
 
 async function entityId(page: Page, name: string): Promise<string> {

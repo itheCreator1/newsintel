@@ -8,6 +8,15 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
+from app.investigations.listing import (
+    InvalidInvestigationCursor,
+    InvestigationOrder,
+    InvestigationPage,
+    UnwatchableSavedSearch,
+    WatchNameTaken,
+    list_investigations,
+    watch_saved_search,
+)
 from app.investigations.models import SavedSearch
 from app.investigations.schemas import (
     SavedSearchCreate,
@@ -19,11 +28,14 @@ from app.investigations.service import (
     InvalidSavedSearchCursor,
     SavedSearchNameConflict,
     create_saved_search,
+    delete_saved_search,
     get_saved_search,
     list_saved_searches,
     saved_search_response,
     update_saved_search,
 )
+from app.monitors.schemas import MonitorResponse
+from app.monitors.service import monitor_response
 
 router = APIRouter(tags=["investigations"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -86,6 +98,33 @@ async def update_search(
 
 @router.delete("/saved-searches/{saved_search_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_search(saved_search_id: uuid.UUID, db: Db, session: Mutation) -> Response:
-    await db.delete(await _owned(db, session, saved_search_id))
-    await db.commit()
+    await delete_saved_search(db, await _owned(db, session, saved_search_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/saved-searches/{saved_search_id}/watch", response_model=MonitorResponse)
+async def watch_search(saved_search_id: uuid.UUID, db: Db, session: Mutation) -> MonitorResponse:
+    """Watch the saved search in place: one monitor per saved search, resumed if paused."""
+    item = await _owned(db, session, saved_search_id)
+    try:
+        monitor = await watch_saved_search(db, item)
+    except UnwatchableSavedSearch as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except WatchNameTaken as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return monitor_response(monitor)
+
+
+@router.get("/investigations", response_model=InvestigationPage)
+async def list_all_investigations(
+    db: Db,
+    session: Auth,
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    order: InvestigationOrder = "name",
+) -> InvestigationPage:
+    """Saved searches and monitors together; a saved search watched in place is one item."""
+    try:
+        return await list_investigations(db, session.user_id, cursor, limit, order)
+    except InvalidInvestigationCursor as exc:
+        raise HTTPException(422, str(exc)) from exc
