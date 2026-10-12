@@ -177,7 +177,7 @@ case $group in
   investigations) users phase6 ;;
   monitors) users phase11d ;;
   # `relationships seed` signs in as phase7; each later spec has its own user.
-  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d phase15a phase16a ;;
+  graph) users phase7 phase10b phase10c phase12d phase13a phase13b phase13c phase13d phase14a phase14b phase14c phase14d phase15a phase16a phase17a ;;
 esac
 ni_stage app.up
 $compose up -d $app_build_flag api worker nlp-worker scheduler frontend
@@ -280,6 +280,8 @@ case $group in
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.
     e2e "greek entities workflow"
+    # After the Greek spec, whose Greek Wire it tests, tags and finds again in an OPML file.
+    e2e "sources management workflow"
     # Last: the Processes page must report a stopped Elasticsearch while every other panel renders.
     $compose stop elasticsearch
     e2e "stopped Elasticsearch"

@@ -144,6 +144,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feeds/opml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Opml */
+        get: operations["export_opml_api_v1_feeds_opml_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/opml/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Opml */
+        post: operations["preview_opml_api_v1_feeds_opml_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Feeds
+         * @description Adds each source whose address no source collects yet; the rest are skipped.
+         */
+        post: operations["import_feeds_api_v1_feeds_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feeds/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Feed Url */
+        post: operations["test_feed_url_api_v1_feeds_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feeds/{feed_id}": {
         parameters: {
             query?: never;
@@ -3323,6 +3394,13 @@ export interface components {
             /** Recent */
             recent: components["schemas"]["FailureItem"][];
         };
+        /** FeedCandidate */
+        FeedCandidate: {
+            /** Url */
+            url: string;
+            /** Title */
+            title: string | null;
+        };
         /** FeedCreate */
         FeedCreate: {
             /** Name */
@@ -3395,6 +3473,18 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** FeedImport */
+        FeedImport: {
+            /** Feeds */
+            feeds: components["schemas"]["FeedCreate"][];
+        };
+        /** FeedImportResult */
+        FeedImportResult: {
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+        };
         /** FeedResponse */
         FeedResponse: {
             /**
@@ -3448,6 +3538,33 @@ export interface components {
             tag: string;
             /** Count */
             count: number;
+        };
+        /** FeedTestRequest */
+        FeedTestRequest: {
+            /**
+             * Url
+             * Format: uri
+             */
+            url: string;
+        };
+        /** FeedTestResponse */
+        FeedTestResponse: {
+            /** Url */
+            url: string;
+            /** Title */
+            title: string | null;
+            /** Entry Count */
+            entry_count: number;
+            /** Language */
+            language: string | null;
+            /** Latest Entry At */
+            latest_entry_at: string | null;
+            /** Discovered From */
+            discovered_from: string | null;
+            /** Candidates */
+            candidates: components["schemas"]["FeedCandidate"][];
+            /** Existing Feed Id */
+            existing_feed_id: string | null;
         };
         /** FeedTotals */
         FeedTotals: {
@@ -4225,6 +4342,33 @@ export interface components {
             input_start: number;
             /** Input End */
             input_end: number;
+        };
+        /** OpmlPreview */
+        OpmlPreview: {
+            /** Items */
+            items: components["schemas"]["OpmlPreviewItem"][];
+            /** Invalid */
+            invalid: number;
+        };
+        /** OpmlPreviewItem */
+        OpmlPreviewItem: {
+            /** Name */
+            name: string;
+            /** Url */
+            url: string;
+            /** Tags */
+            tags: string[];
+            /** Source Country */
+            source_country: string | null;
+            /** Expected Language */
+            expected_language: string | null;
+            /** Existing Feed Id */
+            existing_feed_id: string | null;
+        };
+        /** OpmlPreviewRequest */
+        OpmlPreviewRequest: {
+            /** Opml */
+            opml: string;
         };
         /**
          * Overlap
@@ -5746,6 +5890,129 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedTagCount"][];
+                };
+            };
+        };
+    };
+    export_opml_api_v1_feeds_opml_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview_opml_api_v1_feeds_opml_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpmlPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpmlPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_feeds_api_v1_feeds_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_feed_url_api_v1_feeds_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -412,6 +412,198 @@
         }
       }
     },
+    "/api/v1/feeds/opml": {
+      "get": {
+        "tags": [
+          "feeds"
+        ],
+        "summary": "Export Opml",
+        "operationId": "export_opml_api_v1_feeds_opml_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/feeds/opml/preview": {
+      "post": {
+        "tags": [
+          "feeds"
+        ],
+        "summary": "Preview Opml",
+        "operationId": "preview_opml_api_v1_feeds_opml_preview_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpmlPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpmlPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feeds/import": {
+      "post": {
+        "tags": [
+          "feeds"
+        ],
+        "summary": "Import Feeds",
+        "description": "Adds each source whose address no source collects yet; the rest are skipped.",
+        "operationId": "import_feeds_api_v1_feeds_import_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedImport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedImportResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feeds/test": {
+      "post": {
+        "tags": [
+          "feeds"
+        ],
+        "summary": "Test Feed Url",
+        "operationId": "test_feed_url_api_v1_feeds_test_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedTestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/feeds/{feed_id}": {
       "get": {
         "tags": [
@@ -14370,6 +14562,31 @@
         ],
         "title": "FailuresResponse"
       },
+      "FeedCandidate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "title"
+        ],
+        "title": "FeedCandidate"
+      },
       "FeedCreate": {
         "properties": {
           "name": {
@@ -14563,6 +14780,42 @@
         ],
         "title": "FeedHealth"
       },
+      "FeedImport": {
+        "properties": {
+          "feeds": {
+            "items": {
+              "$ref": "#/components/schemas/FeedCreate"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Feeds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feeds"
+        ],
+        "title": "FeedImport"
+      },
+      "FeedImportResult": {
+        "properties": {
+          "created": {
+            "type": "integer",
+            "title": "Created"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "skipped"
+        ],
+        "title": "FeedImportResult"
+      },
       "FeedResponse": {
         "properties": {
           "id": {
@@ -14727,6 +14980,109 @@
           "count"
         ],
         "title": "FeedTagCount"
+      },
+      "FeedTestRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "FeedTestRequest"
+      },
+      "FeedTestResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "entry_count": {
+            "type": "integer",
+            "title": "Entry Count"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "latest_entry_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Entry At"
+          },
+          "discovered_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovered From"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FeedCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "existing_feed_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Feed Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "title",
+          "entry_count",
+          "language",
+          "latest_entry_at",
+          "discovered_from",
+          "candidates",
+          "existing_feed_id"
+        ],
+        "title": "FeedTestResponse"
       },
       "FeedTotals": {
         "properties": {
@@ -16901,6 +17257,105 @@
           "input_end"
         ],
         "title": "OccurrenceResponse"
+      },
+      "OpmlPreview": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpmlPreviewItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "invalid": {
+            "type": "integer",
+            "title": "Invalid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "invalid"
+        ],
+        "title": "OpmlPreview"
+      },
+      "OpmlPreviewItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "source_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Country"
+          },
+          "expected_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Language"
+          },
+          "existing_feed_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Feed Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "tags",
+          "source_country",
+          "expected_language",
+          "existing_feed_id"
+        ],
+        "title": "OpmlPreviewItem"
+      },
+      "OpmlPreviewRequest": {
+        "properties": {
+          "opml": {
+            "type": "string",
+            "maxLength": 5000000,
+            "minLength": 1,
+            "title": "Opml"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opml"
+        ],
+        "title": "OpmlPreviewRequest"
       },
       "Overlap": {
         "properties": {

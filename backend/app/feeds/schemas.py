@@ -190,3 +190,52 @@ class ArticleDetailResponse(ArticleResponse):
 class ArticlePage(BaseModel):
     items: list[ArticleResponse]
     next_cursor: str | None
+
+
+class OpmlPreviewRequest(BaseModel):
+    # The file's text, read in the browser; 5 MB holds thousands of subscriptions.
+    opml: str = Field(min_length=1, max_length=5_000_000)
+
+
+class OpmlPreviewItem(BaseModel):
+    name: str
+    url: str
+    tags: list[str]
+    source_country: str | None
+    expected_language: str | None
+    # A source that is not retired already collects this address.
+    existing_feed_id: uuid.UUID | None
+
+
+class OpmlPreview(BaseModel):
+    items: list[OpmlPreviewItem]
+    invalid: int
+
+
+class FeedImport(BaseModel):
+    feeds: list[FeedCreate] = Field(min_length=1, max_length=2000)
+
+
+class FeedImportResult(BaseModel):
+    created: int
+    skipped: int
+
+
+class FeedTestRequest(BaseModel):
+    url: AnyHttpUrl
+
+
+class FeedCandidate(BaseModel):
+    url: str
+    title: str | None
+
+
+class FeedTestResponse(BaseModel):
+    url: str
+    title: str | None
+    entry_count: int
+    language: str | None
+    latest_entry_at: datetime | None
+    discovered_from: str | None
+    candidates: list[FeedCandidate]
+    existing_feed_id: uuid.UUID | None

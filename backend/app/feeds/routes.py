@@ -15,18 +15,30 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.clustering.models import ArticleClusterState, StoryCluster, StoryClusterMember
+from app.core.config import get_settings
 from app.db.session import get_db
+from app.feeds.discovery import FeedProbeError, probe_feed
+from app.feeds.http import fetch_feed_http
 from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFetch
+from app.feeds.opml import OpmlEntry, OpmlError, parse_opml, render_opml
 from app.feeds.schemas import (
     ArticleDetailResponse,
     ArticlePage,
     ArticleStoryCluster,
     CursorPage,
+    FeedCandidate,
     FeedCreate,
+    FeedImport,
+    FeedImportResult,
     FeedResponse,
     FeedTagCount,
+    FeedTestRequest,
+    FeedTestResponse,
     FeedUpdate,
     FetchPage,
+    OpmlPreview,
+    OpmlPreviewItem,
+    OpmlPreviewRequest,
     PollResponse,
     RelatedArticle,
 )
@@ -172,6 +184,94 @@ async def list_feed_tags(db: Db, _auth: Auth) -> list[FeedTagCount]:
         select(tags.c.tag, count).group_by(tags.c.tag).order_by(count.desc(), tags.c.tag)
     )
     return [FeedTagCount(tag=row.tag, count=row.count) for row in rows]
+
+
+async def _existing_by_url(db: AsyncSession, urls: list[str]) -> dict[str, uuid.UUID]:
+    """Sources that are not retired, by the addresses given; a retired address may come back."""
+    if not urls:
+        return {}
+    rows = await db.execute(
+        select(Feed.url, Feed.id).where(Feed.url.in_(urls), Feed.retired_at.is_(None))
+    )
+    return {row.url: row.id for row in rows}
+
+
+@router.get("/feeds/opml", response_class=Response)
+async def export_opml(db: Db, _auth: Auth) -> Response:
+    feeds = (
+        await db.scalars(
+            select(Feed).where(Feed.retired_at.is_(None)).order_by(func.lower(Feed.name), Feed.id)
+        )
+    ).all()
+    entries = [
+        OpmlEntry(feed.name, feed.url, list(feed.tags), feed.source_country, feed.expected_language)
+        for feed in feeds
+    ]
+    return Response(
+        render_opml(entries, title="newsintel sources"),
+        media_type="text/x-opml",
+        headers={"Content-Disposition": 'attachment; filename="newsintel-sources.opml"'},
+    )
+
+
+@router.post("/feeds/opml/preview", response_model=OpmlPreview)
+async def preview_opml(payload: OpmlPreviewRequest, db: Db, _mutation: Mutation) -> OpmlPreview:
+    try:
+        parsed = parse_opml(payload.opml.encode())
+    except OpmlError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    existing = await _existing_by_url(db, [entry.url for entry in parsed.entries])
+    return OpmlPreview(
+        items=[
+            OpmlPreviewItem(
+                name=entry.name,
+                url=entry.url,
+                tags=entry.tags,
+                source_country=entry.source_country,
+                expected_language=entry.expected_language,
+                existing_feed_id=existing.get(entry.url),
+            )
+            for entry in parsed.entries
+        ],
+        invalid=parsed.invalid,
+    )
+
+
+@router.post("/feeds/import", response_model=FeedImportResult)
+async def import_feeds(payload: FeedImport, db: Db, _mutation: Mutation) -> FeedImportResult:
+    """Adds each source whose address no source collects yet; the rest are skipped."""
+    rows = [feed.model_dump(mode="json") for feed in payload.feeds]
+    taken = set(await _existing_by_url(db, [row["url"] for row in rows]))
+    created = 0
+    for row in rows:
+        if row["url"] in taken:
+            continue
+        taken.add(row["url"])
+        db.add(Feed(**row))
+        created += 1
+    await db.commit()
+    return FeedImportResult(created=created, skipped=len(rows) - created)
+
+
+@router.post("/feeds/test", response_model=FeedTestResponse)
+async def test_feed_url(payload: FeedTestRequest, db: Db, _mutation: Mutation) -> FeedTestResponse:
+    settings = get_settings()
+    given = str(payload.url)
+    try:
+        probe = await probe_feed(given, lambda url: fetch_feed_http(url, {}, settings))
+    except FeedProbeError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    existing = await _existing_by_url(db, [probe.url, given])
+    return FeedTestResponse(
+        url=probe.url,
+        title=probe.title,
+        entry_count=probe.entry_count,
+        language=probe.language,
+        latest_entry_at=probe.latest_entry_at,
+        discovered_from=probe.discovered_from,
+        candidates=[FeedCandidate(url=url, title=title) for url, title in probe.candidates],
+        existing_feed_id=existing.get(probe.url) or existing.get(given),
+    )
 
 
 @router.post("/feeds", response_model=FeedResponse, status_code=status.HTTP_201_CREATED)

@@ -4,7 +4,7 @@ import { api, ApiError } from '../../lib/api'
 import { renderWithQuery } from '../../test/render'
 import SourcesPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feeds: vi.fn(), feedTags: vi.fn(), fetches: vi.fn(), createFeed: vi.fn(), updateFeed: vi.fn(), pollFeed: vi.fn(), retireFeed: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feeds: vi.fn(), feedTags: vi.fn(), testFeed: vi.fn(), previewOpml: vi.fn(), importFeeds: vi.fn(), fetches: vi.fn(), createFeed: vi.fn(), updateFeed: vi.fn(), pollFeed: vi.fn(), retireFeed: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -158,4 +158,86 @@ it('says why a source could not be added', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add source' }))
 
   expect(await screen.findByRole('alert')).toHaveTextContent('url: Feed URL must use http or https')
+})
+
+const probe = { url: 'https://news.example/rss.xml', title: 'Η Καθημερινή', entry_count: 20, language: 'el', latest_entry_at: '2026-10-12T08:00:00Z', discovered_from: 'https://news.example/', candidates: [{ url: 'https://news.example/rss.xml', title: 'All news' }], existing_feed_id: null }
+
+it('tests a site address, finds its feed and fills in what it found', async () => {
+  vi.mocked(api.testFeed).mockResolvedValue(probe)
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.change(await screen.findByLabelText('Feed URL'), { target: { value: 'https://news.example/' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Test feed' }))
+
+  const result = await screen.findByRole('status', { name: 'Feed test' })
+  expect(api.testFeed).toHaveBeenCalledWith('https://news.example/')
+  expect(within(result).getByText('Η Καθημερινή · 20 entries · Greek (el)')).toBeTruthy()
+  expect(within(result).getByText('Found the feed linked from https://news.example/')).toBeTruthy()
+  fireEvent.click(within(result).getByRole('button', { name: 'Use these details' }))
+  expect(screen.getByLabelText('Name')).toHaveValue('Η Καθημερινή')
+  expect(screen.getByLabelText('Feed URL')).toHaveValue('https://news.example/rss.xml')
+  expect(within(screen.getByRole('form', { name: 'Add source' })).getByLabelText('Expected language')).toHaveValue('el')
+})
+
+it('keeps a name you typed, and says when the feed is already a source', async () => {
+  vi.mocked(api.testFeed).mockResolvedValue({ ...probe, discovered_from: null, existing_feed_id: 'f1' })
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'My name' } })
+  fireEvent.change(screen.getByLabelText('Feed URL'), { target: { value: 'https://news.example/rss.xml' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Test feed' }))
+
+  const result = await screen.findByRole('status', { name: 'Feed test' })
+  expect(within(result).getByText('This feed is already a source.')).toBeTruthy()
+  expect(within(result).getByRole('link', { name: 'Open its dossier' })).toHaveAttribute('href', '/sources/detail/?id=f1')
+  fireEvent.click(within(result).getByRole('button', { name: 'Use these details' }))
+  expect(screen.getByLabelText('Name')).toHaveValue('My name')
+})
+
+it('says why a feed address did not work', async () => {
+  vi.mocked(api.testFeed).mockRejectedValue(new ApiError('The address answered HTTP 404', 422))
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.change(await screen.findByLabelText('Feed URL'), { target: { value: 'https://news.example/nothing' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Test feed' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('The address answered HTTP 404')
+})
+
+it('previews an OPML file, then adds the sources that are new', async () => {
+  vi.mocked(api.previewOpml).mockResolvedValue({ items: [
+    { name: 'Naftemporiki', url: 'https://naftemporiki.example/feed', tags: ['Greek', 'business'], source_country: 'GR', expected_language: 'el', existing_feed_id: null },
+    { name: 'Daily', url: 'https://daily.example/feed', tags: [], source_country: null, expected_language: null, existing_feed_id: null },
+    { name: 'Wire again', url: 'https://wire.example/rss', tags: [], source_country: null, expected_language: null, existing_feed_id: 'f1' },
+  ], invalid: 2 })
+  vi.mocked(api.importFeeds).mockResolvedValue({ created: 1, skipped: 0 })
+  renderWithQuery(() => <SourcesPage />)
+  const file = new File(['<opml version="2.0"><body/></opml>'], 'feeds.opml', { type: 'text/x-opml' })
+  fireEvent.change(await screen.findByLabelText('Import OPML'), { target: { files: [file] } })
+
+  const preview = await screen.findByRole('region', { name: 'OPML preview' })
+  expect(api.previewOpml).toHaveBeenCalledWith('<opml version="2.0"><body/></opml>')
+  expect(within(preview).getByText('2 entries were left out: they had no web address, or repeated one.')).toBeTruthy()
+  expect(within(preview).getByRole('checkbox', { name: 'Naftemporiki' })).toBeChecked()
+  expect(within(preview).getByText('Greek, business · Greece (GR) · Greek (el)')).toBeTruthy()
+  expect(within(preview).getByText('Wire again')).toBeTruthy()
+  expect(within(preview).getByText('Already a source')).toBeTruthy()
+  expect(within(preview).queryByRole('checkbox', { name: 'Wire again' })).toBeNull()
+  fireEvent.click(within(preview).getByRole('checkbox', { name: 'Daily' }))
+  fireEvent.click(within(preview).getByRole('button', { name: 'Add 1 source' }))
+
+  await waitFor(() => expect(api.importFeeds).toHaveBeenCalledWith([{ name: 'Naftemporiki', url: 'https://naftemporiki.example/feed', tags: ['Greek', 'business'], source_country: 'GR', expected_language: 'el' }]))
+  expect(await screen.findByText('Added 1 source.')).toBeTruthy()
+  expect(screen.queryByRole('region', { name: 'OPML preview' })).toBeNull()
+})
+
+it('says when a file is not OPML', async () => {
+  vi.mocked(api.previewOpml).mockRejectedValue(new ApiError('This is not an OPML file', 422))
+  renderWithQuery(() => <SourcesPage />)
+  fireEvent.change(await screen.findByLabelText('Import OPML'), { target: { files: [new File(['<rss/>'], 'feed.xml')] } })
+  expect(await screen.findByRole('alert')).toHaveTextContent('This is not an OPML file')
+})
+
+it('exports every source as OPML', async () => {
+  renderWithQuery(() => <SourcesPage />)
+  const link = await screen.findByRole('link', { name: 'Export OPML' })
+  expect(link).toHaveAttribute('href', '/api/v1/feeds/opml')
+  expect(link).toHaveAttribute('download')
 })
