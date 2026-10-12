@@ -26,7 +26,7 @@ const detail = (over = {}) => ({
   fetches: { total: 40, success: 37, failed: 3, new_articles: 120, mean_duration_ms: 250.4, failures_by_category: { timeout: 2, network: 1 } },
   timeline: [{ date: '2026-09-20', article_count: 4 }, { date: '2026-09-21', article_count: 0 }], ...over,
 })
-const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [] })
+const article = (id: string, title: string) => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: '2026-09-18T10:00:00Z', first_discovered_at: '2026-09-18T11:00:00Z', provenance: [], read: false, starred: false })
 const story = (id: string, title: string, over = {}) => ({
   id, article_count: 3, source_count: 2, first_published_at: '2026-09-17T00:00:00Z', last_published_at: '2026-09-18T00:00:00Z',
   representative_article: article(`rep-${id}`, title), source_article_id: `mine-${id}`, first: false, minutes_behind: 60.4, ...over,
@@ -204,4 +204,12 @@ it('watches this source under its name', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Watch' }))
   fireEvent.click(screen.getByRole('button', { name: 'Watch source' }))
   await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Relationships Wire', expect.objectContaining({ source_id: ['s-1'], entity_id: [] }), 'source'))
+})
+
+it('marks the articles the reader starred or read', async () => {
+  vi.mocked(api.sourceArticles).mockResolvedValue({ items: [{ ...article('a1', 'Fire spreads'), read: true, starred: true }], next_cursor: null })
+  renderWithQuery(() => <SourceDetailPage />)
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read$/)).toBeTruthy()
 })

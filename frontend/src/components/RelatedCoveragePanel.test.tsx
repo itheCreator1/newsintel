@@ -6,7 +6,7 @@ import { RelatedCoveragePanel } from './RelatedCoveragePanel'
 
 vi.mock('../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../lib/api')>()), api: { relatedArticles: vi.fn() } }))
 
-const article = (id: string, title: string, feed = 'Harbor Wire') => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: null, first_discovered_at: '2026-09-14T13:00:00Z', provenance: [{ feed_id: 'f1', feed_name: feed, guid: null, title, url: `https://x/${id}`, description: null, discovered_at: '2026-09-14T13:00:00Z' }] })
+const article = (id: string, title: string, feed = 'Harbor Wire') => ({ id, title, original_url: `https://x/${id}`, normalized_url: `https://x/${id}`, published_at: null, first_discovered_at: '2026-09-14T13:00:00Z', provenance: [{ feed_id: 'f1', feed_name: feed, guid: null, title, url: `https://x/${id}`, description: null, discovered_at: '2026-09-14T13:00:00Z' }], read: false, starred: false })
 const renderPanel = () => renderWithQuery(() => <RelatedCoveragePanel articleId="a1" hrefFor={id => `/articles/?article=${id}`} />)
 
 beforeEach(() => {

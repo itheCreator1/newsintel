@@ -245,3 +245,12 @@ it('mutes and unmutes this monitor\'s notifications', async () => {
   await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenCalledWith('m1', { notify: false }))
   await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Notify me' })).toHaveAttribute('aria-pressed', 'false'))
 })
+
+it('marks the results the reader starred, read or noted', async () => {
+  arrange(undefined, page([{ ...result('a1', 'Harbor strike widens'), read: true, starred: true, note: 'Ask the port' }]))
+  renderWithQuery(() => <MonitorsPage />)
+
+  expect(await screen.findByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(screen.getByText(/ · Read · 1 source$/)).toBeTruthy()
+  expect(screen.getByText('Ask the port')).toBeTruthy()
+})
