@@ -31,6 +31,10 @@ def next_retry_at(now: datetime, attempt: int) -> datetime:
     return now + timedelta(seconds=min(900, 30 * (2 ** max(0, attempt - 1))))
 
 
+# The languages keywords and countries are found in, each with its own stop-word list.
+ANNOTATION_LANGUAGES = ("en", "el")
+
+
 def configuration_fingerprint(
     processor_name: str, *, stop_words_fingerprint: str | None = None, greek_ner: bool = False
 ) -> str:
@@ -49,17 +53,45 @@ def configuration_fingerprint(
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
-def _default_stop_words() -> list[str]:
-    path = Path(__file__).with_name("data") / "stopwords-en.txt"
+def _fold_stop_word(word: str, language: str) -> str:
+    # Greek keeps its final "ς": casefold would turn "τους" into "τουσ".
+    return word.strip().lower() if language == "el" else word.strip().casefold()
+
+
+def _default_stop_words(language: str = "en") -> list[str]:
+    path = Path(__file__).with_name("data") / f"stopwords-{language}.txt"
     return sorted(
-        line.strip().casefold()
-        for line in path.read_text().splitlines()
-        if line.strip() and not line.startswith("#")
+        {
+            _fold_stop_word(line, language)
+            for line in path.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        }
     )
 
 
 def stop_words_fingerprint(words: list[str]) -> str:
     return hashlib.sha256("\n".join(sorted(set(words))).encode()).hexdigest()
+
+
+async def keyword_stop_words_fingerprint(db: AsyncSession) -> str:
+    """One fingerprint over every language's current list, so a change to any asks for new keywords.
+
+    It differs from the English-only fingerprint of earlier releases: after an upgrade, every
+    article's keywords count as stale until reprocessed.
+    """
+    parts = [
+        f"{language}:{(await current_stop_words(db, language)).configuration_fingerprint}"
+        for language in ANNOTATION_LANGUAGES
+    ]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+async def title_stop_words(db: AsyncSession) -> frozenset[str]:
+    """Every language's stop words, for comparing story and event titles in any of them."""
+    words: set[str] = set()
+    for language in ANNOTATION_LANGUAGES:
+        words.update((await current_stop_words(db, language)).words)
+    return frozenset(words)
 
 
 async def current_stop_words(db: AsyncSession, language: str = "en") -> StopWordRevision:
@@ -71,7 +103,7 @@ async def current_stop_words(db: AsyncSession, language: str = "en") -> StopWord
         .limit(1)
     )
     if revision is None:
-        words = _default_stop_words()
+        words = _default_stop_words(language)
         revision = StopWordRevision(
             language=language,
             revision=1,
@@ -90,7 +122,11 @@ async def update_stop_words(
     if current.revision != current_revision:
         raise ValueError("stop-word revision has changed; reload before saving")
     normalized = sorted(
-        {word.strip().casefold() for word in words if word.strip() and word.strip().isalpha()}
+        {
+            _fold_stop_word(word, language)
+            for word in words
+            if word.strip() and word.strip().isalpha()
+        }
     )
     revision = StopWordRevision(
         language=language,
@@ -141,7 +177,7 @@ async def request_article_nlp(
 ) -> int:
     await db.scalar(select(Article.id).where(Article.id == article_id).with_for_update())
     document = await load_input_document(db, article_id)
-    stop_words = await current_stop_words(db)
+    stop_words_key = await keyword_stop_words_fingerprint(db)
     greek_ner = await greek_ner_enabled(db)
     requested = 0
     for name in processor_names:
@@ -149,7 +185,7 @@ async def request_article_nlp(
             raise ValueError(f"unknown NLP processor: {name}")
         version = PROCESSOR_VERSIONS[name]
         config = configuration_fingerprint(
-            name, stop_words_fingerprint=stop_words.configuration_fingerprint, greek_ner=greek_ner
+            name, stop_words_fingerprint=stop_words_key, greek_ner=greek_ner
         )
         state = await db.scalar(
             select(ArticleNlpState)

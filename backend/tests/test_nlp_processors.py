@@ -707,8 +707,12 @@ def test_greek_keywords_fold_accents_and_capitals_into_one_key() -> None:
 
 def test_greek_stop_words_match_unaccented_capitals() -> None:
     # Greek headlines are often written in capitals without accents: "ΑΠΟ" is the stop word "από".
-    text = "ΜΕΤΡΑ ΑΠΟ ΤΗΝ ΚΥΒΕΡΝΗΣΗ. Μέτρα από την κυβέρνηση για την ενέργεια και τις τιμές ρεύματος."
-    context_value = replace(greek_context(text), stop_words=frozenset({"από", "την", "για", "και", "τις"}))
+    text = (
+        "ΜΕΤΡΑ ΑΠΟ ΤΗΝ ΚΥΒΕΡΝΗΣΗ. Μέτρα από την κυβέρνηση για την ενέργεια και τις τιμές ρεύματος."
+    )
+    context_value = replace(
+        greek_context(text), stop_words=frozenset({"από", "την", "για", "και", "τις"})
+    )
 
     result = extract_keywords(context_value)
 

@@ -178,19 +178,56 @@ def detect_language(context: ProcessorContext) -> LanguageResult:
     return LanguageResult("success", code, confidence, margin, algorithm)
 
 
+# Greek runs have their own algorithm version, so English runs keep theirs unchanged.
+_KEYWORD_ALGORITHMS = {"en": "newsintel-relevance-1", "el": "newsintel-el-1"}
+
+
+def _greek_stop_words(words: frozenset[str]) -> set[str]:
+    """Each Greek stop word as written, without accents, and with a final "ς" or "σ".
+
+    YAKE compares lower-cased tokens, and headlines in capitals drop their accents ("ΑΠΟ").
+    """
+    variants: set[str] = set()
+    for word in words:
+        for form in (word.lower(), _without_accents(word).lower()):
+            variants.add(form)
+            if form.endswith(("σ", "ς")):
+                variants.update({form[:-1] + "σ", form[:-1] + "ς"})
+    return variants
+
+
+def _keyword_key(phrase: str, language: str) -> str:
+    """The stored identity of a keyword. Greek drops accents so a headline in capitals joins."""
+    text = _without_accents(phrase) if language == "el" else phrase
+    return " ".join(text.casefold().split())
+
+
+def keyword_lookup_key(query: str) -> str:
+    """The stored key a typed keyword starts: Greek queries drop their accents, like the keys."""
+    return _keyword_key(query, "el" if is_greek(query) else "en")
+
+
 def extract_keywords(context: ProcessorContext) -> KeywordResult:
     version = importlib.metadata.version("yake")
-    algorithm = f"yake-{version}-newsintel-relevance-1"
-    if context.language != "en":
+    language = context.language or ""
+    algorithm = f"yake-{version}-{_KEYWORD_ALGORITHMS.get(language, _KEYWORD_ALGORITHMS['en'])}"
+    if language not in _KEYWORD_ALGORITHMS:
         return KeywordResult("unsupported_language", (), algorithm)
+    stop_words = (
+        _greek_stop_words(context.stop_words) if language == "el" else set(context.stop_words)
+    )
     extractor = yake.KeywordExtractor(
-        lan="en", n=3, top=50, dedup_lim=0.9, stopwords=set(context.stop_words)
+        lan=language, n=3, top=50, dedup_lim=0.9, stopwords=stop_words
     )
     values: dict[str, KeywordValue] = {}
     for phrase, score_value in extractor.extract_keywords(context.text):
-        normalized = " ".join(phrase.casefold().split())
+        normalized = _keyword_key(phrase, language)
         occurrences = _matches(context, phrase)
         if not normalized or not occurrences or not 1 <= len(normalized.split()) <= 3:
+            continue
+        if language == "el" and any(word in stop_words for word in normalized.split()):
+            # YAKE keeps a stop word inside a phrase it scored; a Greek one written without
+            # accents ("ΑΠΟ") slips past its own check.
             continue
         score = float(score_value)
         relevance = 1.0 / (1.0 + max(score, 0.0))
@@ -558,27 +595,84 @@ def extract_entities(context: ProcessorContext) -> EntityResult:
     return EntityResult("success", tuple(values), algorithm, model_version)
 
 
-_LEXICON_PATH = Path(__file__).with_name("data") / "countries-en.json"
-_AMBIGUOUS_COUNTRY_NAMES = frozenset({"congo", "georgia"})
+_LEXICON_PATHS = {
+    "en": Path(__file__).with_name("data") / "countries-en.json",
+    "el": Path(__file__).with_name("data") / "countries-el.json",
+}
+_AMBIGUOUS_COUNTRY_NAMES = {
+    "en": frozenset({"congo", "georgia"}),
+    # "Γεωργία" is also a woman's name.
+    "el": frozenset({"γεωργια", "γεωργιασ"}),
+}
 
 
-def _country_lexicon() -> tuple[str, dict[str, tuple[str, ...]]]:
-    payload = json.loads(_LEXICON_PATH.read_text())
+@functools.cache
+def _country_lexicon(language: str = "en") -> tuple[str, dict[str, tuple[str, ...]]]:
+    payload = json.loads(_LEXICON_PATHS[language].read_text())
     countries = {item["code"]: tuple(item["names"]) for item in payload["countries"]}
     return str(payload["version"]), countries
 
 
-def detect_countries(context: ProcessorContext) -> CountryResult:
-    version, lexicon = _country_lexicon()
-    algorithm = f"country-explicit-{version}-primary-1"
-    if context.language != "en":
-        return CountryResult("unsupported_language", (), None, algorithm)
-    by_country: dict[str, list[Occurrence]] = {}
+def _greek_fold(text: str) -> str:
+    """Lower case without accents, one character for one, so offsets stay the article's own."""
+    folded = []
+    for character in text:
+        base = unicodedata.normalize("NFD", character)[0].lower()
+        if base == "ς":
+            base = "σ"
+        folded.append(base if len(base) == 1 else character)
+    return "".join(folded)
+
+
+def _greek_country_key(text: str) -> str:
+    """A Greek country name as one key: folded, single spaces, no spaces around a hyphen."""
+    return re.sub(r"\s*-\s*", "-", " ".join(_greek_fold(text).split()))
+
+
+@functools.cache
+def _greek_country_pattern() -> tuple[re.Pattern[str], dict[str, str]]:
+    """Every Greek country name in one alternation, longest first: "Νότιο Σουδάν" is not Sudan."""
+    _, lexicon = _country_lexicon("el")
+    codes: dict[str, str] = {}
     for code, names in lexicon.items():
         for name in names:
-            if name.casefold() in _AMBIGUOUS_COUNTRY_NAMES:
+            key = _greek_country_key(name)
+            if key not in _AMBIGUOUS_COUNTRY_NAMES["el"]:
+                codes.setdefault(key, code)
+    alternatives = sorted(codes, key=lambda key: (-len(key), key))
+    body = "|".join(
+        re.escape(key).replace(r"\ ", r"\s+").replace(r"\-", r"\s*-\s*") for key in alternatives
+    )
+    return re.compile(r"(?<!\w)(?:" + body + r")(?!\w)"), codes
+
+
+def _greek_countries(context: ProcessorContext) -> dict[str, list[Occurrence]]:
+    pattern, codes = _greek_country_pattern()
+    found: dict[str, list[Occurrence]] = {}
+    for match in pattern.finditer(_greek_fold(context.text)):
+        code = codes[_greek_country_key(match.group())]
+        found.setdefault(code, []).append(_occurrence(context, match.start(), match.end()))
+    return found
+
+
+def _english_countries(context: ProcessorContext) -> dict[str, list[Occurrence]]:
+    _, lexicon = _country_lexicon("en")
+    found: dict[str, list[Occurrence]] = {}
+    for code, names in lexicon.items():
+        for name in names:
+            if name.casefold() in _AMBIGUOUS_COUNTRY_NAMES["en"]:
                 continue
-            by_country.setdefault(code, []).extend(_matches(context, name))
+            found.setdefault(code, []).extend(_matches(context, name))
+    return found
+
+
+def detect_countries(context: ProcessorContext) -> CountryResult:
+    language = context.language or ""
+    version, _ = _country_lexicon(language if language in _LEXICON_PATHS else "en")
+    algorithm = f"country-explicit-{version}-primary-1"
+    if language not in _LEXICON_PATHS:
+        return CountryResult("unsupported_language", (), None, algorithm)
+    by_country = _greek_countries(context) if language == "el" else _english_countries(context)
     mentioned = tuple(
         CountryValue(
             code, len(occurrences), tuple(sorted(occurrences, key=lambda item: item.input_start))

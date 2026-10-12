@@ -6275,7 +6275,9 @@ export interface operations {
     };
     get_stop_words_api_v1_nlp_stop_words_get: {
         parameters: {
-            query?: never;
+            query?: {
+                language?: "en" | "el";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6291,11 +6293,22 @@ export interface operations {
                     "application/json": components["schemas"]["StopWordsResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     put_stop_words_api_v1_nlp_stop_words_put: {
         parameters: {
-            query?: never;
+            query?: {
+                language?: "en" | "el";
+            };
             header?: {
                 "X-CSRF-Token"?: string | null;
             };
