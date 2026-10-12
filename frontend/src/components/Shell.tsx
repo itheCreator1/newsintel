@@ -6,21 +6,20 @@ import { useAuth } from '../lib/auth-context'
 import { displayFont, monoFont } from '../lib/fonts'
 import { NavLink } from './NavLink'
 import { QuickSearch } from './QuickSearch'
-import { WatchlistLink } from './WatchlistLink'
+import { InvestigationsLink } from './InvestigationsLink'
 
 const fontVars = `${displayFont.variable} ${monoFont.variable}`
 
 const NAV_GROUPS: [string, [string, string][]][] = [
-  ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
+  ['Explore', [['/', 'Overview'], ['/search', 'Search'], ['/investigations', 'Investigations'], ['/graph', 'Graph'], ['/events', 'Events'], ['/map', 'Map'], ['/compare', 'Compare']]],
   ['Archive', [['/sources', 'Sources'], ['/articles', 'Articles'], ['/authorities', 'Authority file']]],
-  ['Investigations', [['/saved-searches', 'Saved Searches'], ['/monitors', 'Watchlist']]],
   ['System', [['/processes', 'Processes'], ['/settings', 'Settings']]],
 ]
 
 const normalize = (path: string) => path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 const PAGE_NAMES = new Map<string, string>([
   ...NAV_GROUPS.flatMap(([, links]) => links),
-  ['/sources/detail', 'Source'], ['/events/detail', 'Event'], ['/clusters', 'Story'], ['/entities', 'Entity'],
+  ['/sources/detail', 'Source'], ['/events/detail', 'Event'], ['/clusters', 'Story'], ['/entities', 'Entity'], ['/monitors', 'Monitor'],
 ])
 
 /** The browser tab title for a route, so tabs and history entries say which page they are. */
@@ -120,7 +119,7 @@ export function Shell({ children }: { children: ReactNode }) {
             {NAV_GROUPS.map(([group, links]) => (
               <div key={group} className="flex flex-col gap-1">
                 <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{group}</p>
-                {links.map(([href, label]) => href === '/monitors' ? <WatchlistLink key={href} href={href} label={label} /> : <NavLink key={href} href={href}>{label}</NavLink>)}
+                {links.map(([href, label]) => href === '/investigations' ? <InvestigationsLink key={href} href={href} label={label} /> : <NavLink key={href} href={href}>{label}</NavLink>)}
               </div>
             ))}
           </nav>

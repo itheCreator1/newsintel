@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase13d')
   await page.getByLabel('Password').fill('phase13d-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Saved Searches' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
 }
 
 const service = (page: Page, name: string) => page.getByRole('region', { name: 'Services' }).getByRole('listitem').filter({ hasText: name })

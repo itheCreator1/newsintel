@@ -24,7 +24,7 @@ const unseen = { unseen_article_count: 2, unseen_cluster_count: 1 }
 const greek = saved('s1', 'Greek grid')
 const shipping = saved('s2', 'Shipping', { state: { q: 'port', sort: 'relevance', interval: 'auto' } })
 const shippingMonitor = monitor({ id: 'm2', name: 'Shipping', ...unseen })
-const acme = monitor({ id: 'm1', name: 'Acme', kind: 'entity', state: { entity_id: ['e1'], sort: 'relevance', interval: 'auto' } })
+const acme = monitor({ id: 'm1', name: 'Acme', kind: 'entity', state: { q: '', entity_id: ['e1'], sort: 'relevance', interval: 'auto' } })
 
 beforeEach(() => {
   vi.clearAllMocks()

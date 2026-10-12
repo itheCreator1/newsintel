@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase11d')
   await page.getByLabel('Password').fill('phase11d-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('link', { name: 'Watchlist' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Investigations' })).toBeVisible()
 }
 
 async function apiJson<T>(page: Page, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -38,9 +38,9 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await apiJson(page, '/feeds', { method: 'POST', body: { name: 'Harbor Daily', url: 'http://fixture/investigations-daily.xml', source_country: 'US' } })
   await expect.poll(async () => (await monitors(page))[0]?.unseen_article_count, { timeout: 150_000, intervals: [2_000] }).toBe(6)
 
-  await page.goto('/monitors')
+  await page.goto('/investigations')
   const nav = page.getByRole('navigation', { name: 'Main navigation' })
-  await expect(nav.getByRole('link', { name: 'Watchlist, 1 with new results', exact: true })).toBeVisible({ timeout: 30_000 })
+  await expect(nav.getByRole('link', { name: 'Investigations, 1 with new results', exact: true })).toBeVisible({ timeout: 30_000 })
   const row = page.getByRole('article', { name: 'Harbor watch' })
   await expect(row).toHaveAttribute('data-unseen', 'true')
   await expect(row.getByText(/^6 new articles/)).toBeVisible()
@@ -59,7 +59,7 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
   await expect(changes.getByText('No changes since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new since you last looked.')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('Nothing new', { exact: true })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Watchlist', exact: true })).toBeVisible({ timeout: 30_000 })
+  await expect(nav.getByRole('link', { name: 'Investigations', exact: true })).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: 'Recent matches' }).click()
   await expect(page).toHaveURL(/scope=recent/)
   await expect(page.locator('main article')).toHaveCount(6)
@@ -87,7 +87,7 @@ test('monitor workflow watches a search, shows new articles, marks them seen and
 
   page.on('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Delete monitor' }).click()
-  await expect(page).toHaveURL(/\/monitors\/$/)
-  await expect(page.getByText(/No monitors yet/)).toBeVisible()
+  await expect(page).toHaveURL(/\/investigations\/$/)
+  await expect(page.getByText(/No investigations yet/)).toBeVisible()
   expect(await monitors(page)).toEqual([])
 })

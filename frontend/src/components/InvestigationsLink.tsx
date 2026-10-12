@@ -5,8 +5,8 @@ import { api } from '../lib/api'
 import { monitorKeys, refetchEvery, unseenMonitors } from '../lib/monitors'
 import { NavLink } from './NavLink'
 
-/** The Watchlist nav link, with the number of monitors that have something new; nothing while loading or on error. */
-export function WatchlistLink({ href, label }: { href: string; label: string }) {
+/** The Investigations nav link, with the number of watched ones that have something new; nothing while loading or on error. */
+export function InvestigationsLink({ href, label }: { href: string; label: string }) {
   // ponytail: counts the first 100 monitors; a /monitors/summary count endpoint if a user ever has more.
   const monitors = useQuery({ queryKey: monitorKeys.badge, queryFn: () => api.monitors('activity', undefined, 100), retry: false, refetchInterval: query => refetchEvery(query.state.data?.items) })
   const count = unseenMonitors(monitors.data?.items)
