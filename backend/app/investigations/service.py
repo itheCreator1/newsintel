@@ -4,9 +4,10 @@ import json
 import uuid
 
 from pydantic import ValidationError
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Executable
 
 from app.investigations.models import SavedSearch
 from app.investigations.schemas import (
@@ -16,6 +17,7 @@ from app.investigations.schemas import (
     SavedSearchResponse,
     SavedSearchUpdate,
 )
+from app.monitors.models import Monitor
 
 
 class SavedSearchNameConflict(Exception):
@@ -89,12 +91,16 @@ async def get_saved_search(
     return item
 
 
-async def _commit(db: AsyncSession, item: SavedSearch) -> SavedSearch:
+async def _commit(db: AsyncSession, item: SavedSearch, *linked: Executable) -> SavedSearch:
     try:
+        for statement in linked:
+            await db.execute(statement)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise SavedSearchNameConflict("A saved search with this name already exists") from exc
+        raise SavedSearchNameConflict(
+            "A saved search or monitor with this name already exists"
+        ) from exc
     await db.refresh(item)
     return item
 
@@ -115,9 +121,21 @@ async def create_saved_search(
 async def update_saved_search(
     db: AsyncSession, item: SavedSearch, payload: SavedSearchUpdate
 ) -> SavedSearch:
+    linked = []
     if payload.name is not None:
         item.name = payload.name
+        # A monitor watching this search in place is the same investigation, so it keeps the name.
+        linked.append(
+            update(Monitor).where(Monitor.saved_search_id == item.id).values(name=payload.name)
+        )
     if payload.state is not None:
         item.state_version = STATE_VERSION
         item.state = payload.state.model_dump(mode="json")
-    return await _commit(db, item)
+    return await _commit(db, item, *linked)
+
+
+async def delete_saved_search(db: AsyncSession, item: SavedSearch) -> None:
+    """The saved search and the monitor watching it in place, which are one investigation."""
+    await db.execute(delete(Monitor).where(Monitor.saved_search_id == item.id))
+    await db.delete(item)
+    await db.commit()

@@ -20,9 +20,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.auth.models import User  # noqa: F401
 from app.db.base import Base
 from app.feeds.models import Article  # noqa: F401
+from app.investigations.models import SavedSearch  # noqa: F401
 
-# The imports above register `users` and `articles` for this table's foreign keys, so the model also
-# resolves in processes (scheduler, worker) that never load the API's auth or feed routes.
+# The imports above register `users`, `articles` and `saved_searches` for this table's foreign keys,
+# so the model also resolves in processes (scheduler, worker) that never load the API's routes.
 
 
 class Monitor(Base):
@@ -50,6 +51,12 @@ class Monitor(Base):
         CheckConstraint("state_version > 0", name="ck_monitors_state_version"),
         CheckConstraint("unseen_article_count >= 0", name="ck_monitors_unseen_articles"),
         CheckConstraint("unseen_cluster_count >= 0", name="ck_monitors_unseen_clusters"),
+        Index(
+            "uq_monitors_saved_search",
+            "saved_search_id",
+            unique=True,
+            postgresql_where=text("saved_search_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -59,6 +66,10 @@ class Monitor(Base):
     state_version: Mapped[int] = mapped_column(Integer)
     state: Mapped[dict[str, Any]] = mapped_column(JSONB)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # The saved search this monitor watches in place; the two show as one investigation.
+    saved_search_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("saved_searches.id", ondelete="SET NULL", name="fk_monitors_saved_search")
+    )
     # Incremental evaluation high-water mark: the last (discovery time, article id) evaluated.
     eval_cursor_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     eval_cursor_article_id: Mapped[uuid.UUID | None] = mapped_column()
