@@ -81,6 +81,9 @@ describe('graph link', () => {
 
   it('names nothing when every applied criterion reaches Graph', () => {
     expect(unsupportedCriteria(stateFromQuery(new URLSearchParams('q=grid&story_country=DE')), GRAPH_CHIP_FIELDS)).toEqual([])
+    const greek = stateFromQuery(new URLSearchParams('language=el'))
+    expect(unsupportedCriteria(greek, GRAPH_CHIP_FIELDS)).toEqual([])
+    expect(parseHref(graphHref(greek)).getAll('language')).toEqual(['el'])
     expect(graphHref(emptyInvestigation())).toBe('/graph/')
   })
 })
