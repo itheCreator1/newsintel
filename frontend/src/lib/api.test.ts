@@ -333,3 +333,29 @@ it('requests the names rising today', async () => {
 
   expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/analytics/rising-entities')
 })
+
+it('changes the password and signs out the other browsers with CSRF', async () => {
+  const csrf = () => new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 })
+  const fetchMock = vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ others: 2 }), { status: 200 }))
+    .mockResolvedValueOnce(csrf()).mockResolvedValueOnce(new Response(JSON.stringify({ signed_out: 2 }), { status: 200 }))
+
+  await api.changePassword('old-password-1', 'new-password-2')
+  expect(await api.otherSessions()).toEqual({ others: 2 })
+  expect(await api.signOutOtherSessions()).toEqual({ signed_out: 2 })
+
+  expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.method ?? 'GET', init?.body])).toEqual([
+    ['/api/v1/auth/csrf', 'GET', undefined], ['/api/v1/auth/password', 'POST', JSON.stringify({ current_password: 'old-password-1', new_password: 'new-password-2' })],
+    ['/api/v1/auth/sessions', 'GET', undefined],
+    ['/api/v1/auth/csrf', 'GET', undefined], ['/api/v1/auth/sessions/sign-out-others', 'POST', undefined],
+  ])
+})
+
+it('passes on why a sign-in is held', async () => {
+  vi.spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response(JSON.stringify({ csrf_token: 'token' }), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ detail: 'Too many failed sign-ins. Try again in 15 minutes.' }), { status: 429 }))
+
+  await expect(api.login('phase3', 'phase3-password')).rejects.toThrow('Too many failed sign-ins. Try again in 15 minutes.')
+})
