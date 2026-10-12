@@ -27,6 +27,14 @@ class CompareDay(BaseModel):
     article_count: int
 
 
+class ComparePeriod(BaseModel):
+    """The same counts over the window of the same length just before this one."""
+
+    articles: int
+    stories: int
+    sources: int | None
+
+
 class CompareSide(BaseModel):
     """Counts are over the subject's articles dated in the window. `sources` is null when the
     subject is itself a source."""
@@ -36,6 +44,7 @@ class CompareSide(BaseModel):
     stories: int
     sources: int | None
     timeline: list[CompareDay]
+    previous: ComparePeriod
 
 
 class Overlap(BaseModel):

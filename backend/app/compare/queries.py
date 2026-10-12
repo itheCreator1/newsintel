@@ -13,6 +13,7 @@ from sqlalchemy import (
     func,
     literal_column,
     not_,
+    null,
     or_,
     select,
     union_all,
@@ -28,6 +29,7 @@ from app.compare.schemas import (
     CompareClusterResponse,
     CompareDay,
     CompareOverlap,
+    ComparePeriod,
     CompareRelated,
     CompareResponse,
     CompareSide,
@@ -61,12 +63,20 @@ class Spec:
     days: int
 
 
-def subject_articles(kind: Kind, ref: str, role: Role | None, start: datetime) -> Select[Any]:
+def subject_articles(
+    kind: Kind, ref: str, role: Role | None, start: datetime, end: datetime | None = None
+) -> Select[Any]:
     """One subject's distinct articles dated in the window, as `(article_id, at)`.
 
     Every metric and every evidence page is built from this, so both subjects are always measured
-    the same way. `ref` is an id (entity, source) or an upper-case country code.
+    the same way. `ref` is an id (entity, source) or an upper-case country code. The window runs
+    to now, or up to `end` (not included).
     """
+    query = _subject_articles(kind, ref, role, start)
+    return query if end is None else query.where(query.selected_columns.at < end)
+
+
+def _subject_articles(kind: Kind, ref: str, role: Role | None, start: datetime) -> Select[Any]:
     effective = effective_date()
     base = select(Article.id.label("article_id"), effective.label("at"))
     if kind == "entity":
@@ -101,10 +111,12 @@ def subject_articles(kind: Kind, ref: str, role: Role | None, start: datetime) -
     )
 
 
-def _sides(spec: Spec, start: datetime) -> tuple[CTE, CTE]:
+def _sides(
+    spec: Spec, start: datetime, end: datetime | None = None, name: str = "side"
+) -> tuple[CTE, CTE]:
     return (
-        subject_articles(spec.kind, spec.a, spec.role, start).cte("side_a"),
-        subject_articles(spec.kind, spec.b, spec.role, start).cte("side_b"),
+        subject_articles(spec.kind, spec.a, spec.role, start, end).cte(f"{name}_a"),
+        subject_articles(spec.kind, spec.b, spec.role, start, end).cte(f"{name}_b"),
     )
 
 
@@ -274,6 +286,24 @@ async def _related(db: AsyncSession, spec: Spec, side_a: CTE, side_b: CTE) -> Co
     )
 
 
+async def _period(db: AsyncSession, side: CTE, with_sources: bool) -> ComparePeriod:
+    """One side's articles, stories and (unless it is a source) sources, in one statement."""
+
+    def count(query: Select[Any]) -> Any:
+        return select(func.count()).select_from(query.subquery()).scalar_subquery()
+
+    row = (
+        await db.execute(
+            select(
+                count(_articles_of(side)),
+                count(_stories_of(side)),
+                count(_sources_of(side)) if with_sources else null(),
+            )
+        )
+    ).one()
+    return ComparePeriod(articles=row[0], stories=row[1], sources=row[2])
+
+
 async def summary(db: AsyncSession, spec: Spec, a: Subject, b: Subject) -> CompareResponse:
     start = window_start(spec.days)
     side_a, side_b = _sides(spec, start)
@@ -286,8 +316,13 @@ async def summary(db: AsyncSession, spec: Spec, a: Subject, b: Subject) -> Compa
     )
     timeline_a, timeline_b = await _timelines(db, side_a, side_b, start, spec.days)
     related = await _related(db, spec, side_a, side_b)
+    before_a, before_b = _sides(spec, window_start(2 * spec.days), start, "before")
+    previous_a = await _period(db, before_a, spec.kind != "source")
+    previous_b = await _period(db, before_b, spec.kind != "source")
 
-    def side(subject: Subject, own: str, timeline: list[CompareDay]) -> CompareSide:
+    def side(
+        subject: Subject, own: str, timeline: list[CompareDay], previous: ComparePeriod
+    ) -> CompareSide:
         # A side's total is its "only" part plus the shared part.
         return CompareSide(
             subject=subject,
@@ -295,14 +330,15 @@ async def summary(db: AsyncSession, spec: Spec, a: Subject, b: Subject) -> Compa
             stories=stories.both + getattr(stories, own),
             sources=sources.both + getattr(sources, own) if sources else None,
             timeline=timeline,
+            previous=previous,
         )
 
     return CompareResponse(
         kind=spec.kind,
         role=spec.role,
         window_days=spec.days,
-        a=side(a, "only_a", timeline_a),
-        b=side(b, "only_b", timeline_b),
+        a=side(a, "only_a", timeline_a, previous_a),
+        b=side(b, "only_b", timeline_b, previous_b),
         overlap=CompareOverlap(articles=articles, stories=stories, sources=sources),
         related=related,
     )
