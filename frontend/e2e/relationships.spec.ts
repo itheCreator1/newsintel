@@ -56,11 +56,16 @@ test('relationships workflow links search, the cluster, article detail, and the 
 
   await reportedByLinks.first().click()
   await expect(page).toHaveURL(/\/clusters\//)
-  await expect(page.getByRole('heading', { level: 3 })).toHaveText('2 articles · 2 sources')
+  await expect(page.getByText('2 articles · 2 sources')).toBeVisible()
   const memberRows = page.locator('.search-result')
   await expect(memberRows).toHaveCount(2)
-  await expect(page.getByText('Relationships Wire')).toBeVisible()
-  await expect(page.getByText('Relationships Daily')).toBeVisible()
+  await expect(memberRows.getByText('Relationships Wire')).toBeVisible()
+  await expect(memberRows.getByText('Relationships Daily')).toBeVisible()
+  // The story is named by its representative article, and each source is listed once at its first article.
+  await expect(page.getByRole('heading', { level: 2 })).toContainText('Microsoft')
+  const reports = page.getByRole('table', { name: 'Who reported it when' })
+  await expect(reports.getByRole('row')).toHaveCount(3)
+  await expect(reports.getByRole('cell', { name: 'First', exact: true }).first()).toBeVisible()
 
   await memberRows.first().locator('.result-open').click()
   await expect(page).toHaveURL(/\/articles\/\?/)

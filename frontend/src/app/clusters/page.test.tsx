@@ -41,7 +41,7 @@ it('shows the story header with counts and time span', async () => {
   renderWithQuery(() => <ClustersPage />)
 
   expect(await screen.findByText('3 articles · 2 sources')).toBeTruthy()
-  expect(screen.getByText(new RegExp(new Date('2026-09-10T08:00:00Z').toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy()
+  expect(screen.getAllByText(new RegExp(new Date('2026-09-10T08:00:00Z').toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).length).toBeGreaterThan(0)
   expect(api.cluster).toHaveBeenCalledWith('cluster-1', undefined)
 })
 
@@ -78,13 +78,13 @@ it('shows an error state when the cluster cannot be loaded', async () => {
   expect(await screen.findByText('Could not load this story.')).toBeTruthy()
 })
 
-it('watches this story, named after its first article', async () => {
+it('watches this story, named after the story', async () => {
   vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
   renderWithQuery(() => <ClustersPage />)
 
   fireEvent.click(await screen.findByRole('button', { name: 'Watch' }))
   fireEvent.click(screen.getByRole('button', { name: 'Watch story' }))
-  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('First report', expect.objectContaining({ story_cluster_id: ['cluster-1'], q: '' }), 'cluster'))
+  await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Harbour fire spreads to the port', expect.objectContaining({ story_cluster_id: ['cluster-1'], q: '' }), 'cluster'))
 })
 
 it('names the story by its representative article and shows its entities, event and first reports', async () => {
@@ -106,7 +106,7 @@ it('charts the story by hour and searches the brushed hours within it', async ()
   renderWithQuery(() => <ClustersPage />)
 
   fireEvent.click(await screen.findByRole('button', { name: 'Brush 3 hour buckets' }))
-  expect(navigationHarness.push).toHaveBeenCalledWith('/search/?after=2026-09-10&before=2026-09-11&story_cluster_id=cluster-1')
+  expect(navigationHarness.push).toHaveBeenCalledWith('/search/?story_cluster_id=cluster-1&after=2026-09-10&before=2026-09-11')
 })
 
 it('keeps the member list when the summary cannot be loaded', async () => {
