@@ -130,3 +130,12 @@ def test_entity_expand_takes_names_and_parts_only() -> None:
     assert state.entity_expand == ["names", "parts"]
     with pytest.raises(ValidationError):
         InvestigationState.model_validate({"entity_expand": ["members"]})
+
+
+def test_investigation_state_carries_source_tags_trimmed() -> None:
+    state = InvestigationState.model_validate({"source_tag": [" greek ", "economy"]})
+    assert state.source_tag == ["greek", "economy"]
+    old = InvestigationState.model_validate({"q": "grid"})
+    assert "source_tag" not in old.model_dump(exclude_defaults=True)
+    with pytest.raises(ValidationError):
+        InvestigationState.model_validate({"source_tag": ["x" * 41]})

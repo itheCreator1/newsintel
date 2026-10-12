@@ -6,7 +6,7 @@ import { monitor } from '../../test/monitors'
 import { renderWithQuery } from '../../test/render'
 import SearchPageRoute from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { search: vi.fn(), timeline: vi.fn(), facets: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feedTags: vi.fn(), search: vi.fn(), timeline: vi.fn(), facets: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the brushed bucket span.
 vi.mock('../../components/TimelineChart', () => ({
   TimelineChart: (props: { buckets?: unknown[]; interval?: string; onSelect: (range: { start: string; end: string }) => void }) =>
@@ -24,6 +24,7 @@ beforeEach(() => {
   vi.mocked(api.search).mockResolvedValue({ items: [result], next_cursor: 'next' })
   vi.mocked(api.timeline).mockResolvedValue({ interval: 'week', total: 5, buckets: [{ start: '2026-01-05T00:00:00Z', count: 3 }, { start: '2026-01-12T00:00:00Z', count: 2 }] })
   vi.mocked(api.facets).mockResolvedValue(noFacets)
+  vi.mocked(api.feedTags).mockResolvedValue([{ tag: 'greek', count: 2 }])
   vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: true }], next_cursor: null })
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'entity-one', kind: 'ORG', normalized_text: 'acme', text: 'Acme' }], next_cursor: null })
   vi.mocked(api.nlpKeywords).mockResolvedValue({ items: [{ id: 'keyword-one', kind: 'keyword', normalized_text: 'climate policy', text: 'climate policy' }], next_cursor: null })
@@ -484,4 +485,17 @@ it('picks countries and languages by name and shows the names on results', async
   const bar = screen.getByRole('region', { name: 'Applied filters' })
   expect(within(bar).getByRole('button', { name: 'Remove Mentioned country: France (FR)' })).toBeTruthy()
   expect(within(bar).getByRole('button', { name: 'Remove Language: Greek (el)' })).toBeTruthy()
+})
+
+it('narrows to the sources carrying a tag', async () => {
+  const { rerenderSame } = renderSearch()
+  await screen.findByText('Safe <script> title')
+  fireEvent.click(screen.getByText('Advanced filters'))
+  fireEvent.click(await within(screen.getByRole('group', { name: 'Source tag' })).findByRole('checkbox', { name: 'greek (2)' }))
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+
+  expect(navigationHarness.searchParams.getAll('source_tag')).toEqual(['greek'])
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ source_tag: ['greek'] }), undefined))
+  expect(within(screen.getByRole('region', { name: 'Applied filters' })).getByRole('button', { name: 'Remove Source tag: greek' })).toBeTruthy()
 })
