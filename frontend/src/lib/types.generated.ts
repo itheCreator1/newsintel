@@ -275,7 +275,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Articles */
+        /**
+         * List Articles
+         * @description Newest first; the dates are days of discovery in UTC, `before` not included.
+         */
         get: operations["list_articles_api_v1_articles_get"];
         put?: never;
         post?: never;
@@ -4985,6 +4988,18 @@ export interface components {
              * @default []
              */
             entities: components["schemas"]["SearchResultEntity"][];
+            /**
+             * Read
+             * @default false
+             */
+            read: boolean;
+            /**
+             * Starred
+             * @default false
+             */
+            starred: boolean;
+            /** Note */
+            note?: string | null;
         };
         /** SearchResultEntity */
         SearchResultEntity: {
@@ -6460,6 +6475,12 @@ export interface operations {
         parameters: {
             query?: {
                 feed_id?: string | null;
+                unread?: boolean | null;
+                starred?: boolean | null;
+                language?: string | null;
+                has_text?: boolean | null;
+                after?: string | null;
+                before?: string | null;
                 cursor?: string | null;
                 limit?: number;
             };

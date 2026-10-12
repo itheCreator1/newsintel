@@ -42,6 +42,10 @@ class SearchResult(BaseModel):
     highlights: list[HighlightSegment]
     # The article's most relevant entities, most relevant first.
     entities: list[SearchResultEntity] = []
+    # The reader's own marks on the article.
+    read: bool = False
+    starred: bool = False
+    note: str | None = None
 
 
 class SearchPage(BaseModel):
