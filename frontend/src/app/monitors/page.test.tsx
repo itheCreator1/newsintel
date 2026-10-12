@@ -27,7 +27,6 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
   resetNavigationHarness({ pathname: '/monitors/' })
-  vi.mocked(api.monitors).mockResolvedValue({ items: [monitor({ id: 'm1', name: 'Harbor watch', ...unseen }), monitor({ id: 'm2', name: 'Grid' })], next_cursor: null })
 })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
@@ -37,105 +36,12 @@ const markButton = async () => {
   await vi.waitFor(() => expect(button).toBeEnabled())
   return button
 }
-const row = (name: string) => screen.findByRole('article', { name })
 
-it('lists monitors by activity with unseen counts styled apart from quiet ones', async () => {
+it('sends the old watchlist address to Investigations, keeping the order', async () => {
+  resetNavigationHarness({ pathname: '/monitors/', search: 'order=name' })
   renderWithQuery(() => <MonitorsPage />)
 
-  const busy = await row('Harbor watch')
-  expect(busy).toHaveAttribute('data-unseen', 'true')
-  expect(within(busy).getByText('2 new articles · 1 new story')).toBeTruthy()
-  expect(within(busy).getByRole('link', { name: 'Open Harbor watch' })).toHaveAttribute('href', '/monitors/?id=m1')
-  const quiet = await row('Grid')
-  expect(quiet).toHaveAttribute('data-unseen', 'false')
-  expect(within(quiet).getByText('Nothing new')).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Watch a search' })).toHaveAttribute('href', '/search/')
-  expect(api.monitors).toHaveBeenCalledWith('activity', undefined)
-})
-
-it('says what it is doing while loading, when empty and when the request fails', async () => {
-  vi.mocked(api.monitors).mockReturnValueOnce(new Promise(() => {}))
-  const first = renderWithQuery(() => <MonitorsPage />)
-  expect(screen.getByText('Loading monitors…')).toBeTruthy()
-  first.unmount()
-
-  vi.mocked(api.monitors).mockResolvedValueOnce({ items: [], next_cursor: null })
-  const second = renderWithQuery(() => <MonitorsPage />)
-  expect(await screen.findByText(/No monitors yet/)).toBeTruthy()
-  second.unmount()
-
-  vi.mocked(api.monitors).mockRejectedValueOnce(new ApiError('boom', 500))
-  renderWithQuery(() => <MonitorsPage />)
-  expect(await screen.findByText('Could not load monitors.')).toBeTruthy()
-})
-
-it('keeps the order in the URL and asks the API for it', async () => {
-  const view = renderWithQuery(() => <MonitorsPage />)
-  await row('Harbor watch')
-
-  fireEvent.change(screen.getByLabelText('Order'), { target: { value: 'name' } })
-  expect(navigationHarness.push).toHaveBeenCalledWith('/monitors/?order=name')
-  view.rerenderSame()
-
-  await vi.waitFor(() => expect(api.monitors).toHaveBeenLastCalledWith('name', undefined))
-})
-
-it('pages with the cursor', async () => {
-  vi.mocked(api.monitors).mockImplementation(async (_order, cursor) => cursor
-    ? { items: [monitor({ id: 'm3', name: 'Shipping' })], next_cursor: null }
-    : { items: [monitor({ id: 'm1', name: 'Harbor watch' })], next_cursor: 'page-two' })
-  renderWithQuery(() => <MonitorsPage />)
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Load more monitors' }))
-
-  expect(await row('Shipping')).toBeTruthy()
-  expect(api.monitors).toHaveBeenLastCalledWith('activity', 'page-two')
-})
-
-it('shows why a monitor is not counting: paused, failing, first check pending, recount pending, unreadable', async () => {
-  vi.mocked(api.monitors).mockResolvedValue({ items: [
-    monitor({ id: 'a', name: 'Paused one', enabled: false }),
-    monitor({ id: 'b', name: 'Failing one', error_category: 'search_unavailable', error_message: 'Search is down' }),
-    monitor({ id: 'c', name: 'New one', evaluated_through: null, last_evaluated_at: null }),
-    monitor({ id: 'd', name: 'Due one', next_evaluation_at: '2026-09-20T11:59:00Z' }),
-    monitor({ id: 'e', name: 'Broken one', state: null, problem: 'state.retired_filter: Extra inputs are not permitted' }),
-  ], next_cursor: null })
-  renderWithQuery(() => <MonitorsPage />)
-
-  expect(within(await row('Paused one')).getByText('Paused')).toBeTruthy()
-  expect(within(await row('Failing one')).getByText('Last check failed: Search is down. It will be retried.')).toBeTruthy()
-  expect(within(await row('New one')).getByText(/Waiting for the first check/)).toBeTruthy()
-  expect(within(await row('Due one')).getByText('Checking for newer articles…')).toBeTruthy()
-  const broken = await row('Broken one')
-  expect(within(broken).getByText(/can no longer be evaluated: state.retired_filter/)).toBeTruthy()
-  expect(within(broken).queryByRole('link', { name: 'Open Broken one' })).toBeTruthy()
-  expect(within(broken).queryByRole('button', { name: 'Resume Broken one' })).toBeNull()
-})
-
-it('pauses and resumes from the list', async () => {
-  vi.mocked(api.monitors).mockResolvedValue({ items: [monitor({ id: 'a', name: 'Paused one', enabled: false }), monitor({ id: 'b', name: 'Live one' })], next_cursor: null })
-  vi.mocked(api.updateMonitor).mockResolvedValue(monitor())
-  renderWithQuery(() => <MonitorsPage />)
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Pause Live one' }))
-  await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenLastCalledWith('b', { enabled: false }))
-  await fireEvent.click(screen.getByRole('button', { name: 'Resume Paused one' }))
-  await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenLastCalledWith('a', { enabled: true }))
-  await vi.waitFor(() => expect(vi.mocked(api.monitors).mock.calls.length).toBeGreaterThan(1))
-})
-
-it('deletes only after confirmation', async () => {
-  const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
-  vi.stubGlobal('confirm', confirm)
-  vi.mocked(api.deleteMonitor).mockResolvedValue(undefined)
-  renderWithQuery(() => <MonitorsPage />)
-
-  await fireEvent.click(await screen.findByRole('button', { name: 'Delete Grid' }))
-  expect(api.deleteMonitor).not.toHaveBeenCalled()
-  await fireEvent.click(screen.getByRole('button', { name: 'Delete Grid' }))
-
-  await vi.waitFor(() => expect(api.deleteMonitor).toHaveBeenCalledWith('m2'))
-  expect(confirm).toHaveBeenLastCalledWith('Delete the monitor “Grid”?')
+  await vi.waitFor(() => expect(navigationHarness.replace).toHaveBeenCalledWith('/investigations/?order=name'))
 })
 
 // ---- detail (?id=) ----
@@ -252,7 +158,7 @@ it('renames, reporting a duplicate name first', async () => {
   await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenLastCalledWith('m1', { name: 'Port watch' }))
 })
 
-it('pauses from the detail and goes back to the watchlist after a confirmed delete', async () => {
+it('pauses from the detail and goes back to Investigations after a confirmed delete', async () => {
   arrange()
   vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
   vi.mocked(api.updateMonitor).mockResolvedValue(monitor({ id: 'm1', enabled: false }))
@@ -263,7 +169,7 @@ it('pauses from the detail and goes back to the watchlist after a confirmed dele
   await vi.waitFor(() => expect(api.updateMonitor).toHaveBeenCalledWith('m1', { enabled: false }))
   await fireEvent.click(screen.getByRole('button', { name: 'Delete monitor' }))
 
-  await vi.waitFor(() => expect(navigationHarness.push).toHaveBeenLastCalledWith('/monitors/'))
+  await vi.waitFor(() => expect(navigationHarness.push).toHaveBeenLastCalledWith('/investigations/'))
   expect(api.deleteMonitor).toHaveBeenCalledWith('m1')
 })
 

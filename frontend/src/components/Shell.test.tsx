@@ -37,8 +37,9 @@ describe('application shell', () => {
     expect(screen.getByRole('link', { name: 'Events' })).toHaveAttribute('href', '/events/')
     expect(screen.getByRole('link', { name: 'Compare' })).toHaveAttribute('href', '/compare/')
     expect(screen.getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/map/')
-    expect(screen.getByRole('link', { name: 'Saved Searches' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Watchlist' })).toHaveAttribute('href', '/monitors/')
+    expect(screen.getByRole('link', { name: 'Investigations' })).toHaveAttribute('href', '/investigations/')
+    expect(screen.queryByRole('link', { name: 'Saved Searches' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Watchlist' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Processes' })).toHaveAttribute('href', '/processes/')
     expect(screen.queryByRole('link', { name: 'Jobs' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Operations' })).toBeNull()
@@ -54,9 +55,9 @@ describe('application shell', () => {
     resetNavigationHarness({ pathname: '/search/' })
     signedIn()
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' })
-    const groups = ['Explore', 'Archive', 'Investigations', 'System'].map(name => within(nav).getByText(name).parentElement!)
+    const groups = ['Explore', 'Archive', 'System'].map(name => within(nav).getByText(name).parentElement!)
     expect(groups.map(group => within(group).getAllByRole('link').map(link => link.textContent))).toEqual([
-      ['Overview', 'Search', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Saved Searches', 'Watchlist'], ['Processes', 'Settings'],
+      ['Overview', 'Search', 'Investigations', 'Graph', 'Events', 'Map', 'Compare'], ['Sources', 'Articles', 'Authority file'], ['Processes', 'Settings'],
     ])
     expect(within(nav).getAllByRole('link').filter(link => link.getAttribute('aria-current') === 'page').map(link => link.textContent)).toEqual(['Search'])
   })
@@ -111,10 +112,10 @@ describe('application shell', () => {
     return renderWithQuery(() => <AuthProvider><Shell><p>content</p></Shell></AuthProvider>)
   }
 
-  it('counts the monitors with new results on the Watchlist link', async () => {
+  it('counts the monitors with new results on the Investigations link', async () => {
     withMonitors(() => new Response(JSON.stringify({ items: [monitor({ id: 'a', unseen_article_count: 2 }), monitor({ id: 'b', unseen_article_count: 1 }), monitor({ id: 'c' })], next_cursor: null })))
-    const link = await screen.findByRole('link', { name: 'Watchlist, 2 with new results' })
-    expect(link).toHaveAttribute('href', '/monitors/')
+    const link = await screen.findByRole('link', { name: 'Investigations, 2 with new results' })
+    expect(link).toHaveAttribute('href', '/investigations/')
     expect(within(link).getByText('2')).toBeTruthy()
     expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?order=activity&limit=100'))).toBe(true)
   })
@@ -122,9 +123,9 @@ describe('application shell', () => {
   it.each([
     ['nothing is new', () => new Response(JSON.stringify({ items: [monitor({ id: 'c' })], next_cursor: null }))],
     ['the monitors request fails', () => new Response(JSON.stringify({ detail: 'boom' }), { status: 500 })],
-  ])('keeps the plain Watchlist link when %s', async (_, response) => {
+  ])('keeps the plain Investigations link when %s', async (_, response) => {
     withMonitors(response)
-    expect(await screen.findByRole('link', { name: 'Watchlist' })).toBeTruthy()
+    expect(await screen.findByRole('link', { name: 'Investigations' })).toBeTruthy()
     await vi.waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/monitors?'))).toBe(true))
     expect(screen.queryByRole('link', { name: /with new results/ })).toBeNull()
   })

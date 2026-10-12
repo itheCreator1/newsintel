@@ -151,7 +151,7 @@ it('watches this entity under its name', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Watch' }))
   fireEvent.click(screen.getByRole('button', { name: 'Watch entity' }))
   await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Barack Obama', expect.objectContaining({ entity_id: ['ent-1'], source_id: [] }), 'entity'))
-  expect(await screen.findByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
+  expect(await screen.findByRole('link', { name: 'Open investigations' })).toHaveAttribute('href', '/investigations/')
 })
 
 const variant = { id: 'var-1', display_name: 'B. Obama', normalized_text: 'b obama', language: 'en', entity_type: 'PERSON' }
