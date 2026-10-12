@@ -1067,6 +1067,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clusters/{cluster_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cluster Summary */
+        get: operations["get_cluster_summary_api_v1_clusters__cluster_id__summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clustering/jobs/{job_id}/retry": {
         parameters: {
             query?: never;
@@ -5305,6 +5322,89 @@ export interface components {
             /** Source Count */
             source_count: number;
         };
+        /** StoryEntity */
+        StoryEntity: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Display Name */
+            display_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /** StoryEventRef */
+        StoryEventRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Headline */
+            headline: string | null;
+        };
+        /** StorySource */
+        StorySource: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * First Reported At
+             * Format: date-time
+             */
+            first_reported_at: string;
+            /** Minutes Behind */
+            minutes_behind: number;
+        };
+        /**
+         * StorySummary
+         * @description The story page's header. `title` is the representative article's, else the earliest's.
+         *
+         *     `sources` lists each source once, at its first article, earliest first: the first one
+         *     reported the story first.
+         */
+        StorySummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string | null;
+            /** Entities */
+            entities: components["schemas"]["StoryEntity"][];
+            event: components["schemas"]["StoryEventRef"] | null;
+            timeline: components["schemas"]["StoryTimeline"];
+            /** Sources */
+            sources: components["schemas"]["StorySource"][];
+        };
+        /** StoryTimeline */
+        StoryTimeline: {
+            /**
+             * Interval
+             * @enum {string}
+             */
+            interval: "hour" | "day";
+            /** Buckets */
+            buckets: components["schemas"]["StoryTimelineBucket"][];
+        };
+        /** StoryTimelineBucket */
+        StoryTimelineBucket: {
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /** Count */
+            count: number;
+        };
         /** Subject */
         Subject: {
             /**
@@ -7852,6 +7952,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StoryClusterDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cluster_summary_api_v1_clusters__cluster_id__summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cluster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorySummary"];
                 };
             };
             /** @description Validation Error */

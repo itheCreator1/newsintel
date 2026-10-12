@@ -21,8 +21,10 @@ from app.clustering.schemas import (
     ClusterMemberPage,
     ClusterMemberResponse,
     StoryClusterDetailResponse,
+    StorySummary,
 )
 from app.clustering.service import request_clustering
+from app.clustering.summary import story_summary
 from app.db.session import get_db
 from app.feeds.models import Article, FeedArticle
 from app.feeds.service import encode_cursor
@@ -148,6 +150,14 @@ async def get_cluster(
         representative_article_id=cluster.representative_article_id,
         members=ClusterMemberPage(items=items, next_cursor=next_cursor),
     )
+
+
+@router.get("/clusters/{cluster_id}/summary", response_model=StorySummary)
+async def get_cluster_summary(cluster_id: uuid.UUID, db: Db, _auth: Auth) -> StorySummary:
+    cluster = await db.get(StoryCluster, cluster_id)
+    if cluster is None:
+        raise HTTPException(404, "Story cluster not found")
+    return await story_summary(db, cluster)
 
 
 @router.post(

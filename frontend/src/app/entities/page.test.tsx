@@ -148,7 +148,8 @@ it('watches this entity under its name', async () => {
   vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
   renderWithQuery(() => <EntitiesPage />)
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Watch entity' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Watch entity' }))
   await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Barack Obama', expect.objectContaining({ entity_id: ['ent-1'], source_id: [] }), 'entity'))
   expect(await screen.findByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/monitors/')
 })

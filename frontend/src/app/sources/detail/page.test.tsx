@@ -201,6 +201,7 @@ it('watches this source under its name', async () => {
   vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
   renderWithQuery(() => <SourceDetailPage />)
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Watch source' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Watch' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Watch source' }))
   await vi.waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Relationships Wire', expect.objectContaining({ source_id: ['s-1'], entity_id: [] }), 'source'))
 })

@@ -11,7 +11,7 @@ import { EntityWikidata } from '../../components/EntityWikidata'
 import { SeeAlso } from '../../components/SeeAlso'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
-import { WatchForm } from '../../components/WatchForm'
+import { WatchButton } from '../../components/WatchForm'
 import { typeLabel } from '../../lib/authorities'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
@@ -93,7 +93,7 @@ function EntityContent() {
               <Link className={chipClass} href={toHref('/events', new URLSearchParams({ entity_id: id }))}>Events with this entity</Link>
               <Link className={chipClass} href={compareHref({ kind: 'entity', a: id })}>Compare with another entity</Link>
             </div>
-            <WatchForm key={id} className="" kind="entity" state={searchState} defaultName={entity.display_name} label="Watch entity" />
+            <WatchButton key={id} className="self-start" kind="entity" state={searchState} defaultName={entity.display_name} label="Watch entity" />
           </div>
         )}
       </GlassPanel>

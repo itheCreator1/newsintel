@@ -13,7 +13,7 @@ import { TimelineChart } from '../../components/TimelineChart'
 import { GlassPanel, glassPanelClassName } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { EditMonitorBar } from '../../components/EditMonitorBar'
-import { WatchForm } from '../../components/WatchForm'
+import { WatchButton } from '../../components/WatchForm'
 import { FacetPanel } from '../../components/FacetPanel'
 import { Popover } from '../../components/Popover'
 import { SourceTagPicker } from '../../components/SourceTagPicker'
@@ -186,7 +186,7 @@ function SearchContent() {
                   : save.isSuccess && <p role="status" className="text-sm text-primary">Saved “{save.variables}”.</p>}
               </form>
             </Popover>
-            {!editing && <Popover label="Watch" title="Watch search"><WatchForm className="" state={state} /></Popover>}
+            {!editing && <WatchButton state={state} />}
           </div>
         </div>
         {/* Collapsing hides the fields but keeps them mounted, so draft edits survive. Search archive applies them. */}

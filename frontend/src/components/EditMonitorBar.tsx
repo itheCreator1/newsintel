@@ -9,8 +9,7 @@ import { monitorKeys } from '../lib/monitors'
 import { chipClass, primaryButtonClass } from '../lib/ui-classes'
 import { cn } from '../lib/utils'
 import { glassPanelClassName } from './GlassPanel'
-import { Popover } from './Popover'
-import { WatchForm } from './WatchForm'
+import { WatchButton } from './WatchForm'
 
 /** Search doubles as the criteria editor: this bar saves the search on screen as the monitor's new criteria, keeping its kind. */
 export function EditMonitorBar({ id, state, stopHref }: { id: string; state: InvestigationState; stopHref: string }) {
@@ -31,7 +30,7 @@ export function EditMonitorBar({ id, state, stopHref }: { id: string; state: Inv
     return (
       <div className="flex flex-wrap items-center gap-4">
         <p role="alert" className="error text-sm text-destructive">This monitor could not be loaded, so its criteria cannot be edited.</p>
-        <Popover label="Watch" title="Watch search"><WatchForm className="" state={state} /></Popover>
+        <WatchButton state={state} />
       </div>
     )
   }

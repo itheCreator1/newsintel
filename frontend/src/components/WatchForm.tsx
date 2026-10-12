@@ -9,6 +9,7 @@ import { monitorKeys } from '../lib/monitors'
 import { chipClass, fieldClass, labelClass, primaryButtonClass } from '../lib/ui-classes'
 import { cn } from '../lib/utils'
 import { glassPanelClassName } from './GlassPanel'
+import { Popover } from './Popover'
 
 interface WatchFormProps {
   state: InvestigationState
@@ -32,4 +33,9 @@ export function WatchForm({ state, kind = 'search', defaultName = '', label = 'W
         : watch.isSuccess && <p role="status" className="w-full text-sm text-primary">Watching “{watch.variables}”. <Link className={chipClass} href="/monitors/">Open watchlist</Link></p>}
     </form>
   )
+}
+
+/** The same form behind a Watch button, so a header or toolbar keeps one button instead of a form. */
+export function WatchButton({ className, ...props }: WatchFormProps) {
+  return <Popover className={className} label="Watch" title={props.label ?? 'Watch search'}><WatchForm {...props} className="" /></Popover>
 }
