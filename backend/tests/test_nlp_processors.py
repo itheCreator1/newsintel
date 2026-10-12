@@ -791,3 +791,12 @@ def test_greek_country_lexicon_is_checked_in_with_attribution() -> None:
     # The same countries as the English lexicon, each with at least one name.
     assert codes == {item["code"] for item in english["countries"]}
     assert all(item["names"] for item in payload["countries"])
+
+
+def test_keyword_lookup_matches_greek_keywords_as_typed() -> None:
+    from app.nlp.processors import keyword_lookup_key
+
+    # Greek keywords are stored without accents; a query typed with them still finds them.
+    assert keyword_lookup_key("Μητσοτάκης") == "μητσοτακησ"
+    assert keyword_lookup_key("ΕΝΕΡΓΕΙΑΚΟ σχέδιο") == "ενεργειακο σχεδιο"
+    assert keyword_lookup_key("  Energy  Policy ") == "energy policy"
