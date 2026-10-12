@@ -1,4 +1,4 @@
-import type { ArticleAnnotations } from './api-types'
+import type { ArticleAnnotations, ArticleDetail } from './api-types'
 
 export type ReaderRange = { start: number; end: number; kind: 'entity' | 'keyword'; id: string; label: string; detail?: string }
 export type ReaderSegment = { text: string; range?: ReaderRange }
@@ -86,4 +86,17 @@ export function paragraphs(raw: string, ranges: ReaderRange[]): ReaderParagraph[
 
 export function readingMinutes(text: string): number {
   return Math.max(1, Math.ceil(text.split(/\s+/).filter(Boolean).length / 200))
+}
+
+const ACTIVE_STATUSES = new Set(['queued', 'running', 'retrying'])
+export const READER_POLL_MS = 5_000
+
+/** Whether the article's latest content job is still to finish. */
+export function articleWorkRunning(detail: Pick<ArticleDetail, 'processing'> | undefined): boolean {
+  return ACTIVE_STATUSES.has(detail?.processing[0]?.status ?? '')
+}
+
+/** Whether a processor is still to finish: queued or running, or behind a requested generation it has not failed. */
+export function annotationsWorkRunning(annotations: Pick<ArticleAnnotations, 'processors'> | undefined): boolean {
+  return Boolean(annotations?.processors.some(item => ACTIVE_STATUSES.has(item.status) || (item.completed_generation < item.requested_generation && item.status !== 'failed')))
 }

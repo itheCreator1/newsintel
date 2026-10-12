@@ -11,9 +11,10 @@ import { ArticleReader } from '../../components/ArticleReader'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { RelatedCoveragePanel } from '../../components/RelatedCoveragePanel'
-import { highlightRanges, type ReaderRange } from '../../lib/reader'
+import { annotationsWorkRunning, articleWorkRunning, highlightRanges, READER_POLL_MS, type ReaderRange } from '../../lib/reader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
+import { Details } from '../../components/Details'
 import { LoadError } from '../../components/Feedback'
 import { countryLabel, languageLabel } from '../../lib/countries'
 
@@ -40,8 +41,10 @@ function ArticlesContent() {
   const articles = useInfiniteQuery({ queryKey: ['articles', feedId], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.articles(feedId, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const feedItems = feeds.data?.pages.flatMap(page => page.items) ?? []
   const articleItems = articles.data?.pages.flatMap(page => page.items) ?? []
-  const detail = useQuery({ queryKey: ['article', selectedId], queryFn: () => api.article(selectedId!), enabled: Boolean(selectedId), refetchInterval: 5000 })
-  const annotations = useQuery({ queryKey: ['article-annotations', selectedId], queryFn: () => api.articleAnnotations(selectedId!), enabled: Boolean(selectedId), refetchInterval: 5000 })
+  // Asked again only while something is still to finish; new content means new annotations, so they follow the article.
+  const detail = useQuery({ queryKey: ['article', selectedId], queryFn: () => api.article(selectedId!), enabled: Boolean(selectedId), refetchInterval: query => articleWorkRunning(query.state.data) ? READER_POLL_MS : false })
+  const contentRunning = articleWorkRunning(detail.data)
+  const annotations = useQuery({ queryKey: ['article-annotations', selectedId], queryFn: () => api.articleAnnotations(selectedId!), enabled: Boolean(selectedId), refetchInterval: query => contentRunning || annotationsWorkRunning(query.state.data) ? READER_POLL_MS : false })
   const process = useMutation({ mutationFn: (mode: 'full_text' | 'full_text_html') => api.processArticle(selectedId!, mode), onSuccess: () => { client.invalidateQueries({ queryKey: ['article', selectedId] }); client.invalidateQueries({ queryKey: ['jobs'] }) } })
   const reprocess = useMutation({ mutationFn: () => api.reprocessArticle(selectedId!), onSuccess: () => { client.invalidateQueries({ queryKey: ['article-annotations', selectedId] }); client.invalidateQueries({ queryKey: ['nlp-status'] }) } })
   const mentionedCountries = annotations.data?.countries.filter(item => item.role === 'mentioned') ?? []
@@ -50,7 +53,7 @@ function ArticlesContent() {
   const hasNext = selectedIndex < articleItems.length - 1 || Boolean(articles.hasNextPage)
   const [highlights, setHighlights] = useState(storedHighlights)
   const text = detail.data?.content?.text ?? null
-  // Both queries refetch every five seconds; unchanged data keeps its identity, so this does not recompute.
+  // Both queries refetch while work runs; unchanged data keeps its identity, so this does not recompute.
   const ranges = useMemo(() => highlights && text && annotations.data ? highlightRanges(text, annotations.data) : [], [highlights, text, annotations.data])
   const listRef = useRef<HTMLElement>(null)
   const readerRef = useRef<HTMLElement>(null)
@@ -177,7 +180,6 @@ function ArticlesContent() {
               <a className="text-sm text-primary underline-offset-4 hover:underline" href={detail.data.original_url} target="_blank" rel="noopener noreferrer">Open original article</a>
               <div className="flex gap-2">
                 <button type="button" className={cn(fieldClass, 'w-auto bg-primary text-primary-foreground')} disabled={process.isPending} onClick={() => process.mutate('full_text')}>{detail.data.content ? 'Refresh text' : 'Fetch text'}</button>
-                <button type="button" className={ghostButtonClass} disabled={process.isPending} onClick={() => process.mutate('full_text_html')}>Fetch and retain HTML</button>
               </div>
               {process.isPending && <p className="text-sm text-muted-foreground">Scheduling processing…</p>}
               {process.isSuccess && <p className="text-sm text-primary">Processing scheduled.</p>}
@@ -192,7 +194,7 @@ function ArticlesContent() {
                 </section>
               )}
               <section className="annotations flex flex-col gap-2 border-t border-border pt-4">
-                <div className="flex items-center justify-between gap-3"><h4 className="text-sm font-semibold text-foreground">Annotations</h4><button type="button" className={ghostButtonClass} disabled={reprocess.isPending} onClick={() => reprocess.mutate()}>Reprocess annotations</button></div>
+                <h4 className="text-sm font-semibold text-foreground">Annotations</h4>
                 {annotations.isPending && <p className="text-sm text-muted-foreground">Loading annotations…</p>}
                 {!annotations.isPending && annotations.isError && <LoadError query={annotations} message="Could not load annotations." />}
                 {!annotations.isPending && !annotations.isError && annotations.data && (
@@ -229,23 +231,32 @@ function ArticlesContent() {
                       ))}</div>
                     )}
                     {selectedId && <ArticleEntityLink key={selectedId} articleId={selectedId} entities={annotations.data.entities} />}
-                    <div className="flex flex-col gap-1">
-                      {annotations.data.processors.map(outcome => (
-                        <p key={outcome.processor} className={cn('text-sm', outcome.status === 'failed' ? 'error text-destructive' : 'text-muted-foreground')}>
-                          {outcome.processor} · {outcome.completed_generation < outcome.requested_generation && 'stale · '}{outcome.status} · generation {outcome.completed_generation}/{outcome.requested_generation} · processor {outcome.processor_version}
-                          {outcome.model_version && <span> · model {outcome.model_version}</span>}
-                          {outcome.detail && <span> · {outcome.detail}</span>}
-                        </p>
-                      ))}
-                      {annotations.data.capabilities.filter(item => item.state !== 'available').map(capability => (
-                        <p key={capability.name} className="text-sm text-muted-foreground">{capability.name} · {capability.state}{capability.detail && <> · {capability.detail}</>}</p>
-                      ))}
-                    </div>
                   </>
                 )}
+                {annotations.data?.processors.some(item => item.status === 'failed') && <p className="error text-sm text-destructive">Some annotation processing failed. Open Details below to see which.</p>}
                 {reprocess.isSuccess && <p className="text-sm text-primary">Annotation processing scheduled.</p>}
                 {reprocess.isError && <p className="error text-sm text-destructive">Could not schedule annotation processing.</p>}
               </section>
+              <Details>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={ghostButtonClass} disabled={process.isPending} onClick={() => process.mutate('full_text_html')}>Fetch and retain HTML</button>
+                  <button type="button" className={ghostButtonClass} disabled={reprocess.isPending} onClick={() => reprocess.mutate()}>Reprocess annotations</button>
+                </div>
+                {annotations.data && (
+                  <div className="flex flex-col gap-1">
+                    {annotations.data.processors.map(outcome => (
+                      <p key={outcome.processor} className={cn('text-sm', outcome.status === 'failed' ? 'error text-destructive' : 'text-muted-foreground')}>
+                        {outcome.processor} · {outcome.completed_generation < outcome.requested_generation && 'stale · '}{outcome.status} · generation {outcome.completed_generation}/{outcome.requested_generation} · processor {outcome.processor_version}
+                        {outcome.model_version && <span> · model {outcome.model_version}</span>}
+                        {outcome.detail && <span> · {outcome.detail}</span>}
+                      </p>
+                    ))}
+                    {annotations.data.capabilities.filter(item => item.state !== 'available').map(capability => (
+                      <p key={capability.name} className="text-sm text-muted-foreground">{capability.name} · {capability.state}{capability.detail && <> · {capability.detail}</>}</p>
+                    ))}
+                  </div>
+                )}
+              </Details>
               <section className="story flex flex-col gap-2 border-t border-border pt-4">
                 <h4 className="text-sm font-semibold text-foreground">Story</h4>
                 {detail.data.story_cluster ? (

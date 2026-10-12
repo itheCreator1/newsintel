@@ -13,6 +13,7 @@ import { plural } from '../../../lib/utils'
 import { chipClass, ghostButtonClass } from '../../../lib/ui-classes'
 import { clusterHref, entityHref, sourceHref, toHref } from '../../../lib/investigation'
 import { countryLabel } from '../../../lib/countries'
+import { Details } from '../../../components/Details'
 
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const pageOf = <T extends { next_cursor: string | null }>(load: (cursor?: string) => Promise<T>) => ({
@@ -95,12 +96,12 @@ function EventContent() {
             </div>
             <p className="text-sm text-foreground">{`${plural(data.cluster_count, 'story', 'stories')} · ${plural(data.article_count, 'article')} · ${plural(data.source_count, 'source')}`}</p>
             <p className="text-sm text-muted-foreground">{when(data.started_at)} – {when(data.ended_at)}{data.primary_country ? ` · Country ${countryLabel(data.primary_country)}` : ''}</p>
-            <p className="text-xs text-muted-foreground">Algorithm {data.algorithm_version} · created {when(data.created_at)} · updated {when(data.updated_at)}</p>
             {data.entities.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {data.entities.map(entity => <Link key={entity.id} className={chipClass} href={entityHref(entity.id)}>{entity.display_name} ({entity.entity_type}) · {plural(entity.article_count, 'article')}</Link>)}
               </div>
             )}
+            <Details className="self-start"><p className="text-xs text-muted-foreground">Algorithm {data.algorithm_version} · created {when(data.created_at)} · updated {when(data.updated_at)}</p></Details>
             {(data.sources ?? []).length > 0 && (
               <section aria-label="Top sources" className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>Top sources</span>

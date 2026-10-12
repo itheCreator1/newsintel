@@ -152,3 +152,10 @@ it('loads more stories and articles with their cursors', async () => {
   expect(api.eventArticles).toHaveBeenLastCalledWith('ev-1', 'ac')
   await waitFor(() => expect(screen.queryByRole('button', { name: /Load more/ })).toBeNull())
 })
+
+it('keeps the algorithm version and record times in a closed Details section', async () => {
+  renderWithQuery(() => <EventDetailPage />)
+
+  const line = await screen.findByText(/^Algorithm rule-1/)
+  expect(line.closest('details')?.open).toBe(false)
+})

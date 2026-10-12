@@ -377,3 +377,77 @@ it('sends a note with the link, which a related link needs', async () => {
 
   await vi.waitFor(() => expect(api.addRelation).toHaveBeenCalledWith('entity-one', { label: 'related', target_id: 'entity-two', source_article_id: 'one', note: 'Host city' }))
 })
+
+const annotationsWith = (status: string, requested = 1, completed = 1) => ({
+  article_id: 'one', capabilities: [], countries: [], entities: [], keywords: [], language: null, source_countries: [],
+  processors: [{ processor: 'entities', status, requested_generation: requested, completed_generation: completed, processor_version: '1', algorithm_version: 'spacy', model_version: 'en_core_web_sm-3.8', configuration_fingerprint: 'config', input_fingerprint: 'input', completed_at: null, detail: null }],
+})
+
+it('keeps processor versions and maintenance actions in a closed Details section', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  vi.mocked(api.articleAnnotations).mockResolvedValue(annotationsWith('succeeded'))
+  renderWithQuery(() => <ArticlesPage />)
+
+  const line = await screen.findByText(/entities · succeeded · generation 1\/1/)
+  const details = line.closest('details')
+  expect(details).not.toBeNull()
+  expect(details!.open).toBe(false)
+  expect(within(details!).getByText('Details', { selector: 'summary' })).toBeTruthy()
+  expect(within(details!).getByRole('button', { name: 'Fetch and retain HTML' })).toBeTruthy()
+  expect(within(details!).getByRole('button', { name: 'Reprocess annotations' })).toBeTruthy()
+  // Reading actions stay outside it.
+  expect(screen.getByRole('button', { name: 'Fetch text' }).closest('details')).toBeNull()
+})
+
+it('asks the server again only while the article or its annotations are being worked on', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+    vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+    const done = { ...article('one', 'First article'), content: null, processing: [{ status: 'succeeded' }] as never }
+    const queued = { ...done, processing: [{ status: 'queued' }] as never }
+    vi.mocked(api.article).mockResolvedValue(done)
+    vi.mocked(api.articleAnnotations).mockResolvedValue(annotationsWith('succeeded'))
+    renderWithQuery(() => <ArticlesPage />)
+    await screen.findByText(/entities · succeeded/)
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(api.article).toHaveBeenCalledTimes(1)
+    expect(api.articleAnnotations).toHaveBeenCalledTimes(1)
+    cleanup()
+
+    vi.mocked(api.article).mockClear().mockResolvedValueOnce(queued).mockResolvedValue(done)
+    vi.mocked(api.articleAnnotations).mockClear().mockResolvedValue(annotationsWith('succeeded'))
+    renderWithQuery(() => <ArticlesPage />)
+    await screen.findByText(/entities · succeeded/)
+    // While the article's processing is queued, both are asked again; once it is done, polling stops.
+    await vi.advanceTimersByTimeAsync(5_500)
+    await vi.waitFor(() => expect(api.article).toHaveBeenCalledTimes(2))
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(api.article).toHaveBeenCalledTimes(2)
+    cleanup()
+
+    vi.mocked(api.article).mockClear().mockResolvedValue(done)
+    vi.mocked(api.articleAnnotations).mockClear().mockResolvedValueOnce(annotationsWith('succeeded', 2, 1)).mockResolvedValue(annotationsWith('succeeded', 2, 2))
+    renderWithQuery(() => <ArticlesPage />)
+    await screen.findByText(/entities · stale · succeeded/)
+    await vi.advanceTimersByTimeAsync(5_500)
+    await vi.waitFor(() => expect(api.articleAnnotations).toHaveBeenCalledTimes(2))
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(api.articleAnnotations).toHaveBeenCalledTimes(2)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('says outside Details when annotation processing failed', async () => {
+  resetNavigationHarness({ pathname: '/articles/', search: 'article=one' })
+  vi.mocked(api.articles).mockReset().mockResolvedValue({ items: [article('one', 'First article')], next_cursor: null })
+  vi.mocked(api.article).mockResolvedValue({ ...article('one', 'First article'), content: null, processing: [] })
+  vi.mocked(api.articleAnnotations).mockResolvedValue(annotationsWith('failed', 2, 1))
+  renderWithQuery(() => <ArticlesPage />)
+
+  const notice = await screen.findByText('Some annotation processing failed. Open Details below to see which.')
+  expect(notice.closest('details')).toBeNull()
+})
