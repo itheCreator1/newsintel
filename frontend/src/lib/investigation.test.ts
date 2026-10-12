@@ -14,14 +14,14 @@ describe('investigation URL state', () => {
       q: 'climate', source_id: ['s1', 's2'], country: 'gr', after: '2026-01-01', before: '2026-02-01', content_available: 'true',
       processing_status: 'failed', language: ['en', 'de'], entity_id: 'e1', entity_type: 'ORG', keyword_id: ['k1'],
       story_country: 'de', mentioned_country: 'FR', story_cluster_id: 'cluster-1', sort: 'newest', interval: 'week', entity_expand: 'names',
-      source_tag: ['greek', 'Economy'],
+      source_tag: ['greek', 'Economy'], event_id: 'event-1',
     }))
 
     expect(state).toEqual({
       q: 'climate', source_id: ['s1', 's2'], source_country: ['GR'], after: '2026-01-01', before: '2026-02-01', content_available: true,
       processing_status: ['failed'], language: ['en', 'de'], entity_id: ['e1'], entity_type: ['ORG'], keyword_id: ['k1'],
       story_country: ['DE'], mentioned_country: ['FR'], story_cluster_id: ['cluster-1'], sort: 'newest', interval: 'week', entity_expand: ['names'],
-      source_tag: ['greek', 'Economy'],
+      source_tag: ['greek', 'Economy'], event_id: ['event-1'],
     })
     const typed: InvestigationState = state
     expect(typed.sort).toBe('newest')
@@ -99,6 +99,18 @@ describe('cross-filtering', () => {
     expect(refine(state, 'story_cluster_id', 'cluster-1')).toEqual({ ...state, story_cluster_id: ['cluster-1'] })
     expect(queryFromState({ ...state, story_cluster_id: ['cluster-1'] }).toString()).toBe('q=grid&story_cluster_id=cluster-1')
     expect(stateFromQuery(params({ q: 'grid', story_cluster_id: 'cluster-1' })).story_cluster_id).toEqual(['cluster-1'])
+  })
+})
+
+describe('event filter', () => {
+  it('keeps an event as a list field in the URL and the saved state', () => {
+    const state = { ...emptyInvestigation(), q: 'grid' }
+
+    expect(emptyInvestigation().event_id).toEqual([])
+    expect(refine(state, 'event_id', 'event-1')).toEqual({ ...state, event_id: ['event-1'] })
+    expect(queryFromState({ ...state, event_id: ['event-1'] }).toString()).toBe('q=grid&event_id=event-1')
+    expect(stateFromQuery(params({ q: 'grid', event_id: 'event-1' })).event_id).toEqual(['event-1'])
+    expect(searchParams({ ...state, event_id: ['event-1'] })).toMatchObject({ event_id: ['event-1'] })
   })
 })
 

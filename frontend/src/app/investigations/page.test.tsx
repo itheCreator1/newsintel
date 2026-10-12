@@ -166,3 +166,11 @@ it('deletes only after confirmation, saying what goes with it', async () => {
   await vi.waitFor(() => expect(api.deleteMonitor).toHaveBeenCalledWith('m1'))
   expect(confirm).toHaveBeenLastCalledWith('Delete “Acme”?')
 })
+
+it('names an event monitor\'s kind', async () => {
+  const wildfire = monitor({ id: 'm3', name: 'Wildfire', kind: 'event', state: { q: '', event_id: ['ev-1'], sort: 'relevance', interval: 'auto' } })
+  vi.mocked(api.investigations).mockResolvedValue({ items: [monitorRow(wildfire)], next_cursor: null })
+  renderWithQuery(() => <InvestigationsPage />)
+
+  expect(within(await row('Wildfire')).getByText('Event')).toBeTruthy()
+})

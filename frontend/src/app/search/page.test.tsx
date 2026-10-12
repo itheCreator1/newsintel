@@ -6,7 +6,7 @@ import { monitor } from '../../test/monitors'
 import { renderWithQuery } from '../../test/render'
 import SearchPageRoute from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feedTags: vi.fn(), search: vi.fn(), timeline: vi.fn(), facets: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { feedTags: vi.fn(), search: vi.fn(), timeline: vi.fn(), facets: vi.fn(), createSavedSearch: vi.fn(), createMonitor: vi.fn(), monitor: vi.fn(), updateMonitor: vi.fn(), searchSources: vi.fn(), nlpEntities: vi.fn(), nlpKeywords: vi.fn(), article: vi.fn(), processArticle: vi.fn(), event: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the brushed bucket span.
 vi.mock('../../components/TimelineChart', () => ({
   TimelineChart: (props: { buckets?: unknown[]; interval?: string; onSelect: (range: { start: string; end: string }) => void }) =>
@@ -203,7 +203,7 @@ it('saves the complete investigation state by name', async () => {
 
   await vi.waitFor(() => expect(api.createSavedSearch).toHaveBeenCalledWith('Greek grid', {
     q: 'grid', source_id: [], source_country: ['GR'], after: null, before: '2026-02-01', content_available: null, processing_status: [], language: [],
-    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month', entity_expand: [], source_tag: [],
+    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month', entity_expand: [], source_tag: [], event_id: [],
   }))
   expect(await screen.findByText('Saved “Greek grid”.')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))
@@ -596,4 +596,18 @@ it('shows the reader\'s star, note and read state on a result', async () => {
   const plain = screen.getByText('Unmarked result').closest('article')!
   expect(within(plain).queryByRole('img', { name: 'Starred' })).toBeNull()
   expect(within(plain).queryByText('Read')).toBeNull()
+})
+
+it('searches within one event and names it on its chip', async () => {
+  vi.mocked(api.event).mockResolvedValue({ id: 'ev-1', headline: 'Wildfire reaches Athens' } as never)
+  const { rerenderSame } = renderSearch('q=fire&event_id=ev-1')
+
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith({ q: 'fire', event_id: ['ev-1'], sort: 'relevance' }, undefined))
+  const bar = await screen.findByRole('region', { name: 'Applied filters' })
+  const chip = await within(bar).findByRole('button', { name: 'Remove Event: Wildfire reaches Athens' })
+  expect(api.event).toHaveBeenCalledWith('ev-1')
+
+  fireEvent.click(chip)
+  rerenderSame()
+  expect(navigationHarness.searchParams.toString()).toBe('q=fire')
 })

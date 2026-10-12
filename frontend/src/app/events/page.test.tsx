@@ -126,3 +126,20 @@ it('hides one-story events unless asked and sorts biggest first on request', asy
   fireEvent.change(screen.getByLabelText('Sort'), { target: { value: '' } })
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?all=1')
 })
+
+it('searches events by words in their stories\' headlines or the event\'s names', async () => {
+  resetNavigationHarness({ pathname: '/events/', search: 'q=wildfire&status=active' })
+  renderWithQuery(() => <EventsPage />)
+
+  await screen.findByRole('link', { name: 'Headline ev-1' })
+  expect(api.events).toHaveBeenCalledWith({ q: 'wildfire', status: 'active', min_stories: '2' }, undefined)
+  const box = screen.getByRole('searchbox', { name: 'Search events' })
+  expect(box).toHaveProperty('value', 'wildfire')
+
+  fireEvent.change(box, { target: { value: '  harbour fire ' } })
+  fireEvent.submit(screen.getByRole('search', { name: 'Search events' }))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?q=harbour+fire&status=active')
+  fireEvent.change(box, { target: { value: '' } })
+  fireEvent.submit(screen.getByRole('search', { name: 'Search events' }))
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/events/?status=active')
+})
