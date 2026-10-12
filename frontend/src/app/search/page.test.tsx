@@ -58,8 +58,8 @@ it('commits filters to the URL and resets pagination', async () => {
 
 it('restores annotation criteria and explains annotation syntax', async () => {
   const { rerenderSame } = renderSearch('language=en&story_country=DE&entity_id=entity-one')
-  expect(await screen.findByDisplayValue('en')).toBeTruthy()
-  expect(screen.getByDisplayValue('DE')).toBeTruthy()
+  expect(await screen.findByRole('checkbox', { name: 'English (en)' })).toBeChecked()
+  expect(within(screen.getByRole('group', { name: 'Story country (1)' })).getByRole('checkbox', { name: 'Germany (DE)' })).toBeChecked()
   expect(await screen.findByRole('checkbox', { name: 'Acme (ORG)' })).toBeChecked()
   fireEvent.click(within(screen.getByRole('group', { name: 'Keyword' })).getByRole('checkbox', { name: 'climate policy' }))
   await fireEvent.submit(screen.getByRole('search'))
@@ -249,10 +249,11 @@ it('starts Advanced filters closed without criteria and keeps draft edits when i
   expect(screen.getByText('Advanced filters').textContent).toBe('Advanced filters')
 
   fireEvent.click(screen.getByText('Advanced filters'))
-  fireEvent.change(screen.getByLabelText('Story country'), { target: { value: 'fr' } })
+  fireEvent.change(screen.getByLabelText('Find a story country'), { target: { value: 'fran' } })
+  fireEvent.click(within(screen.getByRole('group', { name: 'Story country' })).getByRole('checkbox', { name: 'France (FR)' }))
   fireEvent.click(screen.getByText('Advanced filters'))
   expect(advancedDisclosure().open).toBe(false)
-  expect(screen.getByLabelText('Story country')).toHaveValue('fr')
+  expect(within(screen.getByRole('group', { name: 'Story country (1)' })).getByRole('checkbox', { name: 'France (FR)' })).toBeChecked()
   expect(screen.getByText('Advanced filters').textContent).toBe('Advanced filters')
 })
 
@@ -268,9 +269,9 @@ it('shows applied criteria as chips and removes one without touching the rest', 
   const bar = await screen.findByRole('region', { name: 'Applied filters' })
   await vi.waitFor(() => expect(within(bar).getByRole('button', { name: 'Remove Entity: Acme' })).toBeTruthy())
   expect(within(bar).getByRole('button', { name: 'Remove Entity: e9' })).toBeTruthy()
-  expect(within(bar).getAllByRole('button', { name: 'Remove Source country: GR' })).toHaveLength(1)
+  expect(within(bar).getAllByRole('button', { name: 'Remove Source country: Greece (GR)' })).toHaveLength(1)
 
-  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Source country: GR' }))
+  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Source country: Greece (GR)' }))
   rerenderSame()
   expect(navigationHarness.pathname).toBe('/search/')
   expect(navigationHarness.searchParams.toString()).toBe('q=grid&entity_id=entity-one&entity_id=e9&sort=newest&interval=week')
@@ -278,7 +279,7 @@ it('shows applied criteria as chips and removes one without touching the rest', 
 
   navigationHarness.back()
   rerenderSame()
-  expect(await screen.findByRole('button', { name: 'Remove Source country: GR' })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Remove Source country: Greece (GR)' })).toBeTruthy()
 })
 
 it('clears every criterion and lookup text but keeps sort and interval', async () => {
@@ -302,7 +303,7 @@ it('warns that chip actions discard unapplied edits, then syncs the form to the 
   expect(screen.getByText('You have unapplied changes. Filter-chip actions discard them.')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Remove Query: grid' })).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Story country: DE' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Story country: Germany (DE)' }))
   rerenderSame()
   expect(navigationHarness.searchParams.toString()).toBe('q=grid')
   await vi.waitFor(() => expect(screen.getByLabelText('Query')).toHaveValue('grid'))
@@ -466,4 +467,21 @@ it('filters by the Topic type the user can give an entity', async () => {
   rerenderSame()
 
   expect(navigationHarness.searchParams.getAll('entity_type')).toEqual(['TOPIC'])
+})
+
+it('picks countries and languages by name and shows the names on results', async () => {
+  const { rerenderSame } = renderSearch()
+  await screen.findByText('Safe <script> title')
+  fireEvent.click(screen.getByText('Advanced filters'))
+  fireEvent.change(screen.getByLabelText('Find a mentioned country'), { target: { value: 'Γαλλία' } })
+  fireEvent.click(within(screen.getByRole('group', { name: /^Mentioned country/ })).getByRole('checkbox', { name: 'France (FR)' }))
+  fireEvent.change(screen.getByLabelText('Find a detected language'), { target: { value: 'greek' } })
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Greek (el)' }))
+  await fireEvent.submit(screen.getByRole('search'))
+  rerenderSame()
+  expect(navigationHarness.searchParams.getAll('mentioned_country')).toEqual(['FR'])
+  expect(navigationHarness.searchParams.getAll('language')).toEqual(['el'])
+  const bar = screen.getByRole('region', { name: 'Applied filters' })
+  expect(within(bar).getByRole('button', { name: 'Remove Mentioned country: France (FR)' })).toBeTruthy()
+  expect(within(bar).getByRole('button', { name: 'Remove Language: Greek (el)' })).toBeTruthy()
 })

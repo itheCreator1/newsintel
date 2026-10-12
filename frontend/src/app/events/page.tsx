@@ -11,6 +11,8 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { entityHref, eventHref, mapHref, toHref } from '../../lib/investigation'
+import { countryLabel } from '../../lib/countries'
+import { CountrySelect } from '../../components/SearchablePicker'
 
 const STATUSES = ['active', 'closed', 'superseded'] as const
 // Fixed order keeps a filtered list's URL stable and bookmarkable.
@@ -67,9 +69,7 @@ function EventsContent() {
               {STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
             </select>
           </label>
-          <label className={labelClass}>Country
-            <input className={fieldClass} value={value('country')} maxLength={2} placeholder="GR" onChange={event => setFilter('country', event.target.value.toUpperCase())} />
-          </label>
+          <CountrySelect label="Country" value={value('country').toUpperCase()} emptyLabel="Any country" onChange={code => setFilter('country', code)} />
           {value('country').length === 2 && <Link className={ghostButtonClass} href={mapHref({ role: 'event', country: value('country') })}>View on map</Link>}
           <label className={labelClass}>From
             <input className={fieldClass} type="date" value={value('from')} onChange={event => setFilter('from', event.target.value)} />
@@ -113,7 +113,7 @@ function EventsContent() {
               <Link className="text-[15px] font-semibold text-foreground hover:underline" href={eventHref(event.id, currentHref)}>{event.headline ?? 'Untitled event'}</Link>
               <StatusBadge tone={event.status === 'active' ? 'healthy' : 'pending'}>{event.status}</StatusBadge>
             </div>
-            <p className="text-xs text-muted-foreground">{when(event.started_at)} – {when(event.ended_at)}{event.primary_country ? ` · ${event.primary_country}` : ''}</p>
+            <p className="text-xs text-muted-foreground">{when(event.started_at)} – {when(event.ended_at)}{event.primary_country ? ` · ${countryLabel(event.primary_country)}` : ''}</p>
             <p className="text-sm text-foreground">{`${plural(event.cluster_count, 'story', 'stories')} · ${plural(event.article_count, 'article')} · ${plural(event.source_count, 'source')}`}</p>
             {event.entities.length > 0 && (
               <div className="flex flex-wrap gap-2">

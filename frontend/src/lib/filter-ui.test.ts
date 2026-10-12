@@ -10,7 +10,7 @@ describe('filter chips', () => {
     expect(filterChips(state, SEARCH_CHIP_FIELDS, { entity_id: new Map([['e1', 'Acme']]) }, { content: true })).toEqual([
       { key: 'q', label: 'Query: grid' },
       { key: 'after', label: 'After: 2026-09-01' },
-      { key: 'source_country:GR', label: 'Source country: GR' },
+      { key: 'source_country:GR', label: 'Source country: Greece (GR)' },
       { key: 'entity_id:e1', label: 'Entity: Acme' },
       { key: 'entity_id:e2', label: 'Entity: e2' },
       { key: 'story_cluster_id:c1', label: 'Story: c1' },

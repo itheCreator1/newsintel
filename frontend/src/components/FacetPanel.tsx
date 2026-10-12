@@ -2,6 +2,7 @@ import type { SearchFacets } from '../lib/api-types'
 import type { Investigation, ListField } from '../lib/investigation'
 import { chipClass } from '../lib/ui-classes'
 import { cn } from '../lib/utils'
+import { countryLabel, languageLabel } from '../lib/countries'
 
 type FacetGroupKey = Exclude<keyof SearchFacets, 'total'>
 
@@ -18,6 +19,14 @@ export const FACET_GROUPS: { group: FacetGroupKey; field: ListField; title: stri
   { group: 'story_clusters', field: 'story_cluster_id', title: 'Stories' },
 ]
 
+const COUNTRY_FIELDS = new Set<ListField>(['source_country', 'story_country', 'mentioned_country'])
+
+function bucketLabel(field: ListField, bucket: { value: string; label?: string | null }): string {
+  if (COUNTRY_FIELDS.has(field)) return countryLabel(bucket.value)
+  if (field === 'language') return languageLabel(bucket.value)
+  return bucket.label ?? bucket.value
+}
+
 /** Bounded facets for the current investigation; each value toggles its existing URL filter. */
 export function FacetPanel({ facets, state, onToggle }: { facets: SearchFacets; state: Investigation; onToggle: (field: ListField, value: string) => void }) {
   const groups = FACET_GROUPS.filter(({ group }) => facets[group].buckets.length)
@@ -33,7 +42,7 @@ export function FacetPanel({ facets, state, onToggle }: { facets: SearchFacets; 
               return (
                 <li key={bucket.value}>
                   <button type="button" aria-pressed={active} className={cn(chipClass, 'w-auto', active && 'border-primary text-primary')} onClick={() => onToggle(field, bucket.value)}>
-                    {bucket.label ?? bucket.value} <span className="text-muted-foreground">{bucket.count}</span>
+                    {bucketLabel(field, bucket)} <span className="text-muted-foreground">{bucket.count}</span>
                   </button>
                 </li>
               )

@@ -12,6 +12,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { sourceHref } from '../../lib/investigation'
 import { cn } from '../../lib/utils'
+import { CountrySelect, LanguageSelect } from '../../components/SearchablePicker'
 
 export default function SourcesPage() {
   const client = useQueryClient()
@@ -57,8 +58,8 @@ export default function SourcesPage() {
             <label className={labelClass}>Name<input className={cn(fieldClass, 'mt-1')} value={name} onChange={event => setName(event.target.value)} required maxLength={200} /></label>
             <label className={labelClass}>Feed URL<input className={cn(fieldClass, 'mt-1')} value={url} onChange={event => setUrl(event.target.value)} required type="url" /></label>
             <div className="grid grid-cols-2 gap-4">
-              <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={country} onChange={event => setCountry(event.target.value)} maxLength={2} placeholder="GR" /></label>
-              <label className={labelClass}>Expected language<input className={cn(fieldClass, 'mt-1')} value={language} onChange={event => setLanguage(event.target.value)} maxLength={16} placeholder="el" /></label>
+              <CountrySelect label="Source country" value={country} emptyLabel="Not set" onChange={setCountry} />
+              <LanguageSelect label="Expected language" value={language} emptyLabel="Not set" onChange={setLanguage} />
             </div>
             <label className={labelClass}>Collection mode
               <select className={cn(fieldClass, 'mt-1')} value={mode} onChange={event => setMode(event.target.value as typeof mode)}>

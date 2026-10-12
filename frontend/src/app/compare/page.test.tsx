@@ -133,8 +133,8 @@ it('lists what is related to either subject with a count for each side', async (
   expect(entities.getByRole('link', { name: 'Royal Society' }).getAttribute('href')).toBe('/entities/?id=e3')
   expect(entities.getByRole('columnheader', { name: 'Articles with Ada Lovelace' })).toBeTruthy()
   // The annotation role `primary` is shown as the story country, and roles stay separate rows.
-  expect(screen.getByText('GB · story')).toBeTruthy()
-  expect(screen.getByText('GB · mentioned')).toBeTruthy()
+  expect(screen.getByText('United Kingdom (GB) · story')).toBeTruthy()
+  expect(screen.getByText('United Kingdom (GB) · mentioned')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'The Wire' }).getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=s1/)
 })
 
@@ -202,8 +202,8 @@ it('shows the swapped countries in their inputs', async () => {
   const { rerenderSame } = renderWithQuery(() => <ComparePage />)
   fireEvent.click(screen.getByRole('button', { name: 'Swap' }))
   rerenderSame()
-  expect((screen.getByLabelText('Country A') as HTMLInputElement).value).toBe('FR')
-  expect((screen.getByLabelText('Country B') as HTMLInputElement).value).toBe('GR')
+  expect((screen.getByLabelText('Country A') as HTMLSelectElement).value).toBe('FR')
+  expect((screen.getByLabelText('Country B') as HTMLSelectElement).value).toBe('GR')
 })
 
 it('clears both subjects when the type changes', async () => {
@@ -226,7 +226,7 @@ it('picks an entity by searching for it', async () => {
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=entity&a=e9')
 })
 
-it('picks a source from the list and a country by its code', async () => {
+it('picks a source from the list and a country by its name', async () => {
   resetNavigationHarness({ pathname: '/compare/', search: 'kind=source' })
   const { unmount } = renderWithQuery(() => <ComparePage />)
 
@@ -238,7 +238,8 @@ it('picks a source from the list and a country by its code', async () => {
 
   resetNavigationHarness({ pathname: '/compare/', search: 'kind=country' })
   renderWithQuery(() => <ComparePage />)
-  fireEvent.change(screen.getByLabelText('Country A'), { target: { value: 'gr' } })
+  expect(screen.getAllByRole('option', { name: 'Greece (GR)' })).toHaveLength(2)
+  fireEvent.change(screen.getByLabelText('Country A'), { target: { value: 'GR' } })
   expect(navigationHarness.replace).toHaveBeenLastCalledWith('/compare/?kind=country&a=GR&role=story')
 })
 

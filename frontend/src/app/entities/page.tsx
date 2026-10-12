@@ -16,6 +16,7 @@ import { typeLabel } from '../../lib/authorities'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
+import { countryLabel } from '../../lib/countries'
 
 const WINDOWS = [7, 30, 90, 365] as const
 const DAY_MS = 86_400_000
@@ -181,7 +182,7 @@ function EntityContent() {
             <div>
               <strong className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Countries</strong>
               <ul className="list-none pl-0 mt-2 flex flex-wrap gap-2">
-                {relationships.data.countries.map(country => <li key={`${country.country_code}-${country.role}`} className="text-sm text-foreground">{`${country.country_code} · ${country.role} · ${plural(country.article_count, 'article')}`}</li>)}
+                {relationships.data.countries.map(country => <li key={`${country.country_code}-${country.role}`} className="text-sm text-foreground">{`${countryLabel(country.country_code)} · ${country.role} · ${plural(country.article_count, 'article')}`}</li>)}
                 {!relationships.data.countries.length && <li className="text-sm text-muted-foreground">No countries.</li>}
               </ul>
             </div>

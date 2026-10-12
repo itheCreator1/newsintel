@@ -13,6 +13,8 @@ import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref, type ListField } from '../../lib/investigation'
 import { LoadError, Note } from '../../components/Feedback'
+import { countryLabel } from '../../lib/countries'
+import { CountrySelect } from '../../components/SearchablePicker'
 
 const KINDS: { value: CompareKind; label: string }[] = [{ value: 'entity', label: 'Entities' }, { value: 'source', label: 'Sources' }, { value: 'country', label: 'Countries' }]
 const ROLES: { value: CompareRole; label: string }[] = [{ value: 'story', label: 'Story country' }, { value: 'mentioned', label: 'Mentioned country' }, { value: 'source', label: 'Source country' }]
@@ -56,10 +58,7 @@ function SubjectPicker({ kind, slot, value, label, onPick }: PickerProps) {
   }
   if (kind === 'country') {
     return (
-      <label className={labelClass}>{`Country ${slot}`}
-        <input className={fieldClass} maxLength={2} placeholder="Two-letter code, e.g. GR" defaultValue={value}
-          onChange={event => { const code = event.target.value.trim(); if (COUNTRY.test(code)) onPick(code.toUpperCase()); else if (!code) onPick('') }} />
-      </label>
+      <CountrySelect label={`Country ${slot}`} value={value.toUpperCase()} emptyLabel="Choose a country" onChange={code => onPick(code)} />
     )
   }
   return (
@@ -237,7 +236,7 @@ function CompareContent() {
             <Related title="Entities" aLabel={aLabel} bLabel={bLabel}
               rows={data.related.entities.map(item => ({ key: item.id, label: <Link className="hover:underline" href={entityHref(item.id)}>{item.label}</Link>, a: item.a_articles, b: item.b_articles }))} />
             <Related title="Countries" aLabel={aLabel} bLabel={bLabel}
-              rows={data.related.countries.map(item => ({ key: `${item.role}-${item.country_code}`, label: `${item.country_code} · ${roleName(item.role)}`, a: item.a_articles, b: item.b_articles }))} />
+              rows={data.related.countries.map(item => ({ key: `${item.role}-${item.country_code}`, label: `${countryLabel(item.country_code)} · ${roleName(item.role)}`, a: item.a_articles, b: item.b_articles }))} />
             {data.related.sources && <Related title="Sources" aLabel={aLabel} bLabel={bLabel}
               rows={data.related.sources.map(item => ({ key: item.id, label: <Link className="hover:underline" href={sourceHref(item.id, currentHref)}>{item.label}</Link>, a: item.a_articles, b: item.b_articles }))} />}
           </GlassPanel>

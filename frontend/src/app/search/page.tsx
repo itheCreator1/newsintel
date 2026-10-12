@@ -15,20 +15,19 @@ import { PageHeader } from '../../components/PageHeader'
 import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
 import { FacetPanel } from '../../components/FacetPanel'
+import { CountryPicker, LanguagePicker } from '../../components/SearchablePicker'
+import { countryLabel } from '../../lib/countries'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { advancedCount, clearCriteria, errorCode, filterChips, graphHref, GRAPH_CHIP_FIELDS, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from '../../lib/filter-ui'
 import { brushRange, clusterHref, EXPANSIONS, INTERVALS, mapHref, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
 
-const joined = (values: string[]) => values.join(', ')
-const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
-
 function formFromState(current: Investigation) {
   return {
-    q: current.q, source_id: [...current.source_id], country: joined(current.source_country), after: current.after ?? '', before: current.before ?? '',
+    q: current.q, source_id: [...current.source_id], country: [...current.source_country], after: current.after ?? '', before: current.before ?? '',
     content_available: current.content_available === null ? '' : String(current.content_available), processing_status: current.processing_status[0] ?? '', sort: current.sort,
-    language: joined(current.language), entity_id: [...current.entity_id], entity_type: [...current.entity_type], keyword_id: [...current.keyword_id],
-    story_country: joined(current.story_country), mentioned_country: joined(current.mentioned_country), entity_expand: [...current.entity_expand] as string[],
+    language: [...current.language], entity_id: [...current.entity_id], entity_type: [...current.entity_type], keyword_id: [...current.keyword_id],
+    story_country: [...current.story_country], mentioned_country: [...current.mentioned_country], entity_expand: [...current.entity_expand] as string[],
   }
 }
 
@@ -89,10 +88,10 @@ function SearchContent() {
   function navigate(next: Investigation) { router.push(toHref('/search', withMonitor(queryFromState(next)))) }
   function draftState(draft = form): Investigation {
     return {
-      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: split(draft.country).map(code => code.toUpperCase()), after: draft.after || null, before: draft.before || null,
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: draft.country, after: draft.after || null, before: draft.before || null,
       content_available: draft.content_available === '' ? null : draft.content_available === 'true', processing_status: draft.processing_status ? [draft.processing_status] : [],
-      sort: draft.sort, language: split(draft.language), entity_id: draft.entity_id, entity_type: draft.entity_type, keyword_id: draft.keyword_id,
-      story_country: split(draft.story_country).map(code => code.toUpperCase()), mentioned_country: split(draft.mentioned_country).map(code => code.toUpperCase()),
+      sort: draft.sort, language: draft.language, entity_id: draft.entity_id, entity_type: draft.entity_type, keyword_id: draft.keyword_id,
+      story_country: draft.story_country, mentioned_country: draft.mentioned_country,
       entity_expand: EXPANSIONS.filter(option => draft.entity_expand.includes(option)),
     }
   }
@@ -149,16 +148,16 @@ function SearchContent() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
             <CheckboxPicker legend="Source" options={sources.map(source => ({ value: source.id, label: `${source.name}${source.retired ? ' (retired)' : ''}` }))} selected={form.source_id} labels={pickerLabels.source_id} onChange={values => setForm(f => ({ ...f, source_id: values }))} emptyText="No sources match." />
-            <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
-            <label className={labelClass}>Detected language<input className={cn(fieldClass, 'mt-1')} value={form.language} onChange={e => setForm(f => ({ ...f, language: e.target.value }))} placeholder="en" /></label>
+            <CountryPicker legend="Source country" selected={form.country} onChange={values => setForm(f => ({ ...f, country: values }))} />
+            <LanguagePicker legend="Detected language" selected={form.language} onChange={values => setForm(f => ({ ...f, language: values }))} />
             <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>
             <CheckboxPicker legend="Entity" options={entities.map(entity => ({ value: entity.id, label: `${entity.text} (${entity.kind})` }))} selected={form.entity_id} labels={pickerLabels.entity_id} onChange={values => setForm(f => ({ ...f, entity_id: values }))} emptyText="No entities match." />
             <CheckboxPicker legend="Follow see-also links" options={EXPANSION_OPTIONS} selected={form.entity_expand} onChange={values => setForm(f => ({ ...f, entity_expand: values }))} />
             <CheckboxPicker legend="Entity type" options={['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'].map(kind => ({ value: kind, label: kind }))} selected={form.entity_type} onChange={values => setForm(f => ({ ...f, entity_type: values }))} />
             <label className={labelClass}>Keyword search<input className={cn(fieldClass, 'mt-1')} value={keywordTerm} onChange={e => setKeywordTerm(e.target.value)} placeholder="Find a keyword" /></label>
             <CheckboxPicker legend="Keyword" options={keywords.map(keyword => ({ value: keyword.id, label: keyword.text }))} selected={form.keyword_id} labels={pickerLabels.keyword_id} onChange={values => setForm(f => ({ ...f, keyword_id: values }))} emptyText="No keywords match." />
-            <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
-            <label className={labelClass}>Mentioned country<input className={cn(fieldClass, 'mt-1')} value={form.mentioned_country} onChange={e => setForm(f => ({ ...f, mentioned_country: e.target.value }))} placeholder="FR" /></label>
+            <CountryPicker legend="Story country" selected={form.story_country} onChange={values => setForm(f => ({ ...f, story_country: values }))} />
+            <CountryPicker legend="Mentioned country" selected={form.mentioned_country} onChange={values => setForm(f => ({ ...f, mentioned_country: values }))} />
             <label className={labelClass}>Content<select className={cn(fieldClass, 'mt-1')} value={form.content_available} onChange={e => setForm(f => ({ ...f, content_available: e.target.value }))}><option value="">Any</option><option value="true">Available</option><option value="false">RSS only</option></select></label>
             <label className={labelClass}>Processing<select className={cn(fieldClass, 'mt-1')} value={form.processing_status} onChange={e => setForm(f => ({ ...f, processing_status: e.target.value }))}><option value="">Any</option>{['queued', 'running', 'retrying', 'succeeded', 'failed'].map(value => <option key={value}>{value}</option>)}</select></label>
           </div>
@@ -256,8 +255,8 @@ function SearchContent() {
             </button>
             <div className="result-filters mt-2 flex flex-wrap gap-2">
               {result.source_refs.map(source => <button key={source.id} type="button" className={chipClass} aria-label={`Filter by source ${source.name}`} onClick={() => crossFilter('source_id', source.id)}>{source.name}</button>)}
-              {sourceCountries(result.source_refs).map(country => <button key={`source-${country}`} type="button" className={chipClass} aria-label={`Filter by source country ${country}`} onClick={() => crossFilter('source_country', country)}>{country}</button>)}
-              {result.story_country && <button type="button" className={chipClass} aria-label={`Filter by story country ${result.story_country}`} onClick={() => crossFilter('story_country', result.story_country!)}>Story: {result.story_country}</button>}
+              {sourceCountries(result.source_refs).map(country => <button key={`source-${country}`} type="button" className={chipClass} aria-label={`Filter by source country ${country}`} onClick={() => crossFilter('source_country', country)}>{countryLabel(country)}</button>)}
+              {result.story_country && <button type="button" className={chipClass} aria-label={`Filter by story country ${result.story_country}`} onClick={() => crossFilter('story_country', result.story_country!)}>Story: {countryLabel(result.story_country)}</button>}
               {result.story_cluster && otherSources(result) > 0 && (
                 <Link className={chipClass} href={clusterHref(result.story_cluster.id, currentHref)}>Also reported by {otherSources(result)} other source{otherSources(result) === 1 ? '' : 's'}</Link>
               )}

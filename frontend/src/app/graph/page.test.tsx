@@ -250,7 +250,7 @@ it('chips only the criteria the graph sends, and removing one drops the selected
   expect(within(bar).queryByRole('button', { name: /elsewhere/ })).toBeNull()
   expect((screen.getByText(/^Advanced filters/).closest('details') as HTMLDetailsElement).open).toBe(true)
 
-  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Story country: DE' }))
+  fireEvent.click(within(bar).getByRole('button', { name: 'Remove Story country: Germany (DE)' }))
   rerenderSame()
   expect(navigationHarness.searchParams.get('edge')).toBeNull()
   expect(navigationHarness.searchParams.get('focus')).toBe('entity-one')

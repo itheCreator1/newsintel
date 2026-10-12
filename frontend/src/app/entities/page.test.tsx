@@ -89,7 +89,7 @@ it('renders relationships with dossier links and labelled country roles', async 
   renderWithQuery(() => <EntitiesPage />)
 
   expect(await screen.findByRole('link', { name: /Microsoft/ })).toHaveAttribute('href', '/entities/?id=ent-2')
-  expect(screen.getByText('US · mentioned · 4 articles')).toBeTruthy()
+  expect(screen.getByText('United States (US) · mentioned · 4 articles')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Wire · 5 articles' }).getAttribute('href')).toMatch(/^\/sources\/detail\/\?id=f1&from=%2Fentities%2F/)
 })
 

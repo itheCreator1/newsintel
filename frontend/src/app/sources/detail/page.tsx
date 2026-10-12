@@ -14,6 +14,7 @@ import { plural } from '../../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
 import { LoadError, Note } from '../../../components/Feedback'
+import { countryLabel, languageLabel } from '../../../lib/countries'
 
 const WINDOWS = [7, 30, 90]
 const DAY_MS = 86_400_000
@@ -92,7 +93,7 @@ function SourceContent() {
               <StatusBadge tone={badge === 'Healthy' ? 'healthy' : 'pending'}>{badge}</StatusBadge>
             </div>
             <p className="break-all text-sm text-muted-foreground">{data.url}</p>
-            <p className="text-sm text-foreground">{`Country ${data.source_country ?? '—'} · Language ${data.expected_language ?? '—'} · ${data.fetching_mode.split('_').join(' ')} · polls every ${data.poll_interval_minutes} min`}</p>
+            <p className="text-sm text-foreground">{`Country ${data.source_country ? countryLabel(data.source_country) : '—'} · Language ${data.expected_language ? languageLabel(data.expected_language) : '—'} · ${data.fetching_mode.split('_').join(' ')} · polls every ${data.poll_interval_minutes} min`}</p>
             {data.retired_at && <p className="text-sm text-muted-foreground">Retired {when(data.retired_at)}. Its archive is kept.</p>}
             {health.consecutive_failures > 0 && <p className="text-sm text-destructive">{plural(health.consecutive_failures, 'failed fetch', 'failed fetches')} in a row</p>}
             <p className="text-sm text-muted-foreground">Last attempt {health.last_attempt_status ?? '—'} · {when(health.last_attempt_at)} · last success {when(data.last_success_at)} · next poll {when(data.next_poll_at)}</p>
@@ -131,8 +132,8 @@ function SourceContent() {
                   {!coverage.data.entities.length && <p className="text-sm text-muted-foreground">No entities.</p>}
                 </div>
                 <ul className="list-none pl-0 flex flex-col gap-0.5">
-                  {coverage.data.countries.map(country => <li key={`${country.role}-${country.country_code}`} className="text-sm text-foreground">{`${country.country_code} · ${country.role} · ${plural(country.article_count, 'article')}`}</li>)}
-                  {coverage.data.languages.map(language => <li key={language.language} className="text-sm text-foreground">{`${language.language} · ${plural(language.article_count, 'article')}`}</li>)}
+                  {coverage.data.countries.map(country => <li key={`${country.role}-${country.country_code}`} className="text-sm text-foreground">{`${countryLabel(country.country_code)} · ${country.role === 'primary' ? 'story' : country.role} · ${plural(country.article_count, 'article')}`}</li>)}
+                  {coverage.data.languages.map(language => <li key={language.language} className="text-sm text-foreground">{`${languageLabel(language.language)} · ${plural(language.article_count, 'article')}`}</li>)}
                 </ul>
               </>
             )}
