@@ -1,6 +1,6 @@
 'use client'
 
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
@@ -122,7 +122,10 @@ function SearchContent() {
     entity_id: new Map([...resultEntities, ...facetLabels('entities'), ...entities.map(entity => [entity.id, entity.text] as const)]),
     keyword_id: new Map([...facetLabels('keywords'), ...keywords.map(keyword => [keyword.id, keyword.text] as const)]),
   }
-  const chips = filterChips(state, SEARCH_CHIP_FIELDS, { ...pickerLabels, story_cluster_id: new Map(facetLabels('story_clusters')) }, { content: true })
+  // An event filter comes from an event's page, so its chip is named by that event's headline.
+  const events = useQueries({ queries: state.event_id.map(id => ({ queryKey: ['event', id], queryFn: () => api.event(id), retry: false })) })
+  const eventLabels = new Map(events.flatMap(event => event.data?.headline ? [[event.data.id, event.data.headline] as const] : []))
+  const chips = filterChips(state, SEARCH_CHIP_FIELDS, { ...pickerLabels, story_cluster_id: new Map(facetLabels('story_clusters')), event_id: eventLabels }, { content: true })
   function clearAll() {
     setSourceTerm(''); setEntityTerm(''); setKeywordTerm('')
     navigate(clearCriteria(state))

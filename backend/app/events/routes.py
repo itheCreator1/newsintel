@@ -45,6 +45,13 @@ async def list_events(
     status: Literal["active", "closed", "superseded"] | None = None,
     country: Annotated[str | None, Query(min_length=2, max_length=2)] = None,
     entity_id: uuid.UUID | None = None,
+    q: Annotated[
+        str,
+        Query(
+            max_length=200,
+            description="Words that must each appear in a story title or an entity name.",
+        ),
+    ] = "",
     from_: Annotated[datetime | None, Query(alias="from")] = None,
     to: datetime | None = None,
     min_stories: Annotated[
@@ -71,6 +78,7 @@ async def list_events(
         status=status,
         country=country,
         entity_id=entity_id,
+        words=q.split(),
         start=from_,
         end=to,
         min_stories=min_stories,

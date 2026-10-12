@@ -17,7 +17,7 @@ import { when } from '../../lib/datetime'
 
 const STATUSES = ['active', 'closed', 'superseded'] as const
 // Fixed order keeps a filtered list's URL stable and bookmarkable.
-const KEYS = ['status', 'country', 'entity_id', 'from', 'to', 'sort', 'all'] as const
+const KEYS = ['q', 'status', 'country', 'entity_id', 'from', 'to', 'sort', 'all'] as const
 type Key = typeof KEYS[number]
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
@@ -35,6 +35,7 @@ function EventsContent() {
 
   // A whole-day range: `to` means the end of that UTC day, not its first instant.
   const filters: EventFilters = {
+    ...(value('q').trim() && { q: value('q').trim() }),
     ...(STATUSES.includes(value('status') as typeof STATUSES[number]) && { status: value('status') }),
     ...(value('country').length === 2 && { country: value('country').toUpperCase() }),
     ...(value('entity_id') && { entity_id: value('entity_id') }),
@@ -63,6 +64,13 @@ function EventsContent() {
     <div className="flex flex-col gap-6 font-sans">
       <PageHeader eyebrow="Events" title="Events">
         <div className="flex flex-wrap items-end gap-3">
+          <form role="search" aria-label="Search events" className="flex items-end gap-2" onSubmit={event => {
+            event.preventDefault()
+            setFilter('q', String(new FormData(event.currentTarget).get('q') ?? '').trim())
+          }}>
+            <input key={value('q')} className={fieldClass} type="search" name="q" aria-label="Search events" placeholder="Words in a headline or a name" defaultValue={value('q')} maxLength={200} />
+            <button className={ghostButtonClass} type="submit">Search</button>
+          </form>
           <label className={labelClass}>Status
             <select className={fieldClass} value={value('status')} onChange={event => setFilter('status', event.target.value)}>
               <option value="">Any status</option>

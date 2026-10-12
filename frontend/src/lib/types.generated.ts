@@ -4319,6 +4319,8 @@ export interface components {
             entity_expand?: ("names" | "parts")[];
             /** Source Tag */
             source_tag?: string[];
+            /** Event Id */
+            event_id?: string[];
             /**
              * Sort
              * @default relevance
@@ -4491,7 +4493,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search" | "entity" | "source" | "country" | "cluster";
+            kind: "search" | "entity" | "source" | "country" | "cluster" | "event";
             state: components["schemas"]["InvestigationState"];
         };
         /** MonitorPage */
@@ -4538,7 +4540,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "search" | "entity" | "source" | "country" | "cluster";
+            kind: "search" | "entity" | "source" | "country" | "cluster" | "event";
             /** Enabled */
             enabled: boolean;
             /**
@@ -4605,7 +4607,7 @@ export interface components {
             /** Notify */
             notify?: boolean | null;
             /** Kind */
-            kind?: ("search" | "entity" | "source" | "country" | "cluster") | null;
+            kind?: ("search" | "entity" | "source" | "country" | "cluster" | "event") | null;
             state?: components["schemas"]["InvestigationState"] | null;
         };
         /** MonitorViewed */
@@ -8764,6 +8766,8 @@ export interface operations {
                 status?: ("active" | "closed" | "superseded") | null;
                 country?: string | null;
                 entity_id?: string | null;
+                /** @description Words that must each appear in a story title or an entity name. */
+                q?: string;
                 from?: string | null;
                 to?: string | null;
                 /** @description Only events with at least this many stories. */
@@ -9349,6 +9353,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9402,6 +9407,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9845,6 +9851,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9893,6 +9900,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9940,6 +9948,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9987,6 +9996,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10156,6 +10166,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10207,6 +10218,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10755,6 +10767,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10802,6 +10815,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10849,6 +10863,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -10895,6 +10910,7 @@ export interface operations {
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
                 source_tag?: string[] | null;
+                event_id?: string[] | null;
             };
             header?: never;
             path?: never;

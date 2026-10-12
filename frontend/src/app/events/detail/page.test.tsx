@@ -7,7 +7,7 @@ import EventDetailPage from './page'
 
 vi.mock('../../../lib/api', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../lib/api')>()),
-  api: { event: vi.fn(), eventTimeline: vi.fn(), eventClusters: vi.fn(), eventArticles: vi.fn() },
+  api: { event: vi.fn(), eventTimeline: vi.fn(), eventClusters: vi.fn(), eventArticles: vi.fn(), createMonitor: vi.fn() },
 }))
 vi.mock('../../../components/BarChart', () => ({
   BarChart: ({ items, onSelect }: { items: { id: string; label: string }[]; onSelect(item: { id: string }): void }) => (
@@ -165,4 +165,15 @@ it('exports the event\'s articles', async () => {
 
   fireEvent.click(await screen.findByRole('button', { name: 'Export' }))
   expect(screen.getByRole('link', { name: 'JSON' })).toHaveAttribute('href', '/api/v1/events/ev-1/export?format=json')
+})
+
+it('searches within this event and watches it, named after its headline', async () => {
+  vi.mocked(api.createMonitor).mockResolvedValueOnce({} as never)
+  renderWithQuery(() => <EventDetailPage />)
+
+  expect((await screen.findByRole('link', { name: 'Search within this event' })).getAttribute('href')).toBe('/search/?event_id=ev-1')
+  fireEvent.click(screen.getByRole('button', { name: 'Watch' }))
+  expect(screen.getByLabelText('Monitor name')).toHaveProperty('value', 'Wildfire reaches Athens')
+  fireEvent.click(screen.getByRole('button', { name: 'Watch event' }))
+  await waitFor(() => expect(api.createMonitor).toHaveBeenCalledWith('Wildfire reaches Athens', expect.objectContaining({ event_id: ['ev-1'], q: '' }), 'event'))
 })

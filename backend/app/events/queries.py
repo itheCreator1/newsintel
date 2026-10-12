@@ -186,6 +186,26 @@ async def detail(db: AsyncSession, event: Event) -> EventDetail:
     )
 
 
+def _mentions(word: str) -> ColumnElement[bool]:
+    """A story of the event has the word in its title, or an entity of the event in its name."""
+    escaped = word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+    in_title = exists(
+        select(1)
+        .select_from(EventCluster)
+        .join(StoryCluster, StoryCluster.id == EventCluster.cluster_id)
+        .join(Article, Article.id == StoryCluster.representative_article_id)
+        .where(EventCluster.event_id == Event.id, Article.title.ilike(pattern, escape="\\"))
+    )
+    in_name = exists(
+        select(1)
+        .select_from(EventEntity)
+        .join(Entity, Entity.id == EventEntity.entity_id)
+        .where(EventEntity.event_id == Event.id, Entity.name.ilike(pattern, escape="\\"))
+    )
+    return or_(in_title, in_name)
+
+
 async def events(
     db: AsyncSession,
     *,
@@ -195,6 +215,7 @@ async def events(
     entity_id: uuid.UUID | None,
     start: datetime | None,
     end: datetime | None,
+    words: Sequence[str] = (),
     min_stories: int = 1,
     sort: str = "latest",
     limit: int,
@@ -216,6 +237,8 @@ async def events(
                 )
             )
         )
+    for word in words:
+        query = query.where(_mentions(word))
     if start:
         query = query.where(Event.ended_at >= start)
     if end:

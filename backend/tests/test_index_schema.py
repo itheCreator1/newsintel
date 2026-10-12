@@ -45,6 +45,8 @@ ENTITY = "66666666-6666-4666-8666-666666666666"
 KEYWORD = "77777777-7777-4777-8777-777777777777"
 CLUSTER = "88888888-8888-4888-8888-888888888888"
 SOURCE = "99999999-9999-4999-8999-999999999999"
+EVENT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+OTHER_CLUSTER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 
 
 def _nested_of(properties: dict[str, Any], field: str) -> str | None:
@@ -156,7 +158,20 @@ def _maximal() -> SearchCriteria:
         story_countries=["GR"],
         mentioned_countries=["UA"],
         story_cluster_ids=[CLUSTER],
+        event_ids=[EVENT],
+        event_clusters=[CLUSTER],
     )
+
+
+def test_an_event_filters_on_the_stories_it_holds_now() -> None:
+    criteria = _criteria("", event_ids=[EVENT], event_clusters=[CLUSTER, OTHER_CLUSTER])
+    assert criteria.schema_v3_required
+    assert {"terms": {"story_cluster_id": [CLUSTER, OTHER_CLUSTER]}} in build_query(criteria, 3)[
+        "bool"
+    ]["filter"]
+    # An event with no stories left leaves no article, rather than every one.
+    empty = build_query(_criteria("", event_ids=[EVENT], event_clusters=[]), 3)
+    assert {"terms": {"story_cluster_id": []}} in empty["bool"]["filter"]
 
 
 def test_a_field_the_mapping_lacks_is_reported() -> None:

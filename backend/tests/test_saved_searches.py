@@ -139,3 +139,11 @@ def test_investigation_state_carries_source_tags_trimmed() -> None:
     assert "source_tag" not in old.model_dump(exclude_defaults=True)
     with pytest.raises(ValidationError):
         InvestigationState.model_validate({"source_tag": ["x" * 41]})
+
+
+def test_investigation_state_carries_events() -> None:
+    event = uuid.uuid4()
+    assert InvestigationState.model_validate({"event_id": [str(event)]}).event_id == [event]
+    assert "event_id" not in InvestigationState.model_validate({"q": "grid"}).model_dump(
+        exclude_defaults=True
+    )

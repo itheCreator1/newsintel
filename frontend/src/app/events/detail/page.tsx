@@ -11,7 +11,8 @@ import { PageHeader } from '../../../components/PageHeader'
 import { StatusBadge } from '../../../components/StatusBadge'
 import { plural } from '../../../lib/utils'
 import { chipClass, ghostButtonClass } from '../../../lib/ui-classes'
-import { clusterHref, entityHref, sourceHref, toHref } from '../../../lib/investigation'
+import { clusterHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../../lib/investigation'
+import { WatchButton } from '../../../components/WatchForm'
 import { countryLabel } from '../../../lib/countries'
 import { Details } from '../../../components/Details'
 import { ExportMenu } from '../../../components/ExportMenu'
@@ -67,6 +68,7 @@ function EventContent() {
   const articleItems = articles.data?.pages.flatMap(page => page.items) ?? []
   const selected = days.find(day => day.date === selectedDay) ?? days[0]
   const data = event.data
+  const withinEvent = refine(emptyInvestigation(), 'event_id', id)
   const openArticle = (articleId: string) => toHref('/articles', new URLSearchParams({ article: articleId, from: currentHref }))
 
   if (!id) {
@@ -81,7 +83,11 @@ function EventContent() {
   return (
     <div className="flex flex-col gap-6 font-sans">
       <PageHeader eyebrow="Event" title="Dossier">
-        <Link className={chipClass} href={from.startsWith('/events/') ? from : '/events/'}>Back to events</Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className={chipClass} href={from.startsWith('/events/') ? from : '/events/'}>Back to events</Link>
+          {data && <Link className={chipClass} href={toHref('/search', queryFromState(withinEvent))}>Search within this event</Link>}
+          {data && <WatchButton key={id} kind="event" state={withinEvent} defaultName={data.headline ?? ''} label="Watch event" />}
+        </div>
       </PageHeader>
 
       <GlassPanel className="overflow-hidden p-0">

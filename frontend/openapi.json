@@ -4702,6 +4702,19 @@
             }
           },
           {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Words that must each appear in a story title or an entity name.",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Words that must each appear in a story title or an entity name."
+          },
+          {
             "name": "from",
             "in": "query",
             "required": false,
@@ -6404,6 +6417,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -6819,6 +6852,26 @@
                 }
               ],
               "title": "Source Tag"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
             }
           }
         ],
@@ -8011,6 +8064,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -8371,6 +8444,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -8716,6 +8809,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -9057,6 +9170,26 @@
                 }
               ],
               "title": "Source Tag"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
             }
           }
         ],
@@ -9655,6 +9788,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -10049,6 +10202,26 @@
                 }
               ],
               "title": "Source Tag"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
             }
           }
         ],
@@ -11282,6 +11455,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -11624,6 +11817,26 @@
                 }
               ],
               "title": "Source Tag"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
             }
           }
         ],
@@ -11968,6 +12181,26 @@
               ],
               "title": "Source Tag"
             }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
+            }
           }
         ],
         "responses": {
@@ -12297,6 +12530,26 @@
                 }
               ],
               "title": "Source Tag"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Id"
             }
           }
         ],
@@ -18188,6 +18441,15 @@
             "maxItems": 20,
             "title": "Source Tag"
           },
+          "event_id": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Event Id"
+          },
           "sort": {
             "type": "string",
             "enum": [
@@ -18650,7 +18912,8 @@
               "entity",
               "source",
               "country",
-              "cluster"
+              "cluster",
+              "event"
             ],
             "title": "Kind"
           },
@@ -18775,7 +19038,8 @@
               "entity",
               "source",
               "country",
-              "cluster"
+              "cluster",
+              "event"
             ],
             "title": "Kind"
           },
@@ -19043,7 +19307,8 @@
                   "entity",
                   "source",
                   "country",
-                  "cluster"
+                  "cluster",
+                  "event"
                 ]
               },
               {

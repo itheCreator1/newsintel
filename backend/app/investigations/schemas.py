@@ -50,6 +50,8 @@ class InvestigationState(BaseModel):
     entity_expand: list[Literal["names", "parts"]] = Field(default_factory=list, max_length=10)
     # Sources carrying any of these tags; states saved before tags have none.
     source_tag: list[SourceTag] = Field(default_factory=list, max_length=20)
+    # Articles in the stories these events hold; states saved before have none.
+    event_id: list[uuid.UUID] = Field(default_factory=list, max_length=20)
     sort: Literal["relevance", "newest", "oldest", "most_sources"] = "relevance"
     interval: RequestedInterval = "auto"
 

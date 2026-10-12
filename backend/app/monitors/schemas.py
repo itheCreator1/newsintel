@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, BaseModel, model_validator
 from app.investigations.schemas import InvestigationState, Name
 from app.search.schemas import SearchResult
 
-MonitorKind = Literal["search", "entity", "source", "country", "cluster"]
+MonitorKind = Literal["search", "entity", "source", "country", "cluster", "event"]
 
 
 def validate_target(kind: MonitorKind, state: InvestigationState) -> None:
@@ -24,6 +24,9 @@ def validate_target(kind: MonitorKind, state: InvestigationState) -> None:
     elif kind == "country":
         if not (state.story_country or state.mentioned_country or state.source_country):
             raise ValueError("A country monitor needs a story, mentioned or source country")
+    elif kind == "event":
+        if len(state.event_id) != 1:
+            raise ValueError("An event monitor needs exactly one event_id")
     elif len(state.story_cluster_id) != 1:
         raise ValueError("A cluster monitor needs exactly one story_cluster_id")
 
