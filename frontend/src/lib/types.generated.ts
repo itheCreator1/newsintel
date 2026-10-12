@@ -124,6 +124,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feeds/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Feed Tags
+         * @description Every tag on a source that is not retired, with how many sources carry it.
+         */
+        get: operations["list_feed_tags_api_v1_feeds_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feeds/{feed_id}": {
         parameters: {
             query?: never;
@@ -3396,8 +3416,11 @@ export interface components {
             enabled: boolean;
             /** Poll Interval Minutes */
             poll_interval_minutes: number;
-            /** Fetching Mode */
-            fetching_mode: string;
+            /**
+             * Fetching Mode
+             * @enum {string}
+             */
+            fetching_mode: "rss" | "full_text" | "full_text_html";
             /**
              * Next Poll At
              * Format: date-time
@@ -3410,6 +3433,21 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Retired At */
+            retired_at?: string | null;
+            /** Last Fetch Status */
+            last_fetch_status?: string | null;
+            /** Last Fetch Error */
+            last_fetch_error?: string | null;
+            /** Last Fetch At */
+            last_fetch_at?: string | null;
+        };
+        /** FeedTagCount */
+        FeedTagCount: {
+            /** Tag */
+            tag: string;
+            /** Count */
+            count: number;
         };
         /** FeedTotals */
         FeedTotals: {
@@ -4850,8 +4888,11 @@ export interface components {
             enabled: boolean;
             /** Poll Interval Minutes */
             poll_interval_minutes: number;
-            /** Fetching Mode */
-            fetching_mode: string;
+            /**
+             * Fetching Mode
+             * @enum {string}
+             */
+            fetching_mode: "rss" | "full_text" | "full_text_html";
             /**
              * Next Poll At
              * Format: date-time
@@ -4866,6 +4907,12 @@ export interface components {
             created_at: string;
             /** Retired At */
             retired_at: string | null;
+            /** Last Fetch Status */
+            last_fetch_status?: string | null;
+            /** Last Fetch Error */
+            last_fetch_error?: string | null;
+            /** Last Fetch At */
+            last_fetch_at?: string | null;
             /** First Seen At */
             first_seen_at: string | null;
             /** Last Seen At */
@@ -5617,6 +5664,10 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                q?: string | null;
+                status?: ("active" | "disabled" | "failing" | "retired") | null;
+                tag?: string | null;
+                sort?: "newest" | "name";
             };
             header?: never;
             path?: never;
@@ -5675,6 +5726,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_feed_tags_api_v1_feeds_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedTagCount"][];
                 };
             };
         };

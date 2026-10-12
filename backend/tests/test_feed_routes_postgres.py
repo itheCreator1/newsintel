@@ -71,7 +71,14 @@ async def _feed(db, tag: str, name: str, **values) -> Feed:  # type: ignore[no-u
 
 
 async def _list(db, **params):  # type: ignore[no-untyped-def]
-    defaults = {"cursor": None, "limit": 30, "q": None, "status": None, "tag": None, "sort": "newest"}
+    defaults = {
+        "cursor": None,
+        "limit": 30,
+        "q": None,
+        "status": None,
+        "tag": None,
+        "sort": "newest",
+    }
     return await feed_routes.list_feeds(db, SimpleNamespace(), **{**defaults, **params})  # type: ignore[arg-type]
 
 
@@ -84,7 +91,9 @@ async def test_feed_list_finds_by_name_or_url_and_by_tag() -> None:
         assert {item.id for item in (await _list(db, tag=tag)).items} == {wire.id, daily.id}
         assert [item.id for item in (await _list(db, tag=tag, q="wire")).items] == [wire.id]
         assert [item.id for item in (await _list(db, tag=tag, q="100%")).items] == [wire.id]
-        assert [item.id for item in (await _list(db, tag=tag, q=daily.url[-20:])).items] == [daily.id]
+        assert [item.id for item in (await _list(db, tag=tag, q=daily.url[-20:])).items] == [
+            daily.id
+        ]
         # The wildcard characters are literal, so "_" does not match any one character.
         assert (await _list(db, tag=tag, q="Harbor_Wire")).items == []
 
@@ -119,7 +128,10 @@ async def test_feed_list_filters_by_state_and_reports_the_last_fetch() -> None:
 
         everything = await _list(db, tag=tag)
         assert {item.id for item in everything.items} == {
-            healthy.id, failing.id, recovered.id, disabled.id,
+            healthy.id,
+            failing.id,
+            recovered.id,
+            disabled.id,
         }
         by_id = {item.id: item for item in everything.items}
         assert by_id[failing.id].last_fetch_status == "failed"
@@ -128,10 +140,16 @@ async def test_feed_list_filters_by_state_and_reports_the_last_fetch() -> None:
         assert by_id[recovered.id].last_fetch_error is None
         assert by_id[disabled.id].last_fetch_status is None
 
-        assert [item.id for item in (await _list(db, tag=tag, status="failing")).items] == [failing.id]
-        assert [item.id for item in (await _list(db, tag=tag, status="disabled")).items] == [disabled.id]
+        assert [item.id for item in (await _list(db, tag=tag, status="failing")).items] == [
+            failing.id
+        ]
+        assert [item.id for item in (await _list(db, tag=tag, status="disabled")).items] == [
+            disabled.id
+        ]
         assert {item.id for item in (await _list(db, tag=tag, status="active")).items} == {
-            healthy.id, failing.id, recovered.id,
+            healthy.id,
+            failing.id,
+            recovered.id,
         }
         retired_page = await _list(db, tag=tag, status="retired")
         assert [item.id for item in retired_page.items] == [retired.id]
@@ -159,6 +177,8 @@ async def test_feed_tags_count_the_sources_that_carry_them() -> None:
         await _feed(db, tag, "Two")
         await _feed(db, tag, "Gone", enabled=False, retired_at=datetime.now(UTC))
         await db.commit()
-        counts = {item.tag: item.count for item in await feed_routes.list_feed_tags(db, SimpleNamespace())}  # type: ignore[arg-type]
+        counts = {
+            item.tag: item.count for item in await feed_routes.list_feed_tags(db, SimpleNamespace())
+        }  # type: ignore[arg-type]
         assert counts[tag] == 2
         assert counts[f"{tag}-extra"] == 1

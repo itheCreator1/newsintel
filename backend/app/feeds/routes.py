@@ -1,9 +1,12 @@
+import base64
+import json
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, cast, func, or_, select, true
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,7 +16,7 @@ from app.auth.models import Session
 from app.auth.routes import current_session
 from app.clustering.models import ArticleClusterState, StoryCluster, StoryClusterMember
 from app.db.session import get_db
-from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
+from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFetch
 from app.feeds.schemas import (
     ArticleDetailResponse,
     ArticlePage,
@@ -21,6 +24,7 @@ from app.feeds.schemas import (
     CursorPage,
     FeedCreate,
     FeedResponse,
+    FeedTagCount,
     FeedUpdate,
     FetchPage,
     PollResponse,
@@ -50,28 +54,124 @@ async def _active_feed(db: AsyncSession, feed_id: uuid.UUID, *, lock: bool = Fal
     return feed
 
 
+FeedListStatus = Literal["active", "disabled", "failing", "retired"]
+FeedSort = Literal["newest", "name"]
+
+
+def _encode_name_cursor(name_key: str, item_id: uuid.UUID) -> str:
+    return base64.urlsafe_b64encode(json.dumps([name_key, str(item_id)]).encode()).decode()
+
+
+def _decode_name_cursor(cursor: str) -> tuple[str, uuid.UUID]:
+    try:
+        name_key, item_id = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+        return str(name_key), uuid.UUID(item_id)
+    except (ValueError, TypeError, UnicodeDecodeError):
+        raise HTTPException(400, "Invalid cursor") from None
+
+
+def _fetch_error(category: str | None, message: str | None) -> str | None:
+    return ": ".join(part for part in (category, message) if part) or None
+
+
 @router.get("/feeds", response_model=CursorPage)
 async def list_feeds(
     db: Db,
     _auth: Auth,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    status: FeedListStatus | None = None,
+    tag: Annotated[str | None, Query(max_length=40)] = None,
+    sort: FeedSort = "newest",
 ) -> CursorPage:
-    query = (
-        select(Feed)
-        .where(Feed.retired_at.is_(None))
-        .order_by(Feed.created_at.desc(), Feed.id.desc())
-    )
-    if cursor:
-        created, item_id = cursor_or_400(cursor)
-        query = query.where(
-            or_(Feed.created_at < created, and_(Feed.created_at == created, Feed.id < item_id))
+    # The newest finished fetch per source, read through the (feed_id, started_at) index.
+    last_fetch = (
+        select(
+            FeedFetch.status.label("status"),
+            FeedFetch.error_category.label("error_category"),
+            FeedFetch.error_message.label("error_message"),
+            FeedFetch.completed_at.label("completed_at"),
         )
-    rows = list((await db.scalars(query.limit(limit + 1))).all())
-    next_cursor = (
-        encode_cursor(rows[limit - 1].created_at, rows[limit - 1].id) if len(rows) > limit else None
+        .where(FeedFetch.feed_id == Feed.id, FeedFetch.status.in_(FETCH_FINISHED))
+        .order_by(FeedFetch.started_at.desc(), FeedFetch.id.desc())
+        .limit(1)
+        .lateral("last_fetch")
     )
-    return CursorPage(items=rows[:limit], next_cursor=next_cursor)
+    query = select(Feed, last_fetch).outerjoin(last_fetch, true())
+    if status == "retired":
+        query = query.where(Feed.retired_at.is_not(None))
+    else:
+        query = query.where(Feed.retired_at.is_(None))
+    if status in ("active", "failing"):
+        query = query.where(Feed.enabled.is_(True))
+    if status == "disabled":
+        query = query.where(Feed.enabled.is_(False))
+    if status == "failing":
+        query = query.where(last_fetch.c.status == "failed")
+    if q and q.strip():
+        term = q.strip()
+        query = query.where(
+            or_(
+                Feed.name.icontains(term, autoescape=True),
+                Feed.url.icontains(term, autoescape=True),
+            )
+        )
+    if tag:
+        query = query.where(cast(Feed.tags, JSONB).contains([tag]))
+
+    name_key = func.lower(Feed.name)
+    if sort == "name":
+        query = query.order_by(name_key, Feed.id)
+        if cursor:
+            after_name, after_id = _decode_name_cursor(cursor)
+            query = query.where(
+                or_(name_key > after_name, and_(name_key == after_name, Feed.id > after_id))
+            )
+    else:
+        query = query.order_by(Feed.created_at.desc(), Feed.id.desc())
+        if cursor:
+            created, item_id = cursor_or_400(cursor)
+            query = query.where(
+                or_(Feed.created_at < created, and_(Feed.created_at == created, Feed.id < item_id))
+            )
+    rows = list((await db.execute(query.limit(limit + 1))).all())
+    items = [
+        FeedResponse.model_validate(row.Feed).model_copy(
+            update={
+                "last_fetch_status": row.status,
+                "last_fetch_error": _fetch_error(row.error_category, row.error_message)
+                if row.status == "failed"
+                else None,
+                "last_fetch_at": row.completed_at,
+            }
+        )
+        for row in rows[:limit]
+    ]
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1].Feed
+        next_cursor = (
+            _encode_name_cursor(last.name.lower(), last.id)
+            if sort == "name"
+            else encode_cursor(last.created_at, last.id)
+        )
+    return CursorPage(items=items, next_cursor=next_cursor)
+
+
+@router.get("/feeds/tags", response_model=list[FeedTagCount])
+async def list_feed_tags(db: Db, _auth: Auth) -> list[FeedTagCount]:
+    """Every tag on a source that is not retired, with how many sources carry it."""
+    tags = (
+        select(func.jsonb_array_elements_text(cast(Feed.tags, JSONB)).label("tag"))
+        .where(Feed.retired_at.is_(None))
+        .subquery()
+    )
+    count = func.count().label("count")
+    rows = await db.execute(
+        select(tags.c.tag, count).group_by(tags.c.tag).order_by(count.desc(), tags.c.tag)
+    )
+    return [FeedTagCount(tag=row.tag, count=row.count) for row in rows]
 
 
 @router.post("/feeds", response_model=FeedResponse, status_code=status.HTTP_201_CREATED)
