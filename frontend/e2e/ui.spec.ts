@@ -95,3 +95,23 @@ test('ui polish workflow', async ({ page }) => {
   await page.keyboard.press('Enter')
   await expect(page.getByRole('main')).toBeFocused()
 })
+
+test('a dark theme from Settings holds across a reload and follows the system when asked', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await login(page)
+  // Same as the system, on a dark system, before any choice: dark from the first paint.
+  await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+
+  await page.goto('/settings/')
+  const theme = page.getByRole('radiogroup', { name: 'Theme' })
+  await theme.getByRole('radio', { name: 'Light' }).check()
+  await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+  await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+
+  await page.getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'Same as the system' }).check()
+  await expect(page.locator('html')).toHaveClass(/\bdark\b/)
+  await page.emulateMedia({ colorScheme: 'light' })
+  await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
+})
