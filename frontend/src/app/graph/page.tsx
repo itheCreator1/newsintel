@@ -17,6 +17,7 @@ import { isNewEdge } from '../../lib/graph-edges'
 import { statedText } from '../../lib/see-also'
 import { api, ApiError } from '../../lib/api'
 import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
+import { SourceTagPicker } from '../../components/SourceTagPicker'
 import { CountryPicker } from '../../components/SearchablePicker'
 
 const MAX_NODES = 50
@@ -29,7 +30,7 @@ const edgeKey = (a: string, b: string) => [a, b].sort().join(':')
 
 function formFromState(current: Investigation, nodeCount: number, minWeight: number) {
   return {
-    q: current.q, source_id: [...current.source_id], country: [...current.source_country], story_country: [...current.story_country],
+    q: current.q, source_id: [...current.source_id], source_tag: [...current.source_tag], country: [...current.source_country], story_country: [...current.story_country],
     entity_type: [...current.entity_type], after: current.after ?? '', before: current.before ?? '', nodes: String(nodeCount), min_weight: String(minWeight),
   }
 }
@@ -80,6 +81,7 @@ function GraphContent() {
   const evidenceFilters: Record<string, string | string[] | undefined> = {}
   if (state.q) evidenceFilters.q = state.q
   if (state.source_id.length) evidenceFilters.source_id = state.source_id
+  if (state.source_tag.length) evidenceFilters.source_tag = state.source_tag
   if (state.source_country.length) evidenceFilters.source_country = state.source_country
   if (state.story_country.length) evidenceFilters.story_country = state.story_country
   if (state.entity_type.length) evidenceFilters.entity_type = state.entity_type
@@ -111,7 +113,8 @@ function GraphContent() {
   const recentSince = graph.data?.recent_since ?? null
   const newEdges = edges.filter(link => isNewEdge(link, recentSince)).length
   const articleCriteria = panelNode ? {
-    q: state.q || undefined, source_country: state.source_country.length ? state.source_country : undefined,
+    q: state.q || undefined, source_id: state.source_id.length ? state.source_id : undefined,
+    source_tag: state.source_tag.length ? state.source_tag : undefined, source_country: state.source_country.length ? state.source_country : undefined,
     story_country: state.story_country.length ? state.story_country : undefined, after: state.after ?? undefined,
     before: state.before ?? undefined, entity_id: [panelNode.id],
   } : null
@@ -137,7 +140,7 @@ function GraphContent() {
   }
   function draftState(draft = form): Investigation {
     return {
-      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: draft.country,
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_tag: draft.source_tag, source_country: draft.country,
       story_country: draft.story_country, entity_type: draft.entity_type,
       after: draft.after || null, before: draft.before || null,
     }
@@ -185,6 +188,7 @@ function GraphContent() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
             <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selectedValues(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
+            <SourceTagPicker selected={form.source_tag} onChange={values => setForm(f => ({ ...f, source_tag: values }))} />
             <CountryPicker legend="Source country" selected={form.country} onChange={values => setForm(f => ({ ...f, country: values }))} />
             <CountryPicker legend="Story country" selected={form.story_country} onChange={values => setForm(f => ({ ...f, story_country: values }))} />
             <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selectedValues(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>

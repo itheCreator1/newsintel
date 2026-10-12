@@ -8,7 +8,7 @@ export type FilterLabels = Partial<Record<ListField, Map<string, string>>>
 
 const FIELD_NAMES: Record<ListField, string> = {
   source_id: 'Source', source_country: 'Source country', processing_status: 'Processing', language: 'Language', entity_id: 'Entity',
-  entity_type: 'Entity type', keyword_id: 'Keyword', story_country: 'Story country', mentioned_country: 'Mentioned country', story_cluster_id: 'Story',
+  entity_type: 'Entity type', keyword_id: 'Keyword', story_country: 'Story country', mentioned_country: 'Mentioned country', story_cluster_id: 'Story', source_tag: 'Source tag',
 }
 
 const EXPANSION_NAMES: Record<Expansion, string> = { names: 'earlier and later names', parts: 'parts' }
@@ -16,8 +16,8 @@ const EXPANSION_NAMES: Record<Expansion, string> = { names: 'earlier and later n
 const expansions = (state: Investigation, fields: ListField[]) => fields.includes('entity_id') ? state.entity_expand : []
 
 /** The fields each page tucks under Advanced filters; `content` counts as one when set explicitly. */
-export const SEARCH_ADVANCED: ListField[] = ['source_id', 'source_country', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'processing_status']
-export const GRAPH_ADVANCED: ListField[] = ['source_id', 'source_country', 'story_country', 'entity_type']
+export const SEARCH_ADVANCED: ListField[] = ['source_id', 'source_tag', 'source_country', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'processing_status']
+export const GRAPH_ADVANCED: ListField[] = ['source_id', 'source_tag', 'source_country', 'story_country', 'entity_type']
 /** Search chips cover every list criterion; Graph only the ones its requests actually send. */
 export const SEARCH_CHIP_FIELDS: ListField[] = [...SEARCH_ADVANCED, 'story_cluster_id']
 export const GRAPH_CHIP_FIELDS = GRAPH_ADVANCED

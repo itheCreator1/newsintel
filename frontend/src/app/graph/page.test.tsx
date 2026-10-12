@@ -5,7 +5,7 @@ import { navigationHarness, resetNavigationHarness } from '../../test/navigation
 import { renderWithQuery } from '../../test/render'
 import GraphPage from './page'
 
-vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { entityGraph: vi.fn(), edgeEvidence: vi.fn(), search: vi.fn(), searchSources: vi.fn() } }))
+vi.mock('../../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../../lib/api')>()), api: { entityGraph: vi.fn(), edgeEvidence: vi.fn(), search: vi.fn(), searchSources: vi.fn(), feedTags: vi.fn() } }))
 // ECharts needs a canvas, so the chart is replaced by a control that emits the clicked node id.
 vi.mock('../../components/EntityGraph', () => ({
   EntityGraph: (props: { nodes?: unknown[]; stated?: unknown[]; onSelect: (id: string) => void; onSelectEdge: (source: string, target: string) => void }) =>
@@ -33,6 +33,7 @@ beforeEach(() => {
   })
   vi.mocked(api.search).mockResolvedValue({ items: [{ article_id: 'a1', title: 'Acme partners with Jane Doe', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 1, sources: ['Wire'], source_refs: [], highlights: [], summary: null }], next_cursor: null })
   vi.mocked(api.searchSources).mockResolvedValue({ items: [{ id: 's1', name: 'Wire', source_country: 'US', retired: false }], next_cursor: null })
+  vi.mocked(api.feedTags).mockResolvedValue([{ tag: 'greek', count: 2 }])
 })
 afterEach(cleanup)
 
@@ -299,4 +300,15 @@ it('draws stated see-also links only when switched on, and lists them', async ()
   expect(await screen.findByText('Chart with 1 stated links')).toBeTruthy()
   const list = screen.getByRole('list', { name: 'Stated links in this graph' })
   expect(list.textContent).toBe('Jane Doe · leader of · Acme')
+})
+
+it('draws and lists articles for the sources carrying a tag', async () => {
+  resetNavigationHarness({ pathname: '/graph/', search: 'source_tag=greek&country=GR&nodes=20' })
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
+  fireEvent.click(await screen.findByText('Chart with 2 nodes'))
+  rerenderSame()
+
+  expect(api.entityGraph).toHaveBeenLastCalledWith({ source_country: ['GR'], source_tag: ['greek'], nodes: '20' })
+  await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ source_tag: ['greek'], source_country: ['GR'], entity_id: ['entity-two'] })))
+  expect(within(screen.getByRole('group', { name: 'Source tag (1)' })).getByRole('checkbox', { name: 'greek (2)' })).toBeChecked()
 })

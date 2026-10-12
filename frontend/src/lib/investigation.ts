@@ -5,7 +5,7 @@ export const INTERVALS = ['auto', 'hour', 'day', 'week', 'month', 'year'] as con
 /** See-also links an entity filter can follow: earlier and later names, and parts of a place. */
 export const EXPANSIONS = ['names', 'parts'] as const
 export type Expansion = typeof EXPANSIONS[number]
-const LIST_FIELDS = ['source_id', 'source_country', 'processing_status', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'story_cluster_id'] as const
+const LIST_FIELDS = ['source_id', 'source_country', 'processing_status', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'story_cluster_id', 'source_tag'] as const
 const COUNTRY_FIELDS = new Set<ListField>(['source_country', 'story_country', 'mentioned_country'])
 
 export type ListField = typeof LIST_FIELDS[number]
@@ -16,7 +16,7 @@ const urlKey = (field: ListField) => field === 'source_country' ? 'country' : fi
 export const normalize = (field: ListField, value: string) => COUNTRY_FIELDS.has(field) ? value.trim().toUpperCase() : value.trim()
 
 export function emptyInvestigation(): Investigation {
-  return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], entity_expand: [], sort: 'relevance', interval: 'auto' }
+  return { q: '', source_id: [], source_country: [], after: null, before: null, content_available: null, processing_status: [], language: [], entity_id: [], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], entity_expand: [], source_tag: [], sort: 'relevance', interval: 'auto' }
 }
 
 function values(query: URLSearchParams, key: string): string[] {

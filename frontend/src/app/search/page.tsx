@@ -15,6 +15,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchForm } from '../../components/WatchForm'
 import { FacetPanel } from '../../components/FacetPanel'
+import { SourceTagPicker } from '../../components/SourceTagPicker'
 import { CountryPicker, LanguagePicker } from '../../components/SearchablePicker'
 import { countryLabel } from '../../lib/countries'
 import { cn } from '../../lib/utils'
@@ -24,7 +25,7 @@ import { brushRange, clusterHref, EXPANSIONS, INTERVALS, mapHref, queryFromState
 
 function formFromState(current: Investigation) {
   return {
-    q: current.q, source_id: [...current.source_id], country: [...current.source_country], after: current.after ?? '', before: current.before ?? '',
+    q: current.q, source_id: [...current.source_id], source_tag: [...current.source_tag], country: [...current.source_country], after: current.after ?? '', before: current.before ?? '',
     content_available: current.content_available === null ? '' : String(current.content_available), processing_status: current.processing_status[0] ?? '', sort: current.sort,
     language: [...current.language], entity_id: [...current.entity_id], entity_type: [...current.entity_type], keyword_id: [...current.keyword_id],
     story_country: [...current.story_country], mentioned_country: [...current.mentioned_country], entity_expand: [...current.entity_expand] as string[],
@@ -88,7 +89,7 @@ function SearchContent() {
   function navigate(next: Investigation) { router.push(toHref('/search', withMonitor(queryFromState(next)))) }
   function draftState(draft = form): Investigation {
     return {
-      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: draft.country, after: draft.after || null, before: draft.before || null,
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_tag: draft.source_tag, source_country: draft.country, after: draft.after || null, before: draft.before || null,
       content_available: draft.content_available === '' ? null : draft.content_available === 'true', processing_status: draft.processing_status ? [draft.processing_status] : [],
       sort: draft.sort, language: draft.language, entity_id: draft.entity_id, entity_type: draft.entity_type, keyword_id: draft.keyword_id,
       story_country: draft.story_country, mentioned_country: draft.mentioned_country,
@@ -148,6 +149,7 @@ function SearchContent() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
             <CheckboxPicker legend="Source" options={sources.map(source => ({ value: source.id, label: `${source.name}${source.retired ? ' (retired)' : ''}` }))} selected={form.source_id} labels={pickerLabels.source_id} onChange={values => setForm(f => ({ ...f, source_id: values }))} emptyText="No sources match." />
+            <SourceTagPicker selected={form.source_tag} onChange={values => setForm(f => ({ ...f, source_tag: values }))} />
             <CountryPicker legend="Source country" selected={form.country} onChange={values => setForm(f => ({ ...f, country: values }))} />
             <LanguagePicker legend="Detected language" selected={form.language} onChange={values => setForm(f => ({ ...f, language: values }))} />
             <label className={labelClass}>Entity search<input className={cn(fieldClass, 'mt-1')} value={entityTerm} onChange={e => setEntityTerm(e.target.value)} placeholder="Find an entity" /></label>

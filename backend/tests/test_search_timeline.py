@@ -57,6 +57,29 @@ def test_build_query_keeps_source_and_country_on_one_provenance_entry() -> None:
     assert filters[1] == {"range": {"effective_date": {"gte": "2026-01-01T00:00:00+00:00"}}}
 
 
+def test_build_query_keeps_a_source_tag_on_the_same_provenance_entry() -> None:
+    query = build_query(
+        _criteria(countries=["GR"], source_tags=["greek"], tag_sources=["s1", "s2"]),
+        schema_version=1,
+    )
+    assert query["bool"]["filter"][0]["nested"]["query"]["bool"]["must"] == [
+        {"terms": {"provenance.source_country": ["GR"]}},
+        {"terms": {"provenance.source_id": ["s1", "s2"]}},
+    ]
+
+
+def test_build_query_matches_a_tag_no_source_has_to_nothing() -> None:
+    query = build_query(_criteria(source_tags=["nobody"]), schema_version=1)
+    assert query["bool"]["filter"] == [
+        {
+            "nested": {
+                "path": "provenance",
+                "query": {"bool": {"must": [{"terms": {"provenance.source_id": []}}]}},
+            }
+        }
+    ]
+
+
 def test_build_query_matches_unresolved_annotation_names_to_nothing() -> None:
     query = build_query(_criteria('entity:"Nobody"'), schema_version=2)
 

@@ -13,6 +13,7 @@ from app.feeds.discovery import FeedProbe, FeedProbeError
 from app.feeds.models import Feed, FeedFetch
 from app.feeds.opml import OpmlEntry, parse_opml, render_opml
 from app.feeds.schemas import FeedCreate, FeedImport, FeedTestRequest, OpmlPreviewRequest
+from app.search.criteria import search_criteria
 
 pytestmark = [
     pytest.mark.skipif(
@@ -294,3 +295,19 @@ async def test_testing_a_feed_says_whether_it_is_already_a_source(
             422,
             "The address answered HTTP 404",
         )
+
+
+async def test_a_source_tag_in_search_criteria_resolves_to_the_sources_carrying_it() -> None:
+    tag = f"tag-{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db:
+        one = await _feed(db, tag, "One")
+        two = await _feed(db, f"{tag}-other", "Two", tags=[f"{tag}-third"])
+        await _feed(db, f"{tag}-unpicked", "Three")
+        await db.commit()
+        criteria = await search_criteria(db, source_tag=[tag, f"{tag}-third"])
+        assert criteria.source_tags == sorted([tag, f"{tag}-third"])
+        assert criteria.tag_sources == sorted([str(one.id), str(two.id)])
+        assert criteria.fingerprint()["source_tags"] == criteria.source_tags
+        assert not criteria.empty
+        # Without a tag, the fingerprint is the one saved monitors already hold.
+        assert "source_tags" not in (await search_criteria(db, q="grid")).fingerprint()

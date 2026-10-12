@@ -142,6 +142,8 @@ def _maximal() -> SearchCriteria:
     return _criteria(
         'grid "power cut"',
         sources=[SOURCE],
+        source_tags=["greek"],
+        tag_sources=[SOURCE],
         countries=["GR"],
         start=date(2026, 1, 1),
         end=date(2026, 2, 1),

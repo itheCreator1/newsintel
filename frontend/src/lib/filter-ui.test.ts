@@ -18,6 +18,13 @@ describe('filter chips', () => {
     ])
   })
 
+  it('names a source tag on Search and Graph', () => {
+    const tagged = { ...emptyInvestigation(), source_tag: ['greek'] }
+    expect(filterChips(tagged, SEARCH_CHIP_FIELDS)).toEqual([{ key: 'source_tag:greek', label: 'Source tag: greek' }])
+    expect(filterChips(tagged, GRAPH_CHIP_FIELDS)).toEqual([{ key: 'source_tag:greek', label: 'Source tag: greek' }])
+    expect(removeFilter(tagged, 'source_tag:greek').source_tag).toEqual([])
+  })
+
   it('keeps chip keys stable when labels arrive later', () => {
     const keys = (labels = {}) => filterChips(state, SEARCH_CHIP_FIELDS, labels).map(chip => chip.key)
     expect(keys({ entity_id: new Map([['e2', 'Jane']]) })).toEqual(keys())
