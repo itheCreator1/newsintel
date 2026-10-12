@@ -23,6 +23,7 @@ from app.compare.schemas import (
 from app.db.session import get_db
 from app.entities.resolver import resolve_root
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
+from app.marks.service import with_marks
 
 router = APIRouter(tags=["compare"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -103,7 +104,9 @@ async def compare_articles(
 ) -> CompareArticlePage:
     cursor_value = cursor_or_400(cursor)
     compared, _, _ = await _subjects(db, compared)
-    return await queries.articles(db, compared, part, limit, cursor_value)
+    page = await queries.articles(db, compared, part, limit, cursor_value)
+    await with_marks(db, page.items)
+    return page
 
 
 @router.get("/compare/export")

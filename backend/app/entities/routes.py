@@ -51,6 +51,7 @@ from app.entities.schemas import (
 from app.entities.suggestions import suggest
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 from app.feeds.models import Article
+from app.marks.service import with_marks
 from app.nlp.models import Entity, EntityAuthorityRun, EntityRelation
 
 router = APIRouter(tags=["entities"])
@@ -129,7 +130,9 @@ async def get_entity_articles(
 ) -> EntityArticlePage:
     cursor_value = cursor_or_400(cursor)  # a malformed cursor is a 400 before any query
     entity = await _entity_or_404(db, entity_id)
-    return await queries.articles(db, entity.id, limit, cursor_value)
+    page = await queries.articles(db, entity.id, limit, cursor_value)
+    await with_marks(db, page.items)
+    return page
 
 
 @router.get("/entities/{entity_id}/export")

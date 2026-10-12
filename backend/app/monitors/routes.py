@@ -8,6 +8,7 @@ from app.auth.dependencies import require_csrf
 from app.auth.models import Session
 from app.auth.routes import current_session
 from app.db.session import get_db
+from app.marks.service import with_result_marks
 from app.monitors.changes import monitor_changes
 from app.monitors.models import Monitor
 from app.monitors.results import Scope, monitor_results
@@ -105,7 +106,9 @@ async def results(
     cursor: str | None = None,
 ) -> MonitorResultPage:
     item = await _owned(db, session, monitor_id)
-    return await monitor_results(db, item, session.id, scope, limit, cursor)
+    page = await monitor_results(db, item, session.id, scope, limit, cursor)
+    await with_result_marks(db, page.items)
+    return page
 
 
 @router.get("/monitors/{monitor_id}/changes", response_model=MonitorChanges)

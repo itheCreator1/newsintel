@@ -452,7 +452,7 @@ async def list_articles(
     return ArticlePage(
         items=[
             ArticleListItem(
-                **article_response(row).model_dump(),
+                **article_response(row).model_dump(exclude={"read", "starred"}),
                 read=row.id in marks and marks[row.id].read_at is not None,
                 starred=row.id in marks and marks[row.id].starred,
             )
