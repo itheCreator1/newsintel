@@ -15,11 +15,11 @@ import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../../li
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, toHref } from '../../../lib/investigation'
 import { LoadError, Note } from '../../../components/Feedback'
 import { countryLabel, languageLabel } from '../../../lib/countries'
+import { when } from '../../../lib/datetime'
 
 const WINDOWS = [7, 30, 90]
 const DAY_MS = 86_400_000
 const nextDay = (day: string) => new Date(Date.parse(day) + DAY_MS).toISOString().slice(0, 10)
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const minutes = (value: number) => `${Math.round(value)} min`
 // `from` is only followed back to pages that link here, never to an arbitrary path.
 const ORIGINS: [string, string][] = [['/sources/', 'Back to sources'], ['/entities/', 'Back to entity'], ['/articles/', 'Back to article'], ['/monitors', 'Back to monitor'], ['/compare/', 'Back to comparison']]

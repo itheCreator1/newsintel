@@ -24,6 +24,7 @@ import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { advancedCount, clearCriteria, errorCode, filterChips, graphHref, GRAPH_CHIP_FIELDS, isTransient, removeFilter, SEARCH_ADVANCED, SEARCH_CHIP_FIELDS, unsupportedCriteria } from '../../lib/filter-ui'
 import { brushRange, clusterHref, EXPANSIONS, INTERVALS, mapHref, queryFromState, refine, searchParams, stateFromQuery, toggle, toHref, type Investigation, type ListField } from '../../lib/investigation'
+import { formatDateTime } from '../../lib/datetime'
 
 function formFromState(current: Investigation) {
   return {
@@ -297,7 +298,7 @@ function SearchContent() {
                     <strong className="text-[15px] font-semibold text-foreground">{result.title}</strong>
                     {result.starred && <span className="ml-auto text-primary" role="img" aria-label="Starred">★</span>}
                   </span>
-                  <span className="text-xs text-muted-foreground">{new Date(result.effective_date).toLocaleString()} · {result.distinct_source_count} sources{result.read && <> · <span>Read</span></>}</span>
+                  <span className="text-xs text-muted-foreground">{formatDateTime(result.effective_date)} · {result.distinct_source_count} sources{result.read && <> · <span>Read</span></>}</span>
                   {result.highlights.length ? <p className="text-sm text-muted-foreground [&_mark]:rounded [&_mark]:bg-primary/25 [&_mark]:text-foreground">{result.highlights.map((segment, index) => segment.marked ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>)}</p>
                     : result.summary && <p className="text-sm text-muted-foreground">{result.summary}</p>}
                   {result.note && <p className="border-l-2 border-primary pl-2 text-sm text-foreground"><span className="sr-only">Your note: </span>{result.note}</p>}

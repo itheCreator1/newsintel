@@ -18,6 +18,7 @@ import { entityHref } from '../../lib/investigation'
 import { cn } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { qidHref, reasonText as wikidataReason, wikidataChange } from '../../lib/wikidata'
+import { formatDateTime } from '../../lib/datetime'
 
 type Suggestion = AuthoritySuggestionList['items'][number]
 type Change = AuthorityHistoryPage['items'][number]
@@ -423,7 +424,7 @@ function RecentChanges() {
           {items.map(change => (
             <li key={change.id} className="text-sm text-muted-foreground">
               {describe(change)}
-              <small className="text-xs">{` · ${new Date(change.created_at).toLocaleString()}`}</small>
+              <small className="text-xs">{` · ${formatDateTime(change.created_at)}`}</small>
             </li>
           ))}
         </ul>

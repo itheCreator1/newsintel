@@ -14,6 +14,7 @@ import { sourceHref } from '../../lib/investigation'
 import { cn } from '../../lib/utils'
 import { CountrySelect, LanguageSelect } from '../../components/SearchablePicker'
 import { countryLabel, languageLabel } from '../../lib/countries'
+import { formatDateTime } from '../../lib/datetime'
 
 type Mode = 'rss' | 'full_text' | 'full_text_html'
 type ListStatus = NonNullable<FeedListParams['status']>
@@ -123,7 +124,7 @@ function FeedTestResult({ result, onUse }: { result: FeedTest; onUse: () => void
   return (
     <div role="status" aria-label="Feed test" className="flex flex-col gap-1.5 rounded-lg border border-border bg-background/40 p-3 text-sm">
       <p className="font-medium text-foreground">{summary}</p>
-      {result.latest_entry_at && <p className="text-xs text-muted-foreground">{`Latest entry ${new Date(result.latest_entry_at).toLocaleString()}`}</p>}
+      {result.latest_entry_at && <p className="text-xs text-muted-foreground">{`Latest entry ${formatDateTime(result.latest_entry_at)}`}</p>}
       {result.discovered_from && <p className="text-xs text-muted-foreground">{`Found the feed linked from ${result.discovered_from}`}</p>}
       {result.existing_feed_id && <p className="text-xs text-foreground">This feed is already a source. <Link className="text-primary underline" href={sourceHref(result.existing_feed_id)}>Open its dossier</Link></p>}
       <button type="button" className={cn(ghostButtonClass, 'self-start')} onClick={onUse}>Use these details</button>

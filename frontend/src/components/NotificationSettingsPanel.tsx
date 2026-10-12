@@ -8,17 +8,14 @@ import { fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '..
 import { cn } from '../lib/utils'
 import { GlassPanel } from './GlassPanel'
 import { LoadError } from './Feedback'
+import { formatDateTime, timeZoneNames } from '../lib/datetime'
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 const hourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`
 // The API sends times as HH:MM:SS; a time field shows HH:MM.
 const clock = (value: string | null) => value ? value.slice(0, 5) : ''
 
-function timeZones(current: string): string[] {
-  let zones: string[] = []
-  try { zones = Intl.supportedValuesOf('timeZone') } catch { zones = [] }
-  return [...new Set(['UTC', current, Intl.DateTimeFormat().resolvedOptions().timeZone, ...zones])].filter(Boolean)
-}
+const timeZones = (current: string) => [...new Set([current, ...timeZoneNames()])]
 
 interface Draft { enabled: boolean; server: string; topic: string; token: string; publicUrl: string; timezone: string; quiet: boolean; quietStart: string; quietEnd: string; digest: boolean; digestHour: number }
 
@@ -124,8 +121,8 @@ export function NotificationSettingsPanel() {
           {test.isError && <p role="alert" className="error text-sm text-destructive">{message(test.error, 'Could not send the test message.')}</p>}
         </form>
       )}
-      {data?.last_sent_at && <p className="text-xs text-muted-foreground">Last sent {new Date(data.last_sent_at).toLocaleString()}</p>}
-      {data?.last_error && <p className="error text-xs text-destructive">Last error: {data.last_error}{data.last_error_at ? ` (${new Date(data.last_error_at).toLocaleString()})` : ''}. Sending is tried again after five minutes.</p>}
+      {data?.last_sent_at && <p className="text-xs text-muted-foreground">Last sent {formatDateTime(data.last_sent_at)}</p>}
+      {data?.last_error && <p className="error text-xs text-destructive">Last error: {data.last_error}{data.last_error_at ? ` (${formatDateTime(data.last_error_at)})` : ''}. Sending is tried again after five minutes.</p>}
     </GlassPanel>
   )
 }

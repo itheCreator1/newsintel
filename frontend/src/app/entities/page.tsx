@@ -18,10 +18,10 @@ import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromState, refine, sourceHref, toHref } from '../../lib/investigation'
 import { countryLabel } from '../../lib/countries'
+import { when } from '../../lib/datetime'
 
 const WINDOWS = [7, 30, 90, 365] as const
 const DAY_MS = 86_400_000
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : '—'
 const nextDay = (day: string) => new Date(Date.parse(day) + DAY_MS).toISOString().slice(0, 10)
 
 function Note({ children, error }: { children: string; error?: boolean }) {

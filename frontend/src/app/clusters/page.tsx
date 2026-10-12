@@ -13,6 +13,7 @@ import { WatchButton } from '../../components/WatchForm'
 import { chipClass, ghostButtonClass } from '../../lib/ui-classes'
 import { brushRange, emptyInvestigation, entityHref, eventHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
 import { ErrorNotice, LoadError } from '../../components/Feedback'
+import { formatDateTime } from '../../lib/datetime'
 
 /** How long after the story's first report a source followed: "First", "+45 min", "+2 h 30 min", "+1 d 1 h". */
 function delayLabel(minutes: number): string {
@@ -29,7 +30,7 @@ function StoryOverview({ summary, currentHref, onBrush }: { summary: StorySummar
   return (
     <>
       <div className="flex flex-col gap-3">
-        {first && <p className="text-sm text-foreground">First reported by <Link className="underline" href={sourceHref(first.id, currentHref)}>{first.name}</Link> on {new Date(first.first_reported_at).toLocaleString()}</p>}
+        {first && <p className="text-sm text-foreground">First reported by <Link className="underline" href={sourceHref(first.id, currentHref)}>{first.name}</Link> on {formatDateTime(first.first_reported_at)}</p>}
         {summary.event && <p className="text-sm text-muted-foreground">Part of the event <Link className="text-foreground underline" href={eventHref(summary.event.id, currentHref)}>{summary.event.headline ?? 'Untitled event'}</Link></p>}
         {summary.entities.length > 0 && (
           <div className="flex flex-wrap gap-2" aria-label="Story entities">
@@ -52,7 +53,7 @@ function StoryOverview({ summary, currentHref, onBrush }: { summary: StorySummar
               {summary.sources.map(source => (
                 <tr key={source.id} className="border-t border-border/60">
                   <td className="py-1.5 pr-4"><Link className="text-foreground underline" href={sourceHref(source.id, currentHref)}>{source.name}</Link></td>
-                  <td className="py-1.5 pr-4 text-muted-foreground">{new Date(source.first_reported_at).toLocaleString()}</td>
+                  <td className="py-1.5 pr-4 text-muted-foreground">{formatDateTime(source.first_reported_at)}</td>
                   <td className="py-1.5 text-muted-foreground">{delayLabel(source.minutes_behind)}</td>
                 </tr>
               ))}
@@ -108,14 +109,14 @@ function ClusterContent() {
           <>
             <p className="px-6 pt-4 text-sm text-muted-foreground">
               {header.first_published_at && header.last_published_at
-                ? `${new Date(header.first_published_at).toLocaleString()} – ${new Date(header.last_published_at).toLocaleString()}`
+                ? `${formatDateTime(header.first_published_at)} – ${formatDateTime(header.last_published_at)}`
                 : 'Publication dates are not available.'}
             </p>
             {members.map(member => (
               <article key={member.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
                 <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(member.article_id))}>
                   <strong className="text-[15px] font-semibold text-foreground">{member.title}</strong>
-                  <span className="text-xs text-muted-foreground">{new Date(member.effective_date).toLocaleString()} · {member.feeds.map(feed => feed.name).join(', ')}</span>
+                  <span className="text-xs text-muted-foreground">{formatDateTime(member.effective_date)} · {member.feeds.map(feed => feed.name).join(', ')}</span>
                 </button>
               </article>
             ))}

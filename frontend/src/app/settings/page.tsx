@@ -1,16 +1,19 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, ApiError } from '../../lib/api'
 import type { StopWords } from '../../lib/api-types'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
-import { fieldClass, ghostButtonClass, primaryButtonClass } from '../../lib/ui-classes'
+import { chipClass, fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 import { LoadError } from '../../components/Feedback'
 import { NotificationSettingsPanel } from '../../components/NotificationSettingsPanel'
 import { useTheme, type ThemeChoice } from '../../lib/theme'
+import { browserTimeZone, timeZoneNames, useTimeZone } from '../../lib/datetime'
+import { plural } from '../../lib/utils'
 
 type StopWordLanguage = 'en' | 'el'
 const STOP_WORD_LANGUAGES: [StopWordLanguage, string][] = [['en', 'English'], ['el', 'Greek']]
@@ -59,9 +62,10 @@ function StopWordsEditor({ language, name }: { language: StopWordLanguage; name:
 
 const THEMES: [ThemeChoice, string][] = [['system', 'Same as the system'], ['light', 'Light'], ['dark', 'Dark']]
 
-/** Kept by this browser, not the account: each device can follow its own system. */
+/** Kept by this browser, not the account: each device can follow its own system and zone. */
 function AppearancePanel() {
   const { choice, setChoice } = useTheme()
+  const timeZone = useTimeZone()
   return (
     <GlassPanel aria-label="Appearance" className="flex max-w-2xl flex-col gap-3">
       <h3 className="text-sm font-semibold text-foreground">Appearance</h3>
@@ -73,7 +77,88 @@ function AppearancePanel() {
           </label>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Saved in this browser. &ldquo;Same as the system&rdquo; turns dark when your desktop does.</p>
+      <label className={cn(labelClass, 'max-w-xs')}>Time zone for dates
+        <select className={cn(fieldClass, 'mt-1')} value={timeZone.choice} onChange={event => timeZone.setChoice(event.target.value)}>
+          <option value="browser">This browser ({browserTimeZone()})</option>
+          {timeZoneNames().map(zone => <option key={zone} value={zone}>{zone}</option>)}
+        </select>
+      </label>
+      <p className="text-xs text-muted-foreground">Saved in this browser. &ldquo;Same as the system&rdquo; turns dark when your desktop does. Charts that count per day count UTC days.</p>
+    </GlassPanel>
+  )
+}
+
+const errorText = (reason: unknown, fallback: string) => reason instanceof ApiError ? reason.message : fallback
+
+function AccountPanel() {
+  const client = useQueryClient()
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [again, setAgain] = useState('')
+  const [mismatch, setMismatch] = useState(false)
+  const change = useMutation({
+    mutationFn: () => api.changePassword(current, next),
+    onSuccess: () => { setCurrent(''); setNext(''); setAgain(''); client.invalidateQueries({ queryKey: ['other-sessions'] }) },
+  })
+  const sessions = useQuery({ queryKey: ['other-sessions'], queryFn: api.otherSessions, retry: false })
+  const signOut = useMutation({ mutationFn: api.signOutOtherSessions, onSuccess: () => client.invalidateQueries({ queryKey: ['other-sessions'] }) })
+  const others = sessions.data?.others ?? 0
+
+  return (
+    <GlassPanel aria-label="Account" className="flex max-w-2xl flex-col gap-3">
+      <h3 className="text-sm font-semibold text-foreground">Account</h3>
+      <form className="flex flex-col gap-3" onSubmit={event => {
+        event.preventDefault()
+        change.reset()
+        setMismatch(next !== again)
+        if (next === again) change.mutate()
+      }}>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className={labelClass}>Current password
+            <input className={cn(fieldClass, 'mt-1')} type="password" autoComplete="current-password" required value={current} onChange={event => setCurrent(event.target.value)} />
+          </label>
+          <label className={labelClass}>New password
+            <input className={cn(fieldClass, 'mt-1')} type="password" autoComplete="new-password" required minLength={12} value={next} onChange={event => setNext(event.target.value)} />
+          </label>
+          <label className={labelClass}>New password again
+            <input className={cn(fieldClass, 'mt-1')} type="password" autoComplete="new-password" required minLength={12} value={again} onChange={event => setAgain(event.target.value)} />
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">At least 12 characters. Changing it signs out every other browser.</p>
+        <button type="submit" className={cn(primaryButtonClass, 'self-start')} disabled={change.isPending}>Change password</button>
+        {mismatch && <p role="alert" className="error text-sm text-destructive">The new passwords do not match.</p>}
+        {change.isError && <p role="alert" className="error text-sm text-destructive">{errorText(change.error, 'Could not change the password.')}</p>}
+        {change.isSuccess && <p className="text-sm text-primary">Password changed. Every other browser was signed out.</p>}
+      </form>
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
+        {sessions.isError && <LoadError query={sessions} message="Could not count the other browsers." />}
+        {sessions.data && <p className="text-sm text-muted-foreground">{others ? `Signed in on ${plural(others, 'other browser')}.` : 'No other browser is signed in.'}</p>}
+        <button type="button" className={ghostButtonClass} disabled={!others || signOut.isPending} onClick={() => signOut.mutate()}>Sign out other browsers</button>
+        {signOut.isSuccess && <p className="text-sm text-primary">Signed out {plural(signOut.data.signed_out, 'browser')}.</p>}
+        {signOut.isError && <p role="alert" className="error text-sm text-destructive">{errorText(signOut.error, 'Could not sign out the other browsers.')}</p>}
+      </div>
+    </GlassPanel>
+  )
+}
+
+/** Wikidata is set on the server, so this only says where it stands and how to change it. */
+function WikidataSettingsPanel() {
+  const status = useQuery({ queryKey: ['ops-wikidata'], queryFn: api.opsWikidata, retry: false })
+  return (
+    <GlassPanel aria-label="Wikidata" className="flex max-w-2xl flex-col gap-3">
+      <h3 className="text-sm font-semibold text-foreground">Wikidata</h3>
+      {status.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {status.isError && <LoadError query={status} message="Could not load the Wikidata status." />}
+      {status.data && (
+        <p className="text-sm text-foreground">
+          <span className={status.data.enabled ? 'text-primary' : 'text-muted-foreground'}>{status.data.enabled ? 'On' : `Off: ${status.data.reason ?? 'disabled'}`}</span>
+          {` · ${plural(status.data.links, 'entity', 'entities')} linked`}
+        </p>
+      )}
+      <p className="text-sm text-muted-foreground">
+        Wikidata is set in the server&rsquo;s <code className="font-mono">.env</code>: <code className="font-mono">NEWSINTEL_WIKIDATA_CONTACT</code> (an email address or a URL, which Wikimedia asks for) turns it on, and <code className="font-mono">NEWSINTEL_WIKIDATA_ENABLED=false</code> turns it off. Restart the api, worker and scheduler after a change.
+      </p>
+      <Link className={cn(chipClass, 'self-start')} href="/processes/">Open Processes</Link>
     </GlassPanel>
   )
 }
@@ -81,7 +166,6 @@ function AppearancePanel() {
 export default function SettingsPage() {
   const client = useQueryClient()
   const [stopWordLanguage, setStopWordLanguage] = useState<StopWordLanguage>('en')
-  const nlp = useQuery({ queryKey: ['nlp-status'], queryFn: api.nlpStatus, retry: false })
 
   const greek = useQuery({ queryKey: ['greek-entities'], queryFn: api.greekEntities, retry: false })
   const [processExisting, setProcessExisting] = useState(true)
@@ -93,16 +177,9 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6 font-sans">
-      <PageHeader eyebrow="NLP configuration" title="Settings" />
+      <PageHeader eyebrow="Preferences" title="Settings" />
       <AppearancePanel />
-      <GlassPanel className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Processor capabilities</h3>
-        {nlp.isPending && <p className="text-sm text-muted-foreground">Loading capabilities…</p>}
-        {!nlp.isPending && nlp.isError && <LoadError query={nlp} message="Could not load processor capabilities." />}
-        {nlp.data?.capabilities.map(capability => (
-          <p key={capability.name} className="text-sm text-muted-foreground">{capability.name} · {capability.state}{capability.version && ` · ${capability.version}`}{capability.detail && ` · ${capability.detail}`}</p>
-        ))}
-      </GlassPanel>
+      <AccountPanel />
       <GlassPanel className="flex max-w-2xl flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">Greek entities</h3>
         <p className="text-sm text-muted-foreground">Find people, places and organizations in Greek articles. English articles are not affected. Turning this off keeps the Greek entities already found.</p>
@@ -130,6 +207,7 @@ export default function SettingsPage() {
         {toggleGreek.isError && <p className="error text-sm text-destructive">Could not change the setting. {toggleGreek.error.message}</p>}
       </GlassPanel>
       <NotificationSettingsPanel />
+      <WikidataSettingsPanel />
       <GlassPanel className="flex max-w-2xl flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">Stop words</h3>
         <p className="text-sm text-muted-foreground">Words left out of keywords and story titles, one list per language. Changes affect new processing immediately. Existing annotations require reprocessing before they reflect this revision.</p>

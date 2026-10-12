@@ -9,6 +9,7 @@ import { typeLabel } from '../lib/authorities'
 import { entityHref } from '../lib/investigation'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../lib/ui-classes'
 import { wikidataChange } from '../lib/wikidata'
+import { formatDateTime } from '../lib/datetime'
 
 type Change = EntityHistory['items'][number]
 export interface Picked { id: string; text: string }
@@ -178,7 +179,7 @@ export function EntityAuthority({ entity, onMerged }: { entity: EntityDossier; o
           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">{`History (${history.data.items.length})`}</summary>
           <ul aria-label="Authority history" className="mt-2 list-none pl-0 flex flex-col gap-1">
             {history.data.items.map(change => (
-              <li key={change.id} className="text-sm text-muted-foreground">{`${describe(change)} · ${new Date(change.created_at).toLocaleString()}`}</li>
+              <li key={change.id} className="text-sm text-muted-foreground">{`${describe(change)} · ${formatDateTime(change.created_at)}`}</li>
             ))}
           </ul>
         </details>

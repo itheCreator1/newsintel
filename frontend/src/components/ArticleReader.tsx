@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { readerFont } from '../lib/fonts'
 import { paragraphs, readingMinutes, type ReaderRange } from '../lib/reader'
 import { cn } from '../lib/utils'
+import { formatDate } from '../lib/datetime'
 
 type Props = {
   title: string
@@ -20,7 +21,7 @@ type Props = {
  * holding only title, byline and body; controls and metadata stay outside it, in the app's own
  * chrome. The title is an `h3` because it sits under the page's own `h2`. */
 export function ArticleReader({ title, text, summary, date, sources, ranges, hrefFor, className }: Props) {
-  const byline = [sources.join(', '), date && new Date(date).toLocaleDateString(undefined, { dateStyle: 'long' }), text && `${readingMinutes(text)} min read`].filter(Boolean)
+  const byline = [sources.join(', '), date && formatDate(date, { dateStyle: 'long' }), text && `${readingMinutes(text)} min read`].filter(Boolean)
   return (
     <article className={cn('reader-newsprint', readerFont.variable, className)}>
       <h3 className="reader-title">{title}</h3>
