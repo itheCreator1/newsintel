@@ -11,6 +11,7 @@ from app.analytics.routes import (
     ENTITY_CANDIDATES,
     TOP_N,
     ingestion_timeline,
+    rising_entities,
     top_countries,
     top_entities,
 )
@@ -241,3 +242,65 @@ def test_analytics_take_the_search_criteria_and_only_top_views_take_scope() -> N
     assert names("/api/v1/analytics/ingestion-timeline") == criteria
     assert names("/api/v1/analytics/top-entities") == criteria | {"scope"}
     assert names("/api/v1/analytics/top-countries") == criteria | {"scope"}
+
+
+def _rising_bucket(entity_id: uuid.UUID, week: int, today: int) -> dict[str, Any]:
+    return {
+        "key": str(entity_id),
+        "doc_count": week,
+        "back": {"doc_count": week, "today": {"doc_count": today}},
+    }
+
+
+@pytest.mark.asyncio
+async def test_rising_entities_compare_the_last_day_with_the_week_before(
+    adapter: type[_Adapter],
+) -> None:
+    surge, steady, quiet, fresh, ghost = (uuid.uuid4() for _ in range(5))
+    adapter.responses = [
+        {
+            "aggregations": {
+                "entities": {
+                    "top": {
+                        "buckets": [
+                            # 12 today against 14 over the 7 days before: 2 a day, so rising.
+                            _rising_bucket(surge, 26, 12),
+                            # 10 today, 70 before: 10 a day, its usual day.
+                            _rising_bucket(steady, 80, 10),
+                            # New today, but 2 articles are too few to call.
+                            _rising_bucket(quiet, 2, 2),
+                            # Never seen before today.
+                            _rising_bucket(fresh, 5, 5),
+                            _rising_bucket(ghost, 40, 40),
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+    rows = [
+        SimpleNamespace(id=value, display_text=name, entity_type="ORG")
+        for value, name in (
+            (surge, "Surge"),
+            (steady, "Steady"),
+            (quiet, "Quiet"),
+            (fresh, "Fresh"),
+        )
+    ]
+
+    body = await rising_entities(_Catalogue(rows), object(), Settings(), _criteria())  # type: ignore[arg-type]
+
+    assert [(item.display_text, item.today, item.daily_average) for item in body.entities] == [
+        ("Fresh", 5, 0.0),
+        ("Surge", 12, 2.0),
+    ]
+    _, sent = adapter.bodies[0]
+    assert _cutoff(sent["query"]) == pytest.approx(
+        datetime.now(UTC) - timedelta(days=8), abs=timedelta(minutes=1)
+    )
+    top = sent["aggs"]["entities"]["aggs"]["top"]
+    assert top["terms"]["order"][0] == {"back>today": "desc"}
+    today = top["aggs"]["back"]["aggs"]["today"]["filter"]["range"]["first_discovered_at"]["gte"]
+    assert datetime.fromisoformat(today) == pytest.approx(
+        datetime.now(UTC) - timedelta(days=1), abs=timedelta(minutes=1)
+    )
