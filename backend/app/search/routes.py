@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from app.auth.models import Session
 from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
+from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 from app.feeds.models import Feed
 from app.feeds.service import encode_cursor
 from app.search.aggregations import date_histogram
@@ -73,6 +74,8 @@ RESULT_FIELDS = [
 ]
 # Entity chips shown on a result; indexing stores an article's entities most relevant first.
 RESULT_ENTITIES = 3
+# An export walks one snapshot in pages of this many ids.
+EXPORT_PAGE = 500
 
 
 def sign_cursor(payload: dict[str, Any], secret: str) -> str:
@@ -186,6 +189,17 @@ async def search_sources(
     )
 
 
+def _sort_clause(sort: str) -> list[Any]:
+    clause: list[Any] = {
+        "relevance": [{"_score": "desc"}, {"effective_date": "desc"}],
+        "newest": [{"effective_date": "desc"}],
+        "oldest": [{"effective_date": "asc"}],
+        "most_sources": [{"distinct_source_count": "desc"}, {"effective_date": "desc"}],
+    }[sort]
+    # The id breaks ties, so search_after never skips or repeats an article.
+    return [*clause, {"article_id": "asc"}]
+
+
 @router.get("/search", response_model=SearchPage)
 async def search_articles(
     db: Db,
@@ -217,13 +231,7 @@ async def search_articles(
         else:
             index_name, schema_version = await current_search_target(db, criteria)
             pit_id = await adapter.open_point_in_time(index_name)
-        sort_clause: list[Any] = {
-            "relevance": [{"_score": "desc"}, {"effective_date": "desc"}],
-            "newest": [{"effective_date": "desc"}],
-            "oldest": [{"effective_date": "asc"}],
-            "most_sources": [{"distinct_source_count": "desc"}, {"effective_date": "desc"}],
-        }[sort]
-        sort_clause.append({"article_id": "asc"})
+        sort_clause = _sort_clause(sort)
         body: dict[str, Any] = {
             "size": limit + 1,  # the extra hit reveals whether a page follows
             "pit": {"id": pit_id, "keep_alive": "5m"},
@@ -276,6 +284,50 @@ async def search_articles(
         }
         next_cursor = sign_cursor(payload, settings.secret_key)
     return SearchPage(items=items, next_cursor=next_cursor)
+
+
+@router.get("/search/export")
+async def search_export(
+    db: Db,
+    _auth: Auth,
+    settings: Config,
+    criteria: Criteria,
+    sort: Sort = "relevance",
+    format: ExportFormat = "csv",
+) -> Response:
+    """The search's first EXPORT_LIMIT articles in its sort order, from one snapshot."""
+    adapter = ElasticsearchAdapter(settings.elasticsearch_url)
+    ids: list[uuid.UUID] = []
+    try:
+        index_name, schema_version = await current_search_target(db, criteria)
+        pit_id = await adapter.open_point_in_time(index_name)
+        query = build_query(criteria, schema_version)
+        search_after: list[Any] | None = None
+        while len(ids) < EXPORT_LIMIT:
+            body: dict[str, Any] = {
+                "size": min(EXPORT_PAGE, EXPORT_LIMIT - len(ids)),
+                "pit": {"id": pit_id, "keep_alive": "2m"},
+                "query": query,
+                "sort": _sort_clause(sort),
+                "_source": ["article_id"],
+                "track_total_hits": False,
+            }
+            if search_after:
+                body["search_after"] = search_after
+            response = await adapter.search(body)
+            pit_id = response.get("pit_id", pit_id)
+            hits = response.get("hits", {}).get("hits", [])
+            ids.extend(uuid.UUID(hit["_source"]["article_id"]) for hit in hits)
+            if len(hits) < body["size"]:
+                break
+            search_after = hits[-1]["sort"]
+        try:
+            await adapter.close_point_in_time(pit_id)
+        except ElasticsearchUnavailable:
+            pass
+    except ElasticsearchUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    return export_response(await export_rows(db, ids), format, "search")
 
 
 @router.get("/search/timeline", response_model=SearchTimeline)

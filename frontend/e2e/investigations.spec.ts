@@ -104,6 +104,15 @@ test('investigation workflow brushes, cross-filters, and saves searches', async 
   await expect(page.getByLabel('Timeline interval')).toHaveValue('week')
   const investigation = new URL(page.url())
 
+  // Export downloads the same three articles, oldest first, through the session cookie.
+  await page.getByRole('button', { name: 'Export', exact: true }).click()
+  const exportLink = page.getByRole('dialog', { name: 'Export articles' }).getByRole('link', { name: 'JSON' })
+  const exported = await (await page.request.get(await exportLink.getAttribute('href') as string)).json() as { date: string; url: string }[]
+  expect(exported).toHaveLength(3)
+  expect(exported.map(item => item.date)).toEqual([...exported.map(item => item.date)].sort())
+  expect(exported.every(item => item.url.startsWith('http'))).toBe(true)
+  await page.keyboard.press('Escape')
+
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByLabel('Saved search name').fill('Wire watch')
   await page.getByRole('button', { name: 'Save search' }).click()

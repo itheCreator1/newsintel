@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.search.criteria import SearchCriteria, current_search_target
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
-from app.search.routes import read_cursor, search_articles
+from app.search.routes import read_cursor, search_articles, search_export
 
 WIRE = "11111111-1111-4111-8111-111111111111"
 DAILY = "22222222-2222-4222-8222-222222222222"
@@ -335,3 +335,65 @@ async def test_endpoint_schema_floor(
             )
         assert excinfo.value.status_code == 409
         assert excinfo.value.detail["code"] == "search_upgrade_required"
+
+
+class _PagedAdapter(_Adapter):
+    """Serves `total` hits in sort order, a page per call, resuming after `search_after`."""
+
+    total = 0
+    bodies: list[dict[str, Any]] = []
+
+    async def search(self, body: dict[str, Any]) -> dict[str, Any]:
+        _PagedAdapter.bodies.append(body)
+        start = body["search_after"][0] + 1 if "search_after" in body else 0
+        end = min(start + body["size"], _PagedAdapter.total)
+        return {"pit_id": "pit-export", "hits": {"hits": [_hit(n) for n in range(start, end)]}}
+
+
+@pytest.mark.asyncio
+async def test_export_walks_the_snapshot_up_to_the_limit_and_closes_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _PagedAdapter)
+    monkeypatch.setattr("app.search.routes.EXPORT_PAGE", 2)
+    monkeypatch.setattr("app.search.routes.EXPORT_LIMIT", 5)
+    exported: list[list[str]] = []
+
+    async def rows(_db: object, ids: list[UUID]) -> list[object]:
+        exported.append([str(value) for value in ids])
+        return []
+
+    monkeypatch.setattr("app.search.routes.export_rows", rows)
+    _Adapter.closed, _Adapter.close_error = [], None
+    _PagedAdapter.bodies, _PagedAdapter.total = [], 9
+
+    response = await search_export(
+        _Database(),  # type: ignore[arg-type]
+        _Session(),  # type: ignore[arg-type]
+        Settings(),
+        _criteria(),
+        sort="newest",
+        format="csv",
+    )
+
+    assert exported == [[_hit(n)["_source"]["article_id"] for n in range(5)]]
+    assert [body["size"] for body in _PagedAdapter.bodies] == [2, 2, 1]
+    assert _PagedAdapter.bodies[0]["sort"][0] == {"effective_date": "desc"}
+    assert _PagedAdapter.bodies[0]["_source"] == ["article_id"]
+    assert _Adapter.closed == ["pit-export"]
+    assert response.headers["content-disposition"].startswith(
+        'attachment; filename="newsintel-search-'
+    )
+
+    # A search with fewer matches than a page stops after one request.
+    _Adapter.closed, _PagedAdapter.bodies, _PagedAdapter.total = [], [], 1
+    exported.clear()
+    await search_export(
+        _Database(),  # type: ignore[arg-type]
+        _Session(),  # type: ignore[arg-type]
+        Settings(),
+        _criteria(),
+        sort="relevance",
+        format="json",
+    )
+    assert len(_PagedAdapter.bodies) == 1 and exported == [[_hit(0)["_source"]["article_id"]]]

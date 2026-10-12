@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
@@ -19,6 +19,7 @@ from app.events.schemas import (
     EventPage,
     EventTimelinePage,
 )
+from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 
 router = APIRouter(tags=["events"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -98,6 +99,16 @@ async def get_event_articles(
 ) -> EventArticlePage:
     await _event_or_404(db, event_id)
     return await queries.articles(db, event_id, limit, cursor_or_400(cursor))
+
+
+@router.get("/events/{event_id}/export")
+async def get_event_export(
+    event_id: uuid.UUID, db: Db, _auth: Auth, format: ExportFormat = "csv"
+) -> Response:
+    """The event's articles, newest first, as a download."""
+    await _event_or_404(db, event_id)
+    page = await queries.articles(db, event_id, EXPORT_LIMIT, None)
+    return export_response(await export_rows(db, [item.id for item in page.items]), format, "event")
 
 
 @router.get("/events/{event_id}/timeline", response_model=EventTimelinePage)

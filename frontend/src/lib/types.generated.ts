@@ -585,6 +585,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity Export
+         * @description The articles naming the entity, newest first, as a download.
+         */
+        get: operations["get_entity_export_api_v1_entities__entity_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entities/{entity_id}/clusters": {
         parameters: {
             query?: never;
@@ -1169,6 +1189,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/{event_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Event Export
+         * @description The event's articles, newest first, as a download.
+         */
+        get: operations["get_event_export_api_v1_events__event_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/{event_id}/timeline": {
         parameters: {
             query?: never;
@@ -1314,6 +1354,26 @@ export interface paths {
         };
         /** Compare Articles */
         get: operations["compare_articles_api_v1_compare_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compare/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Export
+         * @description One part of the comparison's articles, newest first, as a download.
+         */
+        get: operations["compare_export_api_v1_compare_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1629,6 +1689,26 @@ export interface paths {
         };
         /** Search Articles */
         get: operations["search_articles_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Export
+         * @description The search's first EXPORT_LIMIT articles in its sort order, from one snapshot.
+         */
+        get: operations["search_export_api_v1_search_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6968,6 +7048,39 @@ export interface operations {
             };
         };
     };
+    get_entity_export_api_v1_entities__entity_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "json";
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_entity_clusters_api_v1_entities__entity_id__clusters_get: {
         parameters: {
             query?: {
@@ -8171,6 +8284,39 @@ export interface operations {
             };
         };
     };
+    get_event_export_api_v1_events__event_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "csv" | "json";
+            };
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_event_timeline_api_v1_events__event_id__timeline_get: {
         parameters: {
             query?: {
@@ -8474,6 +8620,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompareArticlePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_export_api_v1_compare_export_get: {
+        parameters: {
+            query: {
+                part: "a" | "both" | "b";
+                format?: "csv" | "json";
+                kind: "entity" | "source" | "country";
+                a: string;
+                b: string;
+                /** @description Required for countries (which country meaning), rejected otherwise. */
+                role?: ("story" | "mentioned" | "source") | null;
+                /** @description Window length in UTC days, ending today. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -9060,6 +9245,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_export_api_v1_search_export_get: {
+        parameters: {
+            query?: {
+                sort?: "relevance" | "newest" | "oldest" | "most_sources";
+                format?: "csv" | "json";
+                q?: string;
+                source_id?: string[] | null;
+                source_country?: string[] | null;
+                after?: string | null;
+                before?: string | null;
+                content_available?: boolean | null;
+                processing_status?: string[] | null;
+                language?: string[] | null;
+                entity_id?: string[] | null;
+                entity_type?: string[] | null;
+                keyword_id?: string[] | null;
+                story_country?: string[] | null;
+                mentioned_country?: string[] | null;
+                story_cluster_id?: string[] | null;
+                entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

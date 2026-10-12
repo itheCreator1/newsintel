@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
-import { ApiError, api, type CompareSpec } from '../../lib/api'
+import { ApiError, api, exportHref, type CompareSpec } from '../../lib/api'
 import type { CompareKind, ComparePart, CompareResponse, CompareRole } from '../../lib/api-types'
 import { BarChart } from '../../components/BarChart'
 import { GlassPanel } from '../../components/GlassPanel'
@@ -15,6 +15,7 @@ import { clusterHref, compareHref, emptyInvestigation, entityHref, queryFromStat
 import { LoadError, Note } from '../../components/Feedback'
 import { countryLabel } from '../../lib/countries'
 import { CountrySelect } from '../../components/SearchablePicker'
+import { ExportMenu } from '../../components/ExportMenu'
 
 const KINDS: { value: CompareKind; label: string }[] = [{ value: 'entity', label: 'Entities' }, { value: 'source', label: 'Sources' }, { value: 'country', label: 'Countries' }]
 const ROLES: { value: CompareRole; label: string }[] = [{ value: 'story', label: 'Story country' }, { value: 'mentioned', label: 'Mentioned country' }, { value: 'source', label: 'Source country' }]
@@ -255,6 +256,7 @@ function CompareContent() {
                   <option value="b">{`Only ${bLabel}`}</option>
                 </select>
               </label>
+              {tab === 'articles' && <ExportMenu className="ml-auto" hrefFor={format => exportHref.compare(spec, part, format)} />}
             </div>
             {tab === 'articles' && (
               <>

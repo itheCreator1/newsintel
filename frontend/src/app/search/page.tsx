@@ -4,7 +4,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClie
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense, useEffect, useId, useRef, useState } from 'react'
-import { api, ApiError } from '../../lib/api'
+import { api, ApiError, exportHref } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
 import { ActiveFilterBar } from '../../components/ActiveFilterBar'
 import { CheckboxPicker } from '../../components/CheckboxPicker'
@@ -16,6 +16,7 @@ import { EditMonitorBar } from '../../components/EditMonitorBar'
 import { WatchButton } from '../../components/WatchForm'
 import { FacetPanel } from '../../components/FacetPanel'
 import { Popover } from '../../components/Popover'
+import { ExportMenu } from '../../components/ExportMenu'
 import { SourceTagPicker } from '../../components/SourceTagPicker'
 import { CountryPicker, LanguagePicker } from '../../components/SearchablePicker'
 import { countryLabel } from '../../lib/countries'
@@ -236,6 +237,7 @@ function SearchContent() {
             <Link className={cn(ghostButtonClass, 'w-auto')} href={graphHref(state)}>Open in Graph</Link>
             {ignoredByGraph.length > 0 && <span>Graph does not apply: {ignoredByGraph.join(', ')}.</span>}
             <Link className={cn(ghostButtonClass, 'w-auto')} href={mapHref({ investigation: state })}>Open in Map</Link>
+            <ExportMenu className="ml-auto" hrefFor={format => exportHref.search(criteria, format)} />
           </p>
           <GlassPanel aria-labelledby="timeline-heading" className="p-4">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-4">

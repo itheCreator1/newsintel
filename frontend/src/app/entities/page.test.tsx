@@ -385,3 +385,10 @@ it('edits the dates and note of a link, and removes one', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Remove link to Facebook' }))
   await vi.waitFor(() => expect(api.removeRelation).toHaveBeenCalledWith('r1'))
 })
+
+it('exports the articles that name the entity', async () => {
+  renderWithQuery(() => <EntitiesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Export' }))
+  expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/v1/entities/ent-1/export?format=csv')
+})

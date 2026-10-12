@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
-import { ApiError, api } from '../../lib/api'
+import { ApiError, api, exportHref } from '../../lib/api'
 import { BarChart } from '../../components/BarChart'
 import { AuthorityPanel } from '../../components/AuthorityPanel'
 import { EntityWikidata } from '../../components/EntityWikidata'
@@ -12,6 +12,7 @@ import { SeeAlso } from '../../components/SeeAlso'
 import { GlassPanel } from '../../components/GlassPanel'
 import { PageHeader } from '../../components/PageHeader'
 import { WatchButton } from '../../components/WatchForm'
+import { ExportMenu } from '../../components/ExportMenu'
 import { typeLabel } from '../../lib/authorities'
 import { plural } from '../../lib/utils'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
@@ -131,7 +132,10 @@ function EntityContent() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <GlassPanel className="overflow-hidden p-0">
-          <h3 className="px-6 pt-4 text-sm font-semibold text-foreground">Recent articles</h3>
+          <div className="flex items-center justify-between gap-3 px-6 pt-4">
+            <h3 className="text-sm font-semibold text-foreground">Recent articles</h3>
+            <ExportMenu hrefFor={format => exportHref.entity(id, format)} />
+          </div>
           {articles.isPending && <Note>Loading articles…</Note>}
           {articles.isError && <Note error>Could not load articles.</Note>}
           {articles.data && !articleItems.length && <Note>No articles yet.</Note>}
