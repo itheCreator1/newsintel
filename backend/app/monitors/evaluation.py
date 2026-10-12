@@ -156,7 +156,7 @@ async def search_evaluator(
 
 # Every kind is a search over the same state today; a kind that needs its own query swaps in here.
 EVALUATORS: dict[str, Evaluator] = {
-    kind: search_evaluator for kind in ("search", "entity", "source", "country", "cluster")
+    kind: search_evaluator for kind in ("search", "entity", "source", "country", "cluster", "event")
 }
 
 

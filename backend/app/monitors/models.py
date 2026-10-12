@@ -45,7 +45,7 @@ class Monitor(Base):
         ),
         CheckConstraint("length(btrim(name)) > 0", name="ck_monitors_name_present"),
         CheckConstraint(
-            "kind IN ('search', 'entity', 'source', 'country', 'cluster')",
+            "kind IN ('search', 'entity', 'source', 'country', 'cluster', 'event')",
             name="ck_monitors_kind",
         ),
         CheckConstraint("state_version > 0", name="ck_monitors_state_version"),

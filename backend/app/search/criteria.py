@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.entities.relations import expand
 from app.entities.resolver import expand_for_search
+from app.events.models import EventCluster
 from app.feeds.models import Feed
 from app.nlp.models import Entity, Keyword
 from app.nlp.processors import entity_name_keys
@@ -43,6 +44,9 @@ class SearchCriteria:
     # Source tags, and the sources that carry any of them; what the index is filtered on.
     source_tags: list[str] = field(default_factory=list)
     tag_sources: list[str] = field(default_factory=list)
+    # Events, and the stories they hold now; what the index is filtered on.
+    event_ids: list[str] = field(default_factory=list)
+    event_clusters: list[str] = field(default_factory=list)
 
     @property
     def annotation_search(self) -> bool:
@@ -59,7 +63,7 @@ class SearchCriteria:
 
     @property
     def schema_v3_required(self) -> bool:
-        return bool(self.story_cluster_ids)
+        return bool(self.story_cluster_ids or self.event_ids)
 
     @property
     def empty(self) -> bool:
@@ -70,6 +74,7 @@ class SearchCriteria:
         # A key only when set, so every criteria fingerprint made before see-also stays the same.
         expanded = {"entity_expand": self.entity_expand} if self.entity_expand else {}
         tagged = {"source_tags": self.source_tags} if self.source_tags else {}
+        events = {"events": self.event_ids} if self.event_ids else {}
         return {
             "q": self.q,
             "sources": self.sources,
@@ -87,6 +92,7 @@ class SearchCriteria:
             "story_clusters": self.story_cluster_ids,
             **expanded,
             **tagged,
+            **events,
         }
 
 
@@ -114,6 +120,18 @@ async def _tag_sources(db: AsyncSession, tags: list[str]) -> list[str]:
         return []
     rows = await db.scalars(select(Feed.id).where(cast(Feed.tags, JSONB).has_any(array(tags))))
     return sorted(str(value) for value in rows.all())
+
+
+async def _event_clusters(db: AsyncSession, events: list[str]) -> list[str]:
+    """The stories the events hold now; an event that gains a story later widens a saved search."""
+    if not events:
+        return []
+    rows = await db.scalars(
+        select(EventCluster.cluster_id).where(
+            EventCluster.event_id.in_([uuid.UUID(value) for value in events])
+        )
+    )
+    return sorted({str(value) for value in rows.all()})
 
 
 async def _resolve_annotations(
@@ -158,12 +176,14 @@ async def search_criteria(
     story_cluster_id: Annotated[list[uuid.UUID] | None, Query()] = None,
     entity_expand: Annotated[list[Literal["names", "parts"]] | None, Query()] = None,
     source_tag: Annotated[list[str] | None, Query()] = None,
+    event_id: Annotated[list[uuid.UUID] | None, Query()] = None,
 ) -> SearchCriteria:
     try:
         parsed = parse_query(q)
     except SearchSyntaxError as exc:
         raise HTTPException(422, str(exc)) from exc
     tags = {" ".join(value.split()) for value in source_tag or []} - {""}
+    events = sorted({str(value) for value in event_id or []})
     entity_ids = sorted(
         {
             *(str(value) for value in entity_id or []),
@@ -192,6 +212,8 @@ async def search_criteria(
         entity_expand=sorted(set(entity_expand or [])),
         source_tags=sorted(tags),
         tag_sources=await _tag_sources(db, sorted(tags)),
+        event_ids=events,
+        event_clusters=await _event_clusters(db, events),
         entity_types=sorted({value.upper() for value in entity_type or []}),
         keyword_ids=sorted(
             {
@@ -310,4 +332,7 @@ def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]
         filters.append({"terms": {"mentioned_countries": criteria.mentioned_countries}})
     if criteria.story_cluster_ids:
         filters.append({"terms": {"story_cluster_id": criteria.story_cluster_ids}})
+    if criteria.event_ids:
+        # An empty list matches nothing: an event with no stories left leaves no article.
+        filters.append({"terms": {"story_cluster_id": criteria.event_clusters}})
     return {"bool": {"must": must or [{"match_all": {}}], "filter": filters}}
