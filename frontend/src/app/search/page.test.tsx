@@ -58,8 +58,8 @@ it('commits filters to the URL and resets pagination', async () => {
 
 it('restores annotation criteria and explains annotation syntax', async () => {
   const { rerenderSame } = renderSearch('language=en&story_country=DE&entity_id=entity-one')
-  expect(await screen.findByDisplayValue('en')).toBeTruthy()
-  expect(screen.getByDisplayValue('DE')).toBeTruthy()
+  expect(await screen.findByRole('checkbox', { name: 'English (en)' })).toBeChecked()
+  expect(within(screen.getByRole('group', { name: 'Story country (1)' })).getByRole('checkbox', { name: 'Germany (DE)' })).toBeChecked()
   expect(await screen.findByRole('checkbox', { name: 'Acme (ORG)' })).toBeChecked()
   fireEvent.click(within(screen.getByRole('group', { name: 'Keyword' })).getByRole('checkbox', { name: 'climate policy' }))
   await fireEvent.submit(screen.getByRole('search'))
@@ -250,10 +250,10 @@ it('starts Advanced filters closed without criteria and keeps draft edits when i
 
   fireEvent.click(screen.getByText('Advanced filters'))
   fireEvent.change(screen.getByLabelText('Find a story country'), { target: { value: 'fran' } })
-  fireEvent.click(screen.getByRole('checkbox', { name: 'France (FR)' }))
+  fireEvent.click(within(screen.getByRole('group', { name: 'Story country' })).getByRole('checkbox', { name: 'France (FR)' }))
   fireEvent.click(screen.getByText('Advanced filters'))
   expect(advancedDisclosure().open).toBe(false)
-  expect(screen.getByRole('checkbox', { name: 'France (FR)' })).toBeChecked()
+  expect(within(screen.getByRole('group', { name: 'Story country (1)' })).getByRole('checkbox', { name: 'France (FR)' })).toBeChecked()
   expect(screen.getByText('Advanced filters').textContent).toBe('Advanced filters')
 })
 

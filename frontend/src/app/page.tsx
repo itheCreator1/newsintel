@@ -13,6 +13,7 @@ import { api, ApiError } from '../lib/api'
 import { errorCode, isTransient } from '../lib/filter-ui'
 import { emptyInvestigation, queryFromState, refine, toHref } from '../lib/investigation'
 import { chipClass, fieldClass, labelClass } from '../lib/ui-classes'
+import { countryLabel } from '../lib/countries'
 
 const ENTITY_TYPES = ['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'] as const
 
@@ -59,7 +60,7 @@ export default function OverviewPage() {
     id: entity.entity_id, label: entity.display_text, value: entity.count,
   }))
   const countryItems: BarChartItem[] = (countries.data?.countries ?? []).map(country => ({
-    id: country.country_code, label: country.country_code, value: country.count,
+    id: country.country_code, label: countryLabel(country.country_code), value: country.count,
   }))
 
   return (

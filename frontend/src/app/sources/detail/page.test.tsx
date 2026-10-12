@@ -129,8 +129,8 @@ it('lists coverage with the country roles kept apart', async () => {
 
   expect((await screen.findByRole('link', { name: /Barack Obama/ })).getAttribute('href')).toBe('/entities/?id=ent-1')
   expect(screen.getByText('Greece (GR) · story · 50 articles')).toBeTruthy()
-  expect(screen.getByText('FR · mentioned · 7 articles')).toBeTruthy()
-  expect(screen.getByText('el · 200 articles')).toBeTruthy()
+  expect(screen.getByText('France (FR) · mentioned · 7 articles')).toBeTruthy()
+  expect(screen.getByText('Greek (el) · 200 articles')).toBeTruthy()
 })
 
 it('describes the timing position without ranking the source', async () => {

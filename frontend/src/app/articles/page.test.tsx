@@ -127,7 +127,7 @@ it('shows annotation meanings and preserves search criteria when refining', asyn
   })
   renderWithQuery(() => <ArticlesPage />)
 
-  expect(await screen.findByText('Detected language: en')).toBeTruthy()
+  expect(await screen.findByText('Detected language: English (en)')).toBeTruthy()
   expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Source countries: France (FR)')).toBeTruthy()
   expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === 'Primary story country: Germany (DE) (inferred)')).toBeTruthy()
   expect(screen.getByText(/keywords · stale · queued/)).toBeTruthy()

@@ -20,7 +20,8 @@ it('finds a country by its English or Greek name, with or without accents, or by
   expect(find('Ελλάδα')).toEqual(['GR'])
   expect(find('ελλαδα')).toEqual(['GR'])
   expect(find('gr')).toContain('GR')
-  expect(find('γαλλ')).toEqual(['FR'])
+  expect(find('γαλλια')).toEqual(['FR'])
+  expect(find('γαλλ')).toEqual(expect.arrayContaining(['FR', 'GF', 'PF', 'TF']))
   expect(find('')).toHaveLength(249)
 })
 

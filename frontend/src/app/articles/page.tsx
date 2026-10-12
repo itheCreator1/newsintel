@@ -15,6 +15,7 @@ import { highlightRanges, type ReaderRange } from '../../lib/reader'
 import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/ui-classes'
 import { cn } from '../../lib/utils'
 import { LoadError } from '../../components/Feedback'
+import { countryLabel, languageLabel } from '../../lib/countries'
 
 const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
 
@@ -197,21 +198,21 @@ function ArticlesContent() {
                 {!annotations.isPending && !annotations.isError && annotations.data && (
                   <>
                     {annotations.data.language
-                      ? <p className="text-sm text-foreground">Detected language: {annotations.data.language.language} <span className="text-muted-foreground">({Math.round(annotations.data.language.confidence * 100)}% confidence)</span></p>
+                      ? <p className="text-sm text-foreground">Detected language: {languageLabel(annotations.data.language.language)} <span className="text-muted-foreground">({Math.round(annotations.data.language.confidence * 100)}% confidence)</span></p>
                       : <p className="text-sm text-muted-foreground">Detected language is not available.</p>}
                     <p className="text-sm text-foreground">Source countries: {annotations.data.source_countries.length
                       ? annotations.data.source_countries.map((country, index) => (
-                        <span key={country}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by source country ${country}`} href={refinedSearchHref('source_country', country)}>{country}</Link></span>
+                        <span key={country}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by source country ${countryLabel(country)}`} href={refinedSearchHref('source_country', country)}>{countryLabel(country)}</Link></span>
                       ))
                       : 'None'}</p>
                     <p className="text-sm text-foreground">Mentioned countries: {mentionedCountries.length
                       ? mentionedCountries.map((item, index) => (
-                        <span key={item.country_code}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by mentioned country ${item.country_code}`} href={refinedSearchHref('mentioned_country', item.country_code)}>{item.country_code}</Link></span>
+                        <span key={item.country_code}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by mentioned country ${countryLabel(item.country_code)}`} href={refinedSearchHref('mentioned_country', item.country_code)}>{countryLabel(item.country_code)}</Link></span>
                       ))
                       : 'None'}</p>
                     <p className="text-sm text-foreground">Primary story country: {primaryCountries.length
                       ? primaryCountries.map((item, index) => (
-                        <span key={item.country_code}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by story country ${item.country_code}`} href={refinedSearchHref('story_country', item.country_code)}>{item.country_code}</Link>{item.inferred ? ' (inferred)' : ''}</span>
+                        <span key={item.country_code}>{index ? ', ' : ''}<Link className={chipClass} aria-label={`Filter by story country ${countryLabel(item.country_code)}`} href={refinedSearchHref('story_country', item.country_code)}>{countryLabel(item.country_code)}</Link>{item.inferred ? ' (inferred)' : ''}</span>
                       ))
                       : 'Not inferred'}</p>
                     {annotations.data.keywords.length > 0 && (

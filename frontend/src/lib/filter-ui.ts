@@ -1,5 +1,6 @@
 import { ApiError } from './api'
 import { emptyInvestigation, queryFromState, toHref, type Expansion, type Investigation, type ListField } from './investigation'
+import { countryLabel, languageLabel } from './countries'
 
 export type FilterChip = { key: string; label: string }
 /** Display names already loaded by the page, per ID field; a missing name falls back to the full ID. */
@@ -27,13 +28,22 @@ export function advancedCount(state: Investigation, fields: ListField[], { conte
   return fields.reduce((total, field) => total + unique(state[field]).length, 0) + expansions(state, fields).length + (content && state.content_available !== null ? 1 : 0)
 }
 
+const COUNTRY_CHIP_FIELDS = new Set<ListField>(['source_country', 'story_country', 'mentioned_country'])
+
+/** Countries and languages read as names ("Greece (GR)"); other values have their own label maps. */
+function defaultLabel(field: ListField, value: string): string {
+  if (COUNTRY_CHIP_FIELDS.has(field)) return countryLabel(value)
+  if (field === 'language') return languageLabel(value)
+  return value
+}
+
 export function filterChips(state: Investigation, fields: ListField[], labels: FilterLabels = {}, { content = false } = {}): FilterChip[] {
   const chips: FilterChip[] = []
   if (state.q) chips.push({ key: 'q', label: `Query: ${state.q}` })
   if (state.after) chips.push({ key: 'after', label: `After: ${state.after}` })
   if (state.before) chips.push({ key: 'before', label: `Before: ${state.before}` })
   for (const field of fields) {
-    for (const value of unique(state[field])) chips.push({ key: `${field}:${value}`, label: `${FIELD_NAMES[field]}: ${labels[field]?.get(value) ?? value}` })
+    for (const value of unique(state[field])) chips.push({ key: `${field}:${value}`, label: `${FIELD_NAMES[field]}: ${labels[field]?.get(value) ?? defaultLabel(field, value)}` })
   }
   for (const option of expansions(state, fields)) chips.push({ key: `entity_expand:${option}`, label: `Entity links: ${EXPANSION_NAMES[option]}` })
   if (content && state.content_available !== null) chips.push({ key: 'content_available', label: `Content: ${state.content_available ? 'Available' : 'RSS only'}` })

@@ -17,6 +17,7 @@ import { isNewEdge } from '../../lib/graph-edges'
 import { statedText } from '../../lib/see-also'
 import { api, ApiError } from '../../lib/api'
 import { emptyInvestigation, entityHref, queryFromState, refine, stateFromQuery, toHref, type Investigation } from '../../lib/investigation'
+import { CountryPicker } from '../../components/SearchablePicker'
 
 const MAX_NODES = 50
 /** The backend draws at most this many expansions at once. */
@@ -24,12 +25,11 @@ const MAX_EXPANDED = 5
 const DEFAULT_MIN_WEIGHT = 2
 /** Without a selected entity, the connection list shows the strongest few until asked for all. */
 const LISTED_CONNECTIONS = 20
-const split = (value: string) => value.split(/[\s,]+/).filter(Boolean)
 const edgeKey = (a: string, b: string) => [a, b].sort().join(':')
 
 function formFromState(current: Investigation, nodeCount: number, minWeight: number) {
   return {
-    q: current.q, source_id: [...current.source_id], country: current.source_country.join(', '), story_country: current.story_country.join(', '),
+    q: current.q, source_id: [...current.source_id], country: [...current.source_country], story_country: [...current.story_country],
     entity_type: [...current.entity_type], after: current.after ?? '', before: current.before ?? '', nodes: String(nodeCount), min_weight: String(minWeight),
   }
 }
@@ -137,8 +137,8 @@ function GraphContent() {
   }
   function draftState(draft = form): Investigation {
     return {
-      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: split(draft.country).map(code => code.toUpperCase()),
-      story_country: split(draft.story_country).map(code => code.toUpperCase()), entity_type: draft.entity_type,
+      ...state, q: draft.q.trim(), source_id: draft.source_id, source_country: draft.country,
+      story_country: draft.story_country, entity_type: draft.entity_type,
       after: draft.after || null, before: draft.before || null,
     }
   }
@@ -185,8 +185,8 @@ function GraphContent() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelClass}>Source search<input className={cn(fieldClass, 'mt-1')} value={sourceTerm} onChange={e => setSourceTerm(e.target.value)} placeholder="Find active or retired sources" /></label>
             <label className={labelClass}>Source<select className={cn(fieldClass, 'mt-1')} multiple value={form.source_id} onChange={e => setForm(f => ({ ...f, source_id: selectedValues(e) }))}>{sources.map(source => <option key={source.id} value={source.id}>{source.name}{source.retired ? ' (retired)' : ''}</option>)}</select></label>
-            <label className={labelClass}>Source country<input className={cn(fieldClass, 'mt-1')} value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="US, GR" /></label>
-            <label className={labelClass}>Story country<input className={cn(fieldClass, 'mt-1')} value={form.story_country} onChange={e => setForm(f => ({ ...f, story_country: e.target.value }))} placeholder="DE" /></label>
+            <CountryPicker legend="Source country" selected={form.country} onChange={values => setForm(f => ({ ...f, country: values }))} />
+            <CountryPicker legend="Story country" selected={form.story_country} onChange={values => setForm(f => ({ ...f, story_country: values }))} />
             <label className={labelClass}>Entity type<select className={cn(fieldClass, 'mt-1')} multiple value={form.entity_type} onChange={e => setForm(f => ({ ...f, entity_type: selectedValues(e) }))}>{['PERSON', 'ORG', 'GPE', 'COUNTRY', 'LOCATION', 'EVENT', 'PRODUCT', 'TOPIC', 'OTHER'].map(kind => <option key={kind}>{kind}</option>)}</select></label>
           </div>
         </details>
