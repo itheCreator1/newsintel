@@ -36,6 +36,7 @@ from app.search.schemas import (
     SearchFacets,
     SearchPage,
     SearchResult,
+    SearchResultEntity,
     SearchResultSource,
     SearchSource,
     SearchSourcePage,
@@ -68,7 +69,10 @@ RESULT_FIELDS = [
     "primary_story_country",
     "story_cluster_id",
     "cluster_source_count",
+    "entities",
 ]
+# Entity chips shown on a result; indexing stores an article's entities most relevant first.
+RESULT_ENTITIES = 3
 
 
 def sign_cursor(payload: dict[str, Any], secret: str) -> str:
@@ -138,6 +142,10 @@ def search_result(hit: dict[str, Any]) -> SearchResult:
         ),
         summary="".join(segment.text for segment in segments)[:500] or None,
         highlights=segments,
+        entities=[
+            SearchResultEntity(id=item["id"], text=item["text"], type=item["type"])
+            for item in source.get("entities", [])[:RESULT_ENTITIES]
+        ],
     )
 
 

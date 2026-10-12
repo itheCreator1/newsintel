@@ -23,6 +23,12 @@ class StoryClusterRef(BaseModel):
     source_count: int
 
 
+class SearchResultEntity(BaseModel):
+    id: uuid.UUID
+    text: str
+    type: str
+
+
 class SearchResult(BaseModel):
     article_id: uuid.UUID
     title: str
@@ -34,6 +40,8 @@ class SearchResult(BaseModel):
     story_cluster: StoryClusterRef | None = None
     summary: str | None
     highlights: list[HighlightSegment]
+    # The article's most relevant entities, most relevant first.
+    entities: list[SearchResultEntity] = []
 
 
 class SearchPage(BaseModel):

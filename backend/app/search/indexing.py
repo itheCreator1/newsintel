@@ -103,6 +103,13 @@ async def _load_document(
                     # Not a name: kept in Postgres, never searched, faceted or graphed.
                     Entity.hidden.is_(False),
                 )
+                # Most relevant first: search results show the first few as chips.
+                .order_by(
+                    ArticleEntity.relevance.desc(),
+                    ArticleEntity.occurrence_count.desc(),
+                    Entity.display_text,
+                    Entity.id,
+                )
             )
         ).all()
         other_names = await _other_names(db, [value for _, value in entity_rows])

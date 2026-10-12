@@ -4809,6 +4809,23 @@ export interface components {
             summary: string | null;
             /** Highlights */
             highlights: components["schemas"]["HighlightSegment"][];
+            /**
+             * Entities
+             * @default []
+             */
+            entities: components["schemas"]["SearchResultEntity"][];
+        };
+        /** SearchResultEntity */
+        SearchResultEntity: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Text */
+            text: string;
+            /** Type */
+            type: string;
         };
         /** SearchResultSource */
         SearchResultSource: {
