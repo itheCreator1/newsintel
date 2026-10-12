@@ -5,7 +5,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.auth.models import Session, User  # noqa: F401
+from app.auth.models import LoginFailure, Session, User  # noqa: F401
 from app.clustering.models import (  # noqa: F401
     ArticleClusterState,
     ClusterJob,

@@ -1,4 +1,4 @@
-"""The account from the UI: changing the password, signing out other browsers, and the sign-in limit."""
+"""The account from the UI: a new password, signing out other browsers, the sign-in limit."""
 
 import os
 import uuid
@@ -10,7 +10,7 @@ import httpx
 import pytest
 from sqlalchemy import select, update
 
-from app.auth.limits import LOCKOUT, MAX_FAILURES, LoginFailure
+from app.auth.limits import LOCKOUT, MAX_FAILURES, WINDOW, LoginFailure
 from app.auth.models import User
 from app.auth.security import hash_password
 from app.db.session import session_factory
@@ -57,9 +57,13 @@ async def _sign_in(client: httpx.AsyncClient, username: str, password: str) -> h
     )
 
 
-async def test_changing_the_password_needs_the_current_one_and_signs_out_other_browsers() -> (
-    None
-):
+async def _attempt(username: str, password: str) -> httpx.Response:
+    """A sign-in from a browser that is not signed in yet."""
+    async with _browser() as client:
+        return await _sign_in(client, username, password)
+
+
+async def test_changing_the_password_needs_the_current_one_and_signs_out_other_browsers() -> None:
     username = await _user()
     async with _browser() as here, _browser() as elsewhere, _browser() as fresh:
         assert (await _sign_in(here, username, FIRST)).status_code == 200
@@ -116,50 +120,48 @@ async def test_signing_out_every_other_browser_keeps_this_one() -> None:
 
 async def test_repeated_failed_sign_ins_hold_the_name_for_a_while() -> None:
     username, neighbour = await _user(), await _user()
-    async with _browser() as client:
-        for _ in range(MAX_FAILURES):
-            assert (await _sign_in(client, username, "not-the-password")).status_code == 401
+    for _ in range(MAX_FAILURES):
+        assert (await _attempt(username, "not-the-password")).status_code == 401
 
-        held = await _sign_in(client, username, FIRST)
-        assert held.status_code == 429
-        assert held.json()["detail"] == "Too many failed sign-ins. Try again in 15 minutes."
-        assert int(held.headers["Retry-After"]) == int(LOCKOUT.total_seconds())
-        # Another name, and the same name typed differently, are counted on their own and together.
-        assert (await _sign_in(client, neighbour, FIRST)).status_code == 200
-        assert (await _sign_in(client, f"  {username.upper()} ", FIRST)).status_code == 429
+    held = await _attempt(username, FIRST)
+    assert held.status_code == 429
+    assert held.json()["detail"] == "Too many failed sign-ins. Try again in 15 minutes."
+    assert int(held.headers["Retry-After"]) == int(LOCKOUT.total_seconds())
+    # Another name, and the same name typed differently, are counted on their own and together.
+    assert (await _attempt(neighbour, FIRST)).status_code == 200
+    assert (await _attempt(f"  {username.upper()} ", FIRST)).status_code == 429
 
-        async with session_factory() as db, db.begin():
-            await db.execute(
-                update(LoginFailure)
-                .where(LoginFailure.username == username)
-                .values(locked_until=datetime.now(UTC) - timedelta(seconds=1))
-            )
-        assert (await _sign_in(client, username, FIRST)).status_code == 200
-        async with session_factory() as db:
-            assert await db.scalar(select(LoginFailure).where(LoginFailure.username == username)) is None
+    async with session_factory() as db, db.begin():
+        await db.execute(
+            update(LoginFailure)
+            .where(LoginFailure.username == username)
+            .values(locked_until=datetime.now(UTC) - timedelta(seconds=1))
+        )
+    assert (await _attempt(username, FIRST)).status_code == 200
+    async with session_factory() as db:
+        count = select(LoginFailure).where(LoginFailure.username == username)
+        assert await db.scalar(count) is None
 
 
 async def test_a_successful_sign_in_forgives_earlier_failures() -> None:
     username = await _user()
-    async with _browser() as client:
-        for _ in range(MAX_FAILURES - 1):
-            await _sign_in(client, username, "not-the-password")
-        assert (await _sign_in(client, username, FIRST)).status_code == 200
-        for _ in range(MAX_FAILURES - 1):
-            assert (await _sign_in(client, username, "not-the-password")).status_code == 401
-        assert (await _sign_in(client, username, FIRST)).status_code == 200
+    for _ in range(MAX_FAILURES - 1):
+        await _attempt(username, "not-the-password")
+    assert (await _attempt(username, FIRST)).status_code == 200
+    for _ in range(MAX_FAILURES - 1):
+        assert (await _attempt(username, "not-the-password")).status_code == 401
+    assert (await _attempt(username, FIRST)).status_code == 200
 
 
 async def test_failures_from_long_ago_start_a_new_count() -> None:
     username = await _user()
-    async with _browser() as client:
-        for _ in range(MAX_FAILURES - 1):
-            await _sign_in(client, username, "not-the-password")
-        async with session_factory() as db, db.begin():
-            await db.execute(
-                update(LoginFailure)
-                .where(LoginFailure.username == username)
-                .values(first_failed_at=datetime.now(UTC) - LOCKOUT - timedelta(seconds=1))
-            )
-        assert (await _sign_in(client, username, "not-the-password")).status_code == 401
-        assert (await _sign_in(client, username, FIRST)).status_code == 200
+    for _ in range(MAX_FAILURES - 1):
+        await _attempt(username, "not-the-password")
+    async with session_factory() as db, db.begin():
+        await db.execute(
+            update(LoginFailure)
+            .where(LoginFailure.username == username)
+            .values(first_failed_at=datetime.now(UTC) - WINDOW - timedelta(seconds=1))
+        )
+    assert (await _attempt(username, "not-the-password")).status_code == 401
+    assert (await _attempt(username, FIRST)).status_code == 200

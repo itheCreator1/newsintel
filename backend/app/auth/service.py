@@ -1,11 +1,11 @@
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Session, User
-from app.auth.security import verify_password
+from app.auth.security import hash_password, verify_password
 from app.auth.sessions import generate_session_token, hash_session_token
 from app.core.config import Settings
 
@@ -51,3 +51,34 @@ async def revoke_session(db: AsyncSession, token: str) -> None:
         .values(revoked_at=datetime.now(UTC))
     )
     await db.commit()
+
+
+def _others(record: Session, now: datetime) -> list[ColumnElement[bool]]:
+    return [
+        Session.user_id == record.user_id,
+        Session.id != record.id,
+        Session.revoked_at.is_(None),
+        Session.expires_at > now,
+    ]
+
+
+async def count_other_sessions(db: AsyncSession, record: Session) -> int:
+    now = datetime.now(UTC)
+    query = select(func.count()).select_from(Session).where(*_others(record, now))
+    return await db.scalar(query) or 0
+
+
+async def revoke_other_sessions(db: AsyncSession, record: Session) -> int:
+    """Sign out every other browser of this account; this one stays signed in."""
+    now = datetime.now(UTC)
+    revoked = await db.scalars(
+        update(Session).where(*_others(record, now)).values(revoked_at=now).returning(Session.id)
+    )
+    count = len(revoked.all())
+    await db.commit()
+    return count
+
+
+async def change_password(db: AsyncSession, user: User, record: Session, new_password: str) -> None:
+    user.password_hash = hash_password(new_password)
+    await revoke_other_sessions(db, record)
