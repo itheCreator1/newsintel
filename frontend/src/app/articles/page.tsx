@@ -1,10 +1,11 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteData } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
+import type { ArticleDetail, ArticleListPage, ArticleMark, ArticleMarkUpdate } from '../../lib/api-types'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
 import { ArticleEntityLink } from '../../components/ArticleEntityLink'
 import { ArticleReader } from '../../components/ArticleReader'
@@ -19,6 +20,18 @@ import { LoadError } from '../../components/Feedback'
 import { countryLabel, languageLabel } from '../../lib/countries'
 
 const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
+const SHORTCUTS: [string, string][] = [['j', 'Next article'], ['k', 'Previous article'], ['f', 'Focus mode'], ['s', 'Star or unstar'], ['o', 'Open the original article'], ['?', 'Show these shortcuts'], ['Esc', 'Close focus mode or this list']]
+
+function ShortcutHelp({ onClose }: { onClose(): void }) {
+  return (
+    <div role="dialog" aria-label="Keyboard shortcuts" className="fixed inset-x-4 top-24 z-40 mx-auto max-w-sm rounded-xl border border-border bg-card p-5 shadow-card">
+      <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-semibold text-foreground">Keyboard shortcuts</h3><button type="button" className={ghostButtonClass} onClick={onClose}>Close</button></div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+        {SHORTCUTS.map(([key, action]) => <div key={key} className="contents"><dt><kbd className="rounded border border-border px-1.5 font-mono text-xs">{key}</kbd></dt><dd className="text-muted-foreground">{action}</dd></div>)}
+      </dl>
+    </div>
+  )
+}
 
 function storedHighlights() {
   try { return localStorage.getItem(HIGHLIGHTS_KEY) !== 'off' } catch { return true }
@@ -46,6 +59,16 @@ function ArticlesContent() {
   const contentRunning = articleWorkRunning(detail.data)
   const annotations = useQuery({ queryKey: ['article-annotations', selectedId], queryFn: () => api.articleAnnotations(selectedId!), enabled: Boolean(selectedId), refetchInterval: query => contentRunning || annotationsWorkRunning(query.state.data) ? READER_POLL_MS : false })
   const process = useMutation({ mutationFn: (mode: 'full_text' | 'full_text_html') => api.processArticle(selectedId!, mode), onSuccess: () => { client.invalidateQueries({ queryKey: ['article', selectedId] }); client.invalidateQueries({ queryKey: ['jobs'] }) } })
+  const markArticle = useMutation({
+    mutationFn: (change: ArticleMarkUpdate) => api.updateMark(selectedId!, change),
+    onSuccess: mark => {
+      // Both the open article and its list row change in place, so nothing is fetched again.
+      client.setQueryData<ArticleDetail>(['article', mark.article_id], current => current && { ...current, mark })
+      client.setQueryData<InfiniteData<ArticleListPage>>(['articles', feedId], current => current && {
+        ...current, pages: current.pages.map(page => ({ ...page, items: page.items.map(item => item.id === mark.article_id ? { ...item, read: mark.read, starred: mark.starred } : item) })),
+      })
+    },
+  })
   const reprocess = useMutation({ mutationFn: () => api.reprocessArticle(selectedId!), onSuccess: () => { client.invalidateQueries({ queryKey: ['article-annotations', selectedId] }); client.invalidateQueries({ queryKey: ['nlp-status'] }) } })
   const mentionedCountries = annotations.data?.countries.filter(item => item.role === 'mentioned') ?? []
   const primaryCountries = annotations.data?.countries.filter(item => item.role === 'primary') ?? []
@@ -55,10 +78,28 @@ function ArticlesContent() {
   const text = detail.data?.content?.text ?? null
   // Both queries refetch while work runs; unchanged data keeps its identity, so this does not recompute.
   const ranges = useMemo(() => highlights && text && annotations.data ? highlightRanges(text, annotations.data) : [], [highlights, text, annotations.data])
+  const mark: ArticleMark | null = detail.data?.mark ?? null
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteSaved, setNoteSaved] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const autoRead = useRef<string | undefined>(undefined)
   const listRef = useRef<HTMLElement>(null)
   const readerRef = useRef<HTMLElement>(null)
 
-  useEffect(() => { process.reset(); reprocess.reset() /* eslint-disable-line react-hooks/exhaustive-deps */ }, [selectedId])
+  useEffect(() => { process.reset(); reprocess.reset(); setNoteSaved(false) /* eslint-disable-line react-hooks/exhaustive-deps */ }, [selectedId])
+
+  // Opening an article marks it read, once: marking it unread again is not undone while it stays open.
+  const loadedId = detail.data?.id
+  useEffect(() => {
+    if (!loadedId || autoRead.current === loadedId) return
+    autoRead.current = loadedId
+    if (!detail.data?.mark?.read) markArticle.mutate({ read: true })
+  }, [loadedId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setNoteDraft(mark?.note ?? '') }, [loadedId, mark?.note])
+
+  function toggleStar() { if (detail.data) markArticle.mutate({ starred: !mark?.starred }) }
+  function saveNote() { markArticle.mutate({ note: noteDraft }, { onSuccess: () => setNoteSaved(true) }) }
+  function openOriginal() { if (detail.data) window.open(detail.data.original_url, '_blank', 'noopener,noreferrer') }
 
   function setQuery(values: Record<string, string | undefined>) {
     const next = new URLSearchParams(searchParams.toString())
@@ -112,6 +153,10 @@ function ArticlesContent() {
       if (event.key === 'j') step(1)
       else if (event.key === 'k') step(-1)
       else if (event.key === 'f' && selectedId) setQuery({ focus: focused ? undefined : '1' })
+      else if (event.key === 's') toggleStar()
+      else if (event.key === 'o') openOriginal()
+      else if (event.key === '?') setHelpOpen(open => !open)
+      else if (event.key === 'Escape' && helpOpen) setHelpOpen(false)
       else if (event.key === 'Escape' && focused) setQuery({ focus: undefined })
     }
     window.addEventListener('keydown', onKeyDown)
@@ -145,7 +190,12 @@ function ArticlesContent() {
           {!articles.isPending && !articles.isError && !articleItems.length && <p className="text-sm text-muted-foreground px-6 py-4">No collected articles.</p>}
           {articleItems.map(article => (
             <button key={article.id} aria-current={article.id === selectedId ? 'true' : undefined} className="article-row flex w-full flex-col gap-1 border-t border-border px-6 py-4 text-left transition-colors first:border-t-0 hover:bg-accent/40 aria-[current=true]:bg-accent aria-[current=true]:shadow-[inset_3px_0_0_0_var(--primary)]" onClick={() => setQuery({ article: article.id })}>
-              <strong className="text-[15px] font-semibold text-foreground">{article.title}</strong>
+              <span className="flex items-start gap-2">
+                {!article.read && <span className="mt-2 size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />}
+                <strong className={cn('text-[15px] text-foreground', article.read ? 'font-normal text-muted-foreground' : 'font-semibold')}>{article.title}</strong>
+                {!article.read && <span className="sr-only">Unread</span>}
+                {article.starred && <span className="ml-auto text-primary" role="img" aria-label="Starred">★</span>}
+              </span>
               <span className="text-xs text-muted-foreground">{new Date(article.first_discovered_at).toLocaleString()}</span>
               <small className="text-xs text-muted-foreground">{article.provenance.map(p => p.feed_name).join(', ')}</small>
             </button>
@@ -160,6 +210,11 @@ function ArticlesContent() {
               <button type="button" className={ghostButtonClass} title="Next article (j)" disabled={!hasNext || articles.isFetchingNextPage} onClick={() => step(1)}>Next</button>
               <button type="button" className={ghostButtonClass} title="Focus mode (f)" aria-pressed={focused} onClick={() => setQuery({ focus: focused ? undefined : '1' })}>{focused ? 'Exit focus' : 'Focus'}</button>
               <button type="button" className={cn(ghostButtonClass, highlights && 'border-ring text-foreground')} title="Mark entities and keywords in the text" aria-pressed={highlights} onClick={toggleHighlights}>Highlights</button>
+              {detail.data && <>
+                <button type="button" className={cn(ghostButtonClass, mark?.starred && 'border-ring text-primary')} title="Star (s)" aria-label="Star" aria-pressed={Boolean(mark?.starred)} disabled={markArticle.isPending} onClick={toggleStar}>{mark?.starred ? '★' : '☆'} Star</button>
+                <button type="button" className={ghostButtonClass} disabled={markArticle.isPending} onClick={() => markArticle.mutate({ read: !mark?.read })}>{mark?.read ? 'Mark as unread' : 'Mark as read'}</button>
+              </>}
+              <button type="button" className={ghostButtonClass} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => setHelpOpen(open => !open)}>?</button>
               {from && <Link className="ml-auto text-sm text-primary underline-offset-4 hover:underline" href={from}>{backLabel}</Link>}
             </div>
           )}
@@ -177,7 +232,15 @@ function ArticlesContent() {
                 ranges={ranges}
                 hrefFor={rangeHref}
               />
-              <a className="text-sm text-primary underline-offset-4 hover:underline" href={detail.data.original_url} target="_blank" rel="noopener noreferrer">Open original article</a>
+              <a className="text-sm text-primary underline-offset-4 hover:underline" href={detail.data.original_url} target="_blank" rel="noopener noreferrer" title="Open the original (o)">Open original article</a>
+              <form className="flex flex-col gap-2" onSubmit={event => { event.preventDefault(); saveNote() }}>
+                <label className={labelClass}>Note<textarea className={cn(fieldClass, 'mt-1 min-h-16')} maxLength={4000} value={noteDraft} onChange={event => { setNoteDraft(event.target.value); setNoteSaved(false) }} placeholder="Your own note on this article" /></label>
+                <div className="flex items-center gap-3">
+                  <button type="submit" className={ghostButtonClass} disabled={markArticle.isPending || noteDraft.trim() === (mark?.note ?? '')}>Save note</button>
+                  {noteSaved && <p role="status" className="text-sm text-primary">Note saved.</p>}
+                  {markArticle.isError && <p className="error text-sm text-destructive">Could not save this mark.</p>}
+                </div>
+              </form>
               <div className="flex gap-2">
                 <button type="button" className={cn(fieldClass, 'w-auto bg-primary text-primary-foreground')} disabled={process.isPending} onClick={() => process.mutate('full_text')}>{detail.data.content ? 'Refresh text' : 'Fetch text'}</button>
               </div>
@@ -292,6 +355,7 @@ function ArticlesContent() {
           )}
         </GlassPanel>
       </div>
+      {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }

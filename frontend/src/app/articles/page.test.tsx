@@ -30,6 +30,8 @@ const article = (id: string, title: string) => ({
   published_at: null,
   first_discovered_at: '2026-09-13T12:00:00Z',
   provenance: [],
+  read: false,
+  starred: false,
 })
 
 beforeEach(() => {
