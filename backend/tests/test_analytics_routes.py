@@ -295,12 +295,11 @@ async def test_rising_entities_compare_the_last_day_with_the_week_before(
         ("Surge", 12, 2.0),
     ]
     _, sent = adapter.bodies[0]
-    assert _cutoff(sent["query"]) == pytest.approx(
-        datetime.now(UTC) - timedelta(days=8), abs=timedelta(minutes=1)
+    assert abs(_cutoff(sent["query"]) - (datetime.now(UTC) - timedelta(days=8))) < timedelta(
+        minutes=1
     )
     top = sent["aggs"]["entities"]["aggs"]["top"]
     assert top["terms"]["order"][0] == {"back>today": "desc"}
     today = top["aggs"]["back"]["aggs"]["today"]["filter"]["range"]["first_discovered_at"]["gte"]
-    assert datetime.fromisoformat(today) == pytest.approx(
-        datetime.now(UTC) - timedelta(days=1), abs=timedelta(minutes=1)
-    )
+    since = datetime.fromisoformat(today)
+    assert abs(since - (datetime.now(UTC) - timedelta(days=1))) < timedelta(minutes=1)
