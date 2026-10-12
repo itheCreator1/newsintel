@@ -18,6 +18,7 @@ from app.feeds.routes import router as feeds_router
 from app.geo.routes import router as geo_router
 from app.graph.routes import router as graph_router
 from app.investigations.routes import router as investigations_router
+from app.marks.routes import router as marks_router
 from app.monitors.routes import router as monitors_router
 from app.nlp.routes import router as nlp_router
 from app.operations.routes import router as operations_router
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(feeds_router, prefix="/api/v1")
     app.include_router(articles_router, prefix="/api/v1")
+    app.include_router(marks_router, prefix="/api/v1")
     app.include_router(nlp_router, prefix="/api/v1")
     app.include_router(entities_router, prefix="/api/v1")
     app.include_router(wikidata_router, prefix="/api/v1")

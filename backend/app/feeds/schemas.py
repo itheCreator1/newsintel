@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
+from app.marks.schemas import ArticleMarkResponse
+
 MAX_TAG_LENGTH = 40
 FetchingMode = Literal["rss", "full_text", "full_text_html"]
 
@@ -185,10 +187,17 @@ class ArticleDetailResponse(ArticleResponse):
     clustering_status: str | None = None
     story_cluster: ArticleStoryCluster | None = None
     related: list[RelatedArticle] = Field(default_factory=list)
+    # The reader's own marks; absent only where a detail is built outside the article route.
+    mark: ArticleMarkResponse | None = None
+
+
+class ArticleListItem(ArticleResponse):
+    read: bool
+    starred: bool
 
 
 class ArticlePage(BaseModel):
-    items: list[ArticleResponse]
+    items: list[ArticleListItem]
     next_cursor: str | None
 
 

@@ -23,6 +23,7 @@ from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFet
 from app.feeds.opml import OpmlEntry, OpmlError, parse_opml, render_opml
 from app.feeds.schemas import (
     ArticleDetailResponse,
+    ArticleListItem,
     ArticlePage,
     ArticleStoryCluster,
     CursorPage,
@@ -50,6 +51,8 @@ from app.feeds.service import (
     fetch_now,
     send_fetch,
 )
+from app.marks.models import ArticleMark
+from app.marks.service import mark_response, marks_for
 from app.search.service import request_source_refresh
 
 router = APIRouter(tags=["feeds"])
@@ -390,8 +393,18 @@ async def list_articles(
         if len(rows) > limit
         else None
     )
+    page = rows[:limit]
+    marks = await marks_for(db, [row.id for row in page])
     return ArticlePage(
-        items=[article_response(row) for row in rows[:limit]], next_cursor=next_cursor
+        items=[
+            ArticleListItem(
+                **article_response(row).model_dump(),
+                read=row.id in marks and marks[row.id].read_at is not None,
+                starred=row.id in marks and marks[row.id].starred,
+            )
+            for row in page
+        ],
+        next_cursor=next_cursor
     )
 
 
@@ -453,4 +466,5 @@ async def get_article(article_id: uuid.UUID, db: Db, _auth: Auth) -> ArticleDeta
         clustering_status=cluster_state.status if cluster_state is not None else None,
         story_cluster=story_cluster,
         related=related,
+        mark=mark_response(article.id, await db.get(ArticleMark, article.id)),
     )
