@@ -221,7 +221,6 @@ async def detail(db: AsyncSession, feed: Feed, days: int) -> SourceDetail:
     )
     return SourceDetail(
         **FeedResponse.model_validate(feed).model_dump(),
-        retired_at=feed.retired_at,
         first_seen_at=first_seen,
         last_seen_at=last_seen,
         health=SourceHealth(

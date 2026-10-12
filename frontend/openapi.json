@@ -233,6 +233,76 @@
               "default": 30,
               "title": "Limit"
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "active",
+                    "disabled",
+                    "failing",
+                    "retired"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "newest",
+                "name"
+              ],
+              "type": "string",
+              "default": "newest",
+              "title": "Sort"
+            }
           }
         ],
         "responses": {
@@ -309,6 +379,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feeds/tags": {
+      "get": {
+        "tags": [
+          "feeds"
+        ],
+        "summary": "List Feed Tags",
+        "description": "Every tag on a source that is not retired, with how many sources carry it.",
+        "operationId": "list_feed_tags_api_v1_feeds_tags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeedTagCount"
+                  },
+                  "type": "array",
+                  "title": "Response List Feed Tags Api V1 Feeds Tags Get"
                 }
               }
             }
@@ -14521,6 +14617,11 @@
           },
           "fetching_mode": {
             "type": "string",
+            "enum": [
+              "rss",
+              "full_text",
+              "full_text_html"
+            ],
             "title": "Fetching Mode"
           },
           "next_poll_at": {
@@ -14544,6 +14645,52 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "retired_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired At"
+          },
+          "last_fetch_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch Status"
+          },
+          "last_fetch_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch Error"
+          },
+          "last_fetch_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch At"
           }
         },
         "type": "object",
@@ -14562,6 +14709,24 @@
           "created_at"
         ],
         "title": "FeedResponse"
+      },
+      "FeedTagCount": {
+        "properties": {
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tag",
+          "count"
+        ],
+        "title": "FeedTagCount"
       },
       "FeedTotals": {
         "properties": {
@@ -18654,6 +18819,11 @@
           },
           "fetching_mode": {
             "type": "string",
+            "enum": [
+              "rss",
+              "full_text",
+              "full_text_html"
+            ],
             "title": "Fetching Mode"
           },
           "next_poll_at": {
@@ -18689,6 +18859,40 @@
               }
             ],
             "title": "Retired At"
+          },
+          "last_fetch_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch Status"
+          },
+          "last_fetch_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch Error"
+          },
+          "last_fetch_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch At"
           },
           "first_seen_at": {
             "anyOf": [

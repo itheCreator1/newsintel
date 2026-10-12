@@ -1,4 +1,4 @@
-import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityBulk, AuthorityBulkResult, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsFeeds, OpsHealth, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClaimResult, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, GraphResponse, IndexStatus, IngestionTimeline, InvestigationState, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, ActivityFilter, ActivityPage, ProcessKey, ProcessesResponse, RetryFailedResponse, RunNowResponse, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
+import type { AnnotationLookupPage, SeeAlso, SeeAlsoCreate, SeeAlsoItem, SeeAlsoUpdate, AuthorityBulk, AuthorityBulkResult, AuthorityFilters, AuthorityHistoryPage, AuthorityRootPage, AuthoritySuggestionList, OpsFeeds, OpsHealth, OpsStorage, GeoArticlePage, GeoArticleRole, GeoCountriesResponse, GeoRole, CompareArticlePage, CompareClusterPage, CompareKind, ComparePart, CompareResponse, CompareRole, Article, ArticleAnnotations, ArticleDetail, ClusterDetail, CursorPage, EdgeEvidence, EntityArticlePage, EntityAuthority, EntityAuthorityRun, EntityAuthorityUpdate, EntityClaimResult, EntityClusterPage, EntityDossier, EntityHistory, EntityRelationships, EntityVariantList, EventArticlePage, EventClusterPage, EventDetail, EventPage, EventTimelinePage, Feed, FeedFetch, FeedTagCount, GraphResponse, IndexStatus, IngestionTimeline, InvestigationState, NlpStatus, MonitorChanges, MonitorKind, MonitorPage, MonitorResultPage, Monitor, SavedSearch, SavedSearchPage, RelatedCoverage, SearchFacets, SearchPage, SearchSourcePage, SearchTimeline, SourceArticlePage, SourceClusterPage, SourceCoverage, SourceDetail, SourceFetchPage, SourceTiming, StopWords, GreekEntities, TopCountries, TopEntities, OpsWikidata, ActivityFilter, ActivityPage, ProcessKey, ProcessesResponse, RetryFailedResponse, RunNowResponse, WikidataApprove, WikidataLink, WikidataName, WikidataReviewPage, WikidataRun } from './api-types'
 
 export interface User { id: string; username: string }
 
@@ -53,7 +53,8 @@ export const api = {
     const { csrf_token } = await request<{ csrf_token: string }>('/auth/csrf')
     return request<void>('/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrf_token } })
   },
-  feeds: (cursor?: string) => request<CursorPage<Feed>>(`/feeds${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
+  feeds: (cursor?: string, params: FeedListParams = {}) => request<CursorPage<Feed>>(`/feeds${query({ ...params, cursor })}`),
+  feedTags: () => request<FeedTagCount[]>('/feeds/tags'),
   createFeed: (payload: { name: string; url: string; source_country?: string; expected_language?: string; tags?: string[]; poll_interval_minutes?: number; fetching_mode?: 'rss' | 'full_text' | 'full_text_html' }) => mutate<Feed>('/feeds', 'POST', payload),
   updateFeed: (id: string, payload: Partial<Feed>) => mutate<Feed>(`/feeds/${id}`, 'PATCH', payload),
   retireFeed: (id: string) => mutate<void>(`/feeds/${id}`, 'DELETE'),
@@ -173,6 +174,9 @@ export const api = {
 
 type Filters = Record<string, string | string[] | undefined>
 export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
+
+/** Sources list filters; an omitted key means all sources that are not retired, newest first. */
+export interface FeedListParams { q?: string; status?: 'active' | 'disabled' | 'failing' | 'retired'; tag?: string; sort?: 'name' }
 
 export interface CompareSpec { kind: CompareKind; a: string; b: string; role?: CompareRole; days: number }
 

@@ -17,7 +17,7 @@ vi.mock('../../../components/BarChart', () => ({
 
 const detail = (over = {}) => ({
   id: 's-1', name: 'Relationships Wire', url: 'https://wire.example/rss', source_country: 'GR', expected_language: 'el', tags: [], enabled: true,
-  poll_interval_minutes: 30, fetching_mode: 'full_text', next_poll_at: '2026-09-21T10:30:00Z', last_success_at: '2026-09-21T10:00:00Z', created_at: '2026-08-01T00:00:00Z',
+  poll_interval_minutes: 30, fetching_mode: 'full_text' as const, next_poll_at: '2026-09-21T10:30:00Z', last_success_at: '2026-09-21T10:00:00Z', created_at: '2026-08-01T00:00:00Z',
   retired_at: null, first_seen_at: '2026-08-02T00:00:00Z', last_seen_at: '2026-09-21T09:00:00Z',
   health: { last_attempt_at: '2026-09-21T10:00:00Z', last_attempt_status: 'success', last_failure: null, consecutive_failures: 0 },
   window_days: 30,

@@ -2,10 +2,47 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
+
+MAX_TAG_LENGTH = 40
+FetchingMode = Literal["rss", "full_text", "full_text_html"]
 
 
-class FeedCreate(BaseModel):
+def _clean_tags(tags: list[str] | None) -> list[str] | None:
+    """Trimmed, inner spaces collapsed, empties dropped, and one of each ignoring case."""
+    if tags is None:
+        return None
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in tags:
+        tag = " ".join(raw.split())
+        if not tag or tag.casefold() in seen:
+            continue
+        if len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"A tag is at most {MAX_TAG_LENGTH} characters")
+        seen.add(tag.casefold())
+        cleaned.append(tag)
+    return cleaned
+
+
+class _FeedCodes(BaseModel):
+    @field_validator("source_country", check_fields=False)
+    @classmethod
+    def _upper_country(cls, value: str | None) -> str | None:
+        return value.upper() if value else value
+
+    @field_validator("expected_language", check_fields=False)
+    @classmethod
+    def _lower_language(cls, value: str | None) -> str | None:
+        return value.lower() if value else value
+
+    @field_validator("tags", check_fields=False)
+    @classmethod
+    def _tags(cls, value: list[str] | None) -> list[str] | None:
+        return _clean_tags(value)
+
+
+class FeedCreate(_FeedCodes):
     name: str = Field(min_length=1, max_length=200)
     url: AnyHttpUrl
     source_country: str | None = Field(default=None, min_length=2, max_length=2)
@@ -13,10 +50,10 @@ class FeedCreate(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=50)
     enabled: bool = True
     poll_interval_minutes: int = Field(default=60, ge=5, le=10080)
-    fetching_mode: Literal["rss", "full_text", "full_text_html"] = "rss"
+    fetching_mode: FetchingMode = "rss"
 
 
-class FeedUpdate(BaseModel):
+class FeedUpdate(_FeedCodes):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     url: AnyHttpUrl | None = None
     source_country: str | None = Field(default=None, min_length=2, max_length=2)
@@ -24,7 +61,7 @@ class FeedUpdate(BaseModel):
     tags: list[str] | None = Field(default=None, max_length=50)
     enabled: bool | None = None
     poll_interval_minutes: int | None = Field(default=None, ge=5, le=10080)
-    fetching_mode: Literal["rss", "full_text", "full_text_html"] | None = None
+    fetching_mode: FetchingMode | None = None
 
 
 class FeedResponse(BaseModel):
@@ -37,10 +74,20 @@ class FeedResponse(BaseModel):
     tags: list[str]
     enabled: bool
     poll_interval_minutes: int
-    fetching_mode: str
+    fetching_mode: FetchingMode
     next_poll_at: datetime
     last_success_at: datetime | None
     created_at: datetime
+    retired_at: datetime | None = None
+    # The newest finished fetch, filled in by the list.
+    last_fetch_status: str | None = None
+    last_fetch_error: str | None = None
+    last_fetch_at: datetime | None = None
+
+
+class FeedTagCount(BaseModel):
+    tag: str
+    count: int
 
 
 class CursorPage(BaseModel):

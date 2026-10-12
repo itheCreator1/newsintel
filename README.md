@@ -176,7 +176,7 @@ An established name can be tied to one Wikidata item (MARC 024 with `$2 wikidata
 - **Offline is fine.** Everything is read from PostgreSQL, so the archive works without the internet; only new suggestions wait. Nothing is sent until you set `NEWSINTEL_WIKIDATA_CONTACT` (an email address or a URL, which Wikimedia's User-Agent policy requires), and `NEWSINTEL_WIKIDATA_ENABLED=false` stops all traffic. `python -m app.cli wikidata status` shows the state and the day's budget, and `wikidata refresh --all` (or `--qid Q…`) refreshes now. Data from Wikidata is CC0.
 
 The remaining routes follow the same design language:
-- **Sources**: per-feed dossiers with health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
+- **Sources**: a list you can search by name or URL, filter by state (collecting, failing, disabled, retired) or tag, and sort by name; each source is edited in place (name, URL, country, language, tags, collection mode, interval). Per-feed dossiers have health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
 - **Compare**: two entities, two sources or two countries side by side, with the articles and stories only one has and those both share.
 - **Clusters** and **Articles**.
 - **Processes**: every background process on one page (it replaces Jobs and Operations): service health, a card per process, one activity list with Retry and Stop, feed health and storage.

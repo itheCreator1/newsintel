@@ -2,6 +2,7 @@ import type { components, operations } from './types.generated'
 
 export type Feed = components['schemas']['FeedResponse']
 export type FeedFetch = components['schemas']['FetchResponse']
+export type FeedTagCount = components['schemas']['FeedTagCount']
 export type Article = components['schemas']['ArticleResponse']
 export type ArticleDetail = components['schemas']['ArticleDetailResponse']
 export type ArticleProvenance = components['schemas']['ArticleProvenance']
