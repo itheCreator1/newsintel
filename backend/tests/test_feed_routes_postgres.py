@@ -5,10 +5,14 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app.db.session import session_factory
 from app.feeds import routes as feed_routes
+from app.feeds.discovery import FeedProbe, FeedProbeError
 from app.feeds.models import Feed, FeedFetch
+from app.feeds.opml import OpmlEntry, parse_opml, render_opml
+from app.feeds.schemas import FeedCreate, FeedImport, FeedTestRequest, OpmlPreviewRequest
 
 pytestmark = [
     pytest.mark.skipif(
@@ -182,3 +186,111 @@ async def test_feed_tags_count_the_sources_that_carry_them() -> None:
         }  # type: ignore[arg-type]
         assert counts[tag] == 2
         assert counts[f"{tag}-extra"] == 1
+
+
+async def test_opml_export_lists_the_sources_that_are_not_retired() -> None:
+    tag = f"tag-{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db:
+        kept = await _feed(db, tag, "Kept", source_country="GR", expected_language="el")
+        await _feed(db, tag, "Gone", enabled=False, retired_at=datetime.now(UTC))
+        await db.commit()
+        response = await feed_routes.export_opml(db, SimpleNamespace())  # type: ignore[arg-type]
+    assert response.media_type == "text/x-opml"
+    assert "newsintel-sources.opml" in response.headers["content-disposition"]
+    entries = {entry.url: entry for entry in parse_opml(response.body).entries}
+    assert entries[kept.url] == OpmlEntry("Kept", kept.url, [tag], "GR", "el")
+    assert not any(entry.name == "Gone" and tag in entry.tags for entry in entries.values())
+
+
+async def test_opml_preview_marks_known_addresses_and_import_adds_only_new_ones() -> None:
+    tag = f"tag-{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db:
+        known = await _feed(db, tag, "Known")
+        await db.commit()
+        fresh = f"https://fresh.example/{uuid.uuid4().hex}.xml"
+        document = render_opml(
+            [
+                OpmlEntry("Known again", known.url, [tag], None, None),
+                OpmlEntry("Fresh", fresh, [tag, "imported"], "GR", "el"),
+            ],
+            title="t",
+        )
+        preview = await feed_routes.preview_opml(
+            OpmlPreviewRequest(opml=document.decode()),
+            db,
+            SimpleNamespace(),  # type: ignore[arg-type]
+        )
+        assert [(item.name, item.existing_feed_id) for item in preview.items] == [
+            ("Known again", known.id),
+            ("Fresh", None),
+        ]
+        assert preview.invalid == 0
+
+        result = await feed_routes.import_feeds(
+            FeedImport(
+                feeds=[
+                    FeedCreate(
+                        name=item.name,
+                        url=item.url,
+                        tags=item.tags,
+                        source_country=item.source_country,
+                        expected_language=item.expected_language,
+                    )
+                    for item in preview.items
+                ]
+            ),
+            db,
+            SimpleNamespace(),  # type: ignore[arg-type]
+        )
+        assert (result.created, result.skipped) == (1, 1)
+        page = await _list(db, tag=tag, sort="name")
+        assert [(item.name, item.source_country, item.tags) for item in page.items] == [
+            ("Fresh", "GR", [tag, "imported"]),
+            ("Known", None, [tag]),
+        ]
+
+
+async def test_opml_preview_says_when_a_file_is_not_opml() -> None:
+    async with session_factory() as db:
+        with pytest.raises(HTTPException) as raised:
+            await feed_routes.preview_opml(
+                OpmlPreviewRequest(opml="<rss/>"),
+                db,
+                SimpleNamespace(),  # type: ignore[arg-type]
+            )
+    assert raised.value.status_code == 422
+
+
+async def test_testing_a_feed_says_whether_it_is_already_a_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tag = f"tag-{uuid.uuid4().hex[:8]}"
+    async with session_factory() as db:
+        known = await _feed(db, tag, "Known")
+        await db.commit()
+
+        async def probe(url: str, _fetch: object) -> FeedProbe:
+            return FeedProbe(url, "Title", 3, "en", None, None, [])
+
+        monkeypatch.setattr(feed_routes, "probe_feed", probe)
+        result = await feed_routes.test_feed_url(
+            FeedTestRequest(url=known.url),
+            db,
+            SimpleNamespace(),  # type: ignore[arg-type]
+        )
+        assert (result.title, result.entry_count, result.existing_feed_id) == ("Title", 3, known.id)
+
+        async def broken(url: str, _fetch: object) -> FeedProbe:
+            raise FeedProbeError("The address answered HTTP 404")
+
+        monkeypatch.setattr(feed_routes, "probe_feed", broken)
+        with pytest.raises(HTTPException) as raised:
+            await feed_routes.test_feed_url(
+                FeedTestRequest(url="https://x.example/"),
+                db,
+                SimpleNamespace(),  # type: ignore[arg-type]
+            )
+        assert (raised.value.status_code, raised.value.detail) == (
+            422,
+            "The address answered HTTP 404",
+        )
