@@ -890,3 +890,144 @@ async def test_ner_stores_two_names_of_one_root_as_one_row(
     assert sorted(str(item.get("entity_id")) for item in rows[0].occurrences) == sorted(
         ["None", str(variant_id)]
     )
+
+
+GREEK_TITLE = "Η Τουρκία απάντησε στην Ελλάδα για τα ενεργειακά σχέδια στην Ανατολική Μεσόγειο"
+GREEK_DESCRIPTION = (
+    "Η κυβέρνηση της Τουρκίας εξέδωσε ανακοίνωση για τα ενεργειακά σχέδια της Ελλάδας και της "
+    "Κύπρου, ενώ οι αγορές ενέργειας αντέδρασαν με ανησυχία στις νέες εξελίξεις της εβδομάδας."
+)
+
+
+async def _greek_article(processors: tuple[str, ...]) -> list[uuid.UUID]:
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title=GREEK_TITLE,
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        feed = Feed(
+            name="Greek NLP source",
+            url=f"https://example.test/{uuid.uuid4()}.xml",
+            tags=[],
+            enabled=True,
+            poll_interval_minutes=30,
+            fetching_mode="rss",
+        )
+        db.add_all([article, feed])
+        await db.flush()
+        db.add(
+            FeedArticle(
+                feed_id=feed.id,
+                article_id=article.id,
+                feed_title=article.title,
+                feed_url=article.original_url,
+                description=GREEK_DESCRIPTION,
+                metadata_json={},
+            )
+        )
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=processors)
+        await db.flush()
+        jobs = list((await db.scalars(select(NlpJob).where(NlpJob.article_id == article.id))).all())
+        article_id = article.id
+    for job in jobs:
+        async with session_factory() as db:
+            claimed = await claim_job(db, job.id, lease_seconds=60)
+        assert claimed is not None
+        await process_job(job.id, claimed[1])
+    return [article_id]
+
+
+async def test_greek_articles_get_greek_keywords_and_countries() -> None:
+    from app.nlp.models import ArticleKeyword, Keyword
+
+    (article_id,) = await _greek_article(("keywords", "countries"))
+
+    async with session_factory() as db:
+        keywords = list(
+            (
+                await db.scalars(
+                    select(Keyword)
+                    .join(ArticleKeyword, ArticleKeyword.keyword_id == Keyword.id)
+                    .where(
+                        ArticleKeyword.article_id == article_id,
+                        ArticleKeyword.is_current.is_(True),
+                    )
+                )
+            ).all()
+        )
+        countries = list(
+            (
+                await db.scalars(
+                    select(ArticleCountryAnnotation).where(
+                        ArticleCountryAnnotation.article_id == article_id,
+                        ArticleCountryAnnotation.is_current.is_(True),
+                    )
+                )
+            ).all()
+        )
+    assert keywords
+    assert {keyword.language for keyword in keywords} == {"el"}
+    # The default Greek stop words keep function words out.
+    assert not {"και", "της", "στην"} & {keyword.normalized_text for keyword in keywords}
+    mentioned = {item.country_code for item in countries if item.role == "mentioned"}
+    assert {"TR", "GR", "CY"} <= mentioned
+    primary = [item.country_code for item in countries if item.role == "primary"]
+    assert primary == []  # two countries in the title: no single story country
+
+
+async def test_greek_stop_words_have_their_own_revisions_and_requeue_keywords() -> None:
+    async with session_factory() as db, db.begin():
+        greek = await current_stop_words(db, "el")
+        english = await current_stop_words(db, "en")
+        assert "και" in greek.words and "the" not in greek.words
+        assert "the" in english.words
+
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title=GREEK_TITLE,
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("keywords",))
+        unique_word = "λεξη" + "".join(chr(0x3B1 + byte % 24) for byte in uuid.uuid4().bytes)
+        updated = await update_stop_words(
+            db, language="el", current_revision=greek.revision, words=[*greek.words, unique_word]
+        )
+        assert updated.language == "el" and updated.revision == greek.revision + 1
+        assert (await current_stop_words(db, "en")).revision == english.revision
+        # A Greek list change asks for new keywords, like an English one does.
+        assert await request_article_nlp(db, article.id, processor_names=("keywords",)) == 1
+
+
+async def test_story_and_event_titles_drop_greek_and_english_stop_words() -> None:
+    from app.nlp.service import title_stop_words
+
+    async with session_factory() as db, db.begin():
+        words = await title_stop_words(db)
+
+    assert {"the", "and", "και", "της", "για"} <= words
+
+
+async def test_stop_words_routes_take_a_language() -> None:
+    from app.nlp import routes
+    from app.nlp.schemas import StopWordsUpdate
+
+    async with session_factory() as db:
+        greek = await routes.get_stop_words(db, None, language="el")  # type: ignore[arg-type]
+        english = await routes.get_stop_words(db, None)  # type: ignore[arg-type]
+        assert greek.language == "el" and "και" in greek.words
+        assert english.language == "en"
+        saved = await routes.put_stop_words(
+            StopWordsUpdate(current_revision=greek.revision, words=[*greek.words, "αυτοσ"]),
+            db,
+            None,  # type: ignore[arg-type]
+            language="el",
+        )
+    assert saved.language == "el" and "αυτοσ" in saved.words
+    async with session_factory() as db:
+        assert "αυτοσ" not in (await routes.get_stop_words(db, None)).words  # type: ignore[arg-type]
