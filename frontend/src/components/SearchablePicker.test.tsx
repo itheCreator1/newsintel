@@ -54,3 +54,16 @@ it('keeps a stored value the list does not have', () => {
   render(<CountrySelect label="Country" value="XK" emptyLabel="Any country" onChange={() => {}} />)
   expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('XK')
 })
+
+it('names each list by its label alone, so a name inside the list never reads as the label', () => {
+  render(<>
+    <label>Name<input /></label>
+    <CountrySelect label="Source country" value="" emptyLabel="Not set" onChange={() => {}} />
+    <LanguageSelect label="Expected language" value="" emptyLabel="Not set" onChange={() => {}} />
+  </>)
+  expect(screen.getByRole('combobox', { name: 'Source country' })).toBeTruthy()
+  expect(screen.getByRole('combobox', { name: 'Expected language' })).toBeTruthy()
+  // A label wrapping the list reads every option ("Vietnamese" holds "name"), so Playwright's
+  // getByLabel('Name') also found these lists.
+  for (const label of document.querySelectorAll('label')) expect(label.textContent).not.toMatch(/Vietnamese|Greece/)
+})
