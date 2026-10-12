@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.clustering.models import ArticleClusterTerm, StoryCluster, StoryClusterMember
 from app.feeds.models import Article, FeedArticle
 from app.nlp.models import ArticleEntity, Entity
-from app.nlp.service import current_stop_words, load_input_document
+from app.nlp.service import load_input_document, title_stop_words
 
 CLUSTER_ALGORITHM_VERSION = "rule-2"
 CLUSTER_TIME_WINDOW = timedelta(hours=48)
@@ -487,7 +487,7 @@ class RuleClusterer:
         target = (await load_features(db, [article_id])).get(article_id)
         if target is None:
             raise LookupError("article not found")
-        stop_words = frozenset((await current_stop_words(db)).words)
+        stop_words = await title_stop_words(db)
         document = await load_input_document(db, article_id)
         target = dataclasses.replace(target, terms=lede_terms(document.text, stop_words))
         await store_terms(db, target, target.terms)

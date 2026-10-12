@@ -24,7 +24,7 @@ it('updates stop words with revision protection and explains archive reprocessin
   expect(screen.getByText((_, node) => node?.textContent === 'entities · available · 3.8.0')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('English stop words'), { target: { value: 'and\npolicy' } })
   await fireEvent.click(screen.getByRole('button', { name: 'Save stop words' }))
-  expect(api.updateStopWords).toHaveBeenCalledWith(4, ['and', 'policy'])
+  expect(api.updateStopWords).toHaveBeenCalledWith(4, ['and', 'policy'], 'en')
   expect(await screen.findByText('Stop words saved as revision 5.')).toBeTruthy()
 })
 
@@ -44,4 +44,22 @@ it('keeps the Greek switch off and explains why when the model is missing', asyn
   renderWithQuery(() => <SettingsPage />)
   expect(((await screen.findByRole('switch')) as HTMLInputElement).disabled).toBe(true)
   expect(screen.getByText('Not available: Entity recognition is off: start the app with docker/compose.ner.yaml')).toBeTruthy()
+})
+
+it('edits the Greek stop words on their own tab, keeping the final sigma', async () => {
+  vi.mocked(api.stopWords).mockImplementation(async (language = 'en') => language === 'el'
+    ? { language: 'el', revision: 2, words: ['και', 'τους'], configuration_fingerprint: 'el' }
+    : { language: 'en', revision: 4, words: ['and', 'the'], configuration_fingerprint: 'en' })
+  vi.mocked(api.updateStopWords).mockResolvedValue({ language: 'el', revision: 3, words: ['και', 'τους', 'όμως'], configuration_fingerprint: 'el2' })
+  renderWithQuery(() => <SettingsPage />)
+  await screen.findByLabelText('English stop words')
+  await fireEvent.click(screen.getByRole('tab', { name: 'Greek' }))
+  expect(api.stopWords).toHaveBeenCalledWith('el')
+  const greek = await screen.findByLabelText('Greek stop words')
+  expect((greek as HTMLTextAreaElement).value).toBe('και\nτους')
+  expect(screen.getByText(/revision 2/)).toBeTruthy()
+  fireEvent.change(greek, { target: { value: 'και\nΤΟΥΣ\nΌμως' } })
+  await fireEvent.click(screen.getByRole('button', { name: 'Save stop words' }))
+  expect(api.updateStopWords).toHaveBeenCalledWith(2, ['και', 'τους', 'όμως'], 'el')
+  expect(await screen.findByText('Stop words saved as revision 3.')).toBeTruthy()
 })

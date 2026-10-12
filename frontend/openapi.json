@@ -1369,6 +1369,22 @@
         ],
         "summary": "Get Stop Words",
         "operationId": "get_stop_words_api_v1_nlp_stop_words_get",
+        "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "en",
+                "el"
+              ],
+              "type": "string",
+              "default": "en",
+              "title": "Language"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1376,6 +1392,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StopWordsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1389,6 +1415,20 @@
         "summary": "Put Stop Words",
         "operationId": "put_stop_words_api_v1_nlp_stop_words_put",
         "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "en",
+                "el"
+              ],
+              "type": "string",
+              "default": "en",
+              "title": "Language"
+            }
+          },
           {
             "name": "X-CSRF-Token",
             "in": "header",

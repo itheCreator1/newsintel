@@ -40,6 +40,7 @@ from app.nlp.processors import (
     validate_input_size,
 )
 from app.nlp.service import (
+    ANNOTATION_LANGUAGES,
     current_stop_words,
     greek_ner_enabled,
     load_input_document,
@@ -86,7 +87,6 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
         document = await load_input_document(db, job.article_id)
         if document.fingerprint != job.input_fingerprint:
             return None
-        stop_words = await current_stop_words(db)
         settings = get_settings()
         greek_model = settings.nlp_ner_model_el if await greek_ner_enabled(db) else None
         initial_context = ProcessorContext(
@@ -94,7 +94,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             input_fingerprint=document.fingerprint,
             sections=document.sections,
             language=None,
-            stop_words=frozenset(stop_words.words),
+            stop_words=frozenset(),
             ner_enabled=settings.nlp_ner_enabled,
             ner_model=settings.nlp_ner_model,
             ner_model_el=greek_model,
@@ -116,6 +116,10 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
                     )
                 ).all()
             )
+        # Keywords use the stop words of the article's own language (English for any other).
+        stop_words = await current_stop_words(
+            db, language if language in ANNOTATION_LANGUAGES else "en"
+        )
         context = ProcessorContext(
             text=document.text,
             input_fingerprint=document.fingerprint,
@@ -258,7 +262,7 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                 keyword_id = await db.scalar(
                     insert(Keyword)
                     .values(
-                        language="en",
+                        language=loaded.context.language or "en",
                         kind=keyword_value.kind,
                         normalized_text=keyword_value.normalized_text,
                         display_text=keyword_value.text,

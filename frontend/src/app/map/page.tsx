@@ -20,7 +20,7 @@ import { LoadError, Note } from '../../components/Feedback'
 
 // One role per map: the four location roles mean different things and are never added together.
 const ROLES: { value: GeoRole; label: string; note: string }[] = [
-  { value: 'story', label: 'Story country', note: 'The one country an article is about: named alone in its title and repeated in its text. Only some English-language articles have one.' },
+  { value: 'story', label: 'Story country', note: 'The one country an article is about: named alone in its title and repeated in its text. Only some English and Greek articles have one.' },
   { value: 'mentioned', label: 'Mentioned country', note: 'Every country named in an article’s text. One article can appear under several countries.' },
   { value: 'source', label: 'Source country', note: 'The country set on the feed that published the article: where it was published, not what it is about.' },
   { value: 'event', label: 'Event country', note: 'An event’s most frequent story country. It is derived from the story country, not a separate location.' },

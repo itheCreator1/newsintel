@@ -654,3 +654,153 @@ def test_greek_switch_changes_the_entity_fingerprint_only_when_on(
     assert {k: v for k, v in with_greek.items() if k != "entities"} == {
         k: v for k, v in without.items() if k != "entities"
     }
+
+
+GREEK_TEXT = (
+    "Η κυβέρνηση ανακοίνωσε νέο ενεργειακό σχέδιο για την Αθήνα. "
+    "Το ενεργειακό σχέδιο περιλαμβάνει επενδύσεις στις ανανεώσιμες πηγές ενέργειας "
+    "και στην ενεργειακή ασφάλεια της χώρας, μετά τις αντιδράσεις των αγορών."
+)
+GREEK_STOP_WORDS = frozenset({"η", "το", "την", "της", "για", "και", "στις", "στην", "των", "μετά"})
+
+
+def greek_context(text: str, title_end: int | None = None) -> ProcessorContext:
+    end = text.find(".") + 1 if title_end is None else title_end
+    return ProcessorContext(
+        text=text,
+        input_fingerprint="c" * 64,
+        sections=(
+            InputSection("title", None, 0, end),
+            InputSection("body", None, end + 1, len(text)),
+        ),
+        language="el",
+        stop_words=GREEK_STOP_WORDS,
+        ner_enabled=False,
+        ner_model="en_core_web_sm",
+    )
+
+
+def test_greek_articles_get_keywords_without_stop_words() -> None:
+    result = extract_keywords(greek_context(GREEK_TEXT))
+
+    assert result.outcome == "success"
+    assert 0 < len(result.keywords) <= 50
+    normalized = {keyword.normalized_text for keyword in result.keywords}
+    assert normalized.isdisjoint(GREEK_STOP_WORDS)
+    assert all(keyword.occurrences for keyword in result.keywords)
+    # Greek runs carry their own algorithm version, so English runs keep theirs.
+    assert result.algorithm_version != extract_keywords(context(ENGLISH_TEXT)).algorithm_version
+    assert len(result.algorithm_version) <= 128
+
+
+def test_greek_keywords_fold_accents_and_capitals_into_one_key() -> None:
+    text = "ΕΝΕΡΓΕΙΑΚΟ ΣΧΕΔΙΟ ΓΙΑ ΤΗΝ ΑΘΗΝΑ. " + GREEK_TEXT
+
+    result = extract_keywords(greek_context(text))
+
+    keys = [keyword.normalized_text for keyword in result.keywords]
+    assert len(keys) == len(set(keys))
+    # "ενεργειακό σχέδιο" and "ΕΝΕΡΓΕΙΑΚΟ ΣΧΕΔΙΟ" are one keyword, stored without accents.
+    assert all(key == key.casefold() and "ό" not in key and "έ" not in key for key in keys)
+    assert any("σχεδιο" in key for key in keys)
+
+
+def test_greek_stop_words_match_unaccented_capitals() -> None:
+    # Greek headlines are often written in capitals without accents: "ΑΠΟ" is the stop word "από".
+    text = (
+        "ΜΕΤΡΑ ΑΠΟ ΤΗΝ ΚΥΒΕΡΝΗΣΗ. Μέτρα από την κυβέρνηση για την ενέργεια και τις τιμές ρεύματος."
+    )
+    context_value = replace(
+        greek_context(text), stop_words=frozenset({"από", "την", "για", "και", "τις"})
+    )
+
+    result = extract_keywords(context_value)
+
+    assert result.outcome == "success" and result.keywords
+    assert "απο" not in {keyword.normalized_text for keyword in result.keywords}
+    assert all("απο" not in keyword.normalized_text.split() for keyword in result.keywords)
+
+
+def test_annotation_processors_other_than_english_and_greek_stay_unsupported() -> None:
+    assert extract_keywords(context(ENGLISH_TEXT, language="fr")).outcome == "unsupported_language"
+    assert detect_countries(context(ENGLISH_TEXT, language="fr")).outcome == "unsupported_language"
+
+
+@pytest.mark.parametrize(
+    ("text", "codes"),
+    [
+        # Nominative, genitive and accusative of the same country.
+        ("Η Γαλλία και η Γερμανία συμφώνησαν για το σχέδιο αυτό.", {"FR", "DE"}),
+        ("Ο πρόεδρος της Γαλλίας μίλησε για την ενέργεια της Ευρώπης.", {"FR"}),
+        ("Ο υπουργός ταξίδεψε στην Κύπρο και μετά στον Λίβανο για επαφές.", {"CY", "LB"}),
+        ("Οι εκλογές της Κύπρου και του Λιβάνου κρίνουν πολλά φέτος εκεί.", {"CY", "LB"}),
+        # Capitals without accents, as in headlines.
+        ("ΣΥΝΑΝΤΗΣΗ ΣΤΗΝ ΤΟΥΡΚΙΑ ΓΙΑ ΤΗΝ ΕΛΛΑΔΑ ΚΑΙ ΤΙΣ ΗΠΑ ΣΗΜΕΡΑ.", {"TR", "GR", "US"}),
+        # Several words, declined together.
+        ("Οι Ηνωμένες Πολιτείες και το Ηνωμένο Βασίλειο αντέδρασαν άμεσα.", {"US", "GB"}),
+        ("Η θέση των Ηνωμένων Πολιτειών και του Ηνωμένου Βασιλείου άλλαξε.", {"US", "GB"}),
+        ("Επίσκεψη στη Νότια Κορέα και στη Σαουδική Αραβία την επόμενη εβδομάδα.", {"KR", "SA"}),
+        # The longer name wins: South Sudan is not also Sudan.
+        ("Νέα σύγκρουση στο Νότιο Σουδάν ανησυχεί τους διεθνείς παρατηρητές.", {"SS"}),
+        # Indeclinable names.
+        ("Το Ιράν απάντησε στο Ισραήλ με ανακοίνωση για το Ιράκ.", {"IR", "IL", "IQ"}),
+    ],
+)
+def test_greek_country_names_are_found_in_every_case(text: str, codes: set[str]) -> None:
+    result = detect_countries(greek_context(text, title_end=len(text)))
+
+    assert result.outcome == "success"
+    assert {item.country_code for item in result.mentioned} == codes
+
+
+def test_greek_country_occurrences_point_at_the_article_spelling() -> None:
+    text = "Κρίση στην ΤΟΥΡΚΙΑ.\n\nΗ οικονομία της Τουρκίας επιβαρύνθηκε σημαντικά φέτος."
+    result = detect_countries(greek_context(text, title_end=19))
+
+    (turkey,) = result.mentioned
+    assert [text[item.input_start : item.input_end] for item in turkey.occurrences] == [
+        "ΤΟΥΡΚΙΑ",
+        "Τουρκίας",
+    ]
+    # Named in the title and repeated in the body: the story country, as in English.
+    assert result.primary is not None and result.primary.country_code == "TR"
+    assert result.primary.inferred is True
+
+
+def test_ambiguous_greek_country_names_are_excluded() -> None:
+    # "Γεωργία" is also a woman's name; "Κονγκό" alone could be either Congo.
+    text = "Η Γεωργία μίλησε για το ταξίδι της στο Κονγκό και την επιστροφή της."
+
+    result = detect_countries(greek_context(text, title_end=len(text)))
+
+    assert result.outcome == "success"
+    assert result.mentioned == ()
+
+
+def test_greek_country_algorithm_version_is_its_own() -> None:
+    greek = detect_countries(greek_context("Η Ελλάδα και η Ιταλία.", title_end=22))
+    english = detect_countries(context("France and Italy agreed on the plan today."))
+
+    assert greek.algorithm_version != english.algorithm_version
+    assert len(greek.algorithm_version) <= 128
+
+
+def test_greek_country_lexicon_is_checked_in_with_attribution() -> None:
+    path = Path(__file__).parents[1] / "app" / "nlp" / "data" / "countries-el.json"
+    payload = json.loads(path.read_text())
+
+    assert "CLDR" in payload["attribution"]
+    codes = {item["code"] for item in payload["countries"]}
+    english = json.loads((path.parent / "countries-en.json").read_text())
+    # The same countries as the English lexicon, each with at least one name.
+    assert codes == {item["code"] for item in english["countries"]}
+    assert all(item["names"] for item in payload["countries"])
+
+
+def test_keyword_lookup_matches_greek_keywords_as_typed() -> None:
+    from app.nlp.processors import keyword_lookup_key
+
+    # Greek keywords are stored without accents; a query typed with them still finds them.
+    assert keyword_lookup_key("Μητσοτάκης") == "μητσοτακησ"
+    assert keyword_lookup_key("ΕΝΕΡΓΕΙΑΚΟ σχέδιο") == "ενεργειακο σχεδιο"
+    assert keyword_lookup_key("  Energy  Policy ") == "energy policy"

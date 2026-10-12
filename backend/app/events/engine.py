@@ -23,7 +23,7 @@ from app.events.models import Event, EventCluster, EventEntity
 from app.events.service import associate_cluster, create_event, refresh_event
 from app.feeds.models import Article
 from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, Entity
-from app.nlp.service import current_stop_words
+from app.nlp.service import title_stop_words
 
 log = structlog.get_logger()
 
@@ -415,7 +415,7 @@ class RuleEventAssociator:
         ).all()
         if not rows:
             return result
-        stop_words = frozenset((await current_stop_words(db)).words)
+        stop_words = await title_stop_words(db)
         facts = await load_cluster_facts(db, [c for c, _ in rows], stop_words)
         weights: dict[uuid.UUID, float] = {}  # per batch: counts move as articles arrive
         for cluster, current_id in rows:

@@ -3,7 +3,7 @@ import binascii
 import importlib.metadata
 import importlib.util
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import ColumnElement, and_, case, func, literal, or_, select
@@ -30,7 +30,7 @@ from app.nlp.models import (
     NlpLanguageSetting,
     NlpProcessorRun,
 )
-from app.nlp.processors import country_entity_names, entity_lookup_prefixes
+from app.nlp.processors import country_entity_names, entity_lookup_prefixes, keyword_lookup_key
 from app.nlp.reprocessing import count_selection, create_reprocessing_run, reprocessing_status
 from app.nlp.schemas import (
     AnnotationLookupItem,
@@ -105,9 +105,17 @@ def _capabilities(settings: Settings, greek_ner: bool = False) -> list[Capabilit
             version=importlib.metadata.version("lingua-language-detector"),
         ),
         CapabilityResponse(
-            name="keywords", state="available", version=importlib.metadata.version("yake")
+            name="keywords",
+            state="available",
+            version=importlib.metadata.version("yake"),
+            detail="English and Greek",
         ),
-        CapabilityResponse(name="countries", state="available", version="iso-3166-reviewed-1"),
+        CapabilityResponse(
+            name="countries",
+            state="available",
+            version="iso-3166-reviewed-1",
+            detail="English and Greek",
+        ),
         CapabilityResponse(
             name="entities",
             state=ner_state,
@@ -425,20 +433,25 @@ async def put_greek_entities(
     return response
 
 
+StopWordLanguage = Annotated[Literal["en", "el"], Query()]
+
+
 @router.get("/nlp/stop-words", response_model=StopWordsResponse)
-async def get_stop_words(db: Db, _auth: Auth) -> StopWordsResponse:
-    value = await current_stop_words(db)
+async def get_stop_words(
+    db: Db, _auth: Auth, language: StopWordLanguage = "en"
+) -> StopWordsResponse:
+    value = await current_stop_words(db, language)
     await db.commit()
     return StopWordsResponse.model_validate(value, from_attributes=True)
 
 
 @router.put("/nlp/stop-words", response_model=StopWordsResponse)
 async def put_stop_words(
-    payload: StopWordsUpdate, db: Db, _mutation: Mutation
+    payload: StopWordsUpdate, db: Db, _mutation: Mutation, language: StopWordLanguage = "en"
 ) -> StopWordsResponse:
     try:
         value = await update_stop_words(
-            db, language="en", current_revision=payload.current_revision, words=payload.words
+            db, language=language, current_revision=payload.current_revision, words=payload.words
         )
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -501,7 +514,7 @@ async def _lookup(
             )
             matches = or_(*(Entity.normalized_text.startswith(key) for key in prefixes), by_variant)
         else:
-            matches = model.normalized_text.startswith(q.strip().casefold())
+            matches = model.normalized_text.startswith(keyword_lookup_key(q))
         if model is Entity and (countries := country_entity_names(q)):
             # A country is stored under one name; its other spellings ("US") have no row to match.
             country = and_(Entity.entity_type == "GPE", Entity.normalized_text.in_(countries))
