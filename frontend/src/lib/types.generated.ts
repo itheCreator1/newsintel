@@ -3969,6 +3969,8 @@ export interface components {
             story_cluster_id?: string[];
             /** Entity Expand */
             entity_expand?: ("names" | "parts")[];
+            /** Source Tag */
+            source_tag?: string[];
             /**
              * Sort
              * @default relevance
@@ -8399,6 +8401,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -8451,6 +8454,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -8893,6 +8897,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -8939,6 +8944,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -8985,6 +8991,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9153,6 +9160,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9203,6 +9211,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9684,6 +9693,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9730,6 +9740,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -9776,6 +9787,7 @@ export interface operations {
                 mentioned_country?: string[] | null;
                 story_cluster_id?: string[] | null;
                 entity_expand?: ("names" | "parts")[] | null;
+                source_tag?: string[] | null;
             };
             header?: never;
             path?: never;

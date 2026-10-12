@@ -199,7 +199,7 @@ it('saves the complete investigation state by name', async () => {
 
   await vi.waitFor(() => expect(api.createSavedSearch).toHaveBeenCalledWith('Greek grid', {
     q: 'grid', source_id: [], source_country: ['GR'], after: null, before: '2026-02-01', content_available: null, processing_status: [], language: [],
-    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month', entity_expand: [],
+    entity_id: ['entity-one'], entity_type: [], keyword_id: [], story_country: [], mentioned_country: [], story_cluster_id: [], sort: 'newest', interval: 'month', entity_expand: [], source_tag: [],
   }))
   expect(await screen.findByText('Saved “Greek grid”.')).toBeTruthy()
   await fireEvent.click(screen.getByRole('button', { name: 'Save search' }))

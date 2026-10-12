@@ -24,6 +24,7 @@ LanguageCode = Annotated[
 ]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+SourceTag = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
 
 
 class InvestigationState(BaseModel):
@@ -47,6 +48,8 @@ class InvestigationState(BaseModel):
     story_cluster_id: list[uuid.UUID] = Field(default_factory=list, max_length=50)
     # Which see-also links the entity filter follows; states saved before see-also have none.
     entity_expand: list[Literal["names", "parts"]] = Field(default_factory=list, max_length=10)
+    # Sources carrying any of these tags; states saved before tags have none.
+    source_tag: list[SourceTag] = Field(default_factory=list, max_length=20)
     sort: Literal["relevance", "newest", "oldest", "most_sources"] = "relevance"
     interval: RequestedInterval = "auto"
 

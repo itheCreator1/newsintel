@@ -4,7 +4,8 @@ from datetime import UTC, date, datetime, time
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB, array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -39,6 +40,9 @@ class SearchCriteria:
     entity_match_ids: list[str] = field(default_factory=list)
     # Which see-also links entity_match_ids followed: "names", "parts", or none.
     entity_expand: list[str] = field(default_factory=list)
+    # Source tags, and the sources that carry any of them; what the index is filtered on.
+    source_tags: list[str] = field(default_factory=list)
+    tag_sources: list[str] = field(default_factory=list)
 
     @property
     def annotation_search(self) -> bool:
@@ -65,6 +69,7 @@ class SearchCriteria:
     def fingerprint(self) -> dict[str, Any]:
         # A key only when set, so every criteria fingerprint made before see-also stays the same.
         expanded = {"entity_expand": self.entity_expand} if self.entity_expand else {}
+        tagged = {"source_tags": self.source_tags} if self.source_tags else {}
         return {
             "q": self.q,
             "sources": self.sources,
@@ -81,6 +86,7 @@ class SearchCriteria:
             "mentioned_countries": self.mentioned_countries,
             "story_clusters": self.story_cluster_ids,
             **expanded,
+            **tagged,
         }
 
 
@@ -100,6 +106,14 @@ async def _resolve_sources(db: AsyncSession, values: list[str]) -> list[str]:
             ).all()
         )
     return sorted(resolved)
+
+
+async def _tag_sources(db: AsyncSession, tags: list[str]) -> list[str]:
+    """Every source, retired ones too, that carries any of the tags."""
+    if not tags:
+        return []
+    rows = await db.scalars(select(Feed.id).where(cast(Feed.tags, JSONB).has_any(array(tags))))
+    return sorted(str(value) for value in rows.all())
 
 
 async def _resolve_annotations(
@@ -143,11 +157,13 @@ async def search_criteria(
     mentioned_country: Annotated[list[str] | None, Query()] = None,
     story_cluster_id: Annotated[list[uuid.UUID] | None, Query()] = None,
     entity_expand: Annotated[list[Literal["names", "parts"]] | None, Query()] = None,
+    source_tag: Annotated[list[str] | None, Query()] = None,
 ) -> SearchCriteria:
     try:
         parsed = parse_query(q)
     except SearchSyntaxError as exc:
         raise HTTPException(422, str(exc)) from exc
+    tags = {" ".join(value.split()) for value in source_tag or []} - {""}
     entity_ids = sorted(
         {
             *(str(value) for value in entity_id or []),
@@ -174,6 +190,8 @@ async def search_criteria(
             db, await expand(db, entity_ids, set(entity_expand or []))
         ),
         entity_expand=sorted(set(entity_expand or [])),
+        source_tags=sorted(tags),
+        tag_sources=await _tag_sources(db, sorted(tags)),
         entity_types=sorted({value.upper() for value in entity_type or []}),
         keyword_ids=sorted(
             {
@@ -254,6 +272,9 @@ def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]
         provenance_must.append({"terms": {"provenance.source_id": criteria.sources}})
     if criteria.countries:
         provenance_must.append({"terms": {"provenance.source_country": criteria.countries}})
+    if criteria.source_tags:
+        # An empty list matches nothing: a tag no source carries leaves no article.
+        provenance_must.append({"terms": {"provenance.source_id": criteria.tag_sources}})
     if provenance_must:
         filters.append(
             {"nested": {"path": "provenance", "query": {"bool": {"must": provenance_must}}}}

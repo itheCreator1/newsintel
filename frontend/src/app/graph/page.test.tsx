@@ -304,8 +304,9 @@ it('draws stated see-also links only when switched on, and lists them', async ()
 
 it('draws and lists articles for the sources carrying a tag', async () => {
   resetNavigationHarness({ pathname: '/graph/', search: 'source_tag=greek&country=GR&nodes=20' })
-  renderWithQuery(() => <GraphPage />)
+  const { rerenderSame } = renderWithQuery(() => <GraphPage />)
   fireEvent.click(await screen.findByText('Chart with 2 nodes'))
+  rerenderSame()
 
   expect(api.entityGraph).toHaveBeenLastCalledWith({ source_country: ['GR'], source_tag: ['greek'], nodes: '20' })
   await vi.waitFor(() => expect(api.search).toHaveBeenLastCalledWith(expect.objectContaining({ source_tag: ['greek'], source_country: ['GR'], entity_id: ['entity-two'] })))

@@ -5642,6 +5642,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -6038,6 +6057,25 @@
                 }
               ],
               "title": "Entity Expand"
+            }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
             }
           }
         ],
@@ -7211,6 +7249,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -7539,6 +7596,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -7861,6 +7937,25 @@
                 }
               ],
               "title": "Entity Expand"
+            }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
             }
           }
         ],
@@ -8440,6 +8535,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -8815,6 +8929,25 @@
                 }
               ],
               "title": "Entity Expand"
+            }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
             }
           }
         ],
@@ -9893,6 +10026,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -10217,6 +10369,25 @@
               ],
               "title": "Entity Expand"
             }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
+            }
           }
         ],
         "responses": {
@@ -10540,6 +10711,25 @@
                 }
               ],
               "title": "Entity Expand"
+            }
+          },
+          {
+            "name": "source_tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Tag"
             }
           }
         ],
@@ -16185,6 +16375,16 @@
             "type": "array",
             "maxItems": 10,
             "title": "Entity Expand"
+          },
+          "source_tag": {
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Source Tag"
           },
           "sort": {
             "type": "string",
