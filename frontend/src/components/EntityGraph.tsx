@@ -10,6 +10,8 @@ import { lightChart, useChartTheme, type ChartTheme } from '../lib/chart-theme'
 import { communities } from '../lib/graph-communities'
 import { isNewEdge } from '../lib/graph-edges'
 import { statedText } from '../lib/see-also'
+import { chipClass } from '../lib/ui-classes'
+import { cn } from '../lib/utils'
 
 use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
@@ -203,5 +205,19 @@ export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recen
     chartRef.current?.setOption(graphOption({ nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, theme }))
   }, [nodes, edges, focus, selectedEdge, colourBy, recentSince, stated, theme])
 
-  return <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity and connection lists below to select one.`} />
+  function download() {
+    const chart = chartRef.current
+    if (!chart) return
+    const link = document.createElement('a')
+    link.href = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: theme.background })
+    link.download = 'entity-graph.png'
+    link.click()
+  }
+
+  return (
+    <>
+      <div ref={elementRef} className="entity-graph" role="img" aria-label={`Entity co-occurrence graph with ${nodes.length} entities and ${edges.length} connections. Use the entity and connection lists below to select one.`} />
+      <button type="button" className={cn(chipClass, 'mt-2')} onClick={download}>Download PNG</button>
+    </>
+  )
 }

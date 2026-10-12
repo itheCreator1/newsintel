@@ -17,7 +17,7 @@ const expansions = (state: Investigation, fields: ListField[]) => fields.include
 
 /** The fields each page tucks under Advanced filters; `content` counts as one when set explicitly. */
 export const SEARCH_ADVANCED: ListField[] = ['source_id', 'source_tag', 'source_country', 'language', 'entity_id', 'entity_type', 'keyword_id', 'story_country', 'mentioned_country', 'processing_status']
-export const GRAPH_ADVANCED: ListField[] = ['source_id', 'source_tag', 'source_country', 'story_country', 'entity_type']
+export const GRAPH_ADVANCED: ListField[] = ['source_id', 'source_tag', 'source_country', 'language', 'story_country', 'entity_type']
 /** Search chips cover every list criterion; Graph only the ones its requests actually send. */
 export const SEARCH_CHIP_FIELDS: ListField[] = [...SEARCH_ADVANCED, 'story_cluster_id']
 export const GRAPH_CHIP_FIELDS = GRAPH_ADVANCED
