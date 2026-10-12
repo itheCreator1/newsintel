@@ -1,7 +1,7 @@
 import type { Monitor, MonitorChanges } from '../lib/api-types'
 
 export const monitor = (overrides: Partial<Monitor> = {}): Monitor => ({
-  id: 'm1', name: 'Harbor watch', kind: 'search', enabled: true, state_version: 1,
+  id: 'm1', name: 'Harbor watch', kind: 'search', enabled: true, notify: true, state_version: 1,
   state: { q: 'harbor', sort: 'relevance', interval: 'auto' }, problem: null,
   unseen_article_count: 0, unseen_cluster_count: 0,
   evaluated_through: '2026-09-20T11:55:00Z', viewed_through: '2026-09-20T11:55:00Z',

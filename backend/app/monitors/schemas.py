@@ -42,6 +42,7 @@ class MonitorCreate(BaseModel):
 class MonitorUpdate(BaseModel):
     name: Name | None = None
     enabled: bool | None = None
+    notify: bool | None = None
     kind: MonitorKind | None = None
     state: InvestigationState | None = None
 
@@ -59,6 +60,8 @@ class MonitorResponse(BaseModel):
     name: str
     kind: MonitorKind
     enabled: bool
+    # Whether news from this monitor is pushed when notifications are set up.
+    notify: bool = True
     state_version: int
     state: InvestigationState | None
     problem: str | None

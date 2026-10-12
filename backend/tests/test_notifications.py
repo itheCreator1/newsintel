@@ -6,6 +6,11 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import ValidationError
+
+from app.investigations.schemas import InvestigationState
+from app.monitors import evaluation
+from app.monitors.evaluation import Snapshot, search_evaluator
 from app.notifications.ntfy import Message, NtfyError, publish
 from app.notifications.schemas import NotificationSettingsUpdate
 from app.notifications.service import (
@@ -15,11 +20,6 @@ from app.notifications.service import (
     in_quiet_hours,
     monitor_message,
 )
-from pydantic import ValidationError
-
-from app.investigations.schemas import InvestigationState
-from app.monitors import evaluation
-from app.monitors.evaluation import Snapshot, search_evaluator
 
 ATHENS = "Europe/Athens"
 
@@ -153,7 +153,7 @@ def test_settings_are_checked_before_they_are_kept() -> None:
         {"server": "ftp://ntfy.sh"},
         {"topic": "has space"},
         {"timezone": "Mars/Base"},
-        {"quiet_start": time(23)},
+        {"quiet_end": None},
         {"digest_hour": 24},
         {"public_url": "news.example"},
         {"enabled": True, "server": None},

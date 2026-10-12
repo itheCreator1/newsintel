@@ -15,6 +15,7 @@ from app.feeds.models import Article
 from app.investigations.schemas import InvestigationState
 from app.monitors.models import Monitor
 from app.monitors.service import parse_state
+from app.notifications.service import notifications_on
 from app.search.criteria import build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 
@@ -33,6 +34,8 @@ class Snapshot:
     state: InvestigationState
     eval_cursor_at: datetime | None
     viewed_cursor_at: datetime | None
+    # Matches up to here have been counted for notifications already.
+    notified_through: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,8 @@ class Window:
     unseen_clusters: int | None = None
     latest_match_at: datetime | None = None
     latest_match_article_id: uuid.UUID | None = None
+    # Matches never announced before: discovered after both cursors and the last announcement.
+    new_articles: int = 0
 
 
 Evaluator = Callable[[AsyncSession, SearchAdapter, Snapshot, datetime], Awaitable[Window]]
@@ -129,12 +134,23 @@ async def search_evaluator(
         window_body(query, snapshot.viewed_cursor_at or cursor, horizon, clusters=True),
     )
     latest_at, latest_id = _latest(unseen)
+    new_articles = delta["hits"]["total"]["value"]
+    announced = snapshot.notified_through
+    if announced is not None and announced > cursor:
+        # A view rewound the cursor; what lies before the last announcement was announced then.
+        new_articles = 0
+        if horizon > announced:
+            fresh = await adapter.search_index(
+                index_name, window_body(query, announced, horizon, clusters=False, size=0)
+            )
+            new_articles = fresh["hits"]["total"]["value"]
     return Window(
         horizon,
         unseen_articles=unseen["hits"]["total"]["value"],
         unseen_clusters=unseen["aggregations"]["clusters"]["value"],
         latest_match_at=latest_at,
         latest_match_article_id=latest_id,
+        new_articles=new_articles,
     )
 
 
@@ -200,6 +216,10 @@ async def _publish(
         ):
             item.latest_match_at = window.latest_match_at
             item.latest_match_article_id = window.latest_match_article_id
+        if window.new_articles and item.notify and await notifications_on(db):
+            item.pending_notification_articles += window.new_articles
+        if item.notified_through is None or window.eval_cursor_at > item.notified_through:
+            item.notified_through = window.eval_cursor_at
         item.last_evaluated_at = now
         item.next_evaluation_at = now + timedelta(seconds=get_settings().monitor_interval_seconds)
         item.claim_token = item.claim_expires_at = None
@@ -248,7 +268,9 @@ async def process_monitor(
             state, problem = parse_state(item)
             if state is None:
                 raise InvalidState(problem)
-            snapshot = Snapshot(item.kind, state, item.eval_cursor_at, item.viewed_cursor_at)
+            snapshot = Snapshot(
+                item.kind, state, item.eval_cursor_at, item.viewed_cursor_at, item.notified_through
+            )
             # ponytail: the session stays open across the search round trips (bounded by the
             # 30s client timeout); split the load from the evaluation if that ever pinches.
             window = await EVALUATORS[item.kind](
