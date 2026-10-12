@@ -10,8 +10,6 @@ import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
-from app.notifications.models import NotificationSettings
-from app.notifications.ntfy import Message, NtfyError
 from sqlalchemy import delete, text, update
 from test_monitor_api_postgres import CSRF, _client, _user
 from test_monitor_evaluation_postgres import (
@@ -28,6 +26,8 @@ from app.monitors.evaluation import process_monitor
 from app.monitors.models import Monitor
 from app.notifications import routes as notification_routes
 from app.notifications import service
+from app.notifications.models import NotificationSettings
+from app.notifications.ntfy import Message, NtfyError
 
 pytestmark = [
     pytest.mark.skipif(

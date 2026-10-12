@@ -30,3 +30,26 @@ def test_fixture_feeds_shift_so_the_newest_date_is_yesterday() -> None:
 def test_fixture_feeds_are_not_shifted_backwards() -> None:
     xml = (FIXTURES / "feed.xml").read_text()
     assert server.shift_pub_dates(xml, date(2026, 1, 1)) == xml
+
+
+def test_the_ntfy_stand_in_keeps_what_it_is_sent() -> None:
+    import json
+    import threading
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.FixtureHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    try:
+        message = {"topic": "e2e", "title": "3 new articles: Ενέργεια", "message": "Body"}
+        request = urllib.request.Request(
+            f"{base}/ntfy/", data=json.dumps(message).encode(), method="POST"
+        )
+        with urllib.request.urlopen(request) as response:
+            assert response.status == 200
+        with urllib.request.urlopen(f"{base}/ntfy/messages") as response:
+            assert json.loads(response.read()) == [message]
+    finally:
+        httpd.shutdown()
+        server.FixtureHandler.ntfy_messages.clear()

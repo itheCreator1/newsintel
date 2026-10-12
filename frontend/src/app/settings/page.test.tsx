@@ -75,9 +75,9 @@ it('sets up ntfy notifications with quiet hours and a daily summary, never showi
   vi.mocked(api.updateNotificationSettings).mockImplementation(async payload => notifications({ ...payload, has_token: true }))
   renderWithQuery(() => <SettingsPage />)
   const panel = await screen.findByRole('region', { name: 'Notifications' })
-  expect(within(panel).getByText(/ntfy/)).toBeTruthy()
+  expect(within(panel).getByRole('link', { name: 'ntfy' })).toHaveAttribute('href', 'https://ntfy.sh')
 
-  fireEvent.click(within(panel).getByLabelText('Send notifications'))
+  fireEvent.click(await within(panel).findByLabelText('Send notifications'))
   fireEvent.change(within(panel).getByLabelText('ntfy server'), { target: { value: 'https://ntfy.sh' } })
   fireEvent.change(within(panel).getByLabelText('Topic'), { target: { value: 'news-intel' } })
   fireEvent.change(within(panel).getByLabelText('Access token'), { target: { value: 'tk_secret' } })
@@ -101,8 +101,9 @@ it('sets up ntfy notifications with quiet hours and a daily summary, never showi
 })
 
 it('keeps a saved token unless removed, and leaves out quiet hours that are off', async () => {
-  vi.mocked(api.notificationSettings).mockResolvedValue(notifications({ enabled: true, server: 'https://ntfy.sh', topic: 'news', has_token: true }))
-  vi.mocked(api.updateNotificationSettings).mockResolvedValue(notifications())
+  const saved = notifications({ enabled: true, server: 'https://ntfy.sh', topic: 'news', has_token: true })
+  vi.mocked(api.notificationSettings).mockResolvedValue(saved)
+  vi.mocked(api.updateNotificationSettings).mockResolvedValueOnce(saved).mockResolvedValue({ ...saved, has_token: false })
   renderWithQuery(() => <SettingsPage />)
   const panel = await screen.findByRole('region', { name: 'Notifications' })
   await within(panel).findByDisplayValue('news')
@@ -113,6 +114,7 @@ it('keeps a saved token unless removed, and leaves out quiet hours that are off'
 
   await fireEvent.click(within(panel).getByRole('button', { name: 'Remove token' }))
   await vi.waitFor(() => expect(api.updateNotificationSettings).toHaveBeenLastCalledWith(expect.objectContaining({ token: '' })))
+  await vi.waitFor(() => expect(within(panel).queryByRole('button', { name: 'Remove token' })).toBeNull())
 })
 
 it('sends a test message and shows the last delivery and the last error', async () => {

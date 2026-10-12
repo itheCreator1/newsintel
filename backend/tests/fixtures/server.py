@@ -31,20 +31,35 @@ def shift_pub_dates(xml: str, today: date) -> str:
 
 class FixtureHandler(SimpleHTTPRequestHandler):
     recovery_requests = 0
+    # A stand-in ntfy server: what was published, readable at /ntfy/messages.
+    ntfy_messages: list[Any] = []
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
+    def _json(self, status: int, body: Any) -> None:
+        payload = json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def do_POST(self) -> None:
+        if self.path.rstrip("/") != "/ntfy":
+            self.send_error(404)
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        type(self).ntfy_messages.append(json.loads(self.rfile.read(length)))
+        self._json(200, {"id": str(len(self.ntfy_messages))})
+
     def do_GET(self) -> None:
         path, _, query = self.path.partition("?")
+        if path == "/ntfy/messages":
+            self._json(200, type(self).ntfy_messages)
+            return
         if path == wikidata_api.PATH:
-            status, body = wikidata_api.answer(query)
-            payload = json.dumps(body).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
+            self._json(*wikidata_api.answer(query))
             return
         if self.path == "/permanent.html":
             self.send_error(404, "permanent fixture failure")
