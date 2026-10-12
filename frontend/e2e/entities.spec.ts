@@ -21,15 +21,24 @@ test('entity dossier workflow opens from an article and follows co-occurrence', 
   await page.getByRole('link', { name: 'Open dossier for Barack Obama' }).click({ timeout: 30_000 })
   await expect(page).toHaveURL(/\/entities\/\?id=/)
   await expect(page.getByRole('heading', { level: 3, name: 'Barack Obama' })).toBeVisible()
-  await expect(page.getByText('Aliases unavailable')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mentions per day (last 30 days)' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Events' })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Articles & stories' }).click()
+  await expect(page).toHaveURL(/tab=articles/)
   await expect(page.getByRole('link', { name: /^Barack Obama meets Microsoft/ }).first()).toBeVisible()
   await expect(page.getByText('Recent stories')).toBeVisible()
 
+  await page.getByRole('tab', { name: 'Relationships' }).click()
   await page.getByRole('link', { name: /^Microsoft \(ORG\)/ }).click()
   await expect(page.getByRole('heading', { level: 3, name: 'Microsoft' })).toBeVisible()
 
+  // Back opens the tab it was on.
   await page.goBack()
+  await expect(page.getByRole('tab', { name: 'Relationships' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Articles & stories' }).click()
   await page.getByRole('link', { name: /^Barack Obama meets Microsoft/ }).first().click()
   await expect(page).toHaveURL(/\/articles\/\?/)
-  await expect(page.getByRole('link', { name: 'Back to entity' })).toBeVisible()
+  await page.getByRole('link', { name: 'Back to entity' }).click()
+  await expect(page.getByRole('tab', { name: 'Articles & stories' })).toHaveAttribute('aria-selected', 'true')
 })

@@ -54,7 +54,7 @@ test('event workflow moves from the list to stories, articles and entities', asy
   // Entity dossier, and from there the events that entity characterises.
   await page.locator('a[href^="/entities/?id="]').first().click()
   await expect(page).toHaveURL(/\/entities\/\?id=/)
-  await page.getByRole('link', { name: 'Events with this entity' }).click()
+  await page.getByRole('link', { name: 'Events with this entity', exact: true }).click()
   await expect(page).toHaveURL(/\/events\/\?entity_id=/)
   await page.getByRole('checkbox', { name: 'Show one-story events', exact: true }).click()
   await expect(page.locator('a[href^="/events/detail/"]').first()).toBeVisible()

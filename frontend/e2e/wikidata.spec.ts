@@ -21,6 +21,7 @@ test('wikidata workflow suggests, links and fetches an item', async ({ page }) =
   await file.getByRole('button', { name: 'Ada Lindqvist' }).click()
   await page.getByRole('complementary', { name: 'Edit Ada Lindqvist' }).getByRole('link', { name: 'Open dossier' }).click()
   await expect(page.getByRole('heading', { level: 3, name: 'Ada Lindqvist' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Catalogue' }).click()
 
   // Nothing is asked of Wikidata until the button: then the run waits its turn, one request at a time.
   await expect(page.getByText('No Wikidata suggestions yet.')).toBeVisible()
