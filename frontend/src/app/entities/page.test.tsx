@@ -12,7 +12,7 @@ vi.mock('../../lib/api', async importOriginal => ({
     entityDossier: vi.fn(), entityArticles: vi.fn(), entityClusters: vi.fn(), entityRelationships: vi.fn(), createMonitor: vi.fn(),
     entityVariants: vi.fn(), entityHistory: vi.fn(), mergeEntity: vi.fn(), splitEntity: vi.fn(), updateEntity: vi.fn(),
     addDistinct: vi.fn(), nlpEntities: vi.fn(), seeAlso: vi.fn(), addRelation: vi.fn(), updateRelation: vi.fn(), removeRelation: vi.fn(),
-    wikidata: vi.fn(),
+    wikidata: vi.fn(), events: vi.fn(),
   },
 }))
 vi.mock('../../components/BarChart', () => ({
@@ -51,8 +51,63 @@ beforeEach(() => {
   vi.mocked(api.wikidata).mockResolvedValue({
     entity_id: 'ent-1', qid: null, identifiers: {}, item: null, fetch_pending: false, names: [], candidates: [], search_pending: false, redirect_holder: null, wikidata_type: null,
   })
+  vi.mocked(api.events).mockResolvedValue({ items: [], next_cursor: null })
 })
 afterEach(cleanup)
+
+const openTab = async (name: string) => fireEvent.click(await screen.findByRole('tab', { name }))
+const event = (id: string, headline: string) => ({
+  id, algorithm_version: 'rule-1', status: 'active', started_at: '2026-09-17T08:00:00Z', ended_at: '2026-09-18T10:00:00Z',
+  primary_country: 'US', cluster_count: 2, article_count: 5, source_count: 3, headline, headline_article_id: 'a1', entities: [],
+})
+
+it('splits the dossier into tabs, opening the one in the URL and writing the chosen one back', async () => {
+  resetNavigationHarness({ pathname: '/entities/', search: 'id=ent-1&tab=relationships' })
+  renderWithQuery(() => <EntitiesPage />)
+
+  const tabs = await screen.findByRole('tablist', { name: 'Entity sections' })
+  expect(within(tabs).getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Overview', 'Articles & stories', 'Relationships', 'Catalogue'])
+  expect(screen.getByRole('tab', { name: 'Relationships' })).toHaveAttribute('aria-selected', 'true')
+  expect(await screen.findByRole('tabpanel', { name: 'Relationships' })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Recent articles' })).toBeNull()
+  // A tab's evidence loads when the tab is opened.
+  expect(api.entityArticles).not.toHaveBeenCalled()
+
+  await openTab('Articles & stories')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/entities/?id=ent-1&tab=articles')
+  expect(await screen.findByRole('heading', { name: 'Recent articles' })).toBeTruthy()
+  await openTab('Overview')
+  expect(navigationHarness.replace).toHaveBeenLastCalledWith('/entities/?id=ent-1')
+})
+
+it('names the entity with its Wikidata description and its first other names', async () => {
+  vi.mocked(api.entityDossier).mockResolvedValue(dossier({ aliases: ['B. Obama', 'Obama', 'Barack H. Obama', 'Mr Obama'], aliases_status: 'available' }))
+  vi.mocked(api.wikidata).mockResolvedValue({
+    entity_id: 'ent-1', qid: 'Q76', identifiers: {}, fetch_pending: false, names: [], candidates: [], search_pending: false, redirect_holder: null, wikidata_type: null,
+    item: { qid: 'Q76', state: 'ok', redirect_to: null, revision: 1, labels: { en: 'Barack Obama' }, aliases: {}, descriptions: { en: 'president of the United States from 2009 to 2017', el: 'πρόεδρος' }, instance_of: [], different_from: [] },
+  } as never)
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByText('president of the United States from 2009 to 2017')).toBeTruthy()
+  expect(screen.getByText('Also known as B. Obama, Obama, Barack H. Obama and 1 more')).toBeTruthy()
+})
+
+it('lists the events the entity is part of on the overview', async () => {
+  vi.mocked(api.events).mockResolvedValue({ items: [event('ev-1', 'Summit in Brussels'), event('ev-2', 'Election night')], next_cursor: 'more' })
+  renderWithQuery(() => <EntitiesPage />)
+
+  const events = await screen.findByRole('region', { name: 'Events' })
+  expect((await within(events).findByRole('link', { name: 'Summit in Brussels' })).getAttribute('href')).toBe('/events/detail/?id=ev-1&from=%2Fentities%2F%3Fid%3Dent-1')
+  expect(within(events).getByRole('link', { name: 'Election night' })).toBeTruthy()
+  expect(within(events).getByRole('link', { name: 'All events with this entity' })).toHaveAttribute('href', '/events/?entity_id=ent-1&all=1')
+  expect(api.events).toHaveBeenCalledWith({ entity_id: 'ent-1' })
+})
+
+it('says when the entity is in no event', async () => {
+  renderWithQuery(() => <EntitiesPage />)
+
+  expect(await screen.findByText('No events with this entity yet.')).toBeTruthy()
+})
 
 it('links to the events this entity characterises', async () => {
   renderWithQuery(() => <EntitiesPage />)
@@ -61,12 +116,12 @@ it('links to the events this entity characterises', async () => {
   expect(screen.getByRole('link', { name: 'Compare with another entity' })).toHaveAttribute('href', '/compare/?kind=entity&a=ent-1')
 })
 
-it('shows identity, totals, explicit unavailable aliases, and first/last seen', async () => {
+it('shows identity, totals, and first/last seen, with no names line when there are no other names', async () => {
   renderWithQuery(() => <EntitiesPage />)
 
   expect(await screen.findByRole('heading', { name: 'Barack Obama' })).toBeTruthy()
   expect(screen.getByText('PERSON · en')).toBeTruthy()
-  expect(screen.getByText('Aliases unavailable')).toBeTruthy()
+  expect(screen.queryByText(/Aliases|Also known as/)).toBeNull()
   expect(screen.getByText('12 mentions · 5 articles · 2 stories')).toBeTruthy()
   expect(api.entityDossier).toHaveBeenCalledWith('ent-1', 30)
 })
@@ -76,17 +131,20 @@ it('lists recent articles and stories with return paths and load-more pagination
     .mockResolvedValueOnce(articles([article('a1', 'First report')], 'next'))
     .mockResolvedValueOnce(articles([article('a2', 'Second report')]))
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Articles & stories')
 
-  expect(await screen.findByRole('link', { name: 'First report' })).toHaveAttribute('href', '/articles/?article=a1&from=%2Fentities%2F%3Fid%3Dent-1')
+  // The way back returns to this tab.
+  expect(await screen.findByRole('link', { name: 'First report' })).toHaveAttribute('href', '/articles/?article=a1&from=%2Fentities%2F%3Fid%3Dent-1%26tab%3Darticles')
   fireEvent.click(screen.getByRole('button', { name: 'Load more articles' }))
   expect(await screen.findByText('Second report')).toBeTruthy()
   expect(screen.getByText('First report')).toBeTruthy()
   expect(api.entityArticles).toHaveBeenLastCalledWith('ent-1', 'next')
-  expect(screen.getByRole('link', { name: /Story headline/ })).toHaveAttribute('href', '/clusters/?id=c1&from=%2Fentities%2F%3Fid%3Dent-1')
+  expect(screen.getByRole('link', { name: /Story headline/ })).toHaveAttribute('href', '/clusters/?id=c1&from=%2Fentities%2F%3Fid%3Dent-1%26tab%3Darticles')
 })
 
 it('renders relationships with dossier links and labelled country roles', async () => {
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
 
   expect(await screen.findByRole('link', { name: /Microsoft/ })).toHaveAttribute('href', '/entities/?id=ent-2')
   expect(screen.getByText('United States (US) · mentioned · 4 articles')).toBeTruthy()
@@ -104,6 +162,7 @@ it('links to a search for the entity and to a dated search from a timeline bar',
 it('changes the window and refetches dossier and relationships', async () => {
   renderWithQuery(() => <EntitiesPage />)
   await screen.findByRole('heading', { name: 'Barack Obama' })
+  await openTab('Relationships')
 
   fireEvent.change(screen.getByLabelText('Window'), { target: { value: '90' } })
 
@@ -120,9 +179,11 @@ it('shows empty states for an entity with no evidence', async () => {
   renderWithQuery(() => <EntitiesPage />)
 
   expect(await screen.findByText('No mentions in this window.')).toBeTruthy()
-  expect(screen.getByText('No articles yet.')).toBeTruthy()
-  expect(screen.getByText('No stories yet.')).toBeTruthy()
-  expect(screen.getByText('No related entities.')).toBeTruthy()
+  await openTab('Articles & stories')
+  expect(await screen.findByText('No articles yet.')).toBeTruthy()
+  expect(await screen.findByText('No stories yet.')).toBeTruthy()
+  await openTab('Relationships')
+  expect(await screen.findByText('No related entities.')).toBeTruthy()
 })
 
 it('shows not-found for an unknown entity and a generic error otherwise', async () => {
@@ -158,11 +219,15 @@ const variant = { id: 'var-1', display_name: 'B. Obama', normalized_text: 'b oba
 const run = (kind: 'merge' | 'split', entity: string, root: string) => ({ id: `run-${kind}`, kind, status: 'running' as const, entity_id: entity, root_id: root })
 const authority = (over = {}) => ({ id: 'ent-1', display_name: 'Barack Obama', preferred_text: null, entity_type: 'PERSON', ner_type: 'PERSON', hidden: false, status: 'provisional' as const, ambiguous: false, note: null, authority_id: null, ...over })
 
-const openEditor = async () => fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+const openEditor = async () => {
+  await openTab('Catalogue')
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+}
 
 it('edits the entry in the same side panel as the authority file, without a link back to this page', async () => {
   vi.mocked(api.entityDossier).mockResolvedValue(dossier({ entity_type: 'TOPIC', ner_type: 'ORG', hidden: true }))
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Catalogue')
 
   const summary = (await screen.findByRole('heading', { name: 'Authority file' })).parentElement!
   expect(within(summary).getByText('Topic')).toBeTruthy()
@@ -184,8 +249,10 @@ it('shows the status, the variants and says when it was opened from a merged nam
   renderWithQuery(() => <EntitiesPage />)
 
   expect(await screen.findByText('Opened from a name merged into this entity.')).toBeTruthy()
-  expect(screen.getByText('Established')).toBeTruthy()
-  await openEditor()
+  await openTab('Catalogue')
+  const summary = (await screen.findByRole('heading', { name: 'Authority file' })).parentElement!
+  expect(within(summary).getByText('Established')).toBeTruthy()
+  fireEvent.click(within(summary).getByRole('button', { name: 'Edit' }))
   const variants = await screen.findByRole('list', { name: 'Other names' })
   expect(within(variants).getByText('B. Obama')).toBeTruthy()
   expect(api.entityVariants).toHaveBeenCalledWith('ent-1')
@@ -293,6 +360,7 @@ it('lists the authority history, oldest first', async () => {
 
 it('has a Wikidata section that loads the root\'s link', async () => {
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Catalogue')
 
   expect(await screen.findByRole('heading', { name: 'Wikidata' })).toBeTruthy()
   await vi.waitFor(() => expect(api.wikidata).toHaveBeenCalledWith('ent-1'))
@@ -311,6 +379,7 @@ it('lists the see-also links by type, with dates, notes and the source article',
     link('r2', 'member_of', 'EU', { valid_from: '1981' }),
   ] })
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
 
   const list = await screen.findByRole('list', { name: 'See also' })
   expect(within(list).getAllByRole('listitem').map(item => item.textContent)).toEqual([
@@ -326,6 +395,7 @@ it('lists the see-also links by type, with dates, notes and the source article',
 
 it('says when there are no see-also links', async () => {
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
 
   expect(await screen.findByText('No see-also links yet.')).toBeTruthy()
 })
@@ -336,6 +406,7 @@ it('adds a link of a type this entity can take, to an entity picked by name', as
   renderWithQuery(() => <EntitiesPage />)
   // The editor's history follows a link added on the page.
   await openEditor()
+  await openTab('Relationships')
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add link' }))
   const type = screen.getByLabelText('Link type')
@@ -357,6 +428,7 @@ it('shows why a link was refused', async () => {
   vi.mocked(api.nlpEntities).mockResolvedValue({ items: [{ id: 'ent-8', kind: 'ORG', normalized_text: 'acme', text: 'Acme' }], next_cursor: null })
   vi.mocked(api.addRelation).mockRejectedValue(new ApiError('A related link needs a note saying how they relate', 422))
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
 
   fireEvent.click(await screen.findByRole('button', { name: 'Add link' }))
   fireEvent.change(screen.getByLabelText('Find the linked entity'), { target: { value: 'acme' } })
@@ -374,6 +446,7 @@ it('edits the dates and note of a link, and removes one', async () => {
   vi.mocked(api.updateRelation).mockResolvedValue(link('r3', 'member_of', 'NATO'))
   vi.mocked(api.removeRelation).mockResolvedValue(undefined)
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
 
   fireEvent.click(await screen.findByRole('button', { name: 'Edit link to NATO' }))
   expect(screen.getByLabelText('From')).toHaveValue('1952')
@@ -388,7 +461,21 @@ it('edits the dates and note of a link, and removes one', async () => {
 
 it('exports the articles that name the entity', async () => {
   renderWithQuery(() => <EntitiesPage />)
+  await openTab('Articles & stories')
 
   fireEvent.click(await screen.findByRole('button', { name: 'Export' }))
   expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/api/v1/entities/ent-1/export?format=csv')
+})
+
+it('follows the URL when another entity or Back changes it', async () => {
+  const { rerenderSame } = renderWithQuery(() => <EntitiesPage />)
+  await openTab('Relationships')
+  expect(screen.getByRole('tab', { name: 'Relationships' })).toHaveAttribute('aria-selected', 'true')
+
+  navigationHarness.push('/entities/?id=ent-2')
+  rerenderSame()
+  expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true')
+  navigationHarness.back()
+  rerenderSame()
+  expect(screen.getByRole('tab', { name: 'Relationships' })).toHaveAttribute('aria-selected', 'true')
 })

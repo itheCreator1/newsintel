@@ -36,7 +36,7 @@ test('authority merge workflow merges, keeps old ids working, and splits back', 
   expect(articles.length).toBeGreaterThan(0)
   expect(await searched(page, nations)).toEqual(articles)
 
-  await page.goto(`/entities?id=${nations}`)
+  await page.goto(`/entities?id=${nations}&tab=catalogue`)
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByRole('button', { name: 'Merge with…' }).click()
   await page.getByLabel('Find the entity to merge into').fill('Microsoft')
@@ -52,7 +52,7 @@ test('authority merge workflow merges, keeps old ids working, and splits back', 
   await expect.poll(() => linked(page, microsoft), { timeout: 90_000 }).toEqual(expect.arrayContaining(articles))
   expect(await searched(page, nations)).toEqual(expect.arrayContaining(articles))
 
-  await page.goto(`/entities?id=${microsoft}`)
+  await page.goto(`/entities?id=${microsoft}&tab=catalogue`)
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByRole('button', { name: 'Split United Nations' }).click()
   await expect(page.getByText('United Nations is its own entity again; its articles move back shortly.')).toBeVisible()
@@ -190,7 +190,7 @@ test('see also workflow links entities and follows the link in search and the gr
   await expect(page.getByRole('status')).toHaveText('Linked United Nations to Brussels, with this article as the source.')
 
   // From the dossier: a later name, found through the linked-entity picker.
-  await page.goto(`/entities?id=${microsoft}`)
+  await page.goto(`/entities?id=${microsoft}&tab=relationships`)
   await page.getByRole('button', { name: 'Add link' }).click()
   await page.getByLabel('Link type').selectOption('later_name')
   await page.getByLabel('Find the linked entity').fill('United Nations')
@@ -198,7 +198,7 @@ test('see also workflow links entities and follows the link in search and the gr
   await page.getByRole('button', { name: 'Save link' }).click()
   await expect(page.getByRole('list', { name: 'See also' })).toHaveText(/Later name: United Nations/)
 
-  await page.goto(`/entities?id=${nations}`)
+  await page.goto(`/entities?id=${nations}&tab=relationships`)
   const links = page.getByRole('list', { name: 'See also' })
   await expect(links.getByRole('listitem')).toHaveCount(2)
   await expect(links).toContainText('Earlier name: Microsoft')
@@ -225,7 +225,7 @@ test('see also workflow links entities and follows the link in search and the gr
   await expect(page.getByText('Dotted purple lines are see-also links you stated; they never count as co-occurrence.')).toBeVisible()
 
   // Clean up, so later specs see no links.
-  await page.goto(`/entities?id=${nations}`)
+  await page.goto(`/entities?id=${nations}&tab=relationships`)
   await page.getByRole('button', { name: 'Remove link to Microsoft' }).click()
   await page.getByRole('button', { name: 'Remove link to Brussels' }).click()
   await expect(page.getByText('No see-also links yet.')).toBeVisible()

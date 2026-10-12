@@ -41,6 +41,7 @@ test('source dossier workflow moves from the source list to stories, articles an
   await page.getByLabel('Window').selectOption('90')
   await page.locator('a[href^="/entities/?id="]').first().click()
   await expect(page).toHaveURL(/\/entities\/\?id=/)
+  await page.getByRole('tab', { name: 'Relationships' }).click()
   await page.locator('a[href^="/sources/detail/?id="]').first().click()
   await expect(page).toHaveURL(/\/sources\/detail\/\?id=/)
 })
