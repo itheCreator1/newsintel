@@ -13,7 +13,7 @@ vi.mock('../../components/TimelineChart', () => ({
     <button type="button" onClick={() => props.onSelect({ start: '2026-01-05T00:00:00Z', end: '2026-01-19T00:00:00Z' })}>{`Brush ${props.buckets?.length} ${props.interval} buckets`}</button>,
 }))
 
-const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }], entities: [] }
+const result = { article_id: 'a1', title: 'Safe <script> title', effective_date: '2026-09-14T12:00:00Z', distinct_source_count: 2, sources: ['Wire'], source_refs: [{ id: 's1', name: 'Wire', country: 'US' }], story_country: 'DE', summary: 'marked text', highlights: [{ text: '<img>', marked: true }, { text: ' safe', marked: false }], entities: [], read: false, starred: false }
 
 const bucketless = { buckets: [], truncated: false }
 const noFacets = { total: 0, sources: bucketless, source_countries: bucketless, story_countries: bucketless, mentioned_countries: bucketless, languages: bucketless, entities: bucketless, entity_types: bucketless, keywords: bucketless, story_clusters: bucketless }
@@ -580,4 +580,20 @@ it('exports the search on screen as CSV or JSON', async () => {
   expect(within(dialog).getByRole('link', { name: 'JSON' })).toHaveAttribute('href', '/api/v1/search/export?q=grid&source_country=GR&sort=newest&format=json')
   expect(within(dialog).getByRole('link', { name: 'CSV' })).toHaveAttribute('download')
   expect(within(dialog).getByText('Up to 5,000 articles, in this order.')).toBeTruthy()
+})
+
+it('shows the reader\'s star, note and read state on a result', async () => {
+  vi.mocked(api.search).mockResolvedValue({ items: [
+    { ...result, starred: true, read: true, note: 'Port figures for the report' },
+    { ...result, article_id: 'a2', title: 'Unmarked result' },
+  ], next_cursor: null })
+  renderSearch('q=grid')
+
+  const marked = (await screen.findByText('Safe <script> title')).closest('article')!
+  expect(within(marked).getByRole('img', { name: 'Starred' })).toBeTruthy()
+  expect(within(marked).getByText('Port figures for the report')).toBeTruthy()
+  expect(within(marked).getByText('Read')).toBeTruthy()
+  const plain = screen.getByText('Unmarked result').closest('article')!
+  expect(within(plain).queryByRole('img', { name: 'Starred' })).toBeNull()
+  expect(within(plain).queryByText('Read')).toBeNull()
 })

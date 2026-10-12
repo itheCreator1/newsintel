@@ -20,8 +20,13 @@ class _Target:
 
 
 class _Database:
+    marks: list[object] = []
+
     async def scalar(self, _query: object) -> _Target:
         return _Target()
+
+    async def scalars(self, _query: object) -> list[object]:
+        return _Database.marks
 
 
 class _Session:
@@ -397,3 +402,32 @@ async def test_export_walks_the_snapshot_up_to_the_limit_and_closes_it(
         format="json",
     )
     assert len(_PagedAdapter.bodies) == 1 and exported == [[_hit(0)["_source"]["article_id"]]]
+
+
+@pytest.mark.asyncio
+async def test_results_carry_the_readers_star_note_and_read_mark(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.marks.models import ArticleMark
+
+    monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _Adapter)
+    _Adapter.closed, _Adapter.close_error = [], None
+    _Adapter.response = {"hits": {"hits": [_hit(0), _hit(1)]}}
+    marked = UUID(_hit(0)["_source"]["article_id"])
+    _Database.marks = [
+        ArticleMark(article_id=marked, starred=True, note="Port figures", read_at=datetime.now(UTC))
+    ]
+    try:
+        page = await search_articles(
+            _Database(),  # type: ignore[arg-type]
+            _Session(),  # type: ignore[arg-type]
+            Settings(),
+            _criteria(),
+        )
+    finally:
+        _Database.marks = []
+    first, second = page.items
+    assert (first.starred, first.note, first.read) == (True, "Port figures", True)
+    assert (second.starred, second.note, second.read) == (False, None, False)

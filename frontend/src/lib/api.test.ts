@@ -274,3 +274,17 @@ it('lists the authority file by type, order and hidden names, claims names and c
     ['/api/v1/authorities/bulk', 'POST', JSON.stringify({ action: 'set_type', ids: ['a', 'b'], entity_type: 'TOPIC' })],
   ])
 })
+
+it('requests the article list with only the filters that are set', async () => {
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 200 }))
+
+  await api.articles({})
+  await api.articles({ feed_id: 'f1', unread: true, language: 'el', has_text: true, after: '2026-01-05', before: '2026-01-20' }, 'c+1')
+  await api.articles({ starred: true })
+
+  expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+    '/api/v1/articles',
+    '/api/v1/articles?feed_id=f1&unread=true&language=el&has_text=true&after=2026-01-05&before=2026-01-20&cursor=c%2B1',
+    '/api/v1/articles?starred=true',
+  ])
+})

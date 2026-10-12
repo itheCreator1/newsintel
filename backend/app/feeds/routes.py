@@ -1,7 +1,7 @@
 import base64
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -19,7 +19,14 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.feeds.discovery import FeedProbeError, probe_feed
 from app.feeds.http import fetch_feed_http
-from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFetch
+from app.feeds.models import (
+    FETCH_FINISHED,
+    Article,
+    ArticleContent,
+    Feed,
+    FeedArticle,
+    FeedFetch,
+)
 from app.feeds.opml import OpmlEntry, OpmlError, parse_opml, render_opml
 from app.feeds.schemas import (
     ArticleDetailResponse,
@@ -53,6 +60,7 @@ from app.feeds.service import (
 )
 from app.marks.models import ArticleMark
 from app.marks.service import mark_response, marks_for
+from app.nlp.models import ArticleLanguageAnnotation
 from app.search.service import request_source_refresh
 
 router = APIRouter(tags=["feeds"])
@@ -369,16 +377,62 @@ async def list_articles(
     db: Db,
     _auth: Auth,
     feed_id: uuid.UUID | None = None,
+    unread: bool | None = None,
+    starred: bool | None = None,
+    language: Annotated[str | None, Query(max_length=16)] = None,
+    has_text: bool | None = None,
+    after: date | None = None,
+    before: date | None = None,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> ArticlePage:
+    """Newest first; the dates are days of discovery in UTC, `before` not included."""
     query = (
         select(Article)
         .options(selectinload(Article.discoveries).selectinload(FeedArticle.feed))
         .order_by(Article.first_discovered_at.desc(), Article.id.desc())
     )
     if feed_id:
-        query = query.join(FeedArticle).where(FeedArticle.feed_id == feed_id)
+        query = query.where(
+            select(FeedArticle.article_id)
+            .where(FeedArticle.article_id == Article.id, FeedArticle.feed_id == feed_id)
+            .exists()
+        )
+    if unread is not None:
+        read = (
+            select(ArticleMark.article_id)
+            .where(ArticleMark.article_id == Article.id, ArticleMark.read_at.is_not(None))
+            .exists()
+        )
+        query = query.where(~read if unread else read)
+    if starred is not None:
+        marked = (
+            select(ArticleMark.article_id)
+            .where(ArticleMark.article_id == Article.id, ArticleMark.starred.is_(True))
+            .exists()
+        )
+        query = query.where(marked if starred else ~marked)
+    if language:
+        query = query.where(
+            select(ArticleLanguageAnnotation.id)
+            .where(
+                ArticleLanguageAnnotation.article_id == Article.id,
+                ArticleLanguageAnnotation.is_current.is_(True),
+                ArticleLanguageAnnotation.language == language,
+            )
+            .exists()
+        )
+    if has_text is not None:
+        text = (
+            select(ArticleContent.article_id)
+            .where(ArticleContent.article_id == Article.id)
+            .exists()
+        )
+        query = query.where(text if has_text else ~text)
+    if after:
+        query = query.where(Article.first_discovered_at >= datetime.combine(after, time(), UTC))
+    if before:
+        query = query.where(Article.first_discovered_at < datetime.combine(before, time(), UTC))
     if cursor:
         discovered, item_id = cursor_or_400(cursor)
         query = query.where(
@@ -404,7 +458,7 @@ async def list_articles(
             )
             for row in page
         ],
-        next_cursor=next_cursor
+        next_cursor=next_cursor,
     )
 
 
@@ -446,9 +500,7 @@ async def get_article(article_id: uuid.UUID, db: Db, _auth: Auth) -> ArticleDeta
                         StoryClusterMember.cluster_id == membership.cluster_id,
                         StoryClusterMember.article_id != article_id,
                     )
-                    .order_by(
-                        StoryClusterMember.score.desc(), StoryClusterMember.article_id.asc()
-                    )
+                    .order_by(StoryClusterMember.score.desc(), StoryClusterMember.article_id.asc())
                     .limit(5)
                 )
             ).all()

@@ -293,10 +293,14 @@ function SearchContent() {
             {results.map(result => (
               <article key={result.article_id} className="search-result border-border px-6 py-4 last:border-b-0 hover:bg-accent/40">
                 <button className="result-open transition-colors" onClick={() => router.push(openArticleHref(result.article_id))}>
-                  <strong className="text-[15px] font-semibold text-foreground">{result.title}</strong>
-                  <span className="text-xs text-muted-foreground">{new Date(result.effective_date).toLocaleString()} · {result.distinct_source_count} sources</span>
+                  <span className="flex items-start gap-2">
+                    <strong className="text-[15px] font-semibold text-foreground">{result.title}</strong>
+                    {result.starred && <span className="ml-auto text-primary" role="img" aria-label="Starred">★</span>}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{new Date(result.effective_date).toLocaleString()} · {result.distinct_source_count} sources{result.read && <> · <span>Read</span></>}</span>
                   {result.highlights.length ? <p className="text-sm text-muted-foreground [&_mark]:rounded [&_mark]:bg-primary/25 [&_mark]:text-foreground">{result.highlights.map((segment, index) => segment.marked ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>)}</p>
                     : result.summary && <p className="text-sm text-muted-foreground">{result.summary}</p>}
+                  {result.note && <p className="border-l-2 border-primary pl-2 text-sm text-foreground"><span className="sr-only">Your note: </span>{result.note}</p>}
                 </button>
                 <div className="result-filters mt-2 flex flex-wrap gap-2">
                   {result.source_refs.map(source => <button key={source.id} type="button" className={chipClass} aria-label={`Filter by source ${source.name}`} onClick={() => crossFilter('source_id', source.id)}>{source.name}</button>)}

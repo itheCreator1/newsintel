@@ -45,6 +45,13 @@ test('failure and retry workflow', async ({ page }) => {
   await page.reload()
   await expect(page.getByRole('button', { name: 'Star', exact: true })).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 })
   await expect(page.getByLabel('Note')).toHaveValue('Fixture note')
+  // The list narrows to starred articles, and clearing the filters brings the rest back.
+  const rows = page.locator('.article-row')
+  await page.getByRole('combobox', { name: 'Show' }).selectOption('starred')
+  await expect(rows.filter({ hasText: 'Recoverable fixture story' })).toHaveCount(0)
+  await expect(rows.filter({ hasText: 'Fixture story' })).toHaveCount(1)
+  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await expect(rows.filter({ hasText: 'Recoverable fixture story' })).not.toHaveCount(0)
 
   await page.getByRole('link', { name: 'Processes' }).click()
   const failed = page.getByRole('list', { name: 'Activity' }).getByRole('listitem').filter({ hasText: 'Recoverable fixture story' })
