@@ -63,9 +63,9 @@ export const api = {
   retireFeed: (id: string) => mutate<void>(`/feeds/${id}`, 'DELETE'),
   pollFeed: (id: string) => mutate<{ fetch_id: string; status: string; reused: boolean }>(`/feeds/${id}/poll`, 'POST'),
   fetches: (id: string, cursor?: string) => request<CursorPage<FeedFetch>>(`/feeds/${id}/fetches${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
-  articles: (feedId?: string, cursor?: string) => {
+  articles: (filters: ArticleFilters = {}, cursor?: string) => {
     const params = new URLSearchParams()
-    if (feedId) params.set('feed_id', feedId)
+    for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== '') params.set(key, String(value))
     if (cursor) params.set('cursor', cursor)
     return request<ArticleListPage>(`/articles${params.size ? `?${params}` : ''}`)
   },
@@ -179,6 +179,8 @@ export const api = {
 
 type Filters = Record<string, string | string[] | undefined>
 export interface EventFilters { status?: string; country?: string; entity_id?: string; from?: string; to?: string; min_stories?: string; sort?: string }
+/** Narrows the Articles list; dates are days of discovery in UTC and `before` is not included. */
+export interface ArticleFilters { feed_id?: string; unread?: boolean; starred?: boolean; language?: string; has_text?: boolean; after?: string; before?: string }
 
 export interface NewFeed { name: string; url: string; source_country?: string | null; expected_language?: string | null; tags?: string[]; poll_interval_minutes?: number; fetching_mode?: 'rss' | 'full_text' | 'full_text_html' }
 export type ExportFormat = 'csv' | 'json'

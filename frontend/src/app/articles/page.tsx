@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteD
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, type ArticleFilters } from '../../lib/api'
 import type { ArticleDetail, ArticleListPage, ArticleMark, ArticleMarkUpdate } from '../../lib/api-types'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
 import { ArticleEntityLink } from '../../components/ArticleEntityLink'
@@ -17,7 +17,7 @@ import { chipClass, fieldClass, ghostButtonClass, labelClass } from '../../lib/u
 import { cn } from '../../lib/utils'
 import { Details } from '../../components/Details'
 import { LoadError } from '../../components/Feedback'
-import { countryLabel, languageLabel } from '../../lib/countries'
+import { countryLabel, LANGUAGE_OPTIONS, languageLabel } from '../../lib/countries'
 
 const HIGHLIGHTS_KEY = 'newsintel.reader.highlights'
 const SHORTCUTS: [string, string][] = [['j', 'Next article'], ['k', 'Previous article'], ['f', 'Focus mode'], ['s', 'Star or unstar'], ['o', 'Open the original article'], ['?', 'Show these shortcuts'], ['Esc', 'Close focus mode or this list']]
@@ -37,6 +37,29 @@ function storedHighlights() {
   try { return localStorage.getItem(HIGHLIGHTS_KEY) !== 'off' } catch { return true }
 }
 
+const FILTER_KEYS = ['show', 'lang', 'text', 'after', 'until'] as const
+
+function nextDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + 1)
+  return date.toISOString().slice(0, 10)
+}
+
+/** The list's filters from the address: `until` is the last day shown, so the API gets the day after. */
+function listFilters(params: URLSearchParams): ArticleFilters {
+  const filters: ArticleFilters = {}
+  const feed = params.get('feed'), show = params.get('show'), language = params.get('lang')
+  const after = params.get('after'), until = params.get('until')
+  if (feed) filters.feed_id = feed
+  if (show === 'unread') filters.unread = true
+  if (show === 'starred') filters.starred = true
+  if (language) filters.language = language
+  if (params.get('text') === '1') filters.has_text = true
+  if (after) filters.after = after
+  if (until) filters.before = nextDay(until)
+  return filters
+}
+
 function ArticlesContent() {
   const router = useRouter()
   const pathname = usePathname()
@@ -51,7 +74,10 @@ function ArticlesContent() {
   const currentHref = toHref(pathname, searchParams)
 
   const feeds = useInfiniteQuery({ queryKey: ['feeds'], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.feeds(pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
-  const articles = useInfiniteQuery({ queryKey: ['articles', feedId], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.articles(feedId, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
+  const filters = useMemo(() => listFilters(searchParams), [searchParams])
+  const filtered = FILTER_KEYS.some(key => searchParams.get(key))
+  const articlesKey = ['articles', filters]
+  const articles = useInfiniteQuery({ queryKey: articlesKey, initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.articles(filters, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const feedItems = feeds.data?.pages.flatMap(page => page.items) ?? []
   const articleItems = articles.data?.pages.flatMap(page => page.items) ?? []
   // Asked again only while something is still to finish; new content means new annotations, so they follow the article.
@@ -64,7 +90,7 @@ function ArticlesContent() {
     onSuccess: mark => {
       // Both the open article and its list row change in place, so nothing is fetched again.
       client.setQueryData<ArticleDetail>(['article', mark.article_id], current => current && { ...current, mark })
-      client.setQueryData<InfiniteData<ArticleListPage>>(['articles', feedId], current => current && {
+      client.setQueryData<InfiniteData<ArticleListPage>>(articlesKey, current => current && {
         ...current, pages: current.pages.map(page => ({ ...page, items: page.items.map(item => item.id === mark.article_id ? { ...item, read: mark.read, starred: mark.starred } : item) })),
       })
     },
@@ -180,6 +206,30 @@ function ArticlesContent() {
             </select>
           </label>
           {feeds.hasNextPage && <button type="button" className={ghostButtonClass} disabled={feeds.isFetchingNextPage} onClick={() => feeds.fetchNextPage()}>Load more sources</button>}
+          <label className={labelClass}>Show
+            <select className={cn(fieldClass, 'mt-1')} value={searchParams.get('show') ?? ''} onChange={event => setQuery({ show: event.target.value || undefined })}>
+              <option value="">All articles</option>
+              <option value="unread">Unread</option>
+              <option value="starred">Starred</option>
+            </select>
+          </label>
+          <label className={labelClass}>Language
+            <select className={cn(fieldClass, 'mt-1')} value={searchParams.get('lang') ?? ''} onChange={event => setQuery({ lang: event.target.value || undefined })}>
+              <option value="">Any language</option>
+              {LANGUAGE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className={labelClass}>From
+            <input type="date" className={cn(fieldClass, 'mt-1')} value={searchParams.get('after') ?? ''} onChange={event => setQuery({ after: event.target.value || undefined })} />
+          </label>
+          <label className={labelClass}>Until
+            <input type="date" className={cn(fieldClass, 'mt-1')} value={searchParams.get('until') ?? ''} onChange={event => setQuery({ until: event.target.value || undefined })} />
+          </label>
+          <label className="flex items-center gap-2 pb-2 text-sm text-foreground">
+            <input type="checkbox" checked={searchParams.get('text') === '1'} onChange={event => setQuery({ text: event.target.checked ? '1' : undefined })} />
+            Full text only
+          </label>
+          {filtered && <button type="button" className={ghostButtonClass} onClick={() => setQuery(Object.fromEntries(FILTER_KEYS.map(key => [key, undefined])))}>Clear filters</button>}
         </div>
       </PageHeader>
 
@@ -187,7 +237,7 @@ function ArticlesContent() {
         {!focused && <GlassPanel ref={listRef} className="overflow-hidden p-0">
           {articles.isPending && <p className="text-sm text-muted-foreground px-6 py-4">Loading articles…</p>}
           {!articles.isPending && articles.isError && <LoadError className="px-6 py-4" query={articles} message="Could not load articles." />}
-          {!articles.isPending && !articles.isError && !articleItems.length && <p className="text-sm text-muted-foreground px-6 py-4">No collected articles.</p>}
+          {!articles.isPending && !articles.isError && !articleItems.length && <p className="text-sm text-muted-foreground px-6 py-4">{filtered ? 'No articles match these filters.' : 'No collected articles.'}</p>}
           {articleItems.map(article => (
             <button key={article.id} aria-current={article.id === selectedId ? 'true' : undefined} className="article-row flex w-full flex-col gap-1 border-t border-border px-6 py-4 text-left transition-colors first:border-t-0 hover:bg-accent/40 aria-[current=true]:bg-accent aria-[current=true]:shadow-[inset_3px_0_0_0_var(--primary)]" onClick={() => setQuery({ article: article.id })}>
               <span className="flex items-start gap-2">

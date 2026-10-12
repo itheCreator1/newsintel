@@ -178,7 +178,7 @@ An established name can be tied to one Wikidata item (MARC 024 with `$2 wikidata
 The remaining routes follow the same design language:
 - **Sources**: a list you can search by name or URL, filter by state (collecting, failing, disabled, retired) or tag, and sort by name; each source is edited in place (name, URL, country, language, tags, collection mode, interval). **Test feed** reads an address before you add it (title, entries, language) and finds the feed a site's page links to; **Import OPML** previews a feed reader's export and adds only the new sources, with its folders as tags, and **Export OPML** downloads them all. A tag is also a filter on Search, Graph and the Map (*Source tag* under Advanced filters), and saved searches and monitors keep it. Per-feed dossiers have health, fetch history and coverage, and where the source sits in story timing (first to publish in N of M shared stories, or the median minutes behind the first article).
 - **Compare**: two entities, two sources or two countries side by side, with the articles and stories only one has and those both share.
-- **Clusters** and **Articles**.
+- **Clusters** and **Articles**. Opening an article marks it read; **s** stars it, a note stays with it, and **?** lists the reader's keys. The list filters by source, unread or starred, language, full text and the days it was found, and Search results show the star, the note and whether you have read the article.
 - **Processes**: every background process on one page (it replaces Jobs and Operations): service health, a card per process, one activity list with Retry and Stop, feed health and storage.
 - **Settings**.
 
