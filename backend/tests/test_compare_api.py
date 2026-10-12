@@ -8,7 +8,7 @@ from app.compare.routes import router
 from app.main import create_app
 
 PREFIX = "/api/v1/compare"
-SUFFIXES = ("", "/articles", "/stories")
+SUFFIXES = ("", "/articles", "/stories", "/export")
 
 
 def _operations() -> dict[str, dict[str, Any]]:
@@ -20,7 +20,7 @@ def _query(operation: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {p["name"]: p for p in operation.get("parameters", []) if p["in"] == "query"}
 
 
-def test_the_three_compare_routes_are_documented_and_read_only() -> None:
+def test_the_compare_routes_are_documented_and_read_only() -> None:
     found = _operations()
     assert set(found) == {PREFIX + suffix for suffix in SUFFIXES}
     for item in found.values():
@@ -31,7 +31,7 @@ def test_the_three_compare_routes_are_documented_and_read_only() -> None:
 
 def test_every_compare_route_requires_a_session() -> None:
     routes = [r for r in router.routes if isinstance(r, APIRoute)]
-    assert len(routes) == 3
+    assert len(routes) == len(SUFFIXES)
     for route in routes:
         assert current_session in [d.call for d in route.dependant.dependencies], route.path
 

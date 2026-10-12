@@ -364,7 +364,8 @@ async def test_export_walks_the_snapshot_up_to_the_limit_and_closes_it(
         return []
 
     monkeypatch.setattr("app.search.routes.export_rows", rows)
-    _PagedAdapter.closed, _PagedAdapter.bodies, _PagedAdapter.total = [], [], 9
+    _Adapter.closed, _Adapter.close_error = [], None
+    _PagedAdapter.bodies, _PagedAdapter.total = [], 9
 
     response = await search_export(
         _Database(),  # type: ignore[arg-type]
@@ -379,13 +380,13 @@ async def test_export_walks_the_snapshot_up_to_the_limit_and_closes_it(
     assert [body["size"] for body in _PagedAdapter.bodies] == [2, 2, 1]
     assert _PagedAdapter.bodies[0]["sort"][0] == {"effective_date": "desc"}
     assert _PagedAdapter.bodies[0]["_source"] == ["article_id"]
-    assert _PagedAdapter.closed == ["pit-export"]
+    assert _Adapter.closed == ["pit-export"]
     assert response.headers["content-disposition"].startswith(
         'attachment; filename="newsintel-search-'
     )
 
     # A search with fewer matches than a page stops after one request.
-    _PagedAdapter.closed, _PagedAdapter.bodies, _PagedAdapter.total = [], [], 1
+    _Adapter.closed, _PagedAdapter.bodies, _PagedAdapter.total = [], [], 1
     exported.clear()
     await search_export(
         _Database(),  # type: ignore[arg-type]

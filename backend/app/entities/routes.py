@@ -49,6 +49,7 @@ from app.entities.schemas import (
     SeeAlsoUpdate,
 )
 from app.entities.suggestions import suggest
+from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 from app.feeds.models import Article
 from app.nlp.models import Entity, EntityAuthorityRun, EntityRelation
 
@@ -129,6 +130,18 @@ async def get_entity_articles(
     cursor_value = cursor_or_400(cursor)  # a malformed cursor is a 400 before any query
     entity = await _entity_or_404(db, entity_id)
     return await queries.articles(db, entity.id, limit, cursor_value)
+
+
+@router.get("/entities/{entity_id}/export")
+async def get_entity_export(
+    entity_id: uuid.UUID, db: Db, _auth: Auth, format: ExportFormat = "csv"
+) -> Response:
+    """The articles naming the entity, newest first, as a download."""
+    entity = await _entity_or_404(db, entity_id)
+    page = await queries.articles(db, entity.id, EXPORT_LIMIT, None)
+    return export_response(
+        await export_rows(db, [item.id for item in page.items]), format, "entity"
+    )
 
 
 @router.get("/entities/{entity_id}/clusters", response_model=EntityClusterPage)

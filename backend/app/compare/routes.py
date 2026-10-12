@@ -3,7 +3,7 @@ import uuid
 from dataclasses import replace
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
@@ -22,6 +22,7 @@ from app.compare.schemas import (
 )
 from app.db.session import get_db
 from app.entities.resolver import resolve_root
+from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
 
 router = APIRouter(tags=["compare"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -103,6 +104,17 @@ async def compare_articles(
     cursor_value = cursor_or_400(cursor)
     compared, _, _ = await _subjects(db, compared)
     return await queries.articles(db, compared, part, limit, cursor_value)
+
+
+@router.get("/compare/export")
+async def compare_export(
+    db: Db, _auth: Auth, compared: Compared, part: Part, format: ExportFormat = "csv"
+) -> Response:
+    """One part of the comparison's articles, newest first, as a download."""
+    compared, _, _ = await _subjects(db, compared)
+    page = await queries.articles(db, compared, part, EXPORT_LIMIT, None)
+    rows = await export_rows(db, [item.id for item in page.items])
+    return export_response(rows, format, "compare")
 
 
 @router.get("/compare/stories", response_model=CompareClusterPage)
