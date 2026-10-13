@@ -1,8 +1,11 @@
+import asyncio
 import os
 import uuid
 
 import pytest
-from sqlalchemy import func, select
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import func, select, text
 
 from app.articles.models import Article
 from app.db.session import session_factory
@@ -85,3 +88,28 @@ async def test_failed_feed_can_be_corrected_and_repolled() -> None:
     async with session_factory() as db:
         result = await db.get(FeedFetch, recovered.id)
         assert result is not None and result.status == "success"
+
+
+async def _feed_article_columns() -> set[str]:
+    async with session_factory() as db:
+        rows = await db.scalars(
+            text(
+                "SELECT column_name FROM information_schema.columns"
+                " WHERE table_name = 'feed_articles'"
+            )
+        )
+        return set(rows)
+
+
+async def test_a_discovery_keeps_no_metadata_column() -> None:
+    # The parser never filled it, and nothing read it (fix plan Β3).
+    assert "metadata_json" not in FeedArticle.__table__.columns
+    assert "metadata_json" not in await _feed_article_columns()
+
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0002")
+    try:
+        assert "metadata_json" in await _feed_article_columns()
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+    assert "metadata_json" not in await _feed_article_columns()
