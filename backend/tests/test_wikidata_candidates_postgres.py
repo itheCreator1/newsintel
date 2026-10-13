@@ -422,7 +422,7 @@ async def test_the_sweep_takes_rooted_names_with_enough_articles_only() -> None:
         "few": dict(articles=2),
         "ambiguous": dict(articles=3, ambiguous=True),
         "linked": dict(articles=3),
-        "misc": dict(articles=3, entity_type="MISC"),
+        "other": dict(articles=3, entity_type="OTHER"),
     }
     ids = {key: await _root(f"{key} {word}", **values) for key, values in names.items()}  # type: ignore[arg-type]
     async with session_factory() as db, db.begin():
@@ -444,7 +444,7 @@ async def test_the_sweep_takes_rooted_names_with_enough_articles_only() -> None:
 
     searched = {detail.split(":", 1)[1] for detail in fake.actions("wbsearchentities")}
     assert f"eligible {word}" in searched
-    assert not {f"{key} {word}" for key in ("few", "ambiguous", "linked", "misc")} & searched
+    assert not {f"{key} {word}" for key in ("few", "ambiguous", "linked", "other")} & searched
     async with session_factory() as db:
         run = await db.get(WikidataRun, sweep.id)
         assert run is not None and run.status == "finished"
