@@ -87,6 +87,7 @@
 "test_index_schema.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_integrity_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_investigations_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_job_leasing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_jobs.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_migration_baseline_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_migrations_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
