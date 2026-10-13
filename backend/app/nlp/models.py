@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -17,13 +18,22 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
+
+# The values each status column holds; the CHECKs below and migration 0004 are built from them.
+JOB_STATUSES = ("queued", "running", "retrying", "succeeded", "failed", "superseded")
+RUN_OUTCOMES = ("success", "unsupported_language", "disabled", "failed")
+STATE_STATUSES = ("queued", "running", "retrying", *RUN_OUTCOMES)
+REPROCESSING_STATUSES = ("queued", "scanning", "succeeded", "stopped", "failed")
+KEYWORD_KINDS = ("keyword", "keyphrase")
+COUNTRY_ROLES = ("primary", "mentioned")
 
 
 class ArticleNlpState(Base):
     __tablename__ = "article_nlp_states"
     __table_args__ = (
         UniqueConstraint("article_id", "processor_name", name="uq_article_nlp_state"),
+        CheckConstraint(one_of("status", STATE_STATUSES), name="ck_article_nlp_states_status"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
@@ -49,6 +59,7 @@ class NlpJob(Base):
         ),
         Index("ix_nlp_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
         Index("ix_nlp_jobs_created_at", "created_at"),
+        CheckConstraint(one_of("status", JOB_STATUSES), name="ck_nlp_jobs_status"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     state_id: Mapped[uuid.UUID] = mapped_column(
@@ -80,6 +91,7 @@ class NlpProcessorRun(Base):
     __table_args__ = (
         Index("ix_nlp_runs_article_processor", "article_id", "processor_name", "started_at"),
         Index("ix_nlp_runs_completed", "completed_at"),
+        CheckConstraint(one_of("outcome", RUN_OUTCOMES), name="ck_nlp_processor_runs_outcome"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_jobs.id", ondelete="CASCADE"))
@@ -101,7 +113,15 @@ class NlpProcessorRun(Base):
 
 class ArticleLanguageAnnotation(Base):
     __tablename__ = "article_language_annotations"
-    __table_args__ = (Index("ix_article_language_current", "article_id", "is_current"),)
+    __table_args__ = (
+        Index("ix_article_language_current", "article_id", "is_current"),
+        Index(
+            "uq_article_language_annotations_current",
+            "article_id",
+            unique=True,
+            postgresql_where=text("is_current"),
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     run_id: Mapped[uuid.UUID] = mapped_column(
@@ -129,6 +149,7 @@ class Keyword(Base):
     __tablename__ = "nlp_keywords"
     __table_args__ = (
         UniqueConstraint("language", "kind", "normalized_text", name="uq_nlp_keyword_identity"),
+        CheckConstraint(one_of("kind", KEYWORD_KINDS), name="ck_nlp_keywords_kind"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     language: Mapped[str] = mapped_column(String(16))
@@ -145,6 +166,13 @@ class ArticleEntity(Base):
             "ix_article_nlp_entities_entity_article",
             "entity_id",
             "article_id",
+            postgresql_where=text("is_current"),
+        ),
+        Index(
+            "uq_article_nlp_entities_current",
+            "article_id",
+            "entity_id",
+            unique=True,
             postgresql_where=text("is_current"),
         ),
     )
@@ -169,7 +197,16 @@ class ArticleEntity(Base):
 
 class ArticleKeyword(Base):
     __tablename__ = "article_nlp_keywords"
-    __table_args__ = (Index("ix_article_nlp_keywords_current", "article_id", "is_current"),)
+    __table_args__ = (
+        Index("ix_article_nlp_keywords_current", "article_id", "is_current"),
+        Index(
+            "uq_article_nlp_keywords_current",
+            "article_id",
+            "keyword_id",
+            unique=True,
+            postgresql_where=text("is_current"),
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     keyword_id: Mapped[uuid.UUID] = mapped_column(
@@ -188,7 +225,18 @@ class ArticleKeyword(Base):
 
 class ArticleCountryAnnotation(Base):
     __tablename__ = "article_country_annotations"
-    __table_args__ = (Index("ix_article_country_current", "article_id", "role", "is_current"),)
+    __table_args__ = (
+        Index("ix_article_country_current", "article_id", "role", "is_current"),
+        Index(
+            "uq_article_country_annotations_current",
+            "article_id",
+            "role",
+            "country_code",
+            unique=True,
+            postgresql_where=text("is_current"),
+        ),
+        CheckConstraint(one_of("role", COUNTRY_ROLES), name="ck_article_country_annotations_role"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     run_id: Mapped[uuid.UUID] = mapped_column(
@@ -217,6 +265,11 @@ class StopWordRevision(Base):
 
 class NlpReprocessingRun(Base):
     __tablename__ = "nlp_reprocessing_runs"
+    __table_args__ = (
+        CheckConstraint(
+            one_of("status", REPROCESSING_STATUSES), name="ck_nlp_reprocessing_runs_status"
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(
         String(24), default="queued", server_default=text("'queued'")

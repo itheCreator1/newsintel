@@ -4,8 +4,8 @@ from datetime import UTC, date, datetime, time
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, HTTPException, Query
-from sqlalchemy import cast, func, select
-from sqlalchemy.dialects.postgresql import JSONB, array
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -119,7 +119,7 @@ async def _tag_sources(db: AsyncSession, tags: list[str]) -> list[str]:
     """Every source, retired ones too, that carries any of the tags."""
     if not tags:
         return []
-    rows = await db.scalars(select(Feed.id).where(cast(Feed.tags, JSONB).has_any(array(tags))))
+    rows = await db.scalars(select(Feed.id).where(Feed.tags.has_any(array(tags))))
     return sorted(str(value) for value in rows.all())
 
 

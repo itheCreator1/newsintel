@@ -148,7 +148,7 @@ async def _retire(feed_id: uuid.UUID) -> None:
 async def test_retrying_a_failed_article_job_queues_a_new_job_for_the_article() -> None:
     async with session_factory() as db:
         art = await _article(db, await feed(db), INSIDE)
-        job = ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
+        job = ArticleProcessingJob(article_id=art.id, requested_mode="full_text", status="failed",
                                    completed_at=INSIDE)  # fmt: skip
         db.add(job)
         await db.flush()
@@ -235,11 +235,11 @@ async def test_retry_failed_skips_failures_a_newer_job_already_replaced() -> Non
         again, fixed = await _article(db, source, INSIDE), await _article(db, source, INSIDE)
         db.add_all(
             [
-                ArticleProcessingJob(article_id=again.id, requested_mode="rss", status="failed",
-                                     created_at=INSIDE, completed_at=INSIDE),
-                ArticleProcessingJob(article_id=fixed.id, requested_mode="rss", status="failed",
-                                     created_at=INSIDE, completed_at=INSIDE),
-                ArticleProcessingJob(article_id=fixed.id, requested_mode="rss",
+                ArticleProcessingJob(article_id=again.id, requested_mode="full_text",
+                                     status="failed", created_at=INSIDE, completed_at=INSIDE),
+                ArticleProcessingJob(article_id=fixed.id, requested_mode="full_text",
+                                     status="failed", created_at=INSIDE, completed_at=INSIDE),
+                ArticleProcessingJob(article_id=fixed.id, requested_mode="full_text",
                                      status="succeeded", created_at=NOW, completed_at=NOW),
             ]
         )  # fmt: skip
@@ -275,8 +275,8 @@ async def test_retry_failed_works_in_bounded_batches(monkeypatch: pytest.MonkeyP
         source = await feed(db)
         for _ in range(2):
             art = await _article(db, source, INSIDE)
-            db.add(ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
-                                        completed_at=INSIDE))  # fmt: skip
+            db.add(ArticleProcessingJob(article_id=art.id, requested_mode="full_text",
+                                        status="failed", completed_at=INSIDE))  # fmt: skip
         await db.flush()
         retried, remaining = await actions.retry_failed(db, "articles", _senders())
         await db.rollback()
@@ -414,7 +414,7 @@ async def test_cards_and_rows_say_which_actions_they_offer() -> None:
         source = await feed(db)
         art = await _article(db, source, INSIDE)
         art.title = f"Offer {uuid.uuid4().hex}"
-        job = ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
+        job = ArticleProcessingJob(article_id=art.id, requested_mode="full_text", status="failed",
                                    created_at=LATER, completed_at=LATER)  # fmt: skip
         run = NlpReprocessingRun(status="scanning", processor_names=["keywords"],
                                  selection={"all": True}, created_at=LATER)  # fmt: skip

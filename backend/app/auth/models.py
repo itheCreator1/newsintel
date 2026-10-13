@@ -7,7 +7,6 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,9 +16,6 @@ from app.db.base import Base
 
 class User(Base):
     __tablename__ = "users"
-    # 0001 made both this constraint and the unique index below; the copy goes in a later migration.
-    __table_args__ = (UniqueConstraint("username", name="users_username_key"),)
-
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(512))
@@ -29,9 +25,6 @@ class User(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
-    # 0001 made both this constraint and the unique index below; the copy goes in a later migration.
-    __table_args__ = (UniqueConstraint("token_hash", name="sessions_token_hash_key"),)
-
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     csrf_token: Mapped[str] = mapped_column(String(128))

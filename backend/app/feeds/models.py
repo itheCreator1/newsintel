@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -13,22 +13,29 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.articles.models import Article
-from app.db.base import Base
+from app.db.base import Base, one_of
+
+# rss reads the feed alone; the full-text modes also fetch each article (with its HTML kept).
+FETCHING_MODES = ("rss", "full_text", "full_text_html")
 
 
 class Feed(Base):
     __tablename__ = "feeds"
-    __table_args__ = (Index("ix_feeds_due", "enabled", "retired_at", "next_poll_at"),)
+    __table_args__ = (
+        Index("ix_feeds_due", "enabled", "retired_at", "next_poll_at"),
+        CheckConstraint(one_of("fetching_mode", FETCHING_MODES), name="ck_feeds_fetching_mode"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200))
     url: Mapped[str] = mapped_column(Text)
     source_country: Mapped[str | None] = mapped_column(String(2))
     expected_language: Mapped[str | None] = mapped_column(String(16))
-    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     poll_interval_minutes: Mapped[int] = mapped_column(Integer, default=60)
     fetching_mode: Mapped[str] = mapped_column(String(16), default="rss")
@@ -51,6 +58,7 @@ class Feed(Base):
 
 # A fetch in any other status is still owed an outcome.
 FETCH_FINISHED = ("success", "failed")
+FETCH_STATUSES = ("queued", "running", *FETCH_FINISHED)
 
 
 class FeedFetch(Base):
@@ -58,6 +66,7 @@ class FeedFetch(Base):
     __table_args__ = (
         Index("ix_feed_fetches_history", "feed_id", "started_at"),
         Index("ix_feed_fetches_started", "started_at"),
+        CheckConstraint(one_of("status", FETCH_STATUSES), name="ck_feed_fetches_status"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))

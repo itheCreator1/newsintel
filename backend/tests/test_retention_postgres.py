@@ -41,7 +41,7 @@ async def _kept(db, rows) -> set:  # type: ignore[no-untyped-def]
 
 def _article_job(article_id, status: str, created: datetime) -> ArticleProcessingJob:  # type: ignore[no-untyped-def]
     return ArticleProcessingJob(
-        article_id=article_id, requested_mode="rss", status=status,
+        article_id=article_id, requested_mode="full_text", status=status,
         created_at=created, completed_at=created,
     )  # fmt: skip
 

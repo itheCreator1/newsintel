@@ -6,6 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import event as sa_event
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from app.db.session import session_factory
 from app.feeds import routes as feed_routes
@@ -101,6 +104,35 @@ async def test_feed_list_finds_by_name_or_url_and_by_tag() -> None:
         ]
         # The wildcard characters are literal, so "_" does not match any one character.
         assert (await _list(db, tag=tag, q="Harbor_Wire")).items == []
+
+
+async def test_the_tag_filter_uses_jsonb() -> None:
+    # feeds.tags is jsonb, so neither the tag filter nor the tag list casts it (fix plan Β4).
+    tag = f"tag-{uuid.uuid4().hex[:8]}"
+    seen: list[str] = []
+
+    def record(conn, cursor, statement, *_):  # type: ignore[no-untyped-def]
+        seen.append(statement)
+
+    async with session_factory() as db:
+        column_type = await db.scalar(
+            text(
+                "SELECT data_type FROM information_schema.columns"
+                " WHERE table_name = 'feeds' AND column_name = 'tags'"
+            )
+        )
+        assert column_type == "jsonb"
+        wire = await _feed(db, tag, "Tagged Wire")
+        await db.commit()
+        sa_event.listen(Engine, "before_cursor_execute", record)
+        try:
+            listed = await _list(db, tag=tag)
+            counts = await feed_routes.list_feed_tags(db, SimpleNamespace())  # type: ignore[arg-type]
+        finally:
+            sa_event.remove(Engine, "before_cursor_execute", record)
+    assert [item.id for item in listed.items] == [wire.id]
+    assert {item.tag: item.count for item in counts}[tag] == 1
+    assert seen and not [statement for statement in seen if "CAST" in statement.upper()]
 
 
 async def test_feed_list_filters_by_state_and_reports_the_last_fetch() -> None:

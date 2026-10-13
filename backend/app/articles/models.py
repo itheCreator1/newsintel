@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -20,10 +21,17 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, one_of
 
 if TYPE_CHECKING:
     from app.feeds.models import FeedArticle
+
+# A processing job's values; the CHECKs below and migration 0004 are built from them.
+ACTIVE_STATUSES = ("queued", "running", "retrying")
+JOB_STATUSES = (*ACTIVE_STATUSES, "succeeded", "failed")
+ATTEMPT_STATUSES = ("running", "succeeded", "failed")
+STAGES = ("fetch", "extract")
+REQUESTED_MODES = ("full_text", "full_text_html")
 
 
 class Article(Base):
@@ -76,7 +84,13 @@ class ArticleProcessingJob(Base):
             "uq_article_jobs_active",
             "article_id",
             unique=True,
-            postgresql_where=text("status IN ('queued', 'running', 'retrying')"),
+            postgresql_where=text(one_of("status", ACTIVE_STATUSES)),
+        ),
+        CheckConstraint(one_of("status", JOB_STATUSES), name="ck_article_processing_jobs_status"),
+        CheckConstraint(one_of("stage", STAGES), name="ck_article_processing_jobs_stage"),
+        CheckConstraint(
+            one_of("requested_mode", REQUESTED_MODES),
+            name="ck_article_processing_jobs_requested_mode",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -101,7 +115,13 @@ class ArticleProcessingJob(Base):
 
 class ArticleProcessingAttempt(Base):
     __tablename__ = "article_processing_attempts"
-    __table_args__ = (Index("ix_article_attempts_job", "job_id", "started_at"),)
+    __table_args__ = (
+        Index("ix_article_attempts_job", "job_id", "started_at"),
+        CheckConstraint(
+            one_of("status", ATTEMPT_STATUSES), name="ck_article_processing_attempts_status"
+        ),
+        CheckConstraint(one_of("stage", STAGES), name="ck_article_processing_attempts_stage"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     job_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("article_processing_jobs.id", ondelete="CASCADE")
