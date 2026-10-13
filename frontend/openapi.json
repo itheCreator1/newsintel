@@ -2784,6 +2784,50 @@
         }
       }
     },
+    "/api/v1/entities/{entity_id}/usage": {
+      "get": {
+        "tags": [
+          "entities"
+        ],
+        "summary": "Get Entity Usage",
+        "description": "What filters on the root: asked before hiding it, since hidden it matches nothing.",
+        "operationId": "get_entity_usage_api_v1_entities__entity_id__usage_get",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityUsage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/entities/{entity_id}/history": {
       "get": {
         "tags": [
@@ -15896,6 +15940,25 @@
           "feeds"
         ],
         "title": "EntityRelationshipsResponse"
+      },
+      "EntityUsage": {
+        "properties": {
+          "monitors": {
+            "type": "integer",
+            "title": "Monitors"
+          },
+          "saved_searches": {
+            "type": "integer",
+            "title": "Saved Searches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "monitors",
+          "saved_searches"
+        ],
+        "title": "EntityUsage",
+        "description": "Watches and saved searches that filter on the root or one of its names."
       },
       "EntityVariantList": {
         "properties": {

@@ -120,10 +120,28 @@ function SameName({ entity }: { entity: EntityDossier }) {
   )
 }
 
+/** Whether hiding may go ahead: at once when nothing filters on the root, else when the user says so. */
+async function usersAgree(entity: EntityDossier): Promise<boolean> {
+  const usage = await api.entityUsage(entity.id)
+  const users = [
+    usage.monitors > 0 ? plural(usage.monitors, 'watch', 'watches') : null,
+    usage.saved_searches > 0 ? plural(usage.saved_searches, 'saved search', 'saved searches') : null,
+  ].filter(Boolean)
+  if (users.length === 0) return true
+  return window.confirm(`${entity.display_name} is used by ${users.join(' and ')}, which stop matching it once it is hidden. Hide it?`)
+}
+
 /** "Not a name": hides the root from search, the graph and the suggestions without deleting anything. */
 function Visibility({ entity }: { entity: EntityDossier }) {
   const client = useQueryClient()
-  const change = useMutation({ mutationFn: (hidden: boolean) => api.updateEntity(entity.id, { hidden }), onSuccess: () => refreshAuthority(client) })
+  const change = useMutation({
+    mutationFn: async (hidden: boolean) => {
+      // Hidden, the root drops out of the search index, so watches and searches on it stop matching.
+      if (hidden && !await usersAgree(entity)) return null
+      return api.updateEntity(entity.id, { hidden })
+    },
+    onSuccess: changed => { if (changed) refreshAuthority(client) },
+  })
   return (
     <div className="flex flex-col gap-2">
       {entity.hidden

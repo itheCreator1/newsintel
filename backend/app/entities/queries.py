@@ -3,10 +3,11 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, cast, exists, func, literal_column, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.sql.sqltypes import Date
+from sqlalchemy.sql.sqltypes import Date, Text
 
 from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
@@ -17,6 +18,7 @@ from app.entities.schemas import (
     EntityClusterResponse,
     EntityDossierResponse,
     EntityRelationshipsResponse,
+    EntityUsage,
     MentionTimelineDay,
     RelatedCountryResponse,
     RelatedEntityResponse,
@@ -24,6 +26,8 @@ from app.entities.schemas import (
 )
 from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import article_response, encode_cursor
+from app.investigations.models import SavedSearch
+from app.monitors.models import Monitor
 from app.nlp.models import ArticleCountryAnnotation, ArticleEntity
 
 
@@ -34,6 +38,24 @@ def window_start(days: int, now: datetime | None = None) -> datetime:
 
 async def get_entity(db: AsyncSession, entity_id: uuid.UUID) -> Entity | None:
     return await db.get(Entity, entity_id)
+
+
+async def usage(db: AsyncSession, root_id: uuid.UUID) -> EntityUsage:
+    """How many watches and saved searches filter on the root or any of its names.
+
+    Hiding the root takes it out of the search index, so these stop matching it.
+    """
+    variants = select(Entity.id).where(Entity.authority_id == root_id)
+    ids = [str(root_id), *(str(entity_id) for entity_id in await db.scalars(variants))]
+    names = cast(ids, ARRAY(Text))
+
+    async def count(model: type[Monitor] | type[SavedSearch]) -> int:
+        found = await db.scalar(
+            select(func.count()).select_from(model).where(model.state["entity_id"].has_any(names))
+        )
+        return found or 0
+
+    return EntityUsage(monitors=await count(Monitor), saved_searches=await count(SavedSearch))
 
 
 def effective_date() -> ColumnElement[datetime]:

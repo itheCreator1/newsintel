@@ -73,6 +73,11 @@ class Entity(Base):
         CheckConstraint(
             "authority_id IS NULL OR authority_id <> id", name="ck_nlp_entity_not_own_authority"
         ),
+        # The type and the "not a name" mark are a root's; a variant shows its root's.
+        CheckConstraint(
+            "authority_id IS NULL OR (preferred_type IS NULL AND NOT hidden)",
+            name="ck_nlp_entity_root_only_choices",
+        ),
         Index(
             "ix_nlp_entities_authority",
             "authority_id",

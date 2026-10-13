@@ -101,6 +101,13 @@ class EntityRelationshipsResponse(BaseModel):
     feeds: list[RelatedFeedResponse]
 
 
+class EntityUsage(BaseModel):
+    """Watches and saved searches that filter on the root or one of its names."""
+
+    monitors: int
+    saved_searches: int
+
+
 class EntityAuthorityResponse(BaseModel):
     id: uuid.UUID
     display_name: str
