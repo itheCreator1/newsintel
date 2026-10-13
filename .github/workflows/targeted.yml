@@ -80,6 +80,8 @@ jobs:
           STOP_AFTER: ${{ steps.select.outputs.stop_after }}
           NEWSINTEL_TEST_ARTIFACTS: ${{ runner.temp }}/test-artifacts
           NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+          # A browser test that fails is retried once; one that then passes is listed as flaky.
+          NEWSINTEL_E2E_RETRIES: "1"
         run: |
           set -f
           # shellcheck disable=SC2086

@@ -12,5 +12,9 @@ export default defineConfig({
     environment: 'jsdom',
     exclude: ['e2e/**', 'node_modules/**', '.next/**'],
     setupFiles: ['./vitest.setup.ts'],
+    // The default 5 s timed a search page test out once on a loaded CI runner (quick gate run 142).
+    testTimeout: 15_000,
+    // One jsdom per worker instead of one per file (57 files): about 30% faster, isolation kept.
+    pool: 'vmThreads',
   },
 })

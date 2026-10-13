@@ -165,3 +165,24 @@ async def test_failures_from_long_ago_start_a_new_count() -> None:
         )
     assert (await _attempt(username, "not-the-password")).status_code == 401
     assert (await _attempt(username, FIRST)).status_code == 200
+
+
+async def test_signing_out_ends_this_session_and_needs_its_csrf_token() -> None:
+    username = await _user()
+    async with _browser() as here, _browser() as elsewhere:
+        assert (await _sign_in(here, username, FIRST)).status_code == 200
+        assert (await _sign_in(elsewhere, username, FIRST)).status_code == 200
+        cookies = dict(here.cookies)
+
+        assert (await here.post("/api/v1/auth/logout")).status_code == 403
+        assert (await here.get("/api/v1/auth/me")).status_code == 200
+
+        response = await here.post("/api/v1/auth/logout", headers=await _csrf(here))
+
+        assert response.status_code == 204
+        assert (await here.get("/api/v1/auth/me")).status_code == 401
+        # The old cookie no longer works, even sent again by hand; the other browser stays in.
+        async with _browser() as replay:
+            replay.cookies.update(cookies)
+            assert (await replay.get("/api/v1/auth/me")).status_code == 401
+        assert (await elsewhere.get("/api/v1/auth/me")).status_code == 200

@@ -58,6 +58,16 @@ ni_e2e_unselected() {
   }
 }
 
+# ni_e2e_flaky: reads Playwright's output on stdin and prints the tests its summary calls flaky
+# (failed, then passed on a retry), one per line.
+ni_e2e_flaky() {
+  awk '
+    /^ +[0-9]+ flaky$/ { inflaky = 1; next }
+    inflaky && /^ +[0-9]+ [a-z]/ { inflaky = 0 }
+    inflaky && /›/ { sub(/^ +/, ""); print }
+  ' | sed -E 's/ (─)+$//'
+}
+
 # ni_single_head <compose> <service> <message> [run-flag]
 # Runs the duplicated "exactly one migration head" assertion; exits 1 with <message> on stderr
 # if it fails (matches the two scripts' pre-existing, slightly different wording). [run-flag],

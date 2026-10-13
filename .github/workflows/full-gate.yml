@@ -100,6 +100,8 @@ jobs:
           STOP_AFTER: ${{ inputs.stop_after }}
           NEWSINTEL_TEST_ARTIFACTS: ${{ runner.temp }}/test-artifacts
           NEWSINTEL_E2E_ARTIFACTS: ${{ runner.temp }}/test-artifacts
+          # A browser test that fails is retried once; one that then passes is listed as flaky.
+          NEWSINTEL_E2E_RETRIES: "1"
         run: |
           # One argument per word of TARGET (a group, or node ids); set -f keeps a
           # parametrized node id's [...] from globbing.

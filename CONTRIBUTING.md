@@ -89,6 +89,8 @@ Each browser group uses a fresh database and an isolated Compose network, and it
 
 The specs in a group run in order and depend on what earlier specs seeded, so a single spec cannot run on its own. `--stop-after "<spec>"` runs the group up to and including that spec and stops there, which saves the specs after it. `<spec>` is one of the group's `e2e "..."` names in `infra/test-e2e.sh`; an unknown name fails before anything starts and lists the group's specs. It is for checking a fix, not for passing a group.
 
+Locally a failed browser test fails the group at once. In CI (`NEWSINTEL_E2E_RETRIES=1`) it is retried once; if it then passes, the group still passes, and the test is listed in the group's `flaky.txt` and at the end of its log. A test that shows up there is a bug to fix, not noise.
+
 ## 4. The OpenAPI and TypeScript contract
 
 The frontend's API types come from `frontend/openapi.json`, which is generated from the FastAPI app. Both the quick loop and the full gate regenerate the spec and the types and fail if either differs from what is checked in (`frontend/openapi.json is stale` or `frontend/src/lib/types.generated.ts is stale`).
@@ -191,4 +193,5 @@ Every run, pass or fail, writes:
 - **Backend**: Python 3.12+, SQLAlchemy 2 and Pydantic, with `ruff` (line length 100) and `mypy --strict`. Dependencies are managed with `uv`; change `pyproject.toml` and regenerate `uv.lock` rather than editing the lock. spaCy and its model are installed only in the NER image (`docker/compose.ner.yaml`).
 - **Domains own their code.** New behaviour goes in the domain module it belongs to, with its own models, service and routes (README, P5).
 - **Nothing slow in a request** (README, P6). Work that fetches, annotates or indexes is a job row written in the same transaction as the data it depends on, picked up by the scheduler.
+- **Tests and the clock.** A test never pairs a fixed date with code that measures a window from the real "now" (the last 30 days, the past week): the test passes today and fails once the date slides out of the window. Either build the dates from `datetime.now(UTC)`, or pass the code a fixed `now` where it takes one. A date written into test data that no window reads is fine. The nightly full gate broke on 2026-10-10 and 11 from exactly this.
 - **Frontend**: TypeScript with `tsc --noEmit`, vitest for unit tests and Playwright for browser workflows. Call the API through the generated types.
