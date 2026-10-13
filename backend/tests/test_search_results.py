@@ -8,7 +8,7 @@ from app.api.cursors import read_cursor
 from app.core.config import Settings
 from app.search.criteria import SearchCriteria, current_search_target
 from app.search.documents import SCHEMA_VERSION
-from app.search.elasticsearch import ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchRejected, ElasticsearchUnavailable
 from app.search.query import parse_query
 from app.search.routes import search_articles, search_export
 
@@ -268,13 +268,18 @@ async def test_lookahead_hit_is_withheld_and_continues_from_the_last_returned_hi
     assert _Adapter.closed == []
 
 
+@pytest.mark.parametrize(
+    "failure",
+    # Elasticsearch answers 404 for a snapshot that has already gone.
+    [ElasticsearchUnavailable("down"), ElasticsearchRejected("search_context_missing", 404)],
+)
 @pytest.mark.asyncio
 async def test_failing_to_close_the_snapshot_still_returns_the_page(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, failure: Exception
 ) -> None:
     monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _Adapter)
     _Adapter.response = {"hits": {"hits": [_hit(0)]}}
-    _Adapter.closed, _Adapter.close_error = [], ElasticsearchUnavailable("down")
+    _Adapter.closed, _Adapter.close_error = [], failure
     page = await search_articles(
         _Database(),  # type: ignore[arg-type]
         _Session(),  # type: ignore[arg-type]
@@ -284,6 +289,28 @@ async def test_failing_to_close_the_snapshot_still_returns_the_page(
     )
     assert len(page.items) == 1
     assert _Adapter.closed == ["pit"]
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_search_is_a_502_not_a_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Rejecting(_Adapter):
+        async def search(self, body: dict[str, Any]) -> dict[str, Any]:
+            raise ElasticsearchRejected("parsing_exception", 400)
+
+    monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _Rejecting)
+    with pytest.raises(HTTPException) as raised:
+        await search_articles(
+            _Database(),  # type: ignore[arg-type]
+            _Session(),  # type: ignore[arg-type]
+            Settings(),
+            _criteria(),
+            limit=2,
+        )
+    assert raised.value.status_code == 502
+    assert raised.value.detail == {
+        "code": "search_rejected",
+        "message": "Search rejected the request",
+    }
 
 
 @pytest.mark.parametrize(

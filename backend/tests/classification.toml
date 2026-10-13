@@ -42,6 +42,7 @@
 "test_compare_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_csrf.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_cursor_errors.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
+"test_elasticsearch_adapter.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_enrichment_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_entity_authority.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_entity_authority_api_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
@@ -120,6 +121,7 @@
 "test_search_delivery_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_search_facets.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_facets_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
+"test_search_failures_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_search_indexing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_intent.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_intent_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }

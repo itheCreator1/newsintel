@@ -21,7 +21,7 @@ from app.monitors.evaluation import claim_monitor, process_monitor
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate, MonitorUpdate
 from app.monitors.service import create_monitor, update_monitor
-from app.search.elasticsearch import ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchRejected, ElasticsearchUnavailable
 
 pytestmark = [
     pytest.mark.skipif(
@@ -340,6 +340,7 @@ async def test_a_match_missing_from_postgres_does_not_break_the_commit() -> None
     ("failure", "category"),
     [
         (ElasticsearchUnavailable("connection refused"), "search_unavailable"),
+        (ElasticsearchRejected("parsing_exception", 400), "search_rejected"),
         (RuntimeError("boom"), "evaluation_error"),
     ],
 )
