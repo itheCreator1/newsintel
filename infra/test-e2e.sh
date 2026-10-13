@@ -258,7 +258,7 @@ case $group in
     e2e "map workflow"
     e2e "compare workflow"
     e2e "source dossier workflow"
-    e2e "event workflow"
+    e2e "event workflow|an event is found by a word in its headline"
     e2e "entity dossier workflow"
     # Merges two shared entities and splits them back, so the counts after it are unchanged.
     e2e "authority merge workflow"
@@ -276,7 +276,7 @@ case $group in
     # The worker asked the fixture's stand-in (never Wikidata) and kept every answer in PostgreSQL.
     [ "$(psql_app "select count(*) from entity_external_ids where scheme = 'wikidata'")" = 1 ] || { echo "Wikidata link missing" >&2; exit 1; }
     [ "$(psql_app "select coalesce(sum(count), 0) > 0 from wikidata_request_counts")" = t ] || { echo "No Wikidata request was counted" >&2; exit 1; }
-    e2e "ui polish workflow"
+    e2e "ui polish workflow|a dark theme from Settings holds across a reload"
     # After every spec that counts the shared fixture articles: it adds a Greek feed and turns
     # Greek entities on, and is the one browser check of the real Greek model.
     e2e "greek entities workflow"
