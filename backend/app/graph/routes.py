@@ -24,7 +24,8 @@ from app.graph.service import (
 from app.graph.service import edge_evidence as collect_edge_evidence
 from app.graph.service import entity_graph as collect_entity_graph
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
+from app.search.failures import search_failure
 
 router = APIRouter(tags=["graph"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -72,8 +73,8 @@ async def entity_graph(
             since=recent_since(criteria.start, criteria.end, datetime.now(UTC)),
             focus_ids=focus_ids,
         )
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
     if not stated:
         return graph
     # Stated links are drawn beside co-occurrence and never change its edges or weights.
@@ -125,5 +126,5 @@ async def edge_evidence(
             source_ids=source_ids,
             target_ids=target_ids,
         )
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc

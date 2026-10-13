@@ -23,7 +23,8 @@ from app.monitors.schemas import (
 )
 from app.monitors.service import parse_state
 from app.search.criteria import build_query, current_search_target, search_criteria
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
+from app.search.failures import search_failure
 
 TOP = 10
 EVIDENCE = 3
@@ -264,8 +265,8 @@ async def monitor_changes(db: AsyncSession, item: Monitor) -> MonitorChanges:
         prior: dict[str, Any] = {}
         if any(candidates.values()):
             prior = await adapter.search_index(index_name, prior_body(query, after, candidates))
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
     return build_changes(
         after,
         upto,

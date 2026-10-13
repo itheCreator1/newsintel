@@ -17,7 +17,11 @@ from app.monitors.models import Monitor
 from app.monitors.service import parse_state
 from app.notifications.service import notifications_on
 from app.search.criteria import build_query, current_search_target, search_criteria
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import (
+    ElasticsearchAdapter,
+    ElasticsearchRejected,
+    ElasticsearchUnavailable,
+)
 
 log = structlog.get_logger()
 
@@ -232,6 +236,8 @@ async def _publish(
 def _category(exc: Exception) -> str:
     if isinstance(exc, InvalidState):
         return "invalid_state"
+    if isinstance(exc, ElasticsearchRejected):
+        return "search_rejected"
     if isinstance(exc, ElasticsearchUnavailable):
         return "search_unavailable"
     if isinstance(exc, HTTPException) and isinstance(exc.detail, dict) and exc.detail.get("code"):

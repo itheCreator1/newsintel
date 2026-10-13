@@ -29,6 +29,7 @@ from app.search.documents import (
 from app.search.elasticsearch import (
     BulkDocument,
     ElasticsearchAdapter,
+    ElasticsearchRejected,
     ElasticsearchUnavailable,
     OversizedDocument,
 )
@@ -253,6 +254,11 @@ async def process_delivery(delivery_id: str, claim_token: str) -> None:
             result.error,
         )
     except OversizedDocument as exc:
+        await _acknowledge(
+            parsed_id, claim_token, delivery.requested_revision, "permanent", str(exc)
+        )
+    except ElasticsearchRejected as exc:
+        # Elasticsearch refused the whole request; sending the same body again fails the same way.
         await _acknowledge(
             parsed_id, claim_token, delivery.requested_revision, "permanent", str(exc)
         )

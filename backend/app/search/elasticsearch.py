@@ -24,8 +24,35 @@ async def close_shared_client() -> None:
         await client.aclose()
 
 
-class ElasticsearchUnavailable(RuntimeError):
-    pass
+class ElasticsearchError(RuntimeError):
+    """A request Elasticsearch did not carry out; `status` is its HTTP status, if it answered."""
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+class ElasticsearchUnavailable(ElasticsearchError):
+    """Elasticsearch could not answer: no connection, a timeout, 429 or 5xx. A retry may work."""
+
+
+class ElasticsearchRejected(ElasticsearchError):
+    """Elasticsearch answered and refused the request (any other 4xx). The same request fails
+    again, so it is not retried, and it is not reported as an outage."""
+
+
+# A body longer than this is cut in the error, which ends up in logs and stored error messages.
+_REASON_CHARS = 1000
+
+
+def _failure(exc: httpx.HTTPError) -> ElasticsearchError:
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return ElasticsearchUnavailable(str(exc) or type(exc).__name__)
+    code = exc.response.status_code
+    message = f"{exc}: {exc.response.text[:_REASON_CHARS]}"
+    if code in (408, 429) or code >= 500:
+        return ElasticsearchUnavailable(message, code)
+    return ElasticsearchRejected(message, code)
 
 
 class OversizedDocument(ValueError):
@@ -114,7 +141,7 @@ class ElasticsearchAdapter:
                 )
                 response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise ElasticsearchUnavailable(str(exc)) from exc
+            raise _failure(exc) from exc
         items = response.json().get("items", [])
         results: list[BulkResult] = []
         for document, item in zip(batch.documents, items, strict=True):
@@ -138,7 +165,7 @@ class ElasticsearchAdapter:
                 response.raise_for_status()
                 return response
         except httpx.HTTPError as exc:
-            raise ElasticsearchUnavailable(str(exc)) from exc
+            raise _failure(exc) from exc
 
     async def create_index(self, name: str, settings: dict[str, Any]) -> None:
         await self._request("PUT", f"/{name}", json_body=settings)
@@ -149,8 +176,8 @@ class ElasticsearchAdapter:
     async def alias_indices(self, alias: str) -> list[str]:
         try:
             response = await self._request("GET", f"/_alias/{alias}")
-        except ElasticsearchUnavailable as exc:
-            if "404" in str(exc):
+        except ElasticsearchRejected as exc:
+            if exc.status == 404:
                 return []
             raise
         return list(response.json())

@@ -12,7 +12,8 @@ from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorResultPage
 from app.monitors.service import parse_state
 from app.search.criteria import build_query, current_search_target, search_criteria
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
+from app.search.failures import search_failure
 from app.search.results import RESULT_FIELDS, search_result
 
 Scope = Literal["unseen", "recent"]
@@ -106,8 +107,8 @@ async def monitor_results(
         response = await ElasticsearchAdapter(get_settings().elasticsearch_url).search_index(
             index_name, body
         )
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
     hits = response["hits"]["hits"]
     next_cursor = (
         encode_results_cursor(secret, session_id, item.id, scope, after, upto, hits[-1]["sort"])

@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import read_cursor, sign_cursor
@@ -26,7 +26,8 @@ from app.geo.schemas import (
 from app.graph.service import articles_by_id
 from app.search.aggregations import ORDER, ROOT_ORDER, ensure_complete
 from app.search.criteria import SearchCriteria, build_query, current_search_target
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
+from app.search.failures import search_failure, snapshot_gone
 
 # ponytail: no truncation flag, ~250 ISO codes fit; add one if codes ever outgrow the cap.
 MAX_COUNTRIES = 300
@@ -136,8 +137,8 @@ async def countries(
             index_name, countries_body(role, build_query(criteria))
         )
         ensure_complete(response)
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The map is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc, "The map is unavailable") from exc
     coverage, items = parse_countries(role, response)
     return GeoCountriesResponse(
         role=role,
@@ -221,11 +222,10 @@ async def articles(
         # end paging early, closing the PIT on what looks like the last page. Upgrade path: call
         # ensure_complete on this response too.
         response = await adapter.search(articles_body(role, code, query, pit_id, limit, after))
-    except ElasticsearchUnavailable as exc:
-        message = str(exc)
-        if cursor and ("404" in message or "point in time" in message.lower()):
+    except ElasticsearchError as exc:
+        if cursor and snapshot_gone(exc):
             raise _restart() from exc
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The map is unavailable") from exc
+        raise search_failure(exc, "The map is unavailable") from exc
     found = response.get("hits", {}).get("hits", [])
     hits = found[:limit]
     pit_id = response.get("pit_id", pit_id)
@@ -239,7 +239,7 @@ async def articles(
         # The last page: release the snapshot now; keep_alive only covers abandoned pages.
         try:
             await adapter.close_point_in_time(pit_id)
-        except ElasticsearchUnavailable:
+        except ElasticsearchError:
             pass
     else:
         payload = {

@@ -78,9 +78,9 @@ export function unsupportedCriteria(state: Investigation, fields: ListField[]): 
   return state.content_available === null ? names : [...names, 'Content']
 }
 
-/** Worth a Retry: the network failed or the server did. Domain answers (4xx, an index that needs a rebuild) are not. */
+/** Worth a Retry: the network failed or the server did. Domain answers (4xx, an index that needs a rebuild, a query search refused) are not. */
 export function isTransient(error: unknown): boolean {
-  return !(error instanceof ApiError) || (error.status >= 500 && errorCode(error) !== 'search_upgrade_required')
+  return !(error instanceof ApiError) || (error.status >= 500 && !['search_upgrade_required', 'search_rejected'].includes(errorCode(error)))
 }
 
 /** The structured `detail.code` of an API error (`search_upgrade_required`, `restart_search`), or ''. */
