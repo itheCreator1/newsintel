@@ -1013,3 +1013,36 @@ async def test_a_job_that_fails_for_good_records_when_it_ended(
         )
     assert job is not None and job.status == "failed"
     assert job.completed_at is not None
+
+
+async def test_a_job_with_a_stale_fingerprint_is_superseded_not_reclaimed() -> None:
+    # The article's text changed after the job was claimed: its input is no longer the article's.
+    # It used to stay running until its lease ran out and be claimed again, for ever (Δ2β).
+    async with session_factory() as db, db.begin():
+        article = Article(
+            original_url=f"https://example.test/{uuid.uuid4()}",
+            normalized_url=f"https://example.test/{uuid.uuid4()}",
+            title="English article with many alphabetic words describing policy markets and news",
+            normalized_title_hash=uuid.uuid4().hex,
+        )
+        db.add(article)
+        await db.flush()
+        await request_article_nlp(db, article.id, processor_names=("language",))
+        await db.flush()
+        job_id = await db.scalar(select(NlpJob.id).where(NlpJob.article_id == article.id))
+        assert job_id is not None
+    async with session_factory() as db:
+        claimed = await claim_job(db, job_id, lease_seconds=60)
+    assert claimed is not None
+    async with session_factory() as db, db.begin():
+        changed = await db.get(Article, article.id)
+        assert changed is not None
+        changed.title = "A different headline about harbour workers and their new contract"
+
+    await process_job(job_id, claimed[1])
+    async with session_factory() as db:
+        job = await db.get(NlpJob, job_id)
+        assert job is not None
+        assert (job.status, job.claim_token, job.claim_expires_at) == ("superseded", None, None)
+        assert job.completed_at is not None
+        assert await claim_job(db, job_id, lease_seconds=60) is None
