@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.articles.models import Article  # noqa: F401
 from app.auth.models import User  # noqa: F401
+from app.core.ids import uuid7
 from app.db.base import Base
 from app.investigations.models import SavedSearch  # noqa: F401
 
@@ -67,7 +68,7 @@ class Monitor(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
     kind: Mapped[str] = mapped_column(String(16))

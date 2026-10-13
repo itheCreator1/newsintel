@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 # The values each status column holds; the CHECKs below and migration 0004 are built from them.
@@ -35,7 +36,7 @@ class ArticleNlpState(Base):
         UniqueConstraint("article_id", "processor_name", name="uq_article_nlp_state"),
         CheckConstraint(one_of("status", STATE_STATUSES), name="ck_article_nlp_states_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     processor_name: Mapped[str] = mapped_column(String(64))
     requested_generation: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
@@ -61,7 +62,7 @@ class NlpJob(Base):
         Index("ix_nlp_jobs_created_at", "created_at"),
         CheckConstraint(one_of("status", JOB_STATUSES), name="ck_nlp_jobs_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     state_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("article_nlp_states.id", ondelete="CASCADE")
     )
@@ -93,7 +94,7 @@ class NlpProcessorRun(Base):
         Index("ix_nlp_runs_completed", "completed_at"),
         CheckConstraint(one_of("outcome", RUN_OUTCOMES), name="ck_nlp_processor_runs_outcome"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     # Indexed: retention deletes jobs, and each delete looks up the job's runs here.
     job_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("nlp_jobs.id", ondelete="CASCADE"), index=True
@@ -125,7 +126,7 @@ class ArticleLanguageAnnotation(Base):
             postgresql_where=text("is_current"),
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
@@ -155,7 +156,7 @@ class Keyword(Base):
         UniqueConstraint("language", "kind", "normalized_text", name="uq_nlp_keyword_identity"),
         CheckConstraint(one_of("kind", KEYWORD_KINDS), name="ck_nlp_keywords_kind"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     language: Mapped[str] = mapped_column(String(16))
     kind: Mapped[str] = mapped_column(String(24))
     normalized_text: Mapped[str] = mapped_column(Text)
@@ -181,7 +182,7 @@ class ArticleEntity(Base):
             postgresql_where=text("is_current"),
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     # Always a root: search, the graph and the dossiers count this one.
     entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))
@@ -213,7 +214,7 @@ class ArticleKeyword(Base):
             postgresql_where=text("is_current"),
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     keyword_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("nlp_keywords.id", ondelete="RESTRICT"), index=True
@@ -244,7 +245,7 @@ class ArticleCountryAnnotation(Base):
         ),
         CheckConstraint(one_of("role", COUNTRY_ROLES), name="ck_article_country_annotations_role"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
@@ -263,7 +264,7 @@ class ArticleCountryAnnotation(Base):
 class StopWordRevision(Base):
     __tablename__ = "nlp_stop_word_revisions"
     __table_args__ = (UniqueConstraint("language", "revision", name="uq_nlp_stop_word_revision"),)
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     language: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int] = mapped_column(Integer)
     words: Mapped[list[str]] = mapped_column(JSONB)
@@ -278,7 +279,7 @@ class NlpReprocessingRun(Base):
             one_of("status", REPROCESSING_STATUSES), name="ck_nlp_reprocessing_runs_status"
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     status: Mapped[str] = mapped_column(
         String(24), default="queued", server_default=text("'queued'")
     )

@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.articles.models import Article
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 # rss reads the feed alone; the full-text modes also fetch each article (with its HTML kept).
@@ -30,7 +31,7 @@ class Feed(Base):
         CheckConstraint(one_of("fetching_mode", FETCHING_MODES), name="ck_feeds_fetching_mode"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     name: Mapped[str] = mapped_column(String(200))
     url: Mapped[str] = mapped_column(Text)
     source_country: Mapped[str | None] = mapped_column(String(2))
@@ -68,7 +69,7 @@ class FeedFetch(Base):
         Index("ix_feed_fetches_started", "started_at"),
         CheckConstraint(one_of("status", FETCH_STATUSES), name="ck_feed_fetches_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     claim_token: Mapped[str] = mapped_column(String(64), unique=True)
     status: Mapped[str] = mapped_column(String(24), default="queued")
@@ -94,7 +95,7 @@ class FeedArticle(Base):
         UniqueConstraint("feed_id", "guid", name="uq_feed_articles_feed_guid"),
         Index("ix_feed_articles_article", "article_id", "discovered_at"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="RESTRICT"))
     guid: Mapped[str | None] = mapped_column(Text)

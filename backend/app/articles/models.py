@@ -21,6 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ class Article(Base):
         Index("ix_articles_title_hash", "normalized_title_hash"),
         Index("ix_articles_effective_date", text("COALESCE(published_at, first_discovered_at)")),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     original_url: Mapped[str] = mapped_column(Text)
     normalized_url: Mapped[str] = mapped_column(Text)
     title: Mapped[str] = mapped_column(Text)
@@ -93,7 +94,7 @@ class ArticleProcessingJob(Base):
             name="ck_article_processing_jobs_requested_mode",
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     requested_mode: Mapped[str] = mapped_column(String(24))
     stage: Mapped[str] = mapped_column(String(16), default="fetch")
@@ -122,7 +123,7 @@ class ArticleProcessingAttempt(Base):
         ),
         CheckConstraint(one_of("stage", STAGES), name="ck_article_processing_attempts_stage"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     job_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("article_processing_jobs.id", ondelete="CASCADE")
     )

@@ -26,6 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 SCHEMES = ("wikidata", "viaf", "isni", "lcnaf")
@@ -161,7 +162,7 @@ class WikidataRun(Base):
         ),
         Index("ix_wikidata_runs_status", "status", "created_at"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     kind: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(
         String(16), default="queued", server_default=text("'queued'")
