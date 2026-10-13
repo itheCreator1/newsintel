@@ -13,7 +13,7 @@
 # Each group gets a fresh Compose project because the specs share fixture feeds and assert exact counts.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 
 usage="usage: infra/test-e2e.sh [--reuse-images <manifest>] [--stop-after <spec>] search|investigations|monitors|graph"
@@ -57,6 +57,7 @@ fi
 
 if [ -n "$reuse_manifest" ]; then
   [ -r "$reuse_manifest" ] || { echo "Reuse manifest not readable: $reuse_manifest" >&2; exit 2; }
+  # shellcheck source=/dev/null # the manifest is written by the run that built the images
   . "$reuse_manifest"
   ni_head=$(git -C "$root" rev-parse HEAD)
   [ "${NEWSINTEL_MANIFEST_REVISION:-}" = "$ni_head" ] || {

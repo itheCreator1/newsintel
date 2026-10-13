@@ -303,7 +303,7 @@ async def _update(
 Batch = Callable[[list[uuid.UUID]], Awaitable[dict[str, int]]]
 
 
-async def process_run(
+async def process_run(  # noqa: C901
     run_id: uuid.UUID, token: uuid.UUID, client: WikidataClient, settings: Settings
 ) -> None:
     """Do one batch of the run: a root's whole, or a sweep for wikidata_run_batch_seconds.

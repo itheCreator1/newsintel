@@ -328,7 +328,7 @@ def _selection_from(args: argparse.Namespace, parser: argparse.ArgumentParser) -
     return selection
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",

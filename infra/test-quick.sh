@@ -5,7 +5,7 @@
 # group. Every command runs --no-deps; nothing but backend-test/frontend-test is ever started.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 project=$(ni_project quick)
 compose="docker compose -p $project -f docker/compose.test.yaml -f docker/compose.quick.yaml"
@@ -41,6 +41,12 @@ ni_stage ruff
 $compose run --rm --no-deps backend-test ruff check .
 ni_stage mypy
 $compose run --rm --no-deps backend-test mypy app
+ni_stage import-contracts
+# Report only for now (pyproject.toml says when each contract starts failing the gate).
+$compose run --rm --no-deps backend-test lint-imports --no-cache ||
+  echo "Import contracts are broken (reported, not enforced yet)" >&2
+ni_stage shellcheck
+$compose run --rm --no-deps -v "$root/infra:/repo/infra:ro" -w /repo backend-test sh -c 'shellcheck infra/*.sh'
 
 ni_stage pytest
 $compose run --rm --no-deps -v "$artifacts:/artifacts" backend-test \
@@ -73,6 +79,7 @@ $compose run --rm --no-deps frontend-test npm run typecheck
 ni_stage frontend.lint
 $compose run --rm --no-deps frontend-test npm run lint
 ni_stage e2e.selection
+# shellcheck disable=SC2086 # word splitting is intended: the compose command and its files
 ni_e2e_unselected "$root" "$artifacts" $compose run --rm --no-deps -T frontend-test npx playwright test --list
 
 echo "Quick test loop passed: project=$project artifacts=$artifacts"

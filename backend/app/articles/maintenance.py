@@ -63,7 +63,7 @@ async def _process_batch(
     return len(eligible), deleted, failures
 
 
-async def cleanup_article_storage(
+async def cleanup_article_storage(  # noqa: C901
     db: AsyncSession,
     storage: LocalObjectStorage,
     *,

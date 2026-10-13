@@ -510,10 +510,15 @@ _NER_EXCLUDED_COMPONENTS = ["tagger", "attribute_ruler", "lemmatizer"]
 _ner_pipelines: dict[str, Any] = {}
 
 
+def _import_spacy() -> Any:
+    # A function of its own so tests replace spaCy here, not importlib for the whole process.
+    return importlib.import_module("spacy")
+
+
 def _ner_pipeline(model: str) -> Any:
     pipeline = _ner_pipelines.get(model)
     if pipeline is None:
-        spacy = importlib.import_module("spacy")
+        spacy = _import_spacy()
         try:
             pipeline = spacy.load(model, exclude=_NER_EXCLUDED_COMPONENTS)
         except OSError as exc:

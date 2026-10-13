@@ -557,9 +557,7 @@ async def _run_entities_job(
         return FakePipeline()
 
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
-    monkeypatch.setattr(
-        "app.nlp.processors.importlib.import_module", lambda _: SimpleNamespace(load=load)
-    )
+    monkeypatch.setattr("app.nlp.processors._import_spacy", lambda: SimpleNamespace(load=load))
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
     settings = Settings(nlp_ner_enabled=True)
     monkeypatch.setattr("app.nlp.execution.get_settings", lambda: settings)

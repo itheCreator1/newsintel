@@ -74,7 +74,7 @@ When a loop fails, fix it in the smallest loop that reproduces the failure, not 
 
 | Loop | Command | Covers |
 | --- | --- | --- |
-| Quick | `./infra/test-quick.sh` | ruff, mypy, unit pytest, the OpenAPI/TypeScript contract, vitest, frontend typecheck, ESLint (`npm run lint`, warnings fail too), and a check that every Playwright test matches an `e2e()` call in `infra/test-e2e.sh`. No service containers. CI runs this. |
+| Quick | `./infra/test-quick.sh` | ruff (including a complexity limit of 10), mypy, the import contracts in `backend/pyproject.toml` (reported, not yet enforced), shellcheck on `infra/*.sh`, unit pytest, the OpenAPI/TypeScript contract, vitest, frontend typecheck, ESLint (`npm run lint`, warnings fail too), and a check that every Playwright test matches an `e2e()` call in `infra/test-e2e.sh`. No service containers. CI runs this. |
 | Integration | `./infra/test-integration.sh <pytest-node-id>...` | Exactly the named integration modules, with only the services they need. |
 | Browser | `./infra/test-e2e.sh [--stop-after <spec>] <search\|investigations\|monitors\|graph>` | One Playwright group against a fresh Compose stack. `--stop-after` ends the group once that spec passes. |
 | Full gate | `./infra/test-docker.sh` | Everything: all of the above, migrations, the single-head check, the real-model NER tests (English and Greek spaCy models), `npm run build`, the backup/restore rehearsal and all four browser groups. |
@@ -127,6 +127,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 - **Quick gate**: `./infra/test-quick.sh`, inside the repository's own test images. Its diagnostics are uploaded as the `test-quick-artifacts` artifact on every run, so a failure can be read without rerunning it.
 - **Frontend build**: `npm ci && npm run build` in `frontend/`, because the quick loop skips the static export.
+- **Dependency audit**: `pip-audit` over every package `uv.lock` pins and `npm audit` in `frontend/` (high and above for what ships, critical for the build and test tooling). A finding with a fixed release is upgraded, not ignored.
 - **Workflow lint**: `actionlint` over the workflow files.
 
 A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.

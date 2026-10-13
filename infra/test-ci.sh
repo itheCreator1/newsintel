@@ -6,7 +6,7 @@
 #        infra/test-ci.sh integration <pytest-node-id>...
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 usage="usage: infra/test-ci.sh full | e2e <group> [<spec>] | integration <pytest-node-id>..."
 run=${1:?$usage}
 shift

@@ -125,7 +125,7 @@ def _abbreviates(short: tuple[str, ...], full: tuple[str, ...]) -> bool:
     return cut
 
 
-def _rule_pairs(names: Sequence[_Name]) -> dict[tuple[uuid.UUID, uuid.UUID], _Pair]:
+def _rule_pairs(names: Sequence[_Name]) -> dict[tuple[uuid.UUID, uuid.UUID], _Pair]:  # noqa: C901
     pairs: dict[tuple[uuid.UUID, uuid.UUID], _Pair] = defaultdict(_Pair)
 
     def add(a: _Name, b: _Name, reason: str) -> None:

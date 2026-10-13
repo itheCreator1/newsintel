@@ -9,7 +9,7 @@
 # failure, as the sequential loop does.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 usage="usage: infra/test-e2e-lane.sh <manifest> <artifacts> <group>..."
 manifest=${1:?$usage}
 artifacts=${2:?$usage}

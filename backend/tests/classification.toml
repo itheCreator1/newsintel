@@ -5,7 +5,8 @@
 # (NEWSINTEL_RUN_POSTGRES_TESTS, NEWSINTEL_TEST_FIXTURE_PORT) and, for Elasticsearch, by
 # reading each Postgres-gated module that mentions "elasticsearch" to tell a real live-cluster
 # call apart from a monkeypatched exception or a graceful-degradation assertion -- not from
-# filename convention. Verified against `pytest --collect-only` (594 collected, 75 modules).
+# filename convention. test_classification.py fails when a test_*.py module has no row here, or a
+# row names a module that no longer exists.
 #
 # kind: "unit" (no service flags) or "integration" (Postgres-gated, kind implied by postgres).
 # postgres/elasticsearch/fixture_server: true iff the module's source requires that service.

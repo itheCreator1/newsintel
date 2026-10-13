@@ -278,7 +278,7 @@ def text_fields(schema_version: int) -> list[str]:
     return fields
 
 
-def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]:
+def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]:  # noqa: C901
     fields = text_fields(schema_version)
     must: list[dict[str, Any]] = [
         {"multi_match": {"query": term, "fields": fields, "operator": "and"}}

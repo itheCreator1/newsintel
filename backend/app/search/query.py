@@ -31,7 +31,7 @@ class ParsedQuery:
     before: date | None = None
 
 
-def parse_query(value: str) -> ParsedQuery:
+def parse_query(value: str) -> ParsedQuery:  # noqa: C901
     if value.count('"') % 2:
         raise SearchSyntaxError("Unterminated quoted phrase")
     tokens = TOKEN.findall(value)

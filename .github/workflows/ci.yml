@@ -77,3 +77,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+
+  audit:
+    # Known vulnerabilities in the locked dependencies: every Python package uv.lock pins, and the
+    # npm packages. A finding with a fixed release is upgraded in the PR.
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: pipx install uv==0.12.9
+      - name: pip-audit
+        working-directory: backend
+        # --no-deps: the export already lists every pinned package, transitive ones included.
+        run: |
+          uv export --frozen --no-hashes --all-groups --no-emit-project -o "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r "$RUNNER_TEMP/requirements.txt"
+      - name: npm audit
+        working-directory: frontend
+        # What ships in the static export fails at high; the build and test tooling only at critical,
+        # since a high finding there can have no fixed release (braces, under shadcn and eslint-config-next).
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm audit --audit-level=critical

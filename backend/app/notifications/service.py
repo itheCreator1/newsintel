@@ -132,7 +132,7 @@ async def claim_delivery(db: AsyncSession, now: datetime) -> str | None:
     return row.claim_token
 
 
-async def deliver(token: str, now: datetime, publish: Publish = ntfy.publish) -> None:
+async def deliver(token: str, now: datetime, publish: Publish = ntfy.publish) -> None:  # noqa: C901
     """Send what the lease `token` covers: the daily summary when due, else what is owed."""
     async with session_factory() as db, db.begin():
         row = await settings_row(db)

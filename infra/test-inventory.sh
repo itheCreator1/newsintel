@@ -5,7 +5,7 @@
 # test-runner images, no database/search/fixture containers.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 project=$(ni_project inventory)
 # Run-scoped tags, same convention as test-quick.sh: never fall back to the shared :local tag,

@@ -111,7 +111,7 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         await request_indexing(db, job.article_id)
 
 
-async def process_claim(job_id: uuid.UUID, token: str) -> None:
+async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
     settings = get_settings()
     storage = LocalObjectStorage(settings.article_storage_path)
     async with session_factory() as db, db.begin():
