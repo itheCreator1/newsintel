@@ -84,14 +84,18 @@ async def _article(  # type: ignore[no-untyped-def]
     hours: float = 0,
     discovered: datetime | None = None,
     description: str | None = None,
+    enriched: bool = True,
 ) -> Article:
+    """An article built by hand; unless `enriched` is False it is complete when discovered."""
+    found_at = discovered or BASE_TIME + timedelta(hours=hours)
     article = Article(
         original_url=f"https://example.test/{uuid.uuid4()}",
         normalized_url=f"https://example.test/{uuid.uuid4()}",
         title=title,
         normalized_title_hash=title_hash,
         published_at=BASE_TIME + timedelta(hours=hours),
-        first_discovered_at=discovered or BASE_TIME + timedelta(hours=hours),
+        first_discovered_at=found_at,
+        enriched_at=found_at if enriched else None,
     )
     db.add(article)
     await db.flush()
