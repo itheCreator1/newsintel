@@ -15,6 +15,8 @@ from app.articles.models import Article
 from app.clustering.models import StoryClusterMember
 from app.feeds.service import article_response
 from app.graph.service import articles_by_id
+from app.nlp.processors import greek_stop_word_forms
+from app.nlp.service import default_stop_words
 from app.search.aggregations import ensure_complete
 from app.search.criteria import current_search_target
 from app.search.elasticsearch import ElasticsearchAdapter
@@ -24,13 +26,14 @@ MAX_RELATED = 20
 # Hits examined per request: enough to survive the story recheck, bounded either way.
 CANDIDATES = 100
 FIELDS = ["title", "descriptions", "body"]
-# Lucene's English stop set. The standard analyzer indexes these words; without this list any two
-# English articles share enough of them to look alike.
-# ponytail: English only, add per-language lists when non-English feeds need related coverage.
+# Lucene's English stop set, and the shipped Greek list in every form the standard analyzer leaves
+# (with and without accents, final "ς" or "σ"). The analyzer indexes these words; without them any
+# two articles in one language share enough of them to look alike.
 STOP_WORDS = [
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is", "it",
     "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these",
     "they", "this", "to", "was", "will", "with",
+    *sorted(greek_stop_word_forms(frozenset(default_stop_words("el")))),
 ]  # fmt: skip
 # A candidate must share at least this many of the article's (up to 25) most distinctive terms.
 # An absolute count, not a percentage: an article with fewer usable terms matches nothing instead
