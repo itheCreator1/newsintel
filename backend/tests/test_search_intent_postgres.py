@@ -142,7 +142,6 @@ async def test_source_refresh_advances_with_a_bounded_article_cursor() -> None:
                     article_id=article.id,
                     feed_title=article.title,
                     feed_url=article.original_url,
-                    metadata_json={},
                 )
                 for article in articles
             ]

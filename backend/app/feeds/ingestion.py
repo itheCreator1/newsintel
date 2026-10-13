@@ -101,7 +101,6 @@ async def _persist_success(  # noqa: C901
                     feed_title=entry.title,
                     feed_url=entry.url,
                     description=entry.description,
-                    metadata_json=entry.metadata,
                 )
                 .on_conflict_do_nothing()
                 .returning(FeedArticle.id)
@@ -122,7 +121,6 @@ async def _persist_success(  # noqa: C901
                 ):
                     discovery.feed_title = entry.title
                     discovery.description = entry.description
-                    discovery.metadata_json = entry.metadata
                     discovery_input_changed = True
             if discovery_id is not None and feed.fetching_mode != "rss":
                 try:

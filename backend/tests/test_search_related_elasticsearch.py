@@ -82,7 +82,6 @@ async def _article(db, source, text: tuple[str, str], minutes: int) -> Article: 
             feed_title=title,
             feed_url=article.original_url,
             description=description or None,
-            metadata_json={},
             discovered_at=at,
         )
     )

@@ -49,7 +49,6 @@ async def test_evidence_hydration_returns_canonical_records_and_skips_unknown_id
                 feed_title=article.title,
                 feed_url=article.original_url,
                 description=None,
-                metadata_json={},
             )
         )
         cluster = StoryCluster(
