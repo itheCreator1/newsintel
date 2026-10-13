@@ -20,10 +20,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.articles.models import Article  # noqa: F401
 from app.clustering.models import StoryCluster  # noqa: F401
 from app.db.base import Base
-from app.feeds.models import Article  # noqa: F401
-from app.nlp.models import Entity  # noqa: F401
+from app.entities.models import Entity  # noqa: F401
 
 # The imports above register `story_clusters`, `articles` and `nlp_entities` for these tables'
 # foreign keys, so the models also resolve in processes (scheduler, worker) that never load the API.

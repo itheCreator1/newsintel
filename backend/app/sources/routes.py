@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import get_db
 from app.feeds.models import Feed
 from app.feeds.schemas import FetchPage

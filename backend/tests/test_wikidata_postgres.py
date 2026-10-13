@@ -16,7 +16,7 @@ from test_authority_suggestions_postgres import _language, _named
 
 from app.core.config import Settings
 from app.db.session import session_factory
-from app.nlp.models import EntityAuthorityChange
+from app.entities.models import EntityAuthorityChange
 from app.wikidata.cache import cached_items, store_items
 from app.wikidata.client import WikidataClient
 from app.wikidata.errors import WikidataBudgetSpent, WikidataPaused, WikidataUnavailable
@@ -276,8 +276,8 @@ async def test_a_light_fetch_does_not_erase_claims_already_cached() -> None:
 
 
 async def test_country_spellings_are_marked_as_seeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.entities.models import Entity
     from app.nlp import authority
-    from app.nlp.models import Entity
 
     # A country of its own, so the names are new whatever ran before.
     tag = uuid.uuid4().hex[:8]

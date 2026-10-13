@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db.session import session_factory
-from app.nlp.models import Entity
+from app.entities.models import Entity
 
 pytestmark = [
     pytest.mark.skipif(

@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.feeds.schemas import ArticleResponse
+from app.articles.schemas import ArticleResponse
 
 
 class HighlightSegment(BaseModel):

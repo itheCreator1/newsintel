@@ -7,11 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.articles.models import Article
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import get_db
 from app.entities import authority, catalogue, queries, relations
+from app.entities.models import Entity, EntityAuthorityRun, EntityRelation
 from app.entities.schemas import (
     AuthorityBulkRequest,
     AuthorityBulkResponse,
@@ -50,9 +51,7 @@ from app.entities.schemas import (
 )
 from app.entities.suggestions import suggest
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
-from app.feeds.models import Article
 from app.marks.service import with_marks
-from app.nlp.models import Entity, EntityAuthorityRun, EntityRelation
 
 router = APIRouter(tags=["entities"])
 Db = Annotated[AsyncSession, Depends(get_db)]

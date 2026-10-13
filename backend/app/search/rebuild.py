@@ -3,9 +3,9 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, text
 
+from app.articles.models import Article
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.search.documents import (
     ARTICLE_INDEX_SETTINGS,
     ARTICLE_INDEX_SETTINGS_V2,

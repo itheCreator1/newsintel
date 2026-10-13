@@ -3,8 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.articles.schemas import ArticleResponse
 from app.entities.schemas import SeeAlsoLabel
-from app.feeds.schemas import ArticleResponse
 
 
 class GraphNode(BaseModel):

@@ -5,8 +5,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.articles.models import (
+    Article,
+    ArticleContent,
+    ArticleProcessingAttempt,
+    ArticleProcessingJob,
+)
 from app.articles.storage_locks import lock_storage_keys
-from app.feeds.models import Article, ArticleContent, ArticleProcessingAttempt, ArticleProcessingJob
 from app.search.service import request_indexing
 
 ACTIVE_STATUSES = ("queued", "running", "retrying")

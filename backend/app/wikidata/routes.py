@@ -6,12 +6,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_csrf
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import get_db
 from app.wikidata import candidates, classes, links, runs
-from app.wikidata.models import WikidataCandidate, WikidataItem, WikidataRun
+from app.wikidata.models import WikidataCandidate, WikidataItem
 from app.wikidata.names import Name
 from app.wikidata.schemas import (
     WikidataApproveResponse,
@@ -139,25 +138,6 @@ async def add_wikidata_names(
     return response
 
 
-def run_response(run: WikidataRun) -> WikidataRunResponse:
-    return WikidataRunResponse(
-        id=str(run.id),
-        kind=run.kind,
-        status=run.status,
-        entity_id=str(run.entity_id) if run.entity_id else None,
-        checked=run.checked,
-        changed=run.changed,
-        redirected=run.redirected,
-        missing=run.missing,
-        errors=run.errors,
-        requests=run.requests,
-        error=run.error,
-        created_at=run.created_at,
-        started_at=run.started_at,
-        finished_at=run.finished_at,
-    )
-
-
 @router.post(
     "/entities/{entity_id}/wikidata/search",
     response_model=WikidataRunResponse,
@@ -169,7 +149,7 @@ async def search_wikidata(entity_id: uuid.UUID, db: Db, _session: Mutation) -> W
         run = await runs.request_search(db, entity_id)
     except links.LinkError as error:
         raise _refused(error) from None
-    response = run_response(run)
+    response = runs.run_response(run)
     await db.commit()
     return response
 
@@ -259,6 +239,6 @@ async def refresh_wikidata(entity_id: uuid.UUID, db: Db, _session: Mutation) -> 
         run = await runs.request_refresh(db, entity_id)
     except links.LinkError as error:
         raise _refused(error) from None
-    response = run_response(run)
+    response = runs.run_response(run)
     await db.commit()
     return response

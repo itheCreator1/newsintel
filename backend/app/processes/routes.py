@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.feeds.service import QueueUnavailable

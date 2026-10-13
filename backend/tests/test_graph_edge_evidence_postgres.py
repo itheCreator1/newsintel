@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster
 from app.db.session import session_factory
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import article_response
 from app.graph.service import articles_by_id, clusters_by_id
 

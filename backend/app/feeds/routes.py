@@ -11,22 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.articles.models import Article, ArticleContent
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.clustering.models import ArticleClusterState, StoryCluster, StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.feeds.discovery import FeedProbeError, probe_feed
 from app.feeds.http import fetch_feed_http
-from app.feeds.models import (
-    FETCH_FINISHED,
-    Article,
-    ArticleContent,
-    Feed,
-    FeedArticle,
-    FeedFetch,
-)
+from app.feeds.models import FETCH_FINISHED, Feed, FeedArticle, FeedFetch
 from app.feeds.opml import OpmlEntry, OpmlError, parse_opml, render_opml
 from app.feeds.schemas import (
     ArticleDetailResponse,

@@ -7,18 +7,18 @@ import structlog
 from sqlalchemy import select
 
 from app.articles.extraction import EmptyExtraction, TrafilaturaExtractor
+from app.articles.models import (
+    Article,
+    ArticleContent,
+    ArticleProcessingAttempt,
+    ArticleProcessingJob,
+)
 from app.articles.service import start_attempt
 from app.articles.storage import LocalObjectStorage, ObjectStorageError
 from app.articles.storage_locks import lock_storage_keys
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.http import FeedTooLarge, fetch_page_http
-from app.feeds.models import (
-    Article,
-    ArticleContent,
-    ArticleProcessingAttempt,
-    ArticleProcessingJob,
-)
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.scheduling import next_retry_delay
 from app.nlp.service import request_article_nlp

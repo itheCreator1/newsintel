@@ -6,9 +6,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import ArticleContent, ArticleProcessingJob
 from app.articles.storage import LocalObjectStorage
 from app.articles.storage_locks import lock_storage_keys
-from app.feeds.models import ArticleContent, ArticleProcessingJob
 
 OBJECT_KEY = re.compile(r"^[0-9a-f]{32}$")
 

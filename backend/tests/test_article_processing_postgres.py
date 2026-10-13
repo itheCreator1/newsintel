@@ -7,17 +7,17 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.articles.processing import ArticleHttpStatus, _record_failure, process_claim
-from app.articles.routes import retry_job
-from app.articles.service import claim_due_job, request_processing, start_attempt
-from app.core.config import Settings
-from app.db.session import session_factory
-from app.feeds.models import (
+from app.articles.models import (
     Article,
     ArticleContent,
     ArticleProcessingAttempt,
     ArticleProcessingJob,
 )
+from app.articles.processing import ArticleHttpStatus, _record_failure, process_claim
+from app.articles.routes import retry_job
+from app.articles.service import claim_due_job, request_processing, start_attempt
+from app.core.config import Settings
+from app.db.session import session_factory
 
 pytestmark = [
     pytest.mark.skipif(

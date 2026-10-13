@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.session import session_factory
 from app.entities.authority import record
-from app.nlp.models import Entity
+from app.entities.models import Entity
 from app.wikidata.cache import cached_items, store_items
 from app.wikidata.client import WikidataClient
 from app.wikidata.links import write_identifiers

@@ -9,7 +9,7 @@ from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_postgres import _article
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityAuthorityChange, EntityAuthorityRun, EntityDistinct
+from app.entities.models import Entity, EntityAuthorityChange, EntityAuthorityRun, EntityDistinct
 
 pytestmark = [
     pytest.mark.skipif(

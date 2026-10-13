@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.nlp.models import ArticleLanguageAnnotation, NlpJob, NlpReprocessingRun
 from app.nlp.service import PROCESSORS, request_article_nlp
 

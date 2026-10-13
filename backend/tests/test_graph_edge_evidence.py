@@ -5,9 +5,10 @@ from typing import Any
 import pytest
 from fastapi import HTTPException
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster
 from app.core.config import Settings
-from app.feeds.models import Article
+from app.entities.models import Entity
 from app.graph.routes import edge_evidence
 from app.graph.schemas import EdgeEvidenceResponse
 from app.graph.service import (
@@ -19,7 +20,6 @@ from app.graph.service import (
     parse_evidence,
 )
 from app.marks.models import ArticleMark
-from app.nlp.models import Entity
 from app.search.criteria import SearchCriteria, build_query
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query

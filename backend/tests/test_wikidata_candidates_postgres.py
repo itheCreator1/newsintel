@@ -16,7 +16,7 @@ from test_entity_authority_postgres import _article
 from wikidata_fake import FakeWikidata, client, entity, settings
 
 from app.db.session import session_factory
-from app.nlp.models import Entity
+from app.entities.models import Entity
 from app.wikidata import runs
 from app.wikidata.candidates import find_candidates
 from app.wikidata.models import (

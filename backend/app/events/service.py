@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.engine import CLUSTER_ENTITY_TYPES
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.events.models import STATUSES, Event, EventCluster, EventEntity
-from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, Entity
+from app.nlp.models import ArticleCountryAnnotation, ArticleEntity
 
 
 async def create_event(db: AsyncSession, algorithm_version: str) -> Event:

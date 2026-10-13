@@ -14,8 +14,8 @@ from sqlalchemy import select
 from test_authority_suggestions_postgres import _language, _named
 
 from app.db.session import session_factory
+from app.entities.models import Entity, EntityAuthorityChange
 from app.entities.transfer import export_authorities, import_authorities
-from app.nlp.models import Entity, EntityAuthorityChange
 from app.wikidata.models import EntityExternalId, WikidataRun
 
 pytestmark = [

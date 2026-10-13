@@ -2,7 +2,7 @@ from typing import Any
 
 from fastapi.routing import APIRoute
 
-from app.auth.routes import current_session
+from app.auth.dependencies import current_session
 from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.routes import router
 from app.main import create_app

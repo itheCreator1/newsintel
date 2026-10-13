@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.cursors import cursor_or_400
+from app.articles.models import Article, ArticleProcessingJob
 from app.articles.schemas import (
     BacklogResponse,
     JobPage,
@@ -15,11 +16,9 @@ from app.articles.schemas import (
     ProcessResponse,
 )
 from app.articles.service import request_processing, retry_processing
-from app.auth.dependencies import require_csrf
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import get_db
-from app.feeds.models import Article, ArticleProcessingJob
 from app.feeds.service import encode_cursor
 
 router = APIRouter(tags=["article processing"])

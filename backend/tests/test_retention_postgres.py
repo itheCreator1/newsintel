@@ -7,10 +7,10 @@ from event_fixtures import DIGEST, feed
 from sqlalchemy import select
 from test_compare_postgres import _article
 
+from app.articles.models import ArticleProcessingJob
 from app.auth.models import Session, User
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.db.session import session_factory
-from app.feeds.models import ArticleProcessingJob
 from app.nlp.models import ArticleNlpState, NlpJob, NlpProcessorRun
 from app.operations import retention
 from app.search.models import SearchDelivery, SearchIndexTarget

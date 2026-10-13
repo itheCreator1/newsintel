@@ -16,7 +16,7 @@ from test_entity_authority_api_postgres import CSRF, _client
 from wikidata_fake import FakeWikidata, client, entity, settings
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityAuthorityChange
+from app.entities.models import Entity, EntityAuthorityChange
 from app.wikidata import runs
 from app.wikidata.cache import store_items
 from app.wikidata.models import EntityExternalId, WikidataItem, WikidataRun, WikidataThrottle

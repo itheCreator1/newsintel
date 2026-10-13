@@ -11,8 +11,8 @@ from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
 from test_exports_postgres import _discover
 
+from app.articles.models import Article, ArticleContent
 from app.db.session import session_factory
-from app.feeds.models import Article, ArticleContent
 from app.nlp.models import ArticleLanguageAnnotation, NlpProcessorRun
 
 pytestmark = [

@@ -6,10 +6,10 @@ from urllib.parse import urlsplit
 import dramatiq
 from redis import Redis
 
+from app.articles.models import Article, ArticleProcessingJob
 from app.articles.processing import process_claim
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article, ArticleProcessingJob
 from app.jobs.broker import broker as broker
 
 

@@ -8,12 +8,13 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from app.articles.models import Article
 from app.articles.service import request_processing
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.fetching import FeedDocumentError, ParsedFeed, parse_feed_document
 from app.feeds.http import FeedTooLarge, fetch_feed_http
-from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedArticle, FeedFetch
+from app.feeds.models import FETCH_FINISHED, Feed, FeedArticle, FeedFetch
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.normalization import normalize_article_url, normalized_title_hash
 from app.feeds.scheduling import lease_is_current, next_retry_delay

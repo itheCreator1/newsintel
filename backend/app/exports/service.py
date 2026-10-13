@@ -15,8 +15,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.feeds.models import Article, FeedArticle
-from app.nlp.models import ArticleEntity, Entity
+from app.articles.models import Article
+from app.entities.models import Entity
+from app.feeds.models import FeedArticle
+from app.nlp.models import ArticleEntity
 
 # A download holds at most this many articles, in the order of the list it comes from.
 EXPORT_LIMIT = 5000

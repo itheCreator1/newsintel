@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.feeds.schemas import ArticleResponse
+from app.articles.schemas import ArticleResponse
 
 # `story` and `mentioned` are the country annotation roles (`primary` and `mentioned`), `source` is
 # the feed's own country and `event` is an event's `primary_country`, which is itself derived from

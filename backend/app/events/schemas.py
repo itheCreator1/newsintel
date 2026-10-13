@@ -4,8 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.articles.schemas import ArticleResponse
 from app.entities.schemas import EntityClusterResponse
-from app.feeds.schemas import ArticleResponse
 
 
 class EventEntityResponse(BaseModel):

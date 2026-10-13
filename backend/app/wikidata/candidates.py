@@ -27,7 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.db.session import session_factory
-from app.nlp.models import ArticleEntity, Entity
+from app.entities.models import Entity
+from app.nlp.models import ArticleEntity
 from app.wikidata.cache import cached_items, store_items
 from app.wikidata.classes import type_matches
 from app.wikidata.client import WikidataClient

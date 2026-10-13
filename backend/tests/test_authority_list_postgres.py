@@ -10,7 +10,7 @@ from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article, _finish
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityAuthorityRun
+from app.entities.models import Entity, EntityAuthorityRun
 
 pytestmark = [
     pytest.mark.skipif(

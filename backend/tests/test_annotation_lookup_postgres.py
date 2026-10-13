@@ -4,13 +4,13 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.articles.models import Article
 from app.db.session import session_factory
-from app.feeds.models import Article
+from app.entities.models import Entity
 from app.nlp.models import (
     ArticleEntity,
     ArticleKeyword,
     ArticleNlpState,
-    Entity,
     Keyword,
     NlpJob,
     NlpProcessorRun,

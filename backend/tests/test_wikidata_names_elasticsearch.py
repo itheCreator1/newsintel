@@ -15,10 +15,10 @@ from test_monitor_evaluation_elasticsearch import _index
 
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.models import EntityAuthorityRun
 from app.investigations.schemas import InvestigationState
 from app.monitors import evaluation
 from app.monitors.evaluation import criteria_params
-from app.nlp.models import EntityAuthorityRun
 from app.search.criteria import build_query, search_criteria
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchAdapter

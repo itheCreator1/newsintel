@@ -9,7 +9,8 @@ from sqlalchemy import exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.nlp.models import ArticleEntity, Entity
+from app.entities.models import Entity
+from app.nlp.models import ArticleEntity
 from app.nlp.processors import country_spellings
 
 

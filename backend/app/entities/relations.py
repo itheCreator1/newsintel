@@ -14,10 +14,10 @@ from typing import Any
 from sqlalchemy import and_, case, false, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.entities.authority import PLACE_TYPES, AuthorityError, record
+from app.entities.models import RELATION_TYPES, Entity, EntityRelation
 from app.entities.resolver import resolve_root
-from app.feeds.models import Article
-from app.nlp.models import Entity, EntityRelation
 
 __all__ = [
     "LABELS",
@@ -40,7 +40,6 @@ __all__ = [
     "update_relation",
 ]
 
-RELATION_TYPES = ("succeeded_by", "part_of", "member_of", "leader_of", "related")
 # (relation type, the entity asking is the subject) -> what the other entity is to it.
 LABELS = {
     ("succeeded_by", True): "later_name",

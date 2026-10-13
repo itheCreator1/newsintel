@@ -13,12 +13,13 @@ from event_fixtures import DIGEST, feed
 from sqlalchemy import func, select
 from test_compare_postgres import _article
 
+from app.articles.models import ArticleProcessingJob
+from app.auth.dependencies import current_session
 from app.auth.models import Session, User
-from app.auth.routes import current_session
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import ArticleProcessingJob, Feed, FeedFetch
+from app.feeds.models import Feed, FeedFetch
 from app.main import create_app
 from app.monitors.models import Monitor
 from app.nlp import reprocessing

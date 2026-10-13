@@ -7,8 +7,10 @@ from event_fixtures import analyzed_event_tables
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster
 from app.db.session import session_factory
+from app.entities.models import Entity
 from app.events.models import Event, EventCluster, EventEntity
 from app.events.service import (
     associate_cluster,
@@ -19,8 +21,6 @@ from app.events.service import (
     set_entities,
     set_status,
 )
-from app.feeds.models import Article
-from app.nlp.models import Entity
 
 pytestmark = [
     pytest.mark.skipif(

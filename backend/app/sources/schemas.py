@@ -3,12 +3,13 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.articles.schemas import ArticleResponse
 from app.entities.schemas import (
     EntityClusterResponse,
     RelatedCountryResponse,
     RelatedEntityResponse,
 )
-from app.feeds.schemas import ArticleResponse, FeedResponse, FetchResponse
+from app.feeds.schemas import FeedResponse, FetchResponse
 
 
 class SourceHealth(BaseModel):

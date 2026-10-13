@@ -6,19 +6,12 @@ import pytest
 from event_fixtures import story
 from sqlalchemy import select
 
+from app.articles.models import Article
 from app.db.session import session_factory
+from app.entities.models import Entity, EntityAuthorityChange, EntityAuthorityRun
 from app.events.models import EventEntity
 from app.events.service import associate_cluster, create_event, refresh_event
-from app.feeds.models import Article
-from app.nlp.models import (
-    ArticleEntity,
-    ArticleNlpState,
-    Entity,
-    EntityAuthorityChange,
-    EntityAuthorityRun,
-    NlpJob,
-    NlpProcessorRun,
-)
+from app.nlp.models import ArticleEntity, ArticleNlpState, NlpJob, NlpProcessorRun
 from app.search.models import ArticleSearchState
 
 pytestmark = [

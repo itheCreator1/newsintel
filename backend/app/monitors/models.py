@@ -17,9 +17,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.articles.models import Article  # noqa: F401
 from app.auth.models import User  # noqa: F401
 from app.db.base import Base
-from app.feeds.models import Article  # noqa: F401
 from app.investigations.models import SavedSearch  # noqa: F401
 
 # The imports above register `users`, `articles` and `saved_searches` for this table's foreign keys,

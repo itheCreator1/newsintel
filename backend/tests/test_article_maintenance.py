@@ -8,9 +8,9 @@ import pytest
 from sqlalchemy import select
 
 from app.articles.maintenance import CleanupReport, cleanup_article_storage
+from app.articles.models import Article, ArticleContent, ArticleProcessingJob
 from app.articles.storage import LocalObjectStorage
 from app.db.session import session_factory
-from app.feeds.models import Article, ArticleContent, ArticleProcessingJob
 
 pytestmark = [
     pytest.mark.skipif(

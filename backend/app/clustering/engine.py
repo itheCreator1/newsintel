@@ -16,9 +16,11 @@ from typing import Protocol, runtime_checkable
 from sqlalchemy import ColumnElement, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.models import ArticleClusterTerm, StoryCluster, StoryClusterMember
-from app.feeds.models import Article, FeedArticle
-from app.nlp.models import ArticleEntity, Entity
+from app.entities.models import Entity
+from app.feeds.models import FeedArticle
+from app.nlp.models import ArticleEntity
 from app.nlp.service import load_input_document, title_stop_words
 
 CLUSTER_ALGORITHM_VERSION = "rule-2"

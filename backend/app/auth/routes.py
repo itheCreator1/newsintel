@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import limits
 from app.auth.csrf import issue_csrf_token, verify_csrf_token
+from app.auth.dependencies import current_session
 from app.auth.models import Session, User
 from app.auth.schemas import (
     CsrfResponse,
@@ -33,18 +34,6 @@ from app.db.session import get_db
 router = APIRouter(prefix="/auth", tags=["auth"])
 Db = Annotated[AsyncSession, Depends(get_db)]
 Config = Annotated[Settings, Depends(get_settings)]
-
-
-async def current_session(
-    request: Request,
-    db: Db,
-    settings: Config,
-) -> Session:
-    token = request.cookies.get(settings.session_cookie_name)
-    record = await get_session(db, token or "")
-    if not record:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required")
-    return record
 
 
 def _check_csrf(record: Session, csrf_token: str | None) -> None:

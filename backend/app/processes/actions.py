@@ -16,11 +16,12 @@ from sqlalchemy import and_, exists, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.articles.models import ArticleProcessingJob
 from app.articles.service import retry_processing
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.clustering.service import request_clustering
 from app.core.config import Settings
-from app.feeds.models import ArticleProcessingJob, Feed, FeedFetch
+from app.feeds.models import Feed, FeedFetch
 from app.feeds.service import QueueUnavailable, fetch_now, send_fetch
 from app.monitors.models import Monitor
 from app.nlp.models import ArticleNlpState, NlpJob, NlpReprocessingRun

@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, Query
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.operations import probes, queries
@@ -23,7 +23,7 @@ from app.operations.schemas import (
 )
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.rebuild import ALIAS
-from app.wikidata.routes import run_response
+from app.wikidata.runs import run_response
 from app.wikidata.schemas import (
     WikidataCountResponse,
     WikidataStatusResponse,

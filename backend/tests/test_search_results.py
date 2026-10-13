@@ -4,11 +4,12 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException
 
+from app.api.cursors import read_cursor
 from app.core.config import Settings
 from app.search.criteria import SearchCriteria, current_search_target
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
-from app.search.routes import read_cursor, search_articles, search_export
+from app.search.routes import search_articles, search_export
 
 WIRE = "11111111-1111-4111-8111-111111111111"
 DAILY = "22222222-2222-4222-8222-222222222222"

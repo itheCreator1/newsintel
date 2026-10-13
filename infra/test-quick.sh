@@ -42,7 +42,9 @@ $compose run --rm --no-deps backend-test ruff check .
 ni_stage mypy
 $compose run --rm --no-deps backend-test mypy app
 ni_stage import-contracts
-# Report only for now (pyproject.toml says when each contract starts failing the gate).
+# Only app.main imports a routes module; this one fails the gate.
+$compose run --rm --no-deps backend-test lint-imports --no-cache --contract routes
+# The layers contracts report only until fix plan E10 (pyproject.toml).
 $compose run --rm --no-deps backend-test lint-imports --no-cache ||
   echo "Import contracts are broken (reported, not enforced yet)" >&2
 ni_stage shellcheck

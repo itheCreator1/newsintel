@@ -18,13 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.models import StoryClusterMember
 from app.db.session import session_factory
-from app.entities.resolver import entity_group, expand_for_search, resolve_root
-from app.events.models import Event, EventCluster
-from app.events.service import refresh_event
-from app.nlp.authority import Combined, RowPart, combine_rows, split_occurrences
-from app.nlp.models import (
+from app.entities.models import (
     ENTITY_TYPES,
-    ArticleEntity,
     Entity,
     EntityAuthorityChange,
     EntityAuthorityRun,
@@ -32,6 +27,11 @@ from app.nlp.models import (
     EntityNameClaim,
     EntityRelation,
 )
+from app.entities.resolver import entity_group, expand_for_search, resolve_root
+from app.events.models import Event, EventCluster
+from app.events.service import refresh_event
+from app.nlp.authority import Combined, RowPart, combine_rows, split_occurrences
+from app.nlp.models import ArticleEntity
 from app.search.service import request_indexing
 from app.wikidata.models import EntityExternalId
 

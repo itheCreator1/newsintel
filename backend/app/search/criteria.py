@@ -9,11 +9,12 @@ from sqlalchemy.dialects.postgresql import JSONB, array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.entities.models import Entity
 from app.entities.relations import expand
 from app.entities.resolver import expand_for_search
 from app.events.models import EventCluster
 from app.feeds.models import Feed
-from app.nlp.models import Entity, Keyword
+from app.nlp.models import Keyword
 from app.nlp.processors import entity_name_keys
 from app.search.models import SearchIndexTarget
 from app.search.query import ParsedQuery, SearchSyntaxError, parse_query

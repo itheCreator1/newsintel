@@ -3,14 +3,15 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, text
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.events.models import Event, EventCluster
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
     ArticleNlpState,
-    Entity,
     NlpJob,
     NlpProcessorRun,
 )

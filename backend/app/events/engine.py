@@ -17,12 +17,13 @@ import structlog
 from sqlalchemy import Select, and_, distinct, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.engine import CLUSTER_ENTITY_TYPES, jaccard, title_tokens
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.events.models import Event, EventCluster, EventEntity
 from app.events.service import associate_cluster, create_event, refresh_event
-from app.feeds.models import Article
-from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, Entity
+from app.nlp.models import ArticleCountryAnnotation, ArticleEntity
 from app.nlp.service import title_stop_words
 
 log = structlog.get_logger()

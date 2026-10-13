@@ -11,6 +11,7 @@ from sqlalchemy import event as sa_event
 from sqlalchemy.engine import Engine
 from test_compare_postgres import _article, _get, _status
 
+from app.articles.models import ArticleProcessingJob
 from app.auth.models import User
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.core.config import get_settings
@@ -18,7 +19,7 @@ from app.db.session import session_factory
 from app.events import execution
 from app.events.engine import EVENT_ALGORITHM_VERSION, BatchResult, dirty_clusters
 from app.events.models import EventAssociationRun
-from app.feeds.models import ArticleProcessingJob, Feed, FeedFetch
+from app.feeds.models import Feed, FeedFetch
 from app.monitors.models import Monitor
 from app.nlp import execution as nlp_execution
 from app.nlp.models import ArticleNlpState, NlpJob, NlpProcessorRun

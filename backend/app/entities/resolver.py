@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.nlp.models import Entity
+from app.entities.models import Entity
 
 
 def names_of(entity_ids: list[uuid.UUID]) -> Select[tuple[uuid.UUID]]:

@@ -19,7 +19,7 @@ from app.monitors.service import (
     _decode_activity_cursor,
     _encode_activity_cursor,
 )
-from app.search.routes import RESULT_FIELDS, search_result
+from app.search.results import RESULT_FIELDS, search_result
 
 UPTO = datetime(2026, 9, 20, 12, tzinfo=UTC)
 AFTER = UPTO - timedelta(hours=1)

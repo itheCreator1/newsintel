@@ -65,20 +65,17 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 
-# Import contracts, checked by `lint-imports` in the quick gate. They report without failing the gate
-# until the fix plan makes them binding: the routes contract in step B1, the layers in step E10.
+# Import contracts, checked by `lint-imports` in the quick gate. The routes contract fails the gate;
+# the two layers contracts only report until fix plan step E10 makes them binding.
 [tool.importlinter]
 root_package = "app"
 
 [[tool.importlinter.contracts]]
 name = "Only app.main imports a package's routes"
+id = "routes"
 type = "protected"
 protected_modules = ["app.*.routes"]
 allowed_importers = ["app.main"]
-ignore_imports = [
-    # The session dependency lives beside the auth routes today; B1 moves it out.
-    "app.auth.dependencies -> app.auth.routes",
-]
 
 [[tool.importlinter.contracts]]
 name = "Entry points, then jobs, then the feature packages, then db, then core"

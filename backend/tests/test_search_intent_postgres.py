@@ -4,8 +4,9 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
+from app.articles.models import Article
 from app.db.session import session_factory
-from app.feeds.models import Article, Feed
+from app.feeds.models import Feed
 from app.search.models import (
     ArticleSearchState,
     SearchDelivery,

@@ -4,16 +4,17 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.db.session import session_factory
+from app.entities.models import Entity
 from app.entities.queries import articles, dossier, relationships
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import decode_cursor
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
     ArticleNlpState,
-    Entity,
     NlpJob,
     NlpProcessorRun,
 )

@@ -6,8 +6,9 @@ import pytest
 from fastapi import HTTPException
 from test_search_results import _criteria
 
+from app.api.cursors import read_cursor
+from app.articles.schemas import ArticleResponse
 from app.core.config import Settings
-from app.feeds.schemas import ArticleResponse
 from app.feeds.service import encode_cursor
 from app.geo.investigation import (
     MAX_COUNTRIES,
@@ -21,7 +22,6 @@ from app.geo.routes import geo_articles, geo_countries
 from app.search.criteria import build_query
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
-from app.search.routes import read_cursor
 
 QUERY: dict[str, Any] = {"match_all": {}}
 STORIES = {"cardinality": {"field": "story_cluster_id", "precision_threshold": 3000}}
