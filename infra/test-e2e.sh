@@ -126,11 +126,19 @@ cd "$root"
 ni_env_report "$root" "${NEWSINTEL_CACHE_STATE:-warm}"
 ni_mem_start "$project"
 psql_app() { $compose exec -T postgres psql -U newsintel -d newsintel -Atc "$1"; }
+# NEWSINTEL_E2E_RETRIES (default 0): how often Playwright retries a failed test. CI sets 1; a test
+# that only passed on a retry is listed in flaky.txt and at the end of the run.
+: > "$artifacts/flaky.txt"
 e2e() {
-  $compose run --rm --no-deps -v "$artifacts:/artifacts" \
-    -e NEWSINTEL_E2E_BASE_URL=http://frontend:8080 \
-    -e NEWSINTEL_E2E_OUTPUT_DIR=/artifacts/playwright \
-    frontend-test npm run e2e -- --grep "$1"
+  rm -f "$artifacts/e2e-status"
+  { $compose run --rm --no-deps -v "$artifacts:/artifacts" \
+      -e NEWSINTEL_E2E_BASE_URL=http://frontend:8080 \
+      -e NEWSINTEL_E2E_OUTPUT_DIR=/artifacts/playwright \
+      -e NEWSINTEL_E2E_RETRIES="${NEWSINTEL_E2E_RETRIES:-0}" \
+      frontend-test npm run e2e -- --grep "$1" 2>&1 || echo $? > "$artifacts/e2e-status"; } |
+    tee "$artifacts/e2e-last.log"
+  ni_e2e_flaky < "$artifacts/e2e-last.log" >> "$artifacts/flaky.txt"
+  [ ! -f "$artifacts/e2e-status" ] || exit "$(cat "$artifacts/e2e-status")"
   if [ -n "$stop_after" ] && spec_matches "$1"; then
     echo "E2E group $group stopped after \"$stop_after\" (--stop-after): the later specs did not run"
     exit 0
@@ -288,4 +296,8 @@ case $group in
     ;;
 esac
 
+if [ -s "$artifacts/flaky.txt" ]; then
+  echo "Flaky in group $group (failed, then passed on a retry):"
+  sed 's/^/  /' "$artifacts/flaky.txt"
+fi
 echo "E2E group $group passed: project=$project artifacts=$artifacts"
