@@ -30,7 +30,7 @@ services:
   elasticsearch:
     ports: ["127.0.0.1:${NEWSINTEL_TEST_ELASTICSEARCH_PORT:-0}:9200"]
   fixture:
-    image: python:3.13-alpine
+    image: python:3.14-alpine
     command: ["python", "/fixtures/server.py"]
     ports: ["127.0.0.1:${NEWSINTEL_TEST_FIXTURE_PORT:-18080}:80"]
     volumes: ["../backend/tests/fixtures:/fixtures:ro"]
