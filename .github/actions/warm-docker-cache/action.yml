@@ -16,8 +16,38 @@ inputs:
     required: true
 runs:
   using: composite
+  # A registry pull can fail for a moment (Docker Hub answers 429 under load), so the build is tried
+  # up to three times, waiting longer before each retry. A real build error fails all three.
   steps:
-    - uses: docker/bake-action@v7
+    - id: first
+      continue-on-error: true
+      uses: docker/bake-action@v7
+      with:
+        source: ./docker
+        files: ${{ inputs.files }}
+        targets: ${{ inputs.targets }}
+        set: |
+          *.cache-from=type=gha,scope=${{ inputs.scope }}
+          *.cache-to=type=gha,mode=max,scope=${{ inputs.scope }}
+    - if: steps.first.outcome == 'failure'
+      shell: bash
+      run: sleep 30
+    - id: second
+      if: steps.first.outcome == 'failure'
+      continue-on-error: true
+      uses: docker/bake-action@v7
+      with:
+        source: ./docker
+        files: ${{ inputs.files }}
+        targets: ${{ inputs.targets }}
+        set: |
+          *.cache-from=type=gha,scope=${{ inputs.scope }}
+          *.cache-to=type=gha,mode=max,scope=${{ inputs.scope }}
+    - if: steps.second.outcome == 'failure'
+      shell: bash
+      run: sleep 90
+    - if: steps.second.outcome == 'failure'
+      uses: docker/bake-action@v7
       with:
         source: ./docker
         files: ${{ inputs.files }}

@@ -224,10 +224,14 @@ $compose run --rm -v "$artifacts:/artifacts" backend-test \
       [ "$attempt" -lt 30 ] || { echo "Fixture server did not start" >&2; exit 1; }
       sleep 1
     done
-    python -m pytest -q -rs tests | tee /artifacts/pytest.log
+    # Coverage is reported, not enforced yet: coverage-backend.xml and the total in coverage-backend.txt.
+    python -m pytest -q -rs --cov=app --cov-report= tests | tee /artifacts/pytest.log
     pytest_status=${PIPESTATUS[0]}
     [ "$pytest_status" -eq 0 ] || exit "$pytest_status"
     ! grep -Eq "[0-9]+ skipped" /artifacts/pytest.log
+    coverage xml -q -o /artifacts/coverage-backend.xml
+    coverage report --format=total > /artifacts/coverage-backend.txt
+    echo "Backend line coverage: $(cat /artifacts/coverage-backend.txt)%"
   '
 
 ni_stage restore
@@ -271,7 +275,9 @@ $compose run --rm --no-deps -v "$artifacts:/artifacts" frontend-test sh -c \
 # measured runs. So under overlap it waits until the lanes have finished (see the end).
 frontend_unit() {
   ni_stage frontend.unit
-  $compose run --rm --no-deps frontend-test npm test
+  # Coverage is reported, not enforced yet: coverage-frontend/ holds the summary and lcov.
+  $compose run --rm --no-deps -v "$artifacts:/artifacts" frontend-test \
+    npm test -- --coverage --coverage.reportsDirectory=/artifacts/coverage-frontend
 }
 [ "$e2e_overlap" = 1 ] || frontend_unit
 ni_stage frontend.typecheck

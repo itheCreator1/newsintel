@@ -47,6 +47,10 @@ $compose run --rm --no-deps backend-test lint-imports --no-cache ||
   echo "Import contracts are broken (reported, not enforced yet)" >&2
 ni_stage shellcheck
 $compose run --rm --no-deps -v "$root/infra:/repo/infra:ro" -w /repo backend-test sh -c 'shellcheck infra/*.sh'
+ni_stage infra.unit
+# The CI helpers in infra/ have their own tests; the backend image has the Python to run them.
+$compose run --rm --no-deps -v "$root/infra:/repo/infra:ro" -w /repo/infra backend-test \
+  python -m pytest -q -p no:cacheprovider test_ci_green_tree.py
 
 ni_stage pytest
 $compose run --rm --no-deps -v "$artifacts:/artifacts" backend-test \
