@@ -70,6 +70,8 @@ ni_stage frontend.unit
 $compose run --rm --no-deps frontend-test npm test
 ni_stage frontend.typecheck
 $compose run --rm --no-deps frontend-test npm run typecheck
+ni_stage frontend.lint
+$compose run --rm --no-deps frontend-test npm run lint
 ni_stage e2e.selection
 ni_e2e_unselected "$root" "$artifacts" $compose run --rm --no-deps -T frontend-test npx playwright test --list
 

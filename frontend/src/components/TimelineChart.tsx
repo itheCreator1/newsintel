@@ -18,18 +18,18 @@ interface Props {
   onSelect(range: { start: string; end: string }): void
 }
 
+function bucketLabel(start: string, interval: Props['interval']) {
+  const date = new Date(start)
+  if (interval === 'hour') return date.toISOString().slice(0, 16).replace('T', ' ')
+  if (interval === 'month') return date.toISOString().slice(0, 7)
+  if (interval === 'year') return date.toISOString().slice(0, 4)
+  return date.toISOString().slice(0, 10)
+}
+
 export function TimelineChart({ buckets, interval, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const chartTheme = useChartTheme()
-
-  function label(start: string) {
-    const date = new Date(start)
-    if (interval === 'hour') return date.toISOString().slice(0, 16).replace('T', ' ')
-    if (interval === 'month') return date.toISOString().slice(0, 7)
-    if (interval === 'year') return date.toISOString().slice(0, 4)
-    return date.toISOString().slice(0, 10)
-  }
 
   const selectBuckets = useEffectEvent((first: number, last: number) => {
     const low = Math.max(0, Math.min(first, last)), high = Math.min(buckets.length - 1, Math.max(first, last))
@@ -59,7 +59,7 @@ export function TimelineChart({ buckets, interval, onSelect }: Props) {
       grid: { left: 44, right: 16, top: 16, bottom: 32 },
       tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => `${value} articles` },
       brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', brushStyle: { color: chartTheme.brushFill, borderColor: chartTheme.highlight } },
-      xAxis: { type: 'category', data: buckets.map(bucket => label(bucket.start)), axisLabel: { color: chartTheme.axisLabel }, axisLine: { lineStyle: { color: chartTheme.axisLine } } },
+      xAxis: { type: 'category', data: buckets.map(bucket => bucketLabel(bucket.start, interval)), axisLabel: { color: chartTheme.axisLabel }, axisLine: { lineStyle: { color: chartTheme.axisLine } } },
       yAxis: { type: 'value', minInterval: 1, axisLabel: { color: chartTheme.axisLabel }, splitLine: { lineStyle: { color: chartTheme.splitLine } } },
       series: [{ type: 'bar', data: buckets.map(bucket => bucket.count), itemStyle: { color: chartTheme.barStrong, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 28 }],
     }, true)
