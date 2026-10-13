@@ -128,7 +128,7 @@ services:
       retries: 10
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
     restart: ${NEWSINTEL_RESTART_POLICY:-unless-stopped}
     environment:
       discovery.type: single-node
