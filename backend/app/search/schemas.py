@@ -61,6 +61,8 @@ class IndexStatus(BaseModel):
     active_rebuild: dict[str, object] | None = None
     # False until the first rebuild has cut over; Search has no index to read before then.
     index_ready: bool = False
+    # An older version built the live index; Search answers 503 until a rebuild replaces it.
+    rebuild_needed: bool = False
 
 
 class IndexFailure(BaseModel):

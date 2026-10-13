@@ -63,14 +63,13 @@ async def _aggregate(
     criteria: SearchCriteria,
     aggs: dict[str, Any],
     *,
-    minimum: int,
     since: datetime | None,
 ) -> dict[str, Any]:
     """`aggs` over the articles matching `criteria` first discovered since `since`."""
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await current_search_target(db, criteria, minimum=minimum)
-        query = build_query(criteria, schema_version)
+        index_name = await current_search_target(db)
+        query = build_query(criteria)
         if since is not None:
             # "Recent" is discovery; the criteria's own dates filter publication (effective_date).
             query["bool"]["filter"].append(
@@ -109,7 +108,6 @@ async def ingestion_timeline(
                 "first_discovered_at", "day", cutoff, datetime.combine(today, time.min, UTC)
             )
         },
-        minimum=2,
         since=cutoff,
     )
     counts_by_day = {
@@ -143,7 +141,6 @@ async def top_entities(
         settings,
         criteria,
         {"entities": terms("entities", "entities.id", ENTITY_CANDIDATES, within=within)},
-        minimum=2,
         since=_since(scope),
     )
     ranked = read_terms(aggregations.get("entities", {}), nested=True).buckets
@@ -178,7 +175,6 @@ async def top_countries(
         settings,
         criteria,
         {"countries": terms(None, "primary_story_country", TOP_N)},
-        minimum=2,
         since=_since(scope),
     )
     ranked = read_terms(aggregations.get("countries", {}), nested=False).buckets
@@ -217,7 +213,6 @@ async def rising_entities(
         settings,
         criteria,
         {"entities": {"nested": {"path": "entities"}, "aggs": {"top": top}}},
-        minimum=2,
         since=day_ago - timedelta(days=RISING_DAYS),
     )
     counts: list[tuple[str, int, float]] = []

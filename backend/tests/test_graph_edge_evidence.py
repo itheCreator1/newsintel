@@ -21,6 +21,7 @@ from app.graph.service import (
 )
 from app.marks.models import ArticleMark
 from app.search.criteria import SearchCriteria, build_query
+from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
 
@@ -83,7 +84,7 @@ def _response(
 
 
 def test_evidence_body_reuses_the_graph_query_and_requires_both_entities() -> None:
-    query = focus_query(build_query(_criteria("grid", languages=["en"]), 2), None)
+    query = focus_query(build_query(_criteria("grid", languages=["en"])), None)
 
     body = evidence_body(query, LEFT, RIGHT, limit=10, after=None)
 
@@ -176,14 +177,16 @@ def test_cursor_round_trips_and_rejects_garbage() -> None:
 
 
 class _Target:
-    index_name = "articles-v2-test"
+    index_name = "articles-test"
 
     def __init__(self, schema_version: int) -> None:
         self.schema_version = schema_version
 
 
 class _Database:
-    def __init__(self, schema_version: int = 2, entities: list[Entity] | None = None) -> None:
+    def __init__(
+        self, schema_version: int = SCHEMA_VERSION, entities: list[Entity] | None = None
+    ) -> None:
         self.target = _Target(schema_version)
         self.entities = {entity.id: entity for entity in entities or []}
 
@@ -346,8 +349,8 @@ async def test_evidence_lists_canonical_articles_and_stories(
     assert story.representative_article is not None
     assert story.representative_article.id == representative
     ((index_name, body),) = adapter.bodies
-    assert index_name == "articles-v2-test"
-    assert body["query"]["bool"]["filter"][0] == build_query(criteria, 2)
+    assert index_name == "articles-test"
+    assert body["query"]["bool"]["filter"][0] == build_query(criteria)
 
 
 @pytest.mark.asyncio
@@ -373,7 +376,7 @@ async def test_evidence_applies_the_graph_focus_so_counts_match_the_drawn_weight
 
     await _evidence(_database(), focus_entity_id=focus)
 
-    expected = focus_query(build_query(_criteria(), 2), focus)
+    expected = focus_query(build_query(_criteria()), focus)
     assert adapter.bodies[0][1]["query"]["bool"]["filter"][0] == expected
 
 
@@ -466,11 +469,11 @@ async def test_evidence_rejects_a_malformed_cursor(adapter: type[_Adapter]) -> N
 
 
 @pytest.mark.asyncio
-async def test_evidence_requires_a_schema_two_index(adapter: type[_Adapter]) -> None:
+async def test_evidence_needs_a_rebuilt_index(adapter: type[_Adapter]) -> None:
     with pytest.raises(HTTPException) as exc:
-        await _evidence(_database(schema_version=1))
+        await _evidence(_database(schema_version=SCHEMA_VERSION - 1))
 
-    assert exc.value.status_code == 409
+    assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "search_upgrade_required"  # type: ignore[index]
     assert adapter.bodies == []
 

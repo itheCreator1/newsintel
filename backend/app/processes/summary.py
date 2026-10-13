@@ -29,6 +29,7 @@ from app.processes.schemas import (
     ProcessKey,
     Progress,
 )
+from app.search.criteria import REBUILD_COMMAND, live_index, rebuild_needed
 from app.search.models import SearchRebuild, SourceSearchRefresh
 from app.wikidata import runs as wikidata_runs
 from app.wikidata.models import WikidataRun
@@ -268,9 +269,17 @@ async def _rebuild(db: AsyncSession) -> ProcessCard:
         )
     elif latest is not None and failed:
         detail = _cut(latest.error_message)
+    # An older version built the live index: Search refuses it until a rebuild replaces it.
+    outdated = active is None and rebuild_needed(await live_index(db))
+    if outdated:
+        detail = (
+            f"The search index was built by an older version. Rebuild it with {REBUILD_COMMAND}."
+        )
     return _card(
         "rebuild",
-        state=states.run(active=active is not None, last_failed=failed, ran=latest is not None),
+        state=states.run(
+            active=active is not None, last_failed=failed or outdated, ran=latest is not None
+        ),
         last_run_at=None if latest is None else (latest.completed_at or latest.created_at),
         active_run_id=None if active is None else active.id, progress=progress, detail=detail,
     )  # fmt: skip

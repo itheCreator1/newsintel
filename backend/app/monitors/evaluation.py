@@ -114,8 +114,8 @@ async def search_evaluator(
     if cursor is not None and horizon <= cursor:
         return Window(eval_cursor_at=cursor)
     criteria = await search_criteria(db, **criteria_params(snapshot.state))
-    index_name, schema_version = await current_search_target(db, criteria)
-    query = build_query(criteria, schema_version)
+    index_name = await current_search_target(db)
+    query = build_query(criteria)
     if cursor is None:
         # The archive that exists now is not "unseen"; start counting from here.
         latest_at, latest_id = _latest(

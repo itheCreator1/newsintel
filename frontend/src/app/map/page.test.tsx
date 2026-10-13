@@ -261,9 +261,10 @@ it('explains that events take no investigation criteria and leaves the investiga
 })
 
 it('asks for a search rebuild when the index predates investigation maps', async () => {
-  vi.mocked(api.geoCountries).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  vi.mocked(api.geoCountries).mockRejectedValue(new ApiError('upgrade', 503, { code: 'search_upgrade_required' }))
   open('scope=investigation')
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to map an investigation.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
 })
 
 it('says when matching articles are gone from the database', async () => {

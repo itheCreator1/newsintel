@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.core.config import Settings
 from app.main import create_app
 from app.search.criteria import SearchCriteria, build_query
+from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
 from app.search.routes import search_timeline
@@ -44,12 +45,17 @@ def _criteria(q: str = "", **overrides: object) -> SearchCriteria:
 
 def test_build_query_keeps_source_and_country_on_one_provenance_entry() -> None:
     query = build_query(
-        _criteria("climate", sources=["s1"], countries=["GR"], start=date(2026, 1, 1)),
-        schema_version=1,
+        _criteria("climate", sources=["s1"], countries=["GR"], start=date(2026, 1, 1))
     )
 
     must, filters = query["bool"]["must"], query["bool"]["filter"]
-    assert must[0]["multi_match"]["fields"] == ["title^3", "descriptions", "body"]
+    assert must[0]["multi_match"]["fields"] == [
+        "title^3",
+        "descriptions",
+        "body",
+        "entity_text",
+        "keyword_text",
+    ]
     assert filters[0]["nested"]["query"]["bool"]["must"] == [
         {"terms": {"provenance.source_id": ["s1"]}},
         {"terms": {"provenance.source_country": ["GR"]}},
@@ -59,8 +65,7 @@ def test_build_query_keeps_source_and_country_on_one_provenance_entry() -> None:
 
 def test_build_query_keeps_a_source_tag_on_the_same_provenance_entry() -> None:
     query = build_query(
-        _criteria(countries=["GR"], source_tags=["greek"], tag_sources=["s1", "s2"]),
-        schema_version=1,
+        _criteria(countries=["GR"], source_tags=["greek"], tag_sources=["s1", "s2"])
     )
     assert query["bool"]["filter"][0]["nested"]["query"]["bool"]["must"] == [
         {"terms": {"provenance.source_country": ["GR"]}},
@@ -69,7 +74,7 @@ def test_build_query_keeps_a_source_tag_on_the_same_provenance_entry() -> None:
 
 
 def test_build_query_matches_a_tag_no_source_has_to_nothing() -> None:
-    query = build_query(_criteria(source_tags=["nobody"]), schema_version=1)
+    query = build_query(_criteria(source_tags=["nobody"]))
     assert query["bool"]["filter"] == [
         {
             "nested": {
@@ -81,7 +86,7 @@ def test_build_query_matches_a_tag_no_source_has_to_nothing() -> None:
 
 
 def test_build_query_matches_unresolved_annotation_names_to_nothing() -> None:
-    query = build_query(_criteria('entity:"Nobody"'), schema_version=2)
+    query = build_query(_criteria('entity:"Nobody"'))
 
     assert query["bool"]["filter"] == [
         {
@@ -146,14 +151,14 @@ def test_histogram_bounds_prefer_requested_dates_over_data_extent() -> None:
 
 
 class _Target:
-    index_name = "articles-v2-test"
+    index_name = "articles-test"
 
     def __init__(self, schema_version: int) -> None:
         self.schema_version = schema_version
 
 
 class _Database:
-    def __init__(self, schema_version: int = 2) -> None:
+    def __init__(self, schema_version: int = SCHEMA_VERSION) -> None:
         self.target = _Target(schema_version)
 
     async def scalar(self, _query: object) -> _Target:
@@ -187,7 +192,7 @@ def adapter(monkeypatch: pytest.MonkeyPatch) -> type[_Adapter]:
 
 
 async def _timeline(
-    criteria: SearchCriteria, interval: str = "auto", schema_version: int = 2
+    criteria: SearchCriteria, interval: str = "auto", schema_version: int = SCHEMA_VERSION
 ) -> SearchTimeline:
     return await search_timeline(
         _Database(schema_version),  # type: ignore[arg-type]
@@ -222,8 +227,8 @@ async def test_timeline_buckets_the_same_filtered_query(adapter: type[_Adapter])
     assert timeline.total == 4
     assert [bucket.count for bucket in timeline.buckets] == [4, 0]
     (extent_index, extent), (histogram_index, histogram) = adapter.bodies
-    assert extent_index == histogram_index == "articles-v2-test"
-    assert extent["query"] == histogram["query"] == build_query(criteria, 2)
+    assert extent_index == histogram_index == "articles-test"
+    assert extent["query"] == histogram["query"] == build_query(criteria)
     settings = histogram["aggs"]["timeline"]["date_histogram"]
     assert settings["calendar_interval"] == "day"
     assert settings["extended_bounds"] == {"min": _ms(first), "max": _ms(last)}
@@ -260,13 +265,14 @@ async def test_timeline_rejects_a_manual_interval_that_is_too_fine(
 
 
 @pytest.mark.asyncio
-async def test_timeline_requires_schema_two_for_annotation_filters(
+async def test_an_older_index_needs_a_rebuild_before_the_timeline(
     adapter: type[_Adapter],
 ) -> None:
     with pytest.raises(HTTPException) as exc:
-        await _timeline(_criteria(keyword_ids=["k1"]), schema_version=1)
+        await _timeline(_criteria(keyword_ids=["k1"]), schema_version=SCHEMA_VERSION - 1)
 
-    assert exc.value.status_code == 409
+    assert exc.value.status_code == 503
+    assert exc.value.detail["code"] == "search_upgrade_required"  # type: ignore[index]
     assert adapter.bodies == []
 
 

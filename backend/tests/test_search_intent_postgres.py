@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.articles.models import Article
 from app.db.session import session_factory
 from app.feeds.models import Feed
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import (
     ArticleSearchState,
     SearchDelivery,
@@ -33,7 +34,7 @@ async def test_index_intent_updates_each_registered_target_atomically() -> None:
             normalized_title_hash=uuid.uuid4().hex,
         )
         target = SearchIndexTarget(
-            index_name=f"articles-v1-{uuid.uuid4()}", schema_version=1, role="current"
+            index_name=f"articles-{uuid.uuid4()}", schema_version=SCHEMA_VERSION, role="current"
         )
         db.add_all([article, target])
         await db.flush()
@@ -94,7 +95,7 @@ async def test_index_intent_does_not_requeue_retained_indices() -> None:
             normalized_title_hash=uuid.uuid4().hex,
         )
         retained = SearchIndexTarget(
-            index_name=f"articles-v1-{uuid.uuid4()}", schema_version=1, role="retained"
+            index_name=f"articles-{uuid.uuid4()}", schema_version=SCHEMA_VERSION, role="retained"
         )
         db.add_all([article, retained])
         await db.flush()

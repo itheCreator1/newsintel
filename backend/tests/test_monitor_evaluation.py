@@ -47,8 +47,8 @@ def _stub_search(monkeypatch: pytest.MonkeyPatch) -> None:
     async def criteria(db: object, **params: object) -> str:
         return "criteria"
 
-    async def target(db: object, value: object) -> tuple[str, int]:
-        return "index", 3
+    async def target(db: object) -> str:
+        return "index"
 
     monkeypatch.setattr(evaluation, "search_criteria", criteria)
     monkeypatch.setattr(evaluation, "current_search_target", target)

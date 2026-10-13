@@ -94,7 +94,7 @@ it('shows loading and distinct error states', async () => {
   expect(await screen.findByText('One of these entities no longer exists.')).toBeTruthy()
   cleanup()
 
-  vi.mocked(api.edgeEvidence).mockRejectedValue(new ApiError('x', 409, { code: 'search_upgrade_required' }))
+  vi.mocked(api.edgeEvidence).mockRejectedValue(new ApiError('x', 503, { code: 'search_upgrade_required' }))
   renderPanel()
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to use the entity graph.')).toBeTruthy()
   cleanup()

@@ -16,7 +16,7 @@ from app.db.session import session_factory
 from app.geo import investigation
 from app.marks.schemas import ArticleMarkUpdate
 from app.marks.service import update_mark
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS
 from app.search.elasticsearch import ElasticsearchAdapter
 
 pytestmark = [
@@ -31,15 +31,15 @@ ROLES = ("story", "mentioned", "source")
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def world(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """The geo world's seven articles, alone in a fresh schema 3 index."""
+    """The geo world's seven articles, alone in a fresh index."""
     w = await _world()
     name = f"articles-v3-geo-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object, **_: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(investigation, "current_search_target", target)
     await _index(name, list(vars(w.a).values()))

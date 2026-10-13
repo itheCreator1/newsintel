@@ -75,8 +75,7 @@ async def related_articles(
     cluster_id = await db.scalar(
         select(StoryClusterMember.cluster_id).where(StoryClusterMember.article_id == article_id)
     )
-    # The story exclusion reads `story_cluster_id`, a schema 3 field.
-    index_name, _schema = await current_search_target(db, None, minimum=3)
+    index_name = await current_search_target(db)
     response = await adapter.search_index(index_name, related_body(article_id, cluster_id))
     ensure_complete(response)
     scores = {

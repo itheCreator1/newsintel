@@ -16,9 +16,9 @@ from app.events.models import EventCluster
 from app.feeds.models import Feed
 from app.nlp.models import Keyword
 from app.nlp.processors import entity_name_keys
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchIndexTarget
 from app.search.query import ParsedQuery, SearchSyntaxError, parse_query
-from app.search.rebuild import ALIAS
 
 
 @dataclass(frozen=True)
@@ -48,23 +48,6 @@ class SearchCriteria:
     # Events, and the stories they hold now; what the index is filtered on.
     event_ids: list[str] = field(default_factory=list)
     event_clusters: list[str] = field(default_factory=list)
-
-    @property
-    def annotation_search(self) -> bool:
-        return bool(
-            self.languages
-            or self.entity_ids
-            or self.entity_types
-            or self.keyword_ids
-            or self.story_countries
-            or self.mentioned_countries
-            or self.parsed.entity_values
-            or self.parsed.keyword_values
-        )
-
-    @property
-    def schema_v3_required(self) -> bool:
-        return bool(self.story_cluster_ids or self.event_ids)
 
     @property
     def empty(self) -> bool:
@@ -237,50 +220,49 @@ async def search_criteria(
     )
 
 
-async def current_search_target(
-    db: AsyncSession, criteria: SearchCriteria | None, *, minimum: int = 1
-) -> tuple[str, int]:
-    """The live index and its schema; `minimum` is the endpoint's floor whatever the filters."""
-    target = await db.scalar(
-        select(SearchIndexTarget).where(SearchIndexTarget.role == "current").limit(1)
+async def live_index(db: AsyncSession) -> SearchIndexTarget | None:
+    """The index Search reads: the newest current target (a cutover leaves one)."""
+    target: SearchIndexTarget | None = await db.scalar(
+        select(SearchIndexTarget)
+        .where(SearchIndexTarget.role == "current")
+        .order_by(SearchIndexTarget.created_at.desc())
+        .limit(1)
     )
-    schema_version = target.schema_version if target else 1
-    if schema_version < minimum:
+    return target
+
+
+REBUILD_COMMAND = "python -m app.cli rebuild-search in the api container"
+
+
+def rebuild_needed(target: SearchIndexTarget | None) -> bool:
+    """An older version built the live index: its fields are not the ones queries ask for."""
+    return target is not None and target.schema_version < SCHEMA_VERSION
+
+
+async def current_search_target(db: AsyncSession) -> str:
+    """The index to query, or 503 until a rebuild builds one this version can read."""
+    target = await live_index(db)
+    if target is None or rebuild_needed(target):
         raise HTTPException(
-            409,
+            503,
             {
                 "code": "search_upgrade_required",
-                "message": f"Rebuild search to schema version {minimum} to use this view",
+                "message": (
+                    f"There is no search index yet. Build it with {REBUILD_COMMAND}."
+                    if target is None
+                    else "The search index was built by an older version. "
+                    f"Rebuild it with {REBUILD_COMMAND}."
+                ),
             },
         )
-    if criteria is not None and criteria.annotation_search and schema_version < 2:
-        raise HTTPException(
-            409,
-            {
-                "code": "search_upgrade_required",
-                "message": "Rebuild search to schema version 2 to use annotation filters",
-            },
-        )
-    if criteria is not None and criteria.schema_v3_required and schema_version < 3:
-        raise HTTPException(
-            409,
-            {
-                "code": "search_upgrade_required",
-                "message": "Rebuild search to schema version 3 to use the story cluster filter",
-            },
-        )
-    return (target.index_name if target else ALIAS), schema_version
+    return target.index_name
 
 
-def text_fields(schema_version: int) -> list[str]:
-    fields = ["title^3", "descriptions", "body"]
-    if schema_version >= 2:
-        fields.extend(["entity_text", "keyword_text"])
-    return fields
+TEXT_FIELDS = ["title^3", "descriptions", "body", "entity_text", "keyword_text"]
 
 
-def build_query(criteria: SearchCriteria, schema_version: int) -> dict[str, Any]:  # noqa: C901
-    fields = text_fields(schema_version)
+def build_query(criteria: SearchCriteria) -> dict[str, Any]:  # noqa: C901
+    fields = TEXT_FIELDS
     must: list[dict[str, Any]] = [
         {"multi_match": {"query": term, "fields": fields, "operator": "and"}}
         for term in criteria.parsed.terms

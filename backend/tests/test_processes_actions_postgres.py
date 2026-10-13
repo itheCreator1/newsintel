@@ -25,6 +25,7 @@ from app.monitors.models import Monitor
 from app.nlp import reprocessing
 from app.nlp.models import ArticleNlpState, NlpJob, NlpReprocessingRun
 from app.processes import actions, activity, summary
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.wikidata import runs as wikidata_runs
 from app.wikidata.models import WikidataRun
@@ -184,8 +185,8 @@ async def test_retrying_a_failed_nlp_or_cluster_job_requests_a_new_generation() 
 async def test_retrying_a_failed_delivery_or_monitor_makes_it_due_now() -> None:
     async with session_factory() as db:
         art = await _article(db, await feed(db), INSIDE)
-        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}", schema_version=3,
-                                   role="current")  # fmt: skip
+        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
+                                   schema_version=SCHEMA_VERSION, role="current")  # fmt: skip
         db.add(target)
         await db.flush()
         delivery = SearchDelivery(article_id=art.id, target_id=target.id, requested_revision=1,
@@ -298,8 +299,8 @@ async def test_retry_failed_makes_broken_monitors_due_and_failed_deliveries_queu
     async with session_factory() as db:
         monitor = await _monitor(db, error_category="search", next_evaluation_at=LATER)
         art = await _article(db, await feed(db), INSIDE)
-        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}", schema_version=3,
-                                   role="current")  # fmt: skip
+        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
+                                   schema_version=SCHEMA_VERSION, role="current")  # fmt: skip
         db.add(target)
         await db.flush()
         delivery = SearchDelivery(article_id=art.id, target_id=target.id, requested_revision=1,

@@ -20,6 +20,7 @@ from app.nlp.models import (
     Keyword,
 )
 from app.search.documents import (
+    SCHEMA_VERSION,
     ArticleDocument,
     EntityDocument,
     KeywordDocument,
@@ -225,6 +226,11 @@ async def process_delivery(delivery_id: str, claim_token: str) -> None:
     delivery, index_name, schema_version, document = loaded
     if delivery.claim_token != claim_token:
         return
+    if schema_version < SCHEMA_VERSION:
+        # An index an older version built: its strict mapping would reject today's document, and
+        # Search reads it no longer (it waits for a rebuild), so there is nothing to write.
+        await _acknowledge(parsed_id, claim_token, delivery.requested_revision, "success")
+        return
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
     try:
         batches = adapter.build_batches(
@@ -233,7 +239,7 @@ async def process_delivery(delivery_id: str, claim_token: str) -> None:
                 BulkDocument(
                     str(document.article_id),
                     delivery.requested_revision,
-                    document.to_index_payload(schema_version=schema_version),
+                    document.to_index_payload(),
                 )
             ],
         )

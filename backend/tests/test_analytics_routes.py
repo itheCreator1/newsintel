@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.search.aggregations import date_histogram, terms
 from app.search.criteria import build_query
+from app.search.documents import SCHEMA_VERSION
 
 
 @pytest.fixture
@@ -66,7 +67,7 @@ async def test_ingestion_buckets_utc_discovery_days_over_the_37_day_input(
 
     # Floor is schema 2: a fresh install with no target gives a rebuild prompt instead of
     # querying a missing alias.
-    body = await ingestion_timeline(_Database(2), object(), Settings(), _criteria())  # type: ignore[arg-type]
+    body = await ingestion_timeline(_Database(), object(), Settings(), _criteria())  # type: ignore[arg-type]
 
     request = adapter.bodies[0][1]
     assert request["size"] == 0
@@ -80,12 +81,11 @@ async def test_ingestion_buckets_utc_discovery_days_over_the_37_day_input(
 
 
 @pytest.mark.asyncio
-async def test_ingestion_requires_a_schema_two_index(adapter: type[_Adapter]) -> None:
-    # Also covers a fresh install: no target falls back to schema 1, so ingestion now gives the
-    # same actionable 409 as the top views instead of a 503 with a Retry that can never succeed.
+async def test_ingestion_needs_a_rebuilt_index(adapter: type[_Adapter]) -> None:
+    database = _Database(SCHEMA_VERSION - 1)
     with pytest.raises(HTTPException) as exc:
-        await ingestion_timeline(_Database(1), object(), Settings(), _criteria())  # type: ignore[arg-type]
-    assert exc.value.status_code == 409
+        await ingestion_timeline(database, object(), Settings(), _criteria())  # type: ignore[arg-type]
+    assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "search_upgrade_required"
     assert adapter.bodies == []
 
@@ -97,7 +97,7 @@ async def test_ingestion_timeline_drops_publication_dates_but_keeps_other_criter
     adapter.responses = [{"aggregations": {"days": {"buckets": []}}}]
     criteria = _criteria("climate", start=date(2026, 1, 1))
 
-    await ingestion_timeline(_Database(2), object(), Settings(), criteria)  # type: ignore[arg-type]
+    await ingestion_timeline(_Database(), object(), Settings(), criteria)  # type: ignore[arg-type]
 
     query = adapter.bodies[0][1]["query"]
     assert not any("effective_date" in item.get("range", {}) for item in query["bool"]["filter"])
@@ -114,14 +114,16 @@ async def test_ingestion_reports_an_outage_or_partial_answer_as_unavailable(
         {"timed_out": broken == "timed_out", "_shards": {"failed": int(broken == "failed_shard")}}
     ]
     with pytest.raises(HTTPException) as exc:
-        await ingestion_timeline(_Database(3), object(), Settings(), _criteria())  # type: ignore[arg-type]
+        await ingestion_timeline(_Database(), object(), Settings(), _criteria())  # type: ignore[arg-type]
     assert exc.value.status_code == 503
 
 
 class _Catalogue(_Database):
     """A schema-three search target plus an Entity catalogue holding `rows`."""
 
-    def __init__(self, rows: list[SimpleNamespace] | None = None, schema_version: int = 3) -> None:
+    def __init__(
+        self, rows: list[SimpleNamespace] | None = None, schema_version: int = SCHEMA_VERSION
+    ) -> None:
         super().__init__(schema_version)
         self.rows = rows or []
 
@@ -143,7 +145,7 @@ async def test_recent_top_countries_keep_the_rolling_30_day_discovery_cutoff(
         }
     ]
     before = datetime.now(UTC)
-    body = await top_countries(_Database(3), object(), Settings(), _criteria(), "recent")  # type: ignore[arg-type]
+    body = await top_countries(_Database(), object(), Settings(), _criteria(), "recent")  # type: ignore[arg-type]
 
     request = adapter.bodies[0][1]
     assert request["aggs"] == {"countries": terms(None, "primary_story_country", TOP_N)}
@@ -155,8 +157,8 @@ async def test_recent_top_countries_keep_the_rolling_30_day_discovery_cutoff(
 async def test_investigation_scope_is_exactly_the_shared_criteria(adapter: type[_Adapter]) -> None:
     adapter.responses = [{"aggregations": {}}]
     criteria = _criteria("grid", story_countries=["GR"], start=date(2026, 1, 1))
-    await top_countries(_Database(3), object(), Settings(), criteria, "investigation")  # type: ignore[arg-type]
-    assert adapter.bodies[0][1]["query"] == build_query(criteria, 3)
+    await top_countries(_Database(), object(), Settings(), criteria, "investigation")  # type: ignore[arg-type]
+    assert adapter.bodies[0][1]["query"] == build_query(criteria)
 
 
 @pytest.mark.asyncio
@@ -213,10 +215,16 @@ async def test_top_entities_skip_uncatalogued_ids_and_let_the_next_rank_through(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("route", [top_entities, top_countries])
-async def test_top_views_require_a_schema_two_index(adapter: type[_Adapter], route: Any) -> None:
+async def test_top_views_need_a_rebuilt_index(adapter: type[_Adapter], route: Any) -> None:
     with pytest.raises(HTTPException) as exc:
-        await route(_Catalogue(schema_version=1), object(), Settings(), _criteria(), "recent")
-    assert exc.value.status_code == 409
+        await route(
+            _Catalogue(schema_version=SCHEMA_VERSION - 1),
+            object(),
+            Settings(),
+            _criteria(),
+            "recent",
+        )
+    assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "search_upgrade_required"
     assert adapter.bodies == []
 

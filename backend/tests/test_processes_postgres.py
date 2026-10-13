@@ -21,6 +21,7 @@ from app.monitors.models import Monitor
 from app.nlp.models import ArticleNlpState, NlpJob, NlpReprocessingRun
 from app.operations.models import MaintenanceRun
 from app.processes import activity, summary
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchDelivery, SearchIndexTarget, SearchRebuild, SourceSearchRefresh
 from app.wikidata.models import WikidataRun
 
@@ -212,8 +213,8 @@ async def test_an_authority_run_names_its_kind_and_the_entity() -> None:
 async def test_an_active_rebuild_shows_articles_scanned_out_of_all() -> None:
     async with session_factory() as db:
         await db.execute(update(SearchRebuild).values(active_key=None))
-        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}", schema_version=3,
-                                   role="replacement")  # fmt: skip
+        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
+                                   schema_version=SCHEMA_VERSION, role="replacement")  # fmt: skip
         db.add(target)
         await db.flush()
         rebuild = SearchRebuild(target_id=target.id, status="scanning", scanned_count=7)
@@ -224,6 +225,20 @@ async def test_an_active_rebuild_shows_articles_scanned_out_of_all() -> None:
         await db.rollback()
     assert (card["state"], card["active_run_id"]) == ("working", rebuild.id)
     assert card["progress"] == {"done": 7, "total": total}
+
+
+async def test_an_older_live_index_asks_for_a_rebuild() -> None:
+    # Search answers 503 until a rebuild replaces it, so the rebuild card says so (fix plan Γ1).
+    async with session_factory() as db:
+        await db.execute(update(SearchRebuild).values(active_key=None))
+        db.add(SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
+                                 schema_version=SCHEMA_VERSION - 1, role="current"))  # fmt: skip
+        await db.flush()
+        card = (await _cards(db))["rebuild"]
+        await db.rollback()
+    assert card["state"] == "failing"
+    assert "older version" in card["detail"]
+    assert "python -m app.cli rebuild-search" in card["detail"]
 
 
 async def test_source_reindexes_count_like_jobs_and_name_the_source() -> None:
@@ -354,8 +369,8 @@ async def test_every_process_lists_its_rows_with_a_readable_title_and_link() -> 
         root = await _entity(db, "Ada Lindqvist")
         user = User(username=f"u-{uuid.uuid4().hex[:8]}", password_hash="x")
         db.add(user)
-        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}", schema_version=3,
-                                   role="current")  # fmt: skip
+        target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
+                                   schema_version=SCHEMA_VERSION, role="current")  # fmt: skip
         db.add(target)
         await db.flush()
         cluster_state = ArticleClusterState(article_id=art.id, algorithm_version="rule-1")
@@ -395,8 +410,9 @@ async def test_every_process_lists_its_rows_with_a_readable_title_and_link() -> 
         db.add_all(rows.values())
         await db.flush()
         nlp = await _nlp_job(db, art, "running", created_at=LATER)
-        rebuild_target = SearchIndexTarget(index_name=f"idx-{uuid.uuid4().hex}",
-                                           schema_version=3, role="replacement")  # fmt: skip
+        rebuild_target = SearchIndexTarget(
+            index_name=f"idx-{uuid.uuid4().hex}", schema_version=SCHEMA_VERSION, role="replacement"
+        )
         db.add(rebuild_target)
         await db.flush()
         await db.execute(update(SearchRebuild).values(active_key=None))

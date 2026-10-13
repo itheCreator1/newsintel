@@ -8,6 +8,7 @@ import { chipClass, ghostButtonClass } from '../lib/ui-classes'
 import { cn, plural } from '../lib/utils'
 import { glassPanelClassName } from './GlassPanel'
 import { formatDate } from '../lib/datetime'
+import { errorCode } from '../lib/filter-ui'
 import { ArticleRow } from './ArticleRow'
 
 type Filters = Record<string, string | string[] | undefined>
@@ -16,9 +17,8 @@ const when = (value: string | null | undefined) => value ? formatDate(value) : '
 function failure(reason: unknown) {
   if (reason instanceof ApiError) {
     if (reason.status === 404) return 'One of these entities no longer exists.'
+    if (errorCode(reason) === 'search_upgrade_required') return 'Search upgrade required. Rebuild the search index to use the entity graph.'
     if (reason.status === 503) return 'Relationship evidence is temporarily unavailable.'
-    const detail = reason.detail
-    if (reason.status === 409 && detail && typeof detail === 'object' && 'code' in detail && detail.code === 'search_upgrade_required') return 'Search upgrade required. Rebuild the search index to use the entity graph.'
   }
   return 'Could not load relationship evidence.'
 }

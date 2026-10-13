@@ -72,6 +72,17 @@ def _response(
     return body
 
 
+async def _live_index(db: object) -> str:
+    # FakeAdapter answers whichever index it is asked; test_search_rebuild.py covers the lookup.
+    return "articles-test"
+
+
+@pytest.fixture(autouse=True)
+def a_current_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Search answers 503 without a current index, and these tests are about what comes after."""
+    monkeypatch.setattr(evaluation, "current_search_target", _live_index)
+
+
 async def _monitor(name: str = "Grid") -> uuid.UUID:
     async with session_factory() as db:
         user = User(username=f"watcher-{uuid.uuid4().hex}", password_hash="unused")
@@ -359,13 +370,13 @@ async def test_an_index_that_needs_a_rebuild_and_unreadable_state_are_reported(
     monitor_id, _ = await _baselined()
     now = datetime.now(UTC) + timedelta(minutes=10)
 
-    async def needs_rebuild(db: object, criteria: object) -> tuple[str, int]:
-        raise HTTPException(409, {"code": "search_upgrade_required", "message": "Rebuild search"})
+    async def needs_rebuild(db: object) -> str:
+        raise HTTPException(503, {"code": "search_upgrade_required", "message": "Rebuild search"})
 
     monkeypatch.setattr(evaluation, "current_search_target", needs_rebuild)
     assert not await process_monitor(monitor_id, await _claim(monitor_id), FakeAdapter(), now=now)
     assert (await _read(monitor_id)).error_category == "search_upgrade_required"
-    monkeypatch.undo()
+    monkeypatch.setattr(evaluation, "current_search_target", _live_index)
 
     await _set(monitor_id, state={"retired_filter": True})
     assert not await process_monitor(monitor_id, await _claim(monitor_id), FakeAdapter(), now=now)

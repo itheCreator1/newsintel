@@ -82,9 +82,11 @@ class ArticleDocument:
     story_cluster_id: uuid.UUID | None = None
     cluster_source_count: int | None = None
 
-    def to_index_payload(self, *, schema_version: int = 1) -> dict[str, Any]:
+    def to_index_payload(self) -> dict[str, Any]:
         sources = {item.source_id for item in self.provenance}
-        payload: dict[str, Any] = {
+        entities = self.entities or []
+        keywords = self.keywords or []
+        return {
             "article_id": str(self.article_id),
             "title": self.title,
             "descriptions": [plain_text(value) for value in self.descriptions if value],
@@ -96,33 +98,22 @@ class ArticleDocument:
             "processing_status": self.processing_status,
             "distinct_source_count": len(sources),
             "provenance": [item.to_payload() for item in self.provenance],
+            "detected_language": self.detected_language,
+            "entities": [item.to_payload() for item in entities],
+            "entity_text": [name for item in entities for name in item.names],
+            "keywords": [item.to_payload() for item in keywords],
+            "keyword_ids": [str(item.keyword_id) for item in keywords],
+            "keyword_text": [item.text for item in keywords],
+            "primary_story_country": self.primary_story_country,
+            "mentioned_countries": sorted(set(self.mentioned_countries or [])),
+            "story_cluster_id": str(self.story_cluster_id) if self.story_cluster_id else None,
+            "cluster_source_count": self.cluster_source_count,
         }
-        if schema_version >= 2:
-            entities = self.entities or []
-            keywords = self.keywords or []
-            payload.update(
-                {
-                    "detected_language": self.detected_language,
-                    "entities": [item.to_payload() for item in entities],
-                    "entity_text": [name for item in entities for name in item.names],
-                    "keywords": [item.to_payload() for item in keywords],
-                    "keyword_ids": [str(item.keyword_id) for item in keywords],
-                    "keyword_text": [item.text for item in keywords],
-                    "primary_story_country": self.primary_story_country,
-                    "mentioned_countries": sorted(set(self.mentioned_countries or [])),
-                }
-            )
-        if schema_version >= 3:
-            payload.update(
-                {
-                    "story_cluster_id": (
-                        str(self.story_cluster_id) if self.story_cluster_id else None
-                    ),
-                    "cluster_source_count": self.cluster_source_count,
-                }
-            )
-        return payload
 
+
+# The index layout this version writes and reads. A change to it bumps SCHEMA_VERSION, and the
+# live index is then rebuilt (python -m app.cli rebuild-search) before Search reads it again.
+SCHEMA_VERSION = 3
 
 ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
     "settings": {
@@ -160,16 +151,6 @@ ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
                     "source_country": {"type": "keyword"},
                 },
             },
-        },
-    },
-}
-
-ARTICLE_INDEX_SETTINGS_V2: dict[str, Any] = {
-    "settings": ARTICLE_INDEX_SETTINGS["settings"],
-    "mappings": {
-        "dynamic": "strict",
-        "properties": {
-            **ARTICLE_INDEX_SETTINGS["mappings"]["properties"],
             "detected_language": {"type": "keyword"},
             "entity_text": {"type": "text", "analyzer": "standard"},
             "keyword_text": {"type": "text", "analyzer": "standard"},
@@ -200,16 +181,6 @@ ARTICLE_INDEX_SETTINGS_V2: dict[str, Any] = {
                     },
                 },
             },
-        },
-    },
-}
-
-ARTICLE_INDEX_SETTINGS_V3: dict[str, Any] = {
-    "settings": ARTICLE_INDEX_SETTINGS_V2["settings"],
-    "mappings": {
-        "dynamic": "strict",
-        "properties": {
-            **ARTICLE_INDEX_SETTINGS_V2["mappings"]["properties"],
             "story_cluster_id": {"type": "keyword"},
             "cluster_source_count": {"type": "integer"},
         },

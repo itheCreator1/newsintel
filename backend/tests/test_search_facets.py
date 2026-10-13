@@ -7,7 +7,7 @@ from test_search_timeline import _Adapter, _criteria, _Database
 from app.core.config import Settings
 from app.main import create_app
 from app.search.aggregations import PartialResponse
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS, SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.facets import (
     GROUPS,
@@ -67,7 +67,7 @@ def test_every_group_is_capped_at_the_absolute_bucket_limit() -> None:
 
 def test_exact_top_n_counts_depend_on_a_single_primary_shard() -> None:
     # Multi-shard terms aggregation is approximate; facet exactness assumes this setting.
-    assert ARTICLE_INDEX_SETTINGS_V3["settings"]["number_of_shards"] == 1
+    assert ARTICLE_INDEX_SETTINGS["settings"]["number_of_shards"] == 1
 
 
 def _response(**aggregations: Any) -> dict[str, Any]:
@@ -117,7 +117,7 @@ def adapter(monkeypatch: pytest.MonkeyPatch) -> type[_Adapter]:
     return _Adapter
 
 
-async def _facets(schema_version: int = 3) -> object:
+async def _facets(schema_version: int = SCHEMA_VERSION) -> object:
     return await search_facet_counts(
         _Database(schema_version),  # type: ignore[arg-type]
         object(),  # type: ignore[arg-type]
@@ -128,13 +128,10 @@ async def _facets(schema_version: int = 3) -> object:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("schema_version", [1, 2])
-async def test_facets_require_a_schema_three_index(
-    adapter: type[_Adapter], schema_version: int
-) -> None:
+async def test_facets_need_a_rebuilt_index(adapter: type[_Adapter]) -> None:
     with pytest.raises(HTTPException) as exc:
-        await _facets(schema_version)
-    assert exc.value.status_code == 409
+        await _facets(SCHEMA_VERSION - 1)
+    assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "search_upgrade_required"  # type: ignore[index]
     assert adapter.bodies == []
 

@@ -99,7 +99,7 @@ function SearchContent() {
   const results = search.data?.pages.flatMap(page => page.items) ?? []
   const searchError = search.error instanceof ApiError ? search.error : null
   const expired = searchError?.status === 409 && errorCode(searchError) === 'restart_search'
-  const upgradeRequired = searchError?.status === 409 && errorCode(searchError) === 'search_upgrade_required'
+  const upgradeRequired = errorCode(searchError) === 'search_upgrade_required'
   const timelineTooFine = errorCode(timeline.error) === 'timeline_too_fine'
   const save = useMutation({ mutationFn: (name: string) => api.createSavedSearch(name, state), onSuccess: () => client.invalidateQueries({ queryKey: ['saved-searches'] }) })
 
@@ -282,8 +282,8 @@ function SearchContent() {
                   </>
                 ) : (
                   <ErrorNotice
-                    message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use annotation filters.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}
-                    onRetry={!upgradeRequired && isTransient(search.error) ? restart : undefined} retrying={search.isFetching}
+                    message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to search the archive.' : searchError?.status === 503 ? 'Search is temporarily unavailable.' : searchError?.message || 'Could not search the archive.'}
+                    onRetry={isTransient(search.error) ? restart : undefined} retrying={search.isFetching}
                   />
                 )}
               </div>

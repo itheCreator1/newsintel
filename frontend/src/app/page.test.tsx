@@ -35,7 +35,7 @@ beforeEach(() => {
   // A set-up archive: the getting-started checklist and the entity notice stay hidden.
   vi.mocked(api.feeds).mockResolvedValue({ items: [{} as never], next_cursor: null })
   vi.mocked(api.articles).mockResolvedValue({ items: [{} as never], next_cursor: null })
-  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: true })
+  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: true, rebuild_needed: false })
   vi.mocked(api.nlpStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, capabilities: [{ name: 'entities', state: 'available', detail: null, version: '3.8' }], reprocessing: [] })
 })
 afterEach(cleanup)
@@ -140,7 +140,7 @@ it('keeps a loaded chart when a background refetch fails', async () => {
 })
 
 it('says search needs an upgrade, without a retry, when analytics need a newer index', async () => {
-  vi.mocked(api.topEntities).mockRejectedValue(new ApiError('Rebuild search', 409, { code: 'search_upgrade_required', message: 'Rebuild search' }))
+  vi.mocked(api.topEntities).mockRejectedValue(new ApiError('Rebuild search', 503, { code: 'search_upgrade_required', message: 'Rebuild search' }))
   renderWithQuery(() => <TodayPage />)
 
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to see analytics.')).toBeTruthy()

@@ -36,9 +36,9 @@ it('says when nothing is worded alike and when the index was behind', async () =
 })
 
 it('shows the upgrade message for an old index and a plain message when search is down', async () => {
-  vi.mocked(api.relatedArticles).mockRejectedValueOnce(new ApiError('Rebuild search to schema version 3 to use this view', 409))
+  vi.mocked(api.relatedArticles).mockRejectedValueOnce(new ApiError('The search index was built by an older version. Rebuild it with python -m app.cli rebuild-search in the api container.', 503, { code: 'search_upgrade_required' }))
   renderPanel()
-  expect(await screen.findByText('Rebuild search to schema version 3 to use this view')).toBeTruthy()
+  expect(await screen.findByText('The search index was built by an older version. Rebuild it with python -m app.cli rebuild-search in the api container.')).toBeTruthy()
   cleanup()
 
   vi.mocked(api.relatedArticles).mockRejectedValueOnce(new ApiError('Related coverage is unavailable', 503))

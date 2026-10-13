@@ -58,12 +58,12 @@ async def entity_graph(
     focus_entity_id, focus_ids = await _focus(db, focus_entity_id)
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await current_search_target(db, criteria, minimum=2)
+        index_name = await current_search_target(db)
         graph = await collect_entity_graph(
             db,
             adapter,
             index_name,
-            query=focus_query(build_query(criteria, schema_version), focus_entity_id, focus_ids),
+            query=focus_query(build_query(criteria), focus_entity_id, focus_ids),
             entity_types=criteria.entity_types,
             nodes=nodes,
             min_edge_weight=min_edge_weight,
@@ -112,12 +112,12 @@ async def edge_evidence(
     focus_entity_id, focus_ids = await _focus(db, focus_entity_id)
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await current_search_target(db, criteria, minimum=2)
+        index_name = await current_search_target(db)
         return await collect_edge_evidence(
             db,
             adapter,
             index_name,
-            query=focus_query(build_query(criteria, schema_version), focus_entity_id, focus_ids),
+            query=focus_query(build_query(criteria), focus_entity_id, focus_ids),
             source=entities[0],
             target=entities[1],
             limit=limit,

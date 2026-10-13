@@ -16,7 +16,7 @@ from app.entities.models import Entity
 from app.nlp.models import Keyword
 from app.search import routes
 from app.search.documents import (
-    ARTICLE_INDEX_SETTINGS_V3,
+    ARTICLE_INDEX_SETTINGS,
     ArticleDocument,
     EntityDocument,
     KeywordDocument,
@@ -37,11 +37,11 @@ pytestmark = [
 async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     name = f"articles-v3-facets-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object, **_: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(routes, "current_search_target", target)
     return name
@@ -134,10 +134,7 @@ async def _seed(index_name: str, word: str) -> dict[str, Any]:
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
     for batch in adapter.build_batches(
         index_name,
-        [
-            BulkDocument(str(item.article_id), 1, item.to_index_payload(schema_version=3))
-            for item in documents
-        ],
+        [BulkDocument(str(item.article_id), 1, item.to_index_payload()) for item in documents],
     ):
         assert all(result.error is None for result in await adapter.bulk(batch))
     await adapter.refresh(index_name)

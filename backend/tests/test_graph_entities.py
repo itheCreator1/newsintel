@@ -26,6 +26,7 @@ from app.graph.service import (
 from app.main import create_app
 from app.search.aggregations import ROOT_ORDER
 from app.search.criteria import SearchCriteria, build_query
+from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
 
@@ -78,7 +79,7 @@ def _edges_response(buckets: list[dict[str, Any]]) -> dict[str, Any]:
 
 def test_nodes_body_counts_articles_per_entity_within_the_requested_types() -> None:
     body = nodes_body(
-        build_query(_criteria(), schema_version=2),
+        build_query(_criteria()),
         entity_types=["ORG", "PERSON"],
         nodes=12,
         focus_entity_id=None,
@@ -100,16 +101,14 @@ def test_nodes_body_counts_articles_per_entity_within_the_requested_types() -> N
 
 
 def test_nodes_body_keeps_every_entity_type_when_none_are_requested() -> None:
-    body = nodes_body(
-        build_query(_criteria(), schema_version=2), entity_types=[], nodes=30, focus_entity_id=None
-    )
+    body = nodes_body(build_query(_criteria()), entity_types=[], nodes=30, focus_entity_id=None)
 
     assert body["aggs"]["entities"]["aggs"]["filtered"]["filter"] == {"match_all": {}}
 
 
 def test_focus_entity_narrows_the_base_query_instead_of_only_the_terms_aggregation() -> None:
     focus = uuid.uuid4()
-    base = build_query(_criteria(languages=["en"]), schema_version=2)
+    base = build_query(_criteria(languages=["en"]))
 
     narrowed = focus_query(base, focus)
 
@@ -125,7 +124,7 @@ def test_nodes_body_counts_the_focus_entity_alongside_the_top_terms() -> None:
     focus = uuid.uuid4()
 
     body = nodes_body(
-        build_query(_criteria(), schema_version=2),
+        build_query(_criteria()),
         entity_types=["PERSON"],
         nodes=5,
         focus_entity_id=focus,
@@ -143,7 +142,7 @@ def test_nodes_body_counts_the_focus_entity_alongside_the_top_terms() -> None:
 
 
 def test_edges_body_declares_one_nested_filter_per_selected_node() -> None:
-    query = focus_query(build_query(_criteria(), schema_version=2), None)
+    query = focus_query(build_query(_criteria()), None)
 
     body = edges_body(query, ["n1", "n2"])
 
@@ -200,7 +199,7 @@ def test_parse_nodes_clamps_a_caller_asking_past_the_absolute_node_cap() -> None
 
 def test_nodes_body_never_asks_elasticsearch_past_the_absolute_node_cap() -> None:
     body = nodes_body(
-        build_query(_criteria(), schema_version=2),
+        build_query(_criteria()),
         entity_types=[],
         nodes=1000,
         focus_entity_id=None,
@@ -412,7 +411,7 @@ def test_parse_edges_reads_each_pairs_recent_weight() -> None:
 
 
 class _Target:
-    index_name = "articles-v2-test"
+    index_name = "articles-test"
 
     def __init__(self, schema_version: int) -> None:
         self.schema_version = schema_version
@@ -427,7 +426,9 @@ class _Scalars:
 
 
 class _Database:
-    def __init__(self, schema_version: int = 2, entities: list[Entity] | None = None) -> None:
+    def __init__(
+        self, schema_version: int = SCHEMA_VERSION, entities: list[Entity] | None = None
+    ) -> None:
         self.target = _Target(schema_version)
         self.entities = entities or []
 
@@ -520,8 +521,8 @@ async def test_graph_labels_nodes_from_the_entity_catalogue(adapter: type[_Adapt
     ]
     assert graph.truncated is False
     (nodes_index, nodes_request), (edges_index, edges_request) = adapter.bodies
-    assert nodes_index == edges_index == "articles-v2-test"
-    assert nodes_request["query"] == edges_request["query"] == build_query(criteria, 2)
+    assert nodes_index == edges_index == "articles-test"
+    assert nodes_request["query"] == edges_request["query"] == build_query(criteria)
 
 
 @pytest.mark.asyncio
@@ -538,7 +539,7 @@ async def test_graph_narrows_both_requests_to_articles_holding_the_focus_entity(
     graph = await _graph(database, focus_entity_id=focus)
 
     assert [node.id for node in graph.nodes] == [focus, other]
-    expected = focus_query(build_query(_criteria(), 2), focus)
+    expected = focus_query(build_query(_criteria()), focus)
     assert [body["query"] for _, body in adapter.bodies] == [expected, expected]
 
 
@@ -564,7 +565,7 @@ async def test_graph_focus_resolves_a_variant_to_its_root(
 
     assert [node.id for node in graph.nodes] == [root, other]
     # Articles still indexed under the variant's id belong to the focus too.
-    expected = focus_query(build_query(_criteria(), 2), root, group)
+    expected = focus_query(build_query(_criteria()), root, group)
     assert [body["query"] for _, body in adapter.bodies] == [expected, expected]
     focus = adapter.bodies[0][1]["aggs"]["focus"]["aggs"]["matched"]["filter"]
     assert focus == {"terms": {"entities.id": group}}
@@ -572,7 +573,7 @@ async def test_graph_focus_resolves_a_variant_to_its_root(
 
 def test_focus_query_matches_any_name_of_the_focus() -> None:
     root, variant = uuid.uuid4(), uuid.uuid4()
-    base = build_query(_criteria(), 2)
+    base = build_query(_criteria())
 
     assert focus_query(base, root) == focus_query(base, root, [str(root)])
     narrowed = focus_query(base, root, [str(root), str(variant)])
@@ -695,11 +696,11 @@ async def test_graph_expands_an_entity_in_place_with_its_own_article_counts(
 
 
 @pytest.mark.asyncio
-async def test_graph_requires_a_schema_two_index(adapter: type[_Adapter]) -> None:
+async def test_graph_needs_a_rebuilt_index(adapter: type[_Adapter]) -> None:
     with pytest.raises(HTTPException) as exc:
-        await _graph(_Database(schema_version=1))
+        await _graph(_Database(schema_version=SCHEMA_VERSION - 1))
 
-    assert exc.value.status_code == 409
+    assert exc.value.status_code == 503
     assert exc.value.detail["code"] == "search_upgrade_required"  # type: ignore[index]
     assert adapter.bodies == []
 

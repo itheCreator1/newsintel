@@ -16,6 +16,7 @@ from test_monitor_evaluation_postgres import (
     _read,
     _response,
     _set,
+    a_current_index,  # noqa: F401  (autouse: a current index to search)
 )
 
 from app.db.session import session_factory

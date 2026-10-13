@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.api.cursors import read_cursor
 from app.core.config import Settings
 from app.search.criteria import SearchCriteria, current_search_target
+from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
 from app.search.routes import search_articles, search_export
@@ -16,8 +17,8 @@ DAILY = "22222222-2222-4222-8222-222222222222"
 
 
 class _Target:
-    index_name = "articles-v2-test"
-    schema_version = 2
+    index_name = "articles-test"
+    schema_version = SCHEMA_VERSION
 
 
 class _Database:
@@ -201,25 +202,6 @@ async def test_results_have_no_story_cluster_when_the_article_is_unclustered(
     assert page.items[0].story_cluster is None
 
 
-@pytest.mark.asyncio
-async def test_story_cluster_filter_requires_a_schema_v3_index() -> None:
-    class _V2Target:
-        index_name = "articles-v2-test"
-        schema_version = 2
-
-    class _V2Database:
-        async def scalar(self, _query: object) -> _V2Target:
-            return _V2Target()
-
-    with pytest.raises(HTTPException) as excinfo:
-        await current_search_target(
-            _V2Database(),  # type: ignore[arg-type]
-            _criteria(story_cluster_ids=[CLUSTER]),
-        )
-    assert excinfo.value.status_code == 409
-    assert excinfo.value.detail["code"] == "search_upgrade_required"
-
-
 def _hit(position: int) -> dict[str, Any]:
     return {
         "_source": {
@@ -300,20 +282,12 @@ async def test_failing_to_close_the_snapshot_still_returns_the_page(
 
 
 @pytest.mark.parametrize(
-    ("schema_version", "minimum", "allowed"),
-    [
-        (None, 1, True),
-        (None, 2, False),
-        (1, 1, True),
-        (1, 2, False),
-        (2, 2, True),
-        (2, 3, False),
-        (3, 3, True),
-    ],
+    ("schema_version", "allowed"),
+    [(None, False), (SCHEMA_VERSION - 1, False), (SCHEMA_VERSION, True)],
 )
 @pytest.mark.asyncio
-async def test_endpoint_schema_floor(
-    schema_version: int | None, minimum: int, allowed: bool
+async def test_search_reads_only_an_index_this_version_built(
+    schema_version: int | None, allowed: bool
 ) -> None:
     class _Target:
         index_name = "articles-vx-test"
@@ -325,21 +299,11 @@ async def test_endpoint_schema_floor(
             return None if schema_version is None else _Target()
 
     if allowed:
-        index_name, version = await current_search_target(
-            _Db(),  # type: ignore[arg-type]
-            _criteria(),
-            minimum=minimum,
-        )
-        assert version == (schema_version or 1)
-        assert index_name == ("articles-current" if schema_version is None else "articles-vx-test")
+        assert await current_search_target(_Db()) == "articles-vx-test"  # type: ignore[arg-type]
     else:
         with pytest.raises(HTTPException) as excinfo:
-            await current_search_target(
-                _Db(),  # type: ignore[arg-type]
-                _criteria(),
-                minimum=minimum,
-            )
-        assert excinfo.value.status_code == 409
+            await current_search_target(_Db())  # type: ignore[arg-type]
+        assert excinfo.value.status_code == 503
         assert excinfo.value.detail["code"] == "search_upgrade_required"
 
 
