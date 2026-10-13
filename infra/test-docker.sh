@@ -2,7 +2,7 @@
 # Full repository validation using Docker only.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 project=$(ni_project test)
 compose="docker compose -p $project -f docker/compose.test.yaml"
@@ -46,6 +46,7 @@ e2e_start() {
   e2e_t0=$(date +%s)
   for ni_lane in $e2e_lanes; do
     # Word-splitting the lane's group list into separate arguments is intentional.
+    # shellcheck disable=SC2046 # word splitting is intended: one argument per group in the lane
     setsid infra/test-e2e-lane.sh "$ni_manifest" "$artifacts" $(echo "$ni_lane" | tr ',' ' ') &
     e2e_pids="$e2e_pids $!"
   done
@@ -75,6 +76,7 @@ e2e_join() {
   e2e_pids=
   printf 'e2e.all\t%s\t%s\t%s\n' "$e2e_t0" "$(($(date +%s) - e2e_t0))" "$e2e_status" >> "$artifacts/timings.tsv"
   # One status per lane, in $e2e_lanes order; word-splitting is intentional.
+  # shellcheck disable=SC2086 # word splitting is intended: one positional parameter per lane status
   set -- $ni_lane_statuses
   for ni_lane in $e2e_lanes; do
     ni_lane_status=$1
@@ -277,6 +279,7 @@ $compose run --rm --no-deps frontend-test npm run typecheck
 ni_stage frontend.lint
 $compose run --rm --no-deps frontend-test npm run lint
 ni_stage e2e.selection
+# shellcheck disable=SC2086 # word splitting is intended: the compose command and its files
 ni_e2e_unselected "$root" "$artifacts" $compose run --rm --no-deps -T frontend-test npx playwright test --list
 ni_stage frontend.build
 $compose run --rm --no-deps frontend-test npm run build

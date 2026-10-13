@@ -1,0 +1,2 @@
+# The scripts hand single-quoted programs to `sh -c`/`bash -c` inside a container, where they expand.
+disable=SC2016

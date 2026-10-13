@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Shared helpers for the Docker-only test scripts (test-docker.sh, test-e2e.sh, test-inventory.sh).
 # Sourced, not executed: no shebang, no `set` (the caller's own `set -eu` applies).
 # Every ni_* function assumes POSIX sh; no bashisms.
@@ -78,6 +79,7 @@ ni_single_head() {
   ni_sh_service=$2
   ni_sh_message=$3
   ni_sh_flag=${4:-}
+  # shellcheck disable=SC2086 # word splitting is intended: the compose command and an optional flag
   [ "$($ni_sh_compose run --rm $ni_sh_flag "$ni_sh_service" alembic heads | grep -c '(head)')" = 1 ] || {
     echo "$ni_sh_message" >&2
     exit 1
@@ -153,6 +155,7 @@ ni_mem_start() {
       if [ -n "$ni_mem_ids" ]; then
         ni_mem_ts=$(date +%s)
         # Word-splitting $ni_mem_ids into separate docker-stats arguments is intentional.
+        # shellcheck disable=SC2086 # word splitting is intended: one argument per container id
         docker stats --no-stream --format '{{.Name}}|{{.MemUsage}}' $ni_mem_ids 2>/dev/null |
           while IFS='|' read -r ni_mem_name ni_mem_usage; do
             printf '%s\t%s\t%s\n' "$ni_mem_ts" "$ni_mem_name" "${ni_mem_usage%% / *}" >> "$artifacts/memory.tsv"

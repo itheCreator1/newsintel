@@ -7,7 +7,7 @@
 # Usage: infra/test-integration.sh <pytest-node-id>...
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 . "$root/infra/lib.sh"
 
 [ "$#" -ge 1 ] || { echo "usage: infra/test-integration.sh <pytest-node-id>..." >&2; exit 2; }
@@ -85,6 +85,7 @@ deps="test-postgres test-redis"
 [ "$need_es" -eq 1 ] && deps="$deps test-elasticsearch"
 
 ni_stage deps.up
+# shellcheck disable=SC2086 # word splitting is intended: one argument per service
 $compose up -d --wait --wait-timeout 180 $deps
 
 ni_stage alembic.upgrade
@@ -119,6 +120,7 @@ run_script="$fixture_prelude"'
 '
 
 ni_stage pytest
+# shellcheck disable=SC2086 # word splitting is intended: $es_env is empty or one -e option
 $compose run --rm --no-deps -v "$artifacts:/artifacts" $es_env backend-test \
   bash -o pipefail -c "$run_script" _ "$@"
 

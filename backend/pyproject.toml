@@ -22,10 +22,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "import-linter>=2.15",
   "mypy>=1.14,<2",
-  "pytest>=8.3,<9",
-  "pytest-asyncio>=0.25,<1",
+  "pytest>=9.0.3,<10",
+  "pytest-asyncio>=1.3,<2",
   "ruff>=0.9,<1",
+  "shellcheck-py>=0.11.0.1",
 ]
 # Optional spaCy NER, installed in the image only when NEWSINTEL_INSTALL_SPACY=true.
 ner = [
@@ -61,3 +63,48 @@ max-complexity = 10
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+# Import contracts, checked by `lint-imports` in the quick gate. They report without failing the gate
+# until the fix plan makes them binding: the routes contract in step B1, the layers in step E10.
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Only app.main imports a package's routes"
+type = "protected"
+protected_modules = ["app.*.routes"]
+allowed_importers = ["app.main"]
+ignore_imports = [
+    # The session dependency lives beside the auth routes today; B1 moves it out.
+    "app.auth.dependencies -> app.auth.routes",
+]
+
+[[tool.importlinter.contracts]]
+name = "Entry points, then jobs, then the feature packages, then db, then core"
+type = "layers"
+layers = [
+    "app.main | app.cli | app.scheduler",
+    "app.jobs",
+    "app.analytics : app.articles : app.auth : app.clustering : app.compare : app.entities : app.events : app.exports : app.feeds : app.geo : app.graph : app.investigations : app.marks : app.monitors : app.nlp : app.notifications : app.operations : app.processes : app.search : app.sources : app.wikidata : app.api",
+    "app.db",
+    "app.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Inside a package: routes above its service, the service above its models"
+type = "layers"
+containers = [
+    "app.auth",
+    "app.clustering",
+    "app.events",
+    "app.feeds",
+    "app.investigations",
+    "app.marks",
+    "app.monitors",
+    "app.nlp",
+    "app.notifications",
+    "app.operations",
+    "app.search",
+    "app.wikidata",
+]
+layers = ["routes", "(service)", "models"]
