@@ -185,6 +185,62 @@ async def test_merge_into_a_variant_lands_on_its_root() -> None:
         assert (await db.get(Entity, ids[2])).authority_id == ids[0]  # type: ignore[union-attr]
 
 
+async def test_merge_clears_type_and_hidden_on_the_absorbed_root() -> None:
+    from app.entities.authority import merge
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Hellenic Parliament", "ORG")
+        # A root the user typed and hid before finding it was another spelling of `root`.
+        absorbed = await _entity(db, "Vouli", "GPE", preferred_type="ORG", hidden=True)
+        ids = root.id, absorbed.id
+
+    async with session_factory() as db, db.begin():
+        await merge(db, variant_id=ids[1], target_id=ids[0])
+
+    async with session_factory() as db:
+        variant = await db.get(Entity, ids[1])
+        assert variant is not None
+        # As a variant it shows its root's type and visibility; its own choices are history.
+        assert (variant.authority_id, variant.preferred_type, variant.hidden) == (
+            ids[0],
+            None,
+            False,
+        )
+        actions = set(
+            await db.scalars(
+                select(EntityAuthorityChange.action).where(
+                    EntityAuthorityChange.entity_id == ids[1]
+                )
+            )
+        )
+    assert {"type_changed", "hidden_changed", "merged"} <= actions
+
+
+async def test_split_restores_the_spacy_type() -> None:
+    from app.entities.authority import merge, set_type, split
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Athens", "GPE")
+        other = await _entity(db, "Athina", "PERSON")
+        ids = root.id, other.id
+    async with session_factory() as db, db.begin():
+        await set_type(db, ids[1], "GPE")
+    async with session_factory() as db, db.begin():
+        await merge(db, variant_id=ids[1], target_id=ids[0])
+    async with session_factory() as db, db.begin():
+        await split(db, ids[1])
+
+    async with session_factory() as db:
+        returned = await db.get(Entity, ids[1])
+        assert returned is not None
+        # Back on its own it is what the articles called it, not the type it had as a root.
+        assert (returned.authority_id, returned.preferred_type, returned.kind) == (
+            None,
+            None,
+            "PERSON",
+        )
+
+
 async def test_merge_rejects_a_pair_marked_distinct() -> None:
     from app.entities.authority import AuthorityError, add_distinct, merge
 

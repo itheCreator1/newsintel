@@ -337,6 +337,39 @@ async def test_approving_the_exact_ones_links_only_the_clear_ones() -> None:
     assert set(await _candidates(shared_id)) == {two, three}
 
 
+async def test_hidden_roots_are_not_offered_or_approved_in_bulk() -> None:
+    word = _word()
+    shown_name, hidden_name = f"Shown {word}", f"Hidden {word}"
+    shown_id = await _root(shown_name)
+    hidden_id = await _root(hidden_name)
+    one, two = _qid(), _qid()
+    fake = FakeWikidata()
+    fake.add(_person(one, shown_name), _person(two, hidden_name))
+    fake.searches[("en", shown_name)] = [one]
+    fake.searches[("en", hidden_name)] = [two]
+    await _find(fake, shown_id, hidden_id)
+    # Hidden as not a name after its candidates were found: it is out of the review queue.
+    async with session_factory() as db, db.begin():
+        await db.execute(update(Entity).where(Entity.id == hidden_id).values(hidden=True))
+
+    async with _client() as api:
+        queue = await api.get("/wikidata/candidates", params={"min_score": 0.0, "limit": 200})
+        approved = await api.post("/wikidata/candidates/approve-exact", headers=CSRF)
+    assert queue.status_code == 200 and approved.status_code == 200, approved.text
+    offered = {row["entity_id"] for row in queue.json()["items"]}
+    assert str(shown_id) in offered and str(hidden_id) not in offered
+    async with session_factory() as db:
+        linked = set(
+            await db.scalars(
+                select(EntityExternalId.entity_id).where(
+                    EntityExternalId.entity_id.in_([shown_id, hidden_id]),
+                    EntityExternalId.scheme == "wikidata",
+                )
+            )
+        )
+    assert linked == {shown_id}
+
+
 async def test_the_find_button_queues_one_search_and_the_page_shows_it() -> None:
     await _no_runs()
     name = f"Button {_word()}"
