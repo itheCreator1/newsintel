@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     article_storage_path: str = "/var/lib/newsintel/articles"
     article_temporary_html_hours: int = 24
     search_lease_seconds: int = 300
+    # A delivery fails for good after this many attempts. Its backoff doubles from 5 s to an hour,
+    # so 20 attempts ride out about ten hours of Elasticsearch being down.
+    search_max_attempts: int = 20
     nlp_max_input_characters: int = 1_000_000
     nlp_ner_enabled: bool = False
     nlp_ner_model: str = "en_core_web_sm"

@@ -52,6 +52,7 @@ from app.nlp.service import (
     current_stop_words,
     greek_ner_enabled,
     load_input_document,
+    request_article_nlp,
 )
 from app.search.service import request_indexing
 
@@ -71,6 +72,10 @@ class LoadedJob:
     context: ProcessorContext
 
 
+class StaleJob(Exception):
+    """The job's input, processor version or configuration is no longer the article's."""
+
+
 async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
     async with session_factory() as db, db.begin():
         await db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
@@ -85,10 +90,10 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
             or state.processor_version != job.processor_version
             or state.configuration_fingerprint != job.configuration_fingerprint
         ):
-            return None
+            raise StaleJob
         document = await load_input_document(db, job.article_id)
         if document.fingerprint != job.input_fingerprint:
-            return None
+            raise StaleJob
         settings = get_settings()
         greek_model = settings.nlp_ner_model_el if await greek_ner_enabled(db) else None
         initial_context = ProcessorContext(
@@ -180,16 +185,17 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
         await lock_article(db, loaded.article_id)
         job = await db.scalar(select(NlpJob).where(NlpJob.id == loaded.job_id).with_for_update())
         state = await db.get(ArticleNlpState, loaded.state_id, with_for_update=True)
+        if job is None or not holds(job, token, now):
+            return False
         if (
-            job is None
-            or state is None
-            or not holds(job, token, now)
+            state is None
             or state.requested_generation != loaded.generation
             or state.input_fingerprint != loaded.input_fingerprint
             or state.processor_version != loaded.processor_version
             or state.configuration_fingerprint != loaded.configuration_fingerprint
         ):
-            return False
+            # A newer request arrived while the processor ran; its result is not the article's.
+            raise StaleJob
         detail = None
         if isinstance(result, LanguageResult):
             detail = json.dumps(
@@ -457,6 +463,28 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
             await request_indexing(db, job.article_id)
 
 
+async def _supersede(job_id: uuid.UUID, token: str) -> None:
+    """End a stale job for good, and queue its step again if nothing newer is queued.
+
+    Reclaiming it would only find it stale again, every time its lease ran out.
+    """
+    now = datetime.now(UTC)
+    async with session_factory() as db, db.begin():
+        article_id = await db.scalar(select(NlpJob.article_id).where(NlpJob.id == job_id))
+        if article_id is None:
+            return
+        # The article first, then the job: the order request_article_nlp takes them in.
+        await lock_article(db, article_id)
+        job = await db.scalar(select(NlpJob).where(NlpJob.id == job_id).with_for_update())
+        if job is None or not holds(job, token, now):
+            return
+        job.status = "superseded"
+        job.completed_at = now
+        release(job)
+        # A newer request already queued a job, or this one asks for the article as it is now.
+        await request_article_nlp(db, article_id, processor_names=(job.processor_name,))
+
+
 async def process_job(job_id: uuid.UUID, token: str) -> None:
     finished = asyncio.Event()
     interval = heartbeat_interval(get_settings().nlp_lease_seconds)
@@ -469,6 +497,8 @@ async def process_job(job_id: uuid.UUID, token: str) -> None:
             return
         result = await asyncio.to_thread(_run_processor, loaded)
         await _publish(loaded, token, result)
+    except StaleJob:
+        await _supersede(job_id, token)
     except Exception as exc:
         await _record_failure(job_id, token, exc)
     finally:

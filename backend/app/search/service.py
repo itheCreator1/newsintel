@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import ColumnElement, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.models import FeedArticle
 from app.jobs.leasing import Retries, claim, claimable, due, release
@@ -19,11 +20,14 @@ def new_claim_token() -> str:
     return uuid.uuid4().hex
 
 
-SEARCH_RETRIES = Retries(base_seconds=5, cap_seconds=3600, max_attempts=None)
+def search_retries() -> Retries:
+    return Retries(
+        base_seconds=5, cap_seconds=3600, max_attempts=get_settings().search_max_attempts
+    )
 
 
 def next_retry_at(now: datetime, attempt: int) -> datetime:
-    return now + SEARCH_RETRIES.backoff(attempt)
+    return now + search_retries().backoff(attempt)
 
 
 async def claim_delivery(

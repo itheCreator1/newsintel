@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Literal
 
+import structlog
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,7 +36,9 @@ from app.search.elasticsearch import (
     OversizedDocument,
 )
 from app.search.models import SearchDelivery, SearchIndexTarget
-from app.search.service import SEARCH_RETRIES
+from app.search.service import search_retries
+
+log = structlog.get_logger()
 
 Outcome = Literal["success", "duplicate", "transient", "permanent"]
 
@@ -215,7 +218,7 @@ async def _acknowledge(
                 datetime.now(UTC),
                 "elasticsearch_transient",
                 error or "Elasticsearch temporarily unavailable",
-                SEARCH_RETRIES,
+                search_retries(),
                 attempts=delivery.attempt_count,
             )
         else:
@@ -224,16 +227,49 @@ async def _acknowledge(
                 datetime.now(UTC),
                 "document",
                 error or "Elasticsearch rejected document",
-                SEARCH_RETRIES,
+                search_retries(),
                 attempts=delivery.attempt_count,
                 permanent=True,
             )
 
 
+async def _fail(
+    delivery_id: uuid.UUID, token: str, category: str, message: str, *, permanent: bool
+) -> None:
+    async with session_factory() as db, db.begin():
+        delivery = await db.scalar(
+            select(SearchDelivery).where(SearchDelivery.id == delivery_id).with_for_update()
+        )
+        if delivery is None or delivery.claim_token != token:
+            return
+        record_failure(
+            delivery,
+            datetime.now(UTC),
+            category,
+            message,
+            search_retries(),
+            attempts=delivery.attempt_count,
+            permanent=permanent,
+        )
+
+
 async def process_delivery(delivery_id: str, claim_token: str) -> None:
+    """Write one delivery's document; whatever happens, the delivery is released with an outcome,
+    so a lease never has to run out for it to be tried again."""
     parsed_id = uuid.UUID(delivery_id)
+    try:
+        await _deliver(parsed_id, claim_token)
+    except Exception as exc:
+        log.exception("search_delivery_failed", delivery_id=delivery_id)
+        await _fail(parsed_id, claim_token, "indexing_error", str(exc), permanent=False)
+
+
+async def _deliver(parsed_id: uuid.UUID, claim_token: str) -> None:
     loaded = await _load_document(parsed_id)
     if loaded is None:
+        # The article or its index went away under the delivery; there is nothing to write.
+        message = "The article or the index it was for no longer exists"
+        await _fail(parsed_id, claim_token, "document_missing", message, permanent=True)
         return
     delivery, index_name, schema_version, document = loaded
     if delivery.claim_token != claim_token:
