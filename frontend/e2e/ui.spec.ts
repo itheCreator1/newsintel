@@ -6,6 +6,9 @@ async function login(page: Page) {
   await page.getByLabel('Username').fill('phase13d')
   await page.getByLabel('Password').fill('phase13d-password')
   await page.getByRole('button', { name: 'Sign in' }).click()
+  // Signed in once the form is gone; a test that navigates straight away would otherwise race the
+  // session cookie and land back on the sign-in page.
+  await expect(page.getByLabel('Username')).toBeHidden()
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
