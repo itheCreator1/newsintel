@@ -206,7 +206,7 @@ def _mentions(word: str) -> ColumnElement[bool]:
     return or_(in_title, in_name)
 
 
-async def events(
+async def events(  # noqa: C901
     db: AsyncSession,
     *,
     version: str,

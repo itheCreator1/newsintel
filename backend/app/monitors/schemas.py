@@ -10,7 +10,7 @@ from app.search.schemas import SearchResult
 MonitorKind = Literal["search", "entity", "source", "country", "cluster", "event"]
 
 
-def validate_target(kind: MonitorKind, state: InvestigationState) -> None:
+def validate_target(kind: MonitorKind, state: InvestigationState) -> None:  # noqa: C901
     """A monitor's kind names what it watches; the state must actually point at it."""
     if kind == "search":
         if not state.model_dump(exclude={"sort", "interval"}, exclude_defaults=True):

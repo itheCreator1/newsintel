@@ -29,7 +29,7 @@ class TransientHttpStatus(Exception):
         self.retry_after = retry_after
 
 
-async def _persist_success(
+async def _persist_success(  # noqa: C901
     feed_id: uuid.UUID,
     token: str,
     parsed: ParsedFeed,
@@ -207,7 +207,7 @@ def _category(exc: Exception) -> tuple[str, bool]:
     return "internal", False
 
 
-async def ingest_claim(feed_id: uuid.UUID, token: str) -> None:
+async def ingest_claim(feed_id: uuid.UUID, token: str) -> None:  # noqa: C901
     settings = get_settings()
     last_error: Exception | None = None
     for attempt in range(1, 4):

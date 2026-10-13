@@ -336,7 +336,7 @@ async def _marks(db: AsyncSession, entity: Entity, record: _Variant) -> bool:
     return changed
 
 
-async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) -> None:
+async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) -> None:  # noqa: C901
     root, created = await _find_or_create(db, record)
     if root.authority_id is not None:
         report.conflicts.append(

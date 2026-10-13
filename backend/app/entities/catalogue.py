@@ -41,7 +41,7 @@ def decode_root_cursor(cursor: str, *, by_articles: bool) -> RootCursor:
         raise ValueError("Invalid cursor") from exc
 
 
-async def roots(
+async def roots(  # noqa: C901
     db: AsyncSession,
     *,
     language: str | None,

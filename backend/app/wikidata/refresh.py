@@ -53,7 +53,7 @@ def _needs_fetch(page: PageInfo, before: _Before | None) -> bool:
     return before.state != "ok" or not before.claims_fetched or before.revision != page.revision
 
 
-async def refresh_roots(
+async def refresh_roots(  # noqa: C901
     client: WikidataClient,
     root_ids: Sequence[uuid.UUID],
     settings: Settings,

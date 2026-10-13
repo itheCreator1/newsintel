@@ -127,7 +127,7 @@ def _offered(item: WikidataItem | None, chosen: list[Name]) -> list[Name]:
     return picked
 
 
-async def link(
+async def link(  # noqa: C901
     db: AsyncSession, entity_id: uuid.UUID, qid: str, aliases: list[Name] | None = None
 ) -> LinkState:
     """Link the entity's root to `qid`, following a redirect the cache knows about.

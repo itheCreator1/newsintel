@@ -187,7 +187,7 @@ def _model_version(result: ProcessorResult) -> str | None:
     return result.model_version if isinstance(result, EntityResult) else None
 
 
-async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bool:
+async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bool:  # noqa: C901
     now = datetime.now(UTC)
     async with session_factory() as db, db.begin():
         job = await db.scalar(select(NlpJob).where(NlpJob.id == loaded.job_id).with_for_update())

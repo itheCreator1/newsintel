@@ -98,7 +98,7 @@ def _fetch_error(category: str | None, message: str | None) -> str | None:
 
 
 @router.get("/feeds", response_model=CursorPage)
-async def list_feeds(
+async def list_feeds(  # noqa: C901
     db: Db,
     _auth: Auth,
     cursor: str | None = None,

@@ -78,7 +78,7 @@ async def selection_size(db: AsyncSession, selection: dict[str, object]) -> int:
     return int(await db.scalar(query) or 0)
 
 
-async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:
+async def scan_reprocessing(run_id: uuid.UUID, *, batch_size: int = 100) -> int:  # noqa: C901
     if batch_size < 1 or batch_size > 100:
         raise ValueError("NLP reprocessing batch size must be between 1 and 100")
     async with session_factory() as db, db.begin():

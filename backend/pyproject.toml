@@ -47,7 +47,15 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "C901"]
+
+[tool.ruff.lint.mccabe]
+# The functions over this limit when it came in carry `noqa: C901`; split one and drop its noqa.
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+# Test fakes and schema walkers branch on what they inspect; the limit is for app code.
+"tests/**" = ["C901"]
 
 [tool.mypy]
 python_version = "3.12"
