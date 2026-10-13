@@ -175,7 +175,7 @@ async def test_investigation_counts_come_from_the_index_with_bounds_and_estimate
         "investigation",
         None,  # type: ignore[arg-type]
     )
-    assert _Adapter.index == "articles-v3-geo"
+    assert _Adapter.index == f"articles-v{SCHEMA_VERSION}-geo"
     # The criteria alone: no rolling window is added, and the selection never reaches the base.
     assert _Adapter.body == countries_body("story", build_query(criteria))
     assert (body.scope, body.days, body.window_start, body.window_end) == (

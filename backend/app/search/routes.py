@@ -153,12 +153,10 @@ async def search_articles(
             "sort": sort_clause,
             "_source": RESULT_FIELDS,
             "highlight": {
+                # A word matched only in its Greek or English form is marked in the text too.
                 "fields": {
-                    "title": {},
-                    "descriptions": {},
-                    "body": {},
-                    "entity_text": {},
-                    "keyword_text": {},
+                    field: {"matched_fields": [field, f"{field}.el", f"{field}.en"]}
+                    for field in ("title", "descriptions", "body", "entity_text", "keyword_text")
                 },
                 "pre_tags": ["\ue000"],
                 "post_tags": ["\ue001"],

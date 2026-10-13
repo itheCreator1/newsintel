@@ -122,6 +122,7 @@
 "test_search_indexing.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_intent.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_intent_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
+"test_search_language_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
 "test_search_pagination_elasticsearch.py" = { kind = "integration", postgres = true, elasticsearch = true, fixture_server = false }
 "test_search_query.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_search_rebuild.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }

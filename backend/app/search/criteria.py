@@ -261,14 +261,31 @@ async def current_search_target(db: AsyncSession) -> str:
 TEXT_FIELDS = ["title^3", "descriptions", "body", "entity_text", "keyword_text"]
 
 
+def _in_every_language(field: str) -> list[str]:
+    """The field and its Greek and English analyses (documents.py), with the field's boost."""
+    name, _, boost = field.partition("^")
+    suffix = f"^{boost}" if boost else ""
+    return [f"{name}{language}{suffix}" for language in ("", ".el", ".en")]
+
+
+# A word also matches its Greek and English forms; a quoted phrase stays exact.
+WORD_FIELDS = [variant for field in TEXT_FIELDS for variant in _in_every_language(field)]
+
+
 def build_query(criteria: SearchCriteria) -> dict[str, Any]:  # noqa: C901
-    fields = TEXT_FIELDS
     must: list[dict[str, Any]] = [
-        {"multi_match": {"query": term, "fields": fields, "operator": "and"}}
+        {
+            "multi_match": {
+                "query": term,
+                "fields": WORD_FIELDS,
+                "type": "most_fields",
+                "operator": "and",
+            }
+        }
         for term in criteria.parsed.terms
     ]
     must.extend(
-        {"multi_match": {"query": phrase, "fields": fields, "type": "phrase"}}
+        {"multi_match": {"query": phrase, "fields": TEXT_FIELDS, "type": "phrase"}}
         for phrase in criteria.parsed.phrases
     )
     filters: list[dict[str, Any]] = []

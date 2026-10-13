@@ -58,7 +58,7 @@ def _fold_stop_word(word: str, language: str) -> str:
     return word.strip().lower() if language == "el" else word.strip().casefold()
 
 
-def _default_stop_words(language: str = "en") -> list[str]:
+def default_stop_words(language: str = "en") -> list[str]:
     path = Path(__file__).with_name("data") / f"stopwords-{language}.txt"
     return sorted(
         {
@@ -103,7 +103,7 @@ async def current_stop_words(db: AsyncSession, language: str = "en") -> StopWord
         .limit(1)
     )
     if revision is None:
-        words = _default_stop_words(language)
+        words = default_stop_words(language)
         revision = StopWordRevision(
             language=language,
             revision=1,

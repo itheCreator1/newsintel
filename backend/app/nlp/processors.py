@@ -182,7 +182,7 @@ def detect_language(context: ProcessorContext) -> LanguageResult:
 _KEYWORD_ALGORITHMS = {"en": "newsintel-relevance-1", "el": "newsintel-el-1"}
 
 
-def _greek_stop_words(words: frozenset[str]) -> set[str]:
+def greek_stop_word_forms(words: frozenset[str]) -> set[str]:
     """Each Greek stop word as written, without accents, and with a final "ς" or "σ".
 
     YAKE compares lower-cased tokens, and headlines in capitals drop their accents ("ΑΠΟ").
@@ -214,7 +214,7 @@ def extract_keywords(context: ProcessorContext) -> KeywordResult:
     if language not in _KEYWORD_ALGORITHMS:
         return KeywordResult("unsupported_language", (), algorithm)
     stop_words = (
-        _greek_stop_words(context.stop_words) if language == "el" else set(context.stop_words)
+        greek_stop_word_forms(context.stop_words) if language == "el" else set(context.stop_words)
     )
     extractor = yake.KeywordExtractor(
         lan=language, n=3, top=50, dedup_lim=0.9, stopwords=stop_words

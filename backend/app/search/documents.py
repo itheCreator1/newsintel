@@ -113,7 +113,19 @@ class ArticleDocument:
 
 # The index layout this version writes and reads. A change to it bumps SCHEMA_VERSION, and the
 # live index is then rebuilt (python -m app.cli rebuild-search) before Search reads it again.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+
+# Each free-text field is also analyzed as Greek and as English: accents and case folded away,
+# words stemmed ("Τσίπρα" finds "Τσίπρας", "flood" finds "floods") and each language's stop words
+# dropped. The field itself keeps the standard analyzer, which quoted phrases match exactly.
+_TEXT: dict[str, Any] = {
+    "type": "text",
+    "analyzer": "standard",
+    "fields": {
+        "el": {"type": "text", "analyzer": "greek"},
+        "en": {"type": "text", "analyzer": "english"},
+    },
+}
 
 ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
     "settings": {
@@ -131,9 +143,9 @@ ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
         "dynamic": "strict",
         "properties": {
             "article_id": {"type": "keyword"},
-            "title": {"type": "text", "analyzer": "standard"},
-            "descriptions": {"type": "text", "analyzer": "standard"},
-            "body": {"type": "text", "analyzer": "standard"},
+            "title": _TEXT,
+            "descriptions": _TEXT,
+            "body": _TEXT,
             "published_at": {"type": "date"},
             "first_discovered_at": {"type": "date"},
             "effective_date": {"type": "date"},
@@ -152,8 +164,8 @@ ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
                 },
             },
             "detected_language": {"type": "keyword"},
-            "entity_text": {"type": "text", "analyzer": "standard"},
-            "keyword_text": {"type": "text", "analyzer": "standard"},
+            "entity_text": _TEXT,
+            "keyword_text": _TEXT,
             "keyword_ids": {"type": "keyword"},
             "primary_story_country": {"type": "keyword"},
             "mentioned_countries": {"type": "keyword"},

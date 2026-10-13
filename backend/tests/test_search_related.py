@@ -51,6 +51,14 @@ def test_the_similarity_thresholds_are_explicit() -> None:
     assert {"the", "and", "with"} <= set(similar["stop_words"])
 
 
+def test_greek_stop_words_are_left_out_in_every_written_form() -> None:
+    # The standard analyzer keeps accents and turns a capital final Σ into σ ("ΤΟΥΣ" is "τουσ").
+    stop_words = set(
+        related_body(ARTICLE, None)["query"]["bool"]["must"][0]["more_like_this"]["stop_words"]
+    )
+    assert {"και", "από", "απο", "τους", "τουσ", "στην"} <= stop_words
+
+
 @pytest.mark.asyncio
 async def test_unavailable_search_is_a_503(monkeypatch: pytest.MonkeyPatch) -> None:
     async def down(*_args: object) -> None:

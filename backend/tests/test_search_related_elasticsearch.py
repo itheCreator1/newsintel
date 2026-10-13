@@ -234,3 +234,34 @@ async def test_text_poor_unindexed_and_unknown_articles(world: Any) -> None:
     assert (await _get(uuid.uuid4())).status_code == 404
     assert (await _get(w.target.id, limit=21)).status_code == 422
     assert (await _get(w.target.id, limit=0)).status_code == 422
+
+
+# Two Greek articles about different things share only stop words: και, για, τις, του, από, την.
+FARMERS = (
+    "Η κυβέρνηση και οι αγρότες συμφώνησαν για τις τιμές του πετρελαίου από την Δευτέρα",
+    "",
+)
+PARK = ("Ο δήμος και οι κάτοικοι συζήτησαν για τις αλλαγές του πάρκου από την Τρίτη", "")
+# Five shared words that are not stop words: κυβέρνηση, αγρότες, συμφώνησαν, τιμές, πετρελαίου.
+FUEL = ("Αγρότες και κυβέρνηση συμφώνησαν: χαμηλότερες τιμές πετρελαίου", "")
+
+
+async def test_two_greek_articles_are_not_related_by_stop_words(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    name = f"articles-related-greek-{uuid.uuid4().hex}"
+    await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
+        name, ARTICLE_INDEX_SETTINGS
+    )
+
+    async def target(db: object) -> str:
+        return name
+
+    monkeypatch.setattr(related, "current_search_target", target)
+    async with session_factory() as db, db.begin():
+        source = await feed(db)
+        farmers = await _article(db, source, FARMERS, 0)
+        park = await _article(db, source, PARK, 1)
+        fuel = await _article(db, source, FUEL, 2)
+    await _index(name, [farmers.id, park.id, fuel.id])
+    assert _ids(await _related(farmers.id)) == [str(fuel.id)]
