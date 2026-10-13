@@ -1,6 +1,6 @@
 import hashlib
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import httpx
 import structlog
@@ -21,11 +21,15 @@ from app.core.config import get_settings
 from app.db.session import session_factory
 from app.feeds.http import FeedTooLarge, fetch_page_http
 from app.feeds.network import UnsafeFeedUrl
-from app.feeds.scheduling import next_retry_delay
+from app.jobs.leasing import Retries, holds, record_failure, release
 from app.nlp.service import request_article_nlp
 from app.search.service import request_indexing
 
 log = structlog.get_logger()
+
+# Each stage (fetch, extract) gets three attempts, counted in ArticleProcessingAttempt.
+STAGE_ATTEMPTS = 3
+ARTICLE_RETRIES = Retries(base_seconds=2, cap_seconds=300, max_attempts=STAGE_ATTEMPTS)
 
 
 class ArticleHttpStatus(ValueError):
@@ -78,12 +82,7 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         job = await db.scalar(
             select(ArticleProcessingJob).where(ArticleProcessingJob.id == job_id).with_for_update()
         )
-        if (
-            not job
-            or job.claim_token != token
-            or not job.claim_expires_at
-            or job.claim_expires_at <= now
-        ):
+        if not holds(job, token, now):
             return
         attempt = await db.scalar(
             select(ArticleProcessingAttempt)
@@ -95,20 +94,17 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
             attempt.error_category = category
             attempt.error_message = str(exc)[:1000]
             attempt.completed_at = now
-        stage_attempts = attempt.attempt_number if attempt else 3
-        job.error_category = category
-        job.error_message = str(exc)[:1000]
-        job.claim_token = None
-        job.claim_expires_at = None
-        if transient and stage_attempts < 3:
-            job.status = "retrying"
-            retry_after = exc.retry_after if isinstance(exc, ArticleHttpStatus) else None
-            job.next_attempt_at = now + timedelta(
-                seconds=next_retry_delay(stage_attempts, retry_after=retry_after)
-            )
-        else:
-            job.status = "failed"
-            job.completed_at = now
+        record_failure(
+            job,
+            now,
+            category,
+            str(exc),
+            ARTICLE_RETRIES,
+            attempts=attempt.attempt_number if attempt else STAGE_ATTEMPTS,
+            permanent=not transient,
+            retry_after=exc.retry_after if isinstance(exc, ArticleHttpStatus) else None,
+        )
+        if job.status == "failed":
             # The full text will not come; the article is complete once its NLP is.
             await lock_article(db, job.article_id)
             await mark_enriched(db, job.article_id, now)
@@ -123,12 +119,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
             select(ArticleProcessingJob).where(ArticleProcessingJob.id == job_id).with_for_update()
         )
         now = datetime.now(UTC)
-        if (
-            not job
-            or job.claim_token != token
-            or not job.claim_expires_at
-            or job.claim_expires_at <= now
-        ):
+        if not holds(job, token, now):
             return
         article = await db.get(Article, job.article_id)
         if not article:
@@ -156,12 +147,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                     .with_for_update()
                 )
                 now = datetime.now(UTC)
-                if (
-                    not job
-                    or job.claim_token != token
-                    or not job.claim_expires_at
-                    or job.claim_expires_at <= now
-                ):
+                if not holds(job, token, now):
                     storage.delete(new_key)
                     return
                 attempt = await db.scalar(
@@ -176,8 +162,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                 job.temporary_html_key = new_key
                 job.stage = "extract"
                 job.status = "queued"
-                job.claim_token = None
-                job.claim_expires_at = None
+                release(job)
                 job.next_attempt_at = now
                 await request_indexing(db, job.article_id)
             return
@@ -189,12 +174,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                     .where(ArticleProcessingJob.id == job_id)
                     .with_for_update()
                 )
-                if (
-                    job
-                    and job.claim_token == token
-                    and job.claim_expires_at
-                    and job.claim_expires_at > datetime.now(UTC)
-                ):
+                if holds(job, token, datetime.now(UTC)):
                     attempt = await db.scalar(
                         select(ArticleProcessingAttempt)
                         .where(
@@ -211,8 +191,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                     job.stage = "fetch"
                     job.status = "queued"
                     job.temporary_html_key = None
-                    job.claim_token = None
-                    job.claim_expires_at = None
+                    release(job)
                     await request_indexing(db, job.article_id)
             return
         extractor = TrafilaturaExtractor()
@@ -227,12 +206,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                 .where(ArticleProcessingJob.id == job_id)
                 .with_for_update()
             )
-            if (
-                not job
-                or job.claim_token != token
-                or not job.claim_expires_at
-                or job.claim_expires_at <= now
-            ):
+            if not holds(job, token, now):
                 return
             attempt = await db.scalar(
                 select(ArticleProcessingAttempt)
@@ -272,8 +246,7 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
                 content.html_object_key = retained_key
             job.status = "succeeded"
             job.completed_at = now
-            job.claim_token = None
-            job.claim_expires_at = None
+            release(job)
             job.temporary_html_key = None
             await request_article_nlp(db, job.article_id)
             # Unchanged text queues no NLP again, so the article may be complete now.

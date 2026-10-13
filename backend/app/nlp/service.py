@@ -1,15 +1,16 @@
 import hashlib
 import json
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import ColumnElement, or_, select, text, update
+from sqlalchemy import ColumnElement, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.articles.models import Article
 from app.core.config import get_settings
+from app.jobs.leasing import Retries, claim, claimable, due
 from app.nlp.input import InputDocument, build_input_document
 from app.nlp.models import (
     ArticleCountryAnnotation,
@@ -27,8 +28,11 @@ PROCESSORS = ("language", "keywords", "entities", "countries")
 PROCESSOR_VERSIONS = {name: "1" for name in PROCESSORS}
 
 
+NLP_RETRIES = Retries(base_seconds=30, cap_seconds=900, max_attempts=5)
+
+
 def next_retry_at(now: datetime, attempt: int) -> datetime:
-    return now + timedelta(seconds=min(900, 30 * (2 ** max(0, attempt - 1))))
+    return now + NLP_RETRIES.backoff(attempt)
 
 
 # The languages keywords and countries are found in, each with its own stop-word list.
@@ -269,11 +273,7 @@ async def request_article_nlp(
 
 
 def job_due(now: datetime) -> ColumnElement[bool]:
-    return (
-        NlpJob.status.in_(("queued", "running", "retrying"))
-        & (NlpJob.next_attempt_at <= now)
-        & or_(NlpJob.claim_expires_at.is_(None), NlpJob.claim_expires_at <= now)
-    )
+    return due(NlpJob, now)
 
 
 async def claim_job(
@@ -281,23 +281,14 @@ async def claim_job(
 ) -> tuple[NlpJob, str] | None:
     now = datetime.now(UTC)
     job = await db.scalar(select(NlpJob).where(NlpJob.id == job_id).with_for_update())
-    if (
-        job is None
-        or job.status not in ("queued", "running", "retrying")
-        or job.next_attempt_at > now
-        or (job.claim_expires_at is not None and job.claim_expires_at > now)
-    ):
+    if job is None or not claimable(job, now):
         return None
     state = await db.get(ArticleNlpState, job.state_id, with_for_update=True)
     if state is None or state.requested_generation != job.generation:
         job.status = "superseded"
         await db.commit()
         return None
-    token = uuid.uuid4().hex
-    job.claim_token = token
-    job.claim_expires_at = now + timedelta(seconds=lease_seconds)
-    job.status = "running"
-    job.attempt_count += 1
+    token = claim(job, now, lease_seconds)
     state.status = "running"
     await db.commit()
     return job, token

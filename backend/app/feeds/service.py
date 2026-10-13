@@ -16,6 +16,7 @@ from app.feeds.schemas import (
     ArticleStoryCluster,
     RelatedArticle,
 )
+from app.jobs.leasing import release
 from app.marks.schemas import ArticleMarkResponse
 
 
@@ -84,8 +85,7 @@ async def fetch_now(
         fetch.completed_at = datetime.now(UTC)
         feed = await db.get(Feed, feed_id, with_for_update=True)
         if feed and feed.claim_token == fetch.claim_token:
-            feed.claim_token = None
-            feed.claim_expires_at = None
+            release(feed)
         await db.commit()
         raise QueueUnavailable(str(exc)) from exc
     return claimed

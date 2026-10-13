@@ -50,6 +50,7 @@ from app.feeds.service import (
     fetch_now,
     send_fetch,
 )
+from app.jobs.leasing import release
 from app.marks.models import ArticleMark
 from app.marks.service import mark_response, marks_for
 from app.nlp.models import ArticleLanguageAnnotation
@@ -313,8 +314,7 @@ async def retire_feed(feed_id: uuid.UUID, db: Db, _mutation: Mutation) -> Respon
     feed = await _active_feed(db, feed_id, lock=True)
     feed.retired_at = datetime.now(UTC)
     feed.enabled = False
-    feed.claim_token = None
-    feed.claim_expires_at = None
+    release(feed)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -1,11 +1,12 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from sqlalchemy import ColumnElement, or_, select, text
+from sqlalchemy import ColumnElement, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import session_factory
 from app.feeds.models import FeedArticle
+from app.jobs.leasing import Retries, claim, claimable, due, release
 from app.search.models import (
     ArticleSearchState,
     SearchDelivery,
@@ -18,8 +19,11 @@ def new_claim_token() -> str:
     return uuid.uuid4().hex
 
 
+SEARCH_RETRIES = Retries(base_seconds=5, cap_seconds=3600, max_attempts=None)
+
+
 def next_retry_at(now: datetime, attempt: int) -> datetime:
-    return now + timedelta(seconds=min(3600, 5 * (2 ** max(0, attempt - 1))))
+    return now + SEARCH_RETRIES.backoff(attempt)
 
 
 async def claim_delivery(
@@ -29,31 +33,15 @@ async def claim_delivery(
     delivery = await db.scalar(
         select(SearchDelivery).where(SearchDelivery.id == delivery_id).with_for_update()
     )
-    if (
-        delivery is None
-        or delivery.status not in ("queued", "retrying", "running")
-        or delivery.next_attempt_at > now
-        or (delivery.claim_expires_at is not None and delivery.claim_expires_at > now)
-    ):
+    if delivery is None or not claimable(delivery, now):
         return None
-    token = new_claim_token()
-    delivery.claim_token = token
-    delivery.claim_expires_at = now + timedelta(seconds=lease_seconds)
-    delivery.status = "running"
-    delivery.attempt_count += 1
+    token = claim(delivery, now, lease_seconds)
     await db.commit()
     return delivery, token
 
 
 def delivery_due(now: datetime) -> ColumnElement[bool]:
-    return (
-        SearchDelivery.status.in_(("queued", "retrying", "running"))
-        & (SearchDelivery.next_attempt_at <= now)
-        & or_(
-            SearchDelivery.claim_expires_at.is_(None),
-            SearchDelivery.claim_expires_at <= now,
-        )
-    )
+    return due(SearchDelivery, now)
 
 
 async def request_indexing(db: AsyncSession, article_id: uuid.UUID) -> int:
@@ -131,6 +119,5 @@ async def process_source_refresh(refresh_id: uuid.UUID, *, batch_size: int = 500
             refresh.article_cursor = article_ids[-1]
         if len(article_ids) < batch_size:
             refresh.status = "succeeded"
-            refresh.claim_token = None
-            refresh.claim_expires_at = None
+            release(refresh)
         return len(article_ids)

@@ -1,23 +1,26 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, func, or_, select, update
+from sqlalchemy import ColumnElement, Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.articles.models import Article
 from app.clustering.engine import CLUSTER_ALGORITHM_VERSION
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.db.session import session_factory
+from app.jobs.leasing import Retries, claim, claimable, due
 from app.nlp.service import next_retry_at
 
 MAX_ATTEMPTS = 5
+CLUSTER_RETRIES = Retries(base_seconds=30, cap_seconds=900, max_attempts=MAX_ATTEMPTS)
 MAX_RECLUSTER_BATCH = 500
 
 __all__ = [
     "CLUSTER_ALGORITHM_VERSION",
     "MAX_ATTEMPTS",
     "MAX_RECLUSTER_BATCH",
+    "CLUSTER_RETRIES",
     "claim_job",
     "count_recluster_selection",
     "job_due",
@@ -70,11 +73,7 @@ async def request_clustering(db: AsyncSession, article_id: uuid.UUID) -> int:
 
 
 def job_due(now: datetime) -> ColumnElement[bool]:
-    return (
-        ClusterJob.status.in_(("queued", "running", "retrying"))
-        & (ClusterJob.next_attempt_at <= now)
-        & or_(ClusterJob.claim_expires_at.is_(None), ClusterJob.claim_expires_at <= now)
-    )
+    return due(ClusterJob, now)
 
 
 async def claim_job(
@@ -82,23 +81,14 @@ async def claim_job(
 ) -> tuple[ClusterJob, str] | None:
     now = datetime.now(UTC)
     job = await db.scalar(select(ClusterJob).where(ClusterJob.id == job_id).with_for_update())
-    if (
-        job is None
-        or job.status not in ("queued", "running", "retrying")
-        or job.next_attempt_at > now
-        or (job.claim_expires_at is not None and job.claim_expires_at > now)
-    ):
+    if job is None or not claimable(job, now):
         return None
     state = await db.get(ArticleClusterState, job.state_id, with_for_update=True)
     if state is None or state.requested_generation != job.generation:
         job.status = "superseded"
         await db.commit()
         return None
-    token = uuid.uuid4().hex
-    job.claim_token = token
-    job.claim_expires_at = now + timedelta(seconds=lease_seconds)
-    job.status = "running"
-    job.attempt_count += 1
+    token = claim(job, now, lease_seconds)
     state.status = "running"
     await db.commit()
     return job, token

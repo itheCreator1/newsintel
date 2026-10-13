@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.db.session import session_factory
 from app.entities.models import Entity
+from app.jobs.leasing import release
 from app.nlp.models import ArticleEntity
 from app.wikidata.candidates import find_candidates
 from app.wikidata.client import BATCH, WikidataClient, contact_ok
@@ -297,8 +298,7 @@ async def _update(
                 seconds=settings.wikidata_run_lease_seconds
             )
         else:
-            run.claim_token = None
-            run.claim_expires_at = None
+            release(run)
         return True
 
 
