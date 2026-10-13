@@ -308,3 +308,55 @@ async def test_unknown_entities_are_404_on_every_authority_route() -> None:
             ).status_code,
         ]
     assert statuses == [404, 404, 404, 404]
+
+
+async def test_entity_usage_counts_monitors_and_saved_searches() -> None:
+    from app.auth.models import User
+    from app.investigations.models import SavedSearch
+    from app.investigations.schemas import STATE_VERSION
+    from app.monitors.models import Monitor
+
+    root_id, variant_id = await _merged("Usage Root", "Usage Variant")
+    other_id, _ = await _pair("Usage Other", "Usage Unused")
+    async with session_factory() as db, db.begin():
+        user = User(username=f"usage-{uuid.uuid4().hex}", password_hash="unused")
+        db.add(user)
+        await db.flush()
+
+        def state(*ids: uuid.UUID) -> dict[str, Any]:
+            return {"q": "", "entity_id": [str(entity_id) for entity_id in ids]}
+
+        # A state saved under a name that was merged later still uses the root.
+        for name, ids in [("by root", (root_id,)), ("by variant", (variant_id, other_id))]:
+            db.add(
+                SavedSearch(
+                    user_id=user.id, name=name, state_version=STATE_VERSION, state=state(*ids)
+                )
+            )
+        db.add(
+            SavedSearch(
+                user_id=user.id, name="other", state_version=STATE_VERSION, state=state(other_id)
+            )
+        )
+        for name, kind, ids in [
+            ("watch root", "entity", (root_id,)),
+            ("watch other", "search", (other_id,)),
+        ]:
+            db.add(
+                Monitor(
+                    user_id=user.id,
+                    name=name,
+                    kind=kind,
+                    state_version=STATE_VERSION,
+                    state=state(*ids),
+                )
+            )
+
+    async with _client() as client:
+        by_root = await client.get(f"/entities/{root_id}/usage")
+        by_variant = await client.get(f"/entities/{variant_id}/usage")
+        missing = await client.get(f"/entities/{uuid.uuid4()}/usage")
+    assert by_root.status_code == 200, by_root.text
+    assert by_root.json() == {"monitors": 1, "saved_searches": 2}
+    assert by_variant.json() == by_root.json()
+    assert missing.status_code == 404

@@ -61,6 +61,7 @@ export type EntityAuthorityUpdate = components['schemas']['EntityAuthorityUpdate
 export type EntityAuthorityRun = components['schemas']['EntityAuthorityRunResponse']
 export type EntityVariantList = components['schemas']['EntityVariantList']
 export type EntityHistory = components['schemas']['EntityHistory']
+export type EntityUsage = components['schemas']['EntityUsage']
 export type AuthorityRootPage = components['schemas']['AuthorityRootPage']
 export type AuthoritySuggestionList = components['schemas']['AuthoritySuggestionList']
 export type AuthorityHistoryPage = components['schemas']['AuthorityHistoryPage']

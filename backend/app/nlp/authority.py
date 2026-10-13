@@ -163,7 +163,9 @@ async def seed_countries(db: AsyncSession) -> SeedReport:
                     | exists().where(Entity.authority_id == existing.id)
                 )
             )
-            if existing.authority_id is not None or in_use:
+            # A root the user typed or hid is theirs; only a root can carry those choices.
+            chosen = existing.preferred_type is not None or existing.hidden
+            if existing.authority_id is not None or in_use or chosen:
                 report.skipped.append(f"{code}: {written}")
                 continue
             existing.authority_id = root.id

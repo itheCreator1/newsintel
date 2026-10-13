@@ -40,6 +40,7 @@ from app.entities.schemas import (
     EntityRelationshipsResponse,
     EntityStatus,
     EntityType,
+    EntityUsage,
     EntityVariantList,
     EntityVariantResponse,
     SeeAlsoCreate,
@@ -182,6 +183,13 @@ async def get_entity_variants(entity_id: uuid.UUID, db: Db, _auth: Auth) -> Enti
             for item in await authority.variants(db, root.id)
         ]
     )
+
+
+@router.get("/entities/{entity_id}/usage", response_model=EntityUsage)
+async def get_entity_usage(entity_id: uuid.UUID, db: Db, _auth: Auth) -> EntityUsage:
+    """What filters on the root: asked before hiding it, since hidden it matches nothing."""
+    root = await _entity_or_404(db, entity_id)
+    return await queries.usage(db, root.id)
 
 
 @router.get("/entities/{entity_id}/history", response_model=EntityHistory)

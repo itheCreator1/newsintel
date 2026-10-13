@@ -312,6 +312,25 @@ def _record(
 record = _record
 
 
+def _drop_root_choices(db: AsyncSession, entity: Entity) -> None:
+    """A root about to become a variant gives up its own type and "not a name" mark.
+
+    A variant shows its root's (the database holds it to that); the history keeps both.
+    """
+    if entity.preferred_type is not None:
+        _record(
+            db,
+            "type_changed",
+            entity.id,
+            before={"entity_type": entity.preferred_type},
+            after={"entity_type": entity.entity_type},
+        )
+        entity.preferred_type = None
+    if entity.hidden:
+        _record(db, "hidden_changed", entity.id, before={"hidden": True}, after={"hidden": False})
+        entity.hidden = False
+
+
 async def merge(
     db: AsyncSession, *, variant_id: uuid.UUID, target_id: uuid.UUID
 ) -> EntityAuthorityRun:
@@ -324,6 +343,7 @@ async def merge(
     await _move_relations(db, variant.id, root.id)
     await _move_external_ids(db, variant.id, root.id)
     await _move_claims(db, variant.id, root.id)
+    _drop_root_choices(db, variant)
     # The variant's own variants follow it to the new root: never a chain.
     await db.execute(
         update(Entity).where(Entity.authority_id == variant.id).values(authority_id=root.id)
@@ -366,6 +386,7 @@ async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) 
     await _move_relations(db, variant.id, root.id)
     await _move_external_ids(db, variant.id, root.id)
     await _move_claims(db, variant.id, root.id)
+    _drop_root_choices(db, variant)
     variant.authority_id = root.id
     _record(
         db,

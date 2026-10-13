@@ -1,7 +1,10 @@
+import asyncio
 import os
 import uuid
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -115,3 +118,46 @@ async def _run(db, kind: str) -> uuid.UUID:  # type: ignore[no-untyped-def]
         {"id": run_id, "kind": kind, "entity": entity_id},
     )
     return run_id
+
+
+async def _constraint_exists(name: str) -> bool:
+    async with session_factory() as db:
+        found = await db.scalar(
+            text("SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = :name)"),
+            {"name": name},
+        )
+    return bool(found)
+
+
+async def test_a_variant_cannot_carry_a_preferred_type_or_be_hidden() -> None:
+    async with session_factory() as db, db.begin():
+        root = await _insert_old_style_entity(db, f"root-{uuid.uuid4().hex}")
+        variant = await _insert_old_style_entity(db, f"variant-{uuid.uuid4().hex}")
+        await db.execute(
+            text("UPDATE nlp_entities SET authority_id = :root WHERE id = :id"),
+            {"root": root, "id": variant},
+        )
+
+    # The type and the "not a name" mark are the root's; a variant shows its root's.
+    for change in ("preferred_type = 'TOPIC'", "hidden = true"):
+        async with session_factory() as db:
+            with pytest.raises(IntegrityError):
+                async with db.begin():
+                    await db.execute(
+                        text(f"UPDATE nlp_entities SET {change} WHERE id = :id"), {"id": variant}
+                    )
+    async with session_factory() as db, db.begin():
+        await db.execute(
+            text("UPDATE nlp_entities SET preferred_type = 'TOPIC', hidden = true WHERE id = :id"),
+            {"id": root},
+        )
+
+
+async def test_the_root_only_rule_goes_with_its_downgrade() -> None:
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0001")
+    try:
+        assert not await _constraint_exists("ck_nlp_entity_root_only_choices")
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+    assert await _constraint_exists("ck_nlp_entity_root_only_choices")

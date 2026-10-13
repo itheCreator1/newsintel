@@ -388,6 +388,8 @@ async def review_queue(
             WikidataCandidate.dismissed.is_(False),
             WikidataCandidate.score >= min_score,
             WikidataCandidate.entity_id.not_in(linked),
+            # A root hidden as not a name is not one to link, as in the sweep.
+            Entity.hidden.is_(False),
         )
     )
     if after is not None:
@@ -422,7 +424,9 @@ async def exact_candidates(db: AsyncSession) -> list[tuple[uuid.UUID, str]]:
     linked = select(EntityExternalId.entity_id).where(EntityExternalId.scheme == "wikidata")
     rows = await db.execute(
         select(WikidataCandidate.entity_id, WikidataCandidate.qid)
+        .join(Entity, Entity.id == WikidataCandidate.entity_id)
         .where(
+            Entity.hidden.is_(False),
             WikidataCandidate.exact.is_(True),
             WikidataCandidate.dismissed.is_(False),
             WikidataCandidate.entity_id.not_in(linked),

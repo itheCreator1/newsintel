@@ -772,6 +772,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entities/{entity_id}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity Usage
+         * @description What filters on the root: asked before hiding it, since hidden it matches nothing.
+         */
+        get: operations["get_entity_usage_api_v1_entities__entity_id__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entities/{entity_id}/history": {
         parameters: {
             query?: never;
@@ -3433,6 +3453,16 @@ export interface components {
             countries: components["schemas"]["RelatedCountryResponse"][];
             /** Feeds */
             feeds: components["schemas"]["RelatedFeedResponse"][];
+        };
+        /**
+         * EntityUsage
+         * @description Watches and saved searches that filter on the root or one of its names.
+         */
+        EntityUsage: {
+            /** Monitors */
+            monitors: number;
+            /** Saved Searches */
+            saved_searches: number;
         };
         /** EntityVariantList */
         EntityVariantList: {
@@ -7825,6 +7855,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityVariantList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entity_usage_api_v1_entities__entity_id__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityUsage"];
                 };
             };
             /** @description Validation Error */

@@ -10,6 +10,7 @@ vi.mock('../lib/api', async importOriginal => ({
   api: {
     entityDossier: vi.fn(), entityVariants: vi.fn(), entityHistory: vi.fn(), updateEntity: vi.fn(), mergeEntity: vi.fn(), splitEntity: vi.fn(),
     addDistinct: vi.fn(), nlpEntities: vi.fn(), wikidata: vi.fn(), claimName: vi.fn(), releaseClaim: vi.fn(), seeAlso: vi.fn(),
+    entityUsage: vi.fn(),
   },
 }))
 
@@ -38,6 +39,7 @@ beforeEach(() => {
   vi.mocked(api.wikidata).mockResolvedValue(wikidata())
   vi.mocked(api.seeAlso).mockResolvedValue({ labels: ['related'], items: [] })
   vi.mocked(api.updateEntity).mockResolvedValue(authority)
+  vi.mocked(api.entityUsage).mockResolvedValue({ monitors: 0, saved_searches: 0 })
 })
 afterEach(cleanup)
 
@@ -145,6 +147,21 @@ it('hides a root that is not a name and shows it again', async () => {
   expect(await screen.findByText('Hidden: left out of search, the graph and the suggestions.')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Show again' }))
   await waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { hidden: false }))
+})
+
+it('hiding a root that a watch uses asks first', async () => {
+  vi.mocked(api.entityUsage).mockResolvedValue({ monitors: 1, saved_searches: 2 })
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+  renderWithQuery(() => <AuthorityPanel entityId="ent-1" />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Hide as not a name' }))
+  await waitFor(() => expect(confirm).toHaveBeenCalledWith('AI is used by 1 watch and 2 saved searches, which stop matching it once it is hidden. Hide it?'))
+  expect(api.entityUsage).toHaveBeenCalledWith('ent-1')
+  expect(api.updateEntity).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Hide as not a name' }))
+  await waitFor(() => expect(api.updateEntity).toHaveBeenCalledWith('ent-1', { hidden: true }))
+  confirm.mockRestore()
 })
 
 it('keeps the history folded and describes the new changes', async () => {
