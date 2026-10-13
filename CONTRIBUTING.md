@@ -127,7 +127,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 
 - **Quick gate**: `./infra/test-quick.sh`, inside the repository's own test images. Its diagnostics are uploaded as the `test-quick-artifacts` artifact on every run, so a failure can be read without rerunning it.
 - **Frontend build**: `npm ci && npm run build` in `frontend/`, because the quick loop skips the static export.
-- **Dependency audit**: `pip-audit` over every package `uv.lock` pins and `npm audit --audit-level=high` in `frontend/`. A finding with a fixed release is upgraded, not ignored.
+- **Dependency audit**: `pip-audit` over every package `uv.lock` pins and `npm audit` in `frontend/` (high and above for what ships, critical for the build and test tooling). A finding with a fixed release is upgraded, not ignored.
 - **Workflow lint**: `actionlint` over the workflow files.
 
 A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
