@@ -1,4 +1,4 @@
-"""Every request body the backend builds must resolve against the V3 mapping.
+"""Every request body the backend builds must resolve against the index mapping.
 
 Elasticsearch matches nothing, silently, for an unmapped field, a nested field queried outside its
 `nested` wrapper, or a root field queried inside one; no runtime error would reveal any of them.
@@ -15,7 +15,6 @@ import pytest
 from test_search_results import _Adapter as _PitAdapter
 from test_search_results import _Database as _PitDatabase
 from test_search_results import _Session
-from test_search_results import _Target as _PitTarget
 from test_search_timeline import _Adapter, _criteria, _Database
 
 from app.analytics.routes import ingestion_timeline, top_countries, top_entities
@@ -26,13 +25,12 @@ from app.monitors.changes import prior_body, window_agg_body
 from app.monitors.evaluation import window_body
 from app.monitors.results import results_body
 from app.search.criteria import SearchCriteria, build_query
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS, SCHEMA_VERSION
 from app.search.facets import facets_body
-from app.search.rebuild import SCHEMA_VERSION
 from app.search.related import related_body
 from app.search.routes import search_articles, search_timeline
 
-V3 = ARTICLE_INDEX_SETTINGS_V3["mappings"]["properties"]
+PROPERTIES = ARTICLE_INDEX_SETTINGS["mappings"]["properties"]
 # Query clauses whose keys are field names; with a "field" key the same names are aggregations.
 _LEAF = {"term", "terms", "range", "match", "match_phrase", "prefix", "wildcard"}
 # Keys whose values are never field references (bucket order, include lists, paging, bounds).
@@ -165,23 +163,22 @@ def _maximal() -> SearchCriteria:
 
 def test_an_event_filters_on_the_stories_it_holds_now() -> None:
     criteria = _criteria("", event_ids=[EVENT], event_clusters=[CLUSTER, OTHER_CLUSTER])
-    assert criteria.schema_v3_required
-    assert {"terms": {"story_cluster_id": [CLUSTER, OTHER_CLUSTER]}} in build_query(criteria, 3)[
+    assert {"terms": {"story_cluster_id": [CLUSTER, OTHER_CLUSTER]}} in build_query(criteria)[
         "bool"
     ]["filter"]
     # An event with no stories left leaves no article, rather than every one.
-    empty = build_query(_criteria("", event_ids=[EVENT], event_clusters=[]), 3)
+    empty = build_query(_criteria("", event_ids=[EVENT], event_clusters=[]))
     assert {"terms": {"story_cluster_id": []}} in empty["bool"]["filter"]
 
 
 def test_a_field_the_mapping_lacks_is_reported() -> None:
-    assert unmapped({"query": {"term": {"source_country": "GR"}}}, V3) == [
+    assert unmapped({"query": {"term": {"source_country": "GR"}}}, PROPERTIES) == [
         "term: source_country is not mapped"
     ]
 
 
 def test_a_nested_field_queried_at_the_root_is_reported() -> None:
-    assert unmapped({"query": {"terms": {"entities.id": [ENTITY]}}}, V3) == [
+    assert unmapped({"query": {"terms": {"entities.id": [ENTITY]}}}, PROPERTIES) == [
         "terms: entities.id lives under 'entities', used in 'root'"
     ]
 
@@ -190,7 +187,7 @@ def test_a_root_field_queried_inside_a_nested_clause_is_reported() -> None:
     body = {
         "query": {"nested": {"path": "provenance", "query": {"term": {"detected_language": "en"}}}}
     }
-    assert unmapped(body, V3) == [
+    assert unmapped(body, PROPERTIES) == [
         "term: detected_language lives under 'root', used in 'provenance'"
     ]
 
@@ -204,7 +201,7 @@ def test_a_nested_path_that_is_only_an_object_is_reported() -> None:
             }
         }
     }
-    assert unmapped(body, V3)[0] == "nested aggregation: keywords is not a nested path"
+    assert unmapped(body, PROPERTIES)[0] == "nested aggregation: keywords is not a nested path"
 
 
 def test_a_nested_field_aggregated_after_reverse_nested_is_reported() -> None:
@@ -228,7 +225,7 @@ def test_a_nested_field_aggregated_after_reverse_nested_is_reported() -> None:
             }
         }
     }
-    assert unmapped(body, V3) == [
+    assert unmapped(body, PROPERTIES) == [
         "field: provenance.source_id lives under 'provenance', used in 'root'"
     ]
 
@@ -240,7 +237,7 @@ def test_text_sort_source_and_highlight_fields_are_checked() -> None:
         "_source": ["article_id", "provenance", "headline"],
         "highlight": {"fields": {"title": {}, "lede": {}}},
     }
-    assert unmapped(body, V3) == [
+    assert unmapped(body, PROPERTIES) == [
         "multi_match: summary is not mapped",
         "sort: published is not mapped",
         "_source: headline is not mapped",
@@ -253,7 +250,7 @@ def test_an_object_field_used_as_a_leaf_is_reported() -> None:
         "query": {"term": {"keywords": KEYWORD}},
         "aggs": {"k": {"terms": {"field": "keywords"}}},
     }
-    assert unmapped(body, V3) == [
+    assert unmapped(body, PROPERTIES) == [
         "term: keywords is an object, not a field",
         "field: keywords is an object, not a field",
     ]
@@ -268,28 +265,25 @@ def test_the_long_aggregations_key_sets_the_nested_context() -> None:
             }
         }
     }
-    assert unmapped(body, V3) == [
+    assert unmapped(body, PROPERTIES) == [
         "field: detected_language lives under 'root', used in 'provenance'"
     ]
 
 
-# ponytail: a hash, not a diff; on failure compare ARTICLE_INDEX_SETTINGS_V3 with git history.
-V3_SHA256 = "fcd853441f9f4e7e9743243f597f2d1723a7a5024ac9a9872b2d940ebc71dadd"
+# ponytail: a hash, not a diff; on failure compare ARTICLE_INDEX_SETTINGS with git history.
+LAYOUT_SHA256 = {3: "fcd853441f9f4e7e9743243f597f2d1723a7a5024ac9a9872b2d940ebc71dadd"}
 
 
-def test_v3_is_frozen_and_current() -> None:
-    digest = hashlib.sha256(
-        json.dumps(ARTICLE_INDEX_SETTINGS_V3, sort_keys=True).encode()
-    ).hexdigest()
-    assert digest == V3_SHA256, (
-        "V3 is deployed: never change it (or V1/V2, which it spreads) in place. Add "
-        "ARTICLE_INDEX_SETTINGS_V4, bump SCHEMA_VERSION and cut over through a replacement index."
+def test_the_index_layout_is_the_one_its_schema_version_names() -> None:
+    digest = hashlib.sha256(json.dumps(ARTICLE_INDEX_SETTINGS, sort_keys=True).encode()).hexdigest()
+    assert LAYOUT_SHA256.get(SCHEMA_VERSION) == digest, (
+        "A deployed layout never changes in place: a change to ARTICLE_INDEX_SETTINGS bumps "
+        "SCHEMA_VERSION and adds its hash here, and the live index is then rebuilt."
     )
-    assert SCHEMA_VERSION == 3
 
 
 def _builder_bodies() -> dict[str, dict[str, Any]]:
-    query = build_query(_maximal(), 3)
+    query = build_query(_maximal())
     now = datetime.now(UTC)
     entity, keyword = uuid.UUID(ENTITY), uuid.UUID(KEYWORD)
     return {
@@ -309,34 +303,35 @@ def _builder_bodies() -> dict[str, dict[str, Any]]:
         "graph evidence": evidence_body(query, entity, keyword, limit=10, after=None),
         "monitor window": window_body(query, now, now, clusters=True),
         "monitor results": results_body(query, now, now, 10, None),
-        "monitor changes": window_agg_body(query, now, now, 3),
+        "monitor changes": window_agg_body(query, now, now),
         "monitor prior": prior_body(
-            query, now, {"sources": [SOURCE], "entities": [ENTITY], "stories": [CLUSTER]}, 3
+            query, now, {"sources": [SOURCE], "entities": [ENTITY], "stories": [CLUSTER]}
         ),
         "related": related_body(entity, uuid.UUID(CLUSTER)),
     }
 
 
 @pytest.mark.parametrize("name", list(_builder_bodies()))
-def test_body_builders_resolve_against_v3(name: str) -> None:
-    assert unmapped(_builder_bodies()[name], V3) == []
+def test_body_builders_resolve_against_the_mapping(name: str) -> None:
+    assert unmapped(_builder_bodies()[name], PROPERTIES) == []
 
 
 @pytest.mark.asyncio
-async def test_search_page_body_resolves_against_v3(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_search_page_body_resolves_against_the_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _PitAdapter)
-    monkeypatch.setattr(_PitTarget, "schema_version", 3)
     monkeypatch.setattr(_PitAdapter, "response", {"hits": {"hits": []}})
     monkeypatch.setattr(_PitAdapter, "closed", [])
     monkeypatch.setattr(_PitAdapter, "close_error", None)
 
     await search_articles(_PitDatabase(), _Session(), Settings(), _maximal())  # type: ignore[arg-type]
 
-    assert unmapped(_PitAdapter.body, V3) == []
+    assert unmapped(_PitAdapter.body, PROPERTIES) == []
 
 
 @pytest.mark.asyncio
-async def test_timeline_bodies_resolve_against_v3(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_timeline_bodies_resolve_against_the_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
     first = int(datetime(2026, 1, 2, tzinfo=UTC).timestamp() * 1000)
     last = int(datetime(2026, 1, 30, tzinfo=UTC).timestamp() * 1000)
     monkeypatch.setattr("app.search.routes.ElasticsearchAdapter", _Adapter)
@@ -354,7 +349,7 @@ async def test_timeline_bodies_resolve_against_v3(monkeypatch: pytest.MonkeyPatc
     await search_timeline(_Database(3), object(), Settings(), _maximal(), "auto")  # type: ignore[arg-type]
 
     assert len(_Adapter.bodies) == 2
-    assert [unmapped(body, V3) for _index, body in _Adapter.bodies] == [[], []]
+    assert [unmapped(body, PROPERTIES) for _index, body in _Adapter.bodies] == [[], []]
 
 
 class _CatalogueDatabase(_Database):
@@ -365,7 +360,9 @@ class _CatalogueDatabase(_Database):
 
 
 @pytest.mark.asyncio
-async def test_analytics_bodies_resolve_against_v3(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_analytics_bodies_resolve_against_the_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("app.analytics.routes.ElasticsearchAdapter", _Adapter)
     monkeypatch.setattr(_Adapter, "responses", [{"aggregations": {}} for _ in range(3)])
     monkeypatch.setattr(_Adapter, "bodies", [])
@@ -377,4 +374,4 @@ async def test_analytics_bodies_resolve_against_v3(monkeypatch: pytest.MonkeyPat
     await top_entities(_CatalogueDatabase(3), object(), Settings(), criteria, "recent")  # type: ignore[arg-type]
 
     assert len(_Adapter.bodies) == 3
-    assert [unmapped(body, V3) for _index, body in _Adapter.bodies] == [[], [], []]
+    assert [unmapped(body, PROPERTIES) for _index, body in _Adapter.bodies] == [[], [], []]

@@ -188,10 +188,11 @@ it('shows the empty state when there are no co-occurring entities', async () => 
 })
 
 it('shows an upgrade message when the search index needs a rebuild', async () => {
-  vi.mocked(api.entityGraph).mockRejectedValue(new ApiError('Rebuild search to schema version 2 to use the entity graph', 409, { code: 'search_upgrade_required' }))
+  vi.mocked(api.entityGraph).mockRejectedValue(new ApiError('The search index was built by an older version.', 503, { code: 'search_upgrade_required' }))
   renderWithQuery(() => <GraphPage />)
 
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to use the entity graph.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
 })
 
 it('lists each connection as a button and opens its evidence with a canonical edge param', async () => {

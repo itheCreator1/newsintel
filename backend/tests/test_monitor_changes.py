@@ -2,8 +2,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pytest
-
 from app.main import create_app
 from app.monitors.changes import (
     MATERIAL_SOURCE_GROWTH,
@@ -41,7 +39,7 @@ def _agg(buckets: list[dict], other: int = 0) -> dict:
 
 
 def test_window_body_is_bounded_and_asks_for_top_ten_with_evidence_per_kind() -> None:
-    body = window_agg_body(QUERY, AFTER, UPTO, 3)
+    body = window_agg_body(QUERY, AFTER, UPTO)
 
     bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
     assert bounds == {"gt": AFTER.isoformat(), "lte": UPTO.isoformat()}
@@ -59,17 +57,14 @@ def test_window_body_is_bounded_and_asks_for_top_ten_with_evidence_per_kind() ->
     assert stories["aggs"]["hits"]["top_hits"]["sort"][0] == {"first_discovered_at": "desc"}
 
 
-@pytest.mark.parametrize(
-    ("version", "kinds"),
-    [(1, {"sources"}), (2, {"sources", "entities"}), (3, {"sources", "entities", "stories"})],
-)
-def test_kinds_the_index_cannot_answer_are_not_asked_for(version: int, kinds: set[str]) -> None:
-    assert set(window_agg_body(QUERY, AFTER, UPTO, version)["aggs"]) == kinds
-    assert set(prior_body(QUERY, AFTER, {k: ["x"] for k in kinds}, version)["aggs"]) == kinds
+def test_every_kind_is_asked_for() -> None:
+    kinds = {"sources", "entities", "stories"}
+    assert set(window_agg_body(QUERY, AFTER, UPTO)["aggs"]) == kinds
+    assert set(prior_body(QUERY, AFTER, {k: ["x"] for k in kinds})["aggs"]) == kinds
 
 
 def test_prior_body_looks_only_at_candidates_up_to_the_viewed_boundary() -> None:
-    body = prior_body(QUERY, AFTER, {"sources": ["a", "b"], "entities": [], "stories": ["c"]}, 3)
+    body = prior_body(QUERY, AFTER, {"sources": ["a", "b"], "entities": [], "stories": ["c"]})
 
     bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
     assert bounds == {"lte": AFTER.isoformat()}

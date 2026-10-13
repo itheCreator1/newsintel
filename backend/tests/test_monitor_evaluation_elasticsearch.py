@@ -15,7 +15,7 @@ from app.monitors.evaluation import claim_monitor, process_monitor
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate
 from app.monitors.service import create_monitor
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS, SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.indexing import process_delivery
 from app.search.models import SearchDelivery, SearchIndexTarget
@@ -36,11 +36,11 @@ SETTLE = timedelta(seconds=get_settings().monitor_settle_seconds)
 async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     name = f"articles-v3-monitors-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(evaluation, "current_search_target", target)
     return name
@@ -52,7 +52,9 @@ async def _index(index: str, article_ids: list[uuid.UUID]) -> None:
             select(SearchIndexTarget).where(SearchIndexTarget.index_name == index)
         )
         if target is None:
-            target = SearchIndexTarget(index_name=index, schema_version=3, role="replacement")
+            target = SearchIndexTarget(
+                index_name=index, schema_version=SCHEMA_VERSION, role="replacement"
+            )
             db.add(target)
             await db.flush()
         target_id = target.id

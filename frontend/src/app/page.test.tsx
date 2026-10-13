@@ -140,7 +140,7 @@ it('keeps a loaded chart when a background refetch fails', async () => {
 })
 
 it('says search needs an upgrade, without a retry, when analytics need a newer index', async () => {
-  vi.mocked(api.topEntities).mockRejectedValue(new ApiError('Rebuild search', 409, { code: 'search_upgrade_required', message: 'Rebuild search' }))
+  vi.mocked(api.topEntities).mockRejectedValue(new ApiError('Rebuild search', 503, { code: 'search_upgrade_required', message: 'Rebuild search' }))
   renderWithQuery(() => <TodayPage />)
 
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to see analytics.')).toBeTruthy()

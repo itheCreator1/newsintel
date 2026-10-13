@@ -17,7 +17,7 @@ from app.investigations.schemas import InvestigationState
 from app.monitors import evaluation
 from app.monitors.evaluation import criteria_params
 from app.search.criteria import build_query, search_criteria
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS
 from app.search.elasticsearch import ElasticsearchAdapter
 
 pytestmark = [
@@ -33,11 +33,11 @@ pytestmark = [
 async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     name = f"articles-v3-authority-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(evaluation, "current_search_target", target)
     return name
@@ -52,7 +52,7 @@ async def _found(index_name: str, *entity_ids: uuid.UUID, q: str = "") -> set[st
         criteria = await search_criteria(db, **criteria_params(state))
     response = await ElasticsearchAdapter(get_settings().elasticsearch_url).search_index(
         index_name,
-        {"size": 50, "query": build_query(criteria, 3), "_source": ["article_id"]},
+        {"size": 50, "query": build_query(criteria), "_source": ["article_id"]},
     )
     return {hit["_source"]["article_id"] for hit in response["hits"]["hits"]}
 

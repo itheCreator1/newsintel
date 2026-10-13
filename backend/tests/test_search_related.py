@@ -4,7 +4,6 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.config import Settings
-from app.search.criteria import current_search_target
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.related import CANDIDATES, related_body
 from app.search.routes import related_coverage
@@ -50,31 +49,6 @@ def test_the_similarity_thresholds_are_explicit() -> None:
         "minimum_should_match": "5",
     }  # fmt: skip
     assert {"the", "and", "with"} <= set(similar["stop_words"])
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(("schema_version", "allowed"), [(2, False), (3, True)])
-async def test_related_coverage_needs_a_schema_three_index(
-    schema_version: int, allowed: bool
-) -> None:
-    class _Target:
-        index_name = "articles-vx-test"
-
-    _Target.schema_version = schema_version  # type: ignore[attr-defined]
-
-    class _Db:
-        async def scalar(self, _query: object) -> object:
-            return _Target()
-
-    if allowed:
-        assert await current_search_target(_Db(), None, minimum=3) == (  # type: ignore[arg-type]
-            "articles-vx-test",
-            3,
-        )
-    else:
-        with pytest.raises(HTTPException) as caught:
-            await current_search_target(_Db(), None, minimum=3)  # type: ignore[arg-type]
-        assert caught.value.status_code == 409
 
 
 @pytest.mark.asyncio

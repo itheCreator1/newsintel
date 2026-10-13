@@ -38,7 +38,7 @@ async def _by_type(index: str, entity_type: str, token: str) -> set[str]:
     async with session_factory() as db:
         criteria = await search_criteria(db, q=token, entity_type=[entity_type])
     response = await ElasticsearchAdapter(get_settings().elasticsearch_url).search_index(
-        index, {"size": 20, "query": build_query(criteria, 3), "_source": ["article_id"]}
+        index, {"size": 20, "query": build_query(criteria), "_source": ["article_id"]}
     )
     return {hit["_source"]["article_id"] for hit in response["hits"]["hits"]}
 

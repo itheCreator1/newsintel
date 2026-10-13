@@ -19,7 +19,7 @@ from app.feeds.models import FeedArticle
 from app.monitors import changes, evaluation
 from app.monitors.changes import cluster_growth
 from app.monitors.models import Monitor
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS
 from app.search.elasticsearch import ElasticsearchAdapter
 
 pytestmark = [
@@ -35,11 +35,11 @@ pytestmark = [
 async def index_name(monkeypatch: pytest.MonkeyPatch) -> str:
     name = f"articles-v3-monitor-changes-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(evaluation, "current_search_target", target)
     monkeypatch.setattr(changes, "current_search_target", target)

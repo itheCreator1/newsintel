@@ -20,6 +20,7 @@ from app.geo.investigation import (
 )
 from app.geo.routes import geo_articles, geo_countries
 from app.search.criteria import build_query
+from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
 
@@ -124,13 +125,13 @@ def test_evidence_filters_on_the_role_field() -> None:
 
 
 class _Target:
-    def __init__(self, schema_version: int = 3) -> None:
+    def __init__(self, schema_version: int = SCHEMA_VERSION) -> None:
         self.index_name = f"articles-v{schema_version}-geo"
         self.schema_version = schema_version
 
 
 class _Database:
-    def __init__(self, schema_version: int = 3) -> None:
+    def __init__(self, schema_version: int = SCHEMA_VERSION) -> None:
         self.target = _Target(schema_version)
 
     async def scalar(self, _query: object) -> _Target:
@@ -176,7 +177,7 @@ async def test_investigation_counts_come_from_the_index_with_bounds_and_estimate
     )
     assert _Adapter.index == "articles-v3-geo"
     # The criteria alone: no rolling window is added, and the selection never reaches the base.
-    assert _Adapter.body == countries_body("story", build_query(criteria, 3))
+    assert _Adapter.body == countries_body("story", build_query(criteria))
     assert (body.scope, body.days, body.window_start, body.window_end) == (
         "investigation",
         None,
@@ -205,13 +206,13 @@ async def test_only_source_maps_estimate_sources(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.asyncio
-async def test_an_index_below_schema_three_needs_a_rebuild_even_with_no_criteria(
+async def test_an_older_index_needs_a_rebuild_even_with_no_criteria(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.geo.routes.ElasticsearchAdapter", _Adapter)
     with pytest.raises(HTTPException) as raised:
         await geo_countries(
-            _Database(2),
+            _Database(SCHEMA_VERSION - 1),
             None,
             Settings(),
             _criteria(),
@@ -219,7 +220,7 @@ async def test_an_index_below_schema_three_needs_a_rebuild_even_with_no_criteria
             "investigation",
             None,  # type: ignore[arg-type]
         )
-    assert raised.value.status_code == 409
+    assert raised.value.status_code == 503
     assert raised.value.detail["code"] == "search_upgrade_required"
 
 
@@ -375,12 +376,7 @@ async def test_stale_hits_are_counted_and_the_cursor_moves_past_them(
     assert first.skipped_stale == 1
     assert first.next_cursor is not None
     data = read_cursor(first.next_cursor, Settings().secret_key)
-    assert (data["after"], data["pit"], data["scope"], data["schema"]) == (
-        [2, str(B)],
-        "pit-2",
-        "investigation",
-        3,
-    )
+    assert (data["after"], data["pit"], data["scope"]) == ([2, str(B)], "pit-2", "investigation")
     assert _PitAdapter.closed == []
 
     second = await geo_articles(**{**paged, "cursor": first.next_cursor})

@@ -65,7 +65,9 @@ describe('filter chips', () => {
     expect(isTransient(new TypeError('Failed to fetch'))).toBe(true)
     expect(isTransient(new ApiError('down', 503))).toBe(true)
     expect(isTransient(new ApiError('bad', 422))).toBe(false)
-    expect(isTransient(new ApiError('upgrade', 409))).toBe(false)
+    expect(isTransient(new ApiError('conflict', 409))).toBe(false)
+    // A search index from an older version answers 503 until it is rebuilt; retrying cannot help.
+    expect(isTransient(new ApiError('upgrade', 503, { code: 'search_upgrade_required' }))).toBe(false)
   })
 })
 

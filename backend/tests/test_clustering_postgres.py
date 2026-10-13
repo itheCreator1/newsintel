@@ -42,7 +42,7 @@ from app.nlp.models import ArticleEntity, ArticleNlpState, NlpJob, NlpProcessorR
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import request_article_nlp
 from app.search.criteria import SearchCriteria, build_query
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V2, ARTICLE_INDEX_SETTINGS_V3
+from app.search.documents import ARTICLE_INDEX_SETTINGS, SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.indexing import process_delivery
 from app.search.models import ArticleSearchState, SearchDelivery, SearchIndexTarget
@@ -792,7 +792,7 @@ async def test_get_cluster_paginates_members_by_effective_date_then_id() -> None
     assert excinfo.value.status_code == 404
 
 
-async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timeline() -> None:
+async def test_the_index_round_trips_cluster_membership_and_a_real_timeline() -> None:
     title = "Two outlets cover the harbour authority recount"
     title_hash = uuid.uuid4().hex
     async with session_factory() as db, db.begin():
@@ -823,10 +823,12 @@ async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timelin
 
     index_name = f"articles-v3-{uuid.uuid4().hex}"
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
-    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS_V3)
+    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS)
 
     async with session_factory() as db, db.begin():
-        target = SearchIndexTarget(index_name=index_name, schema_version=3, role="replacement")
+        target = SearchIndexTarget(
+            index_name=index_name, schema_version=SCHEMA_VERSION, role="replacement"
+        )
         db.add(target)
         await db.flush()
         target_id = target.id
@@ -859,7 +861,7 @@ async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timelin
         )
     assert [delivery.status for delivery in deliveries] == ["succeeded"] * 3
 
-    clustered_query = build_query(_criteria(story_cluster_ids=[str(cluster_id)]), schema_version=3)
+    clustered_query = build_query(_criteria(story_cluster_ids=[str(cluster_id)]))
     clustered = await adapter.search_index(index_name, {"query": clustered_query, "size": 10})
     hit_ids = {hit["_source"]["article_id"] for hit in clustered["hits"]["hits"]}
     assert hit_ids == {str(first.id), str(second.id)}
@@ -867,7 +869,7 @@ async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timelin
         assert hit["_source"]["story_cluster_id"] == str(cluster_id)
         assert hit["_source"]["cluster_source_count"] == 2
 
-    solo_query = build_query(_criteria(), schema_version=3)
+    solo_query = build_query(_criteria())
     timeline = await adapter.search_index(
         index_name,
         {
@@ -899,12 +901,14 @@ async def test_schema_v3_index_round_trips_cluster_membership_and_a_real_timelin
 
 
 async def _publish_graph_index(article_ids: list[uuid.UUID]) -> str:
-    """Index the given articles into a fresh schema v2 index the graph aggregations can read."""
-    index_name = f"articles-v2-graph-{uuid.uuid4().hex}"
+    """Index the given articles into a fresh index the graph aggregations can read."""
+    index_name = f"articles-graph-{uuid.uuid4().hex}"
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
-    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS_V2)
+    await adapter.create_index(index_name, ARTICLE_INDEX_SETTINGS)
     async with session_factory() as db, db.begin():
-        target = SearchIndexTarget(index_name=index_name, schema_version=2, role="replacement")
+        target = SearchIndexTarget(
+            index_name=index_name, schema_version=SCHEMA_VERSION, role="replacement"
+        )
         db.add(target)
         await db.flush()
         target_id = target.id
@@ -937,7 +941,7 @@ async def _graph(  # type: ignore[no-untyped-def]
             db,
             adapter,
             index_name,
-            query=focus_query(build_query(criteria, 2), focus_entity_id),
+            query=focus_query(build_query(criteria), focus_entity_id),
             entity_types=criteria.entity_types,
             nodes=nodes,
             min_edge_weight=min_edge_weight,
@@ -1015,7 +1019,7 @@ async def test_entity_graph_aggregates_real_co_occurrence_within_a_bounded_paylo
     crowd = [str(authority.id), str(reyes.id), str(trust.id)] + [
         str(uuid.uuid4()) for _ in range(MAX_NODES - 3)
     ]
-    matrix = await adapter.search_index(index_name, edges_body(build_query(_criteria(), 2), crowd))
+    matrix = await adapter.search_index(index_name, edges_body(build_query(_criteria()), crowd))
     edges, truncated = parse_edges(matrix, node_ids=crowd, min_edge_weight=2)
     assert {frozenset((edge.source, edge.target)) for edge in edges} == {
         frozenset((str(authority.id), str(reyes.id))),

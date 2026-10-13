@@ -20,7 +20,7 @@ from app.feeds.models import FeedArticle
 from app.marks.schemas import ArticleMarkUpdate
 from app.marks.service import update_mark
 from app.search import related
-from app.search.documents import ARTICLE_INDEX_SETTINGS_V3, ArticleDocument
+from app.search.documents import ARTICLE_INDEX_SETTINGS, ArticleDocument
 from app.search.elasticsearch import ElasticsearchAdapter
 
 pytestmark = [
@@ -91,7 +91,7 @@ async def _article(db, source, text: tuple[str, str], minutes: int) -> Article: 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def world(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
-    """A controlled corpus, alone in a fresh schema 3 index.
+    """A controlled corpus, alone in a fresh index.
 
     target, same  one story, indexed with its cluster: the index excludes `same`
     late          joins that story only after it was indexed: only PostgreSQL knows
@@ -100,13 +100,13 @@ async def world(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     terse         too few terms to be like anything
     unindexed     in PostgreSQL only
     """
-    name = f"articles-v3-related-{uuid.uuid4().hex}"
+    name = f"articles-related-{uuid.uuid4().hex}"
     await ElasticsearchAdapter(get_settings().elasticsearch_url).create_index(
-        name, ARTICLE_INDEX_SETTINGS_V3
+        name, ARTICLE_INDEX_SETTINGS
     )
 
-    async def target(db: object, criteria: object, **_: object) -> tuple[str, int]:
-        return name, 3
+    async def target(db: object) -> str:
+        return name
 
     monkeypatch.setattr(related, "current_search_target", target)
     async with session_factory() as db, db.begin():
@@ -205,7 +205,7 @@ async def test_a_projection_without_its_article_is_reported_not_returned(world: 
         response = await es.put(
             f"/{w.index}/_doc/{ghost.article_id}",
             params={"refresh": "true"},
-            json=ghost.to_index_payload(schema_version=3),
+            json=ghost.to_index_payload(),
         )
         assert response.status_code in (200, 201), response.text
     assert str(ghost.article_id) in await _index_hits(

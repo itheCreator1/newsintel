@@ -13,6 +13,7 @@ from app.clustering.models import ArticleClusterState, ClusterJob
 from app.db.session import session_factory
 from app.nlp.models import ArticleNlpState, NlpJob, NlpProcessorRun
 from app.operations import retention
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchDelivery, SearchIndexTarget
 
 pytestmark = [
@@ -139,7 +140,7 @@ async def test_search_deliveries_are_pruned_only_on_retained_targets() -> None:
         article = await _article(db, await feed(db), OLD)
         targets = {
             role: SearchIndexTarget(
-                index_name=f"idx-{uuid.uuid4().hex}", schema_version=1, role=role
+                index_name=f"idx-{uuid.uuid4().hex}", schema_version=SCHEMA_VERSION, role=role
             )
             for role in ("retained", "current")
         }

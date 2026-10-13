@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from app.search.documents import (
+    SCHEMA_VERSION,
     ArticleDocument,
     EntityDocument,
     KeywordDocument,
@@ -93,7 +94,7 @@ def test_bulk_results_distinguish_conflicts_transient_and_permanent_failures() -
     assert result_outcome(400) == "permanent"
 
 
-def test_article_document_serializes_annotations_only_for_schema_version_two() -> None:
+def test_article_document_serializes_its_annotations() -> None:
     document = ArticleDocument(
         article_id=uuid.uuid4(),
         title="France energy policy",
@@ -111,14 +112,13 @@ def test_article_document_serializes_annotations_only_for_schema_version_two() -
         mentioned_countries=["FR", "DE"],
     )
 
-    assert "detected_language" not in document.to_index_payload(schema_version=1)
-    payload = document.to_index_payload(schema_version=2)
+    payload = document.to_index_payload()
     assert payload["detected_language"] == "en"
     assert payload["entity_text"] == ["European Union"]
     assert payload["keyword_text"] == ["energy policy"]
     assert payload["primary_story_country"] == "FR"
     assert payload["mentioned_countries"] == ["DE", "FR"]
-    assert "story_cluster_id" not in payload
+    assert payload["story_cluster_id"] is None
 
 
 def test_document_lists_authorized_name_and_variants() -> None:
@@ -144,7 +144,7 @@ def test_document_lists_authorized_name_and_variants() -> None:
         ],
     )
 
-    payload = document.to_index_payload(schema_version=3)
+    payload = document.to_index_payload()
     # Free text finds the article by any name; the nested entity shows the authorized one.
     assert payload["entity_text"] == ["Quill Harbour Board", "QHB", "Harbour Board of Quill"]
     assert payload["entities"] == [
@@ -157,7 +157,7 @@ def test_document_lists_authorized_name_and_variants() -> None:
     ]
 
 
-def test_article_document_serializes_cluster_membership_only_for_schema_version_three() -> None:
+def test_article_document_serializes_cluster_membership() -> None:
     cluster_id = uuid.uuid4()
     document = ArticleDocument(
         article_id=uuid.uuid4(),
@@ -173,16 +173,12 @@ def test_article_document_serializes_cluster_membership_only_for_schema_version_
         cluster_source_count=3,
     )
 
-    payload_v2 = document.to_index_payload(schema_version=2)
-    assert "story_cluster_id" not in payload_v2
-    assert "cluster_source_count" not in payload_v2
-
-    payload_v3 = document.to_index_payload(schema_version=3)
-    assert payload_v3["story_cluster_id"] == str(cluster_id)
-    assert payload_v3["cluster_source_count"] == 3
+    payload = document.to_index_payload()
+    assert payload["story_cluster_id"] == str(cluster_id)
+    assert payload["cluster_source_count"] == 3
 
 
-def test_article_document_serializes_no_cluster_as_null_for_schema_version_three() -> None:
+def test_article_document_serializes_no_cluster_as_null() -> None:
     document = ArticleDocument(
         article_id=uuid.uuid4(),
         title="An unclustered story",
@@ -195,7 +191,7 @@ def test_article_document_serializes_no_cluster_as_null_for_schema_version_three
         provenance=[],
     )
 
-    payload = document.to_index_payload(schema_version=3)
+    payload = document.to_index_payload()
     assert payload["story_cluster_id"] is None
     assert payload["cluster_source_count"] is None
 
@@ -236,21 +232,28 @@ async def test_adapter_reuses_the_shared_client_while_one_is_open(
 class _StatusDatabase:
     """The two queries /search/indexing/status runs: delivery counts, then the current index."""
 
-    def __init__(self, current: uuid.UUID | None) -> None:
-        self.current = current
+    def __init__(self, schema_version: int | None) -> None:
+        self.current = (
+            None
+            if schema_version is None
+            else SimpleNamespace(index_name="articles-test", schema_version=schema_version)
+        )
 
     async def execute(self, _query: object) -> object:
         rows = [("queued", 3), ("failed", 1)]
         return SimpleNamespace(all=lambda: rows)
 
-    async def scalar(self, _query: object) -> uuid.UUID | None:
+    async def scalar(self, _query: object) -> object:
         return self.current
 
 
-@pytest.mark.parametrize(("current", "ready"), [(None, False), (uuid.uuid4(), True)])
+@pytest.mark.parametrize(
+    ("current", "ready", "rebuild_needed"),
+    [(None, False, False), (SCHEMA_VERSION, True, False), (SCHEMA_VERSION - 1, True, True)],
+)
 @pytest.mark.asyncio
 async def test_indexing_status_reports_index_ready_only_with_a_current_index(
-    monkeypatch: pytest.MonkeyPatch, current: uuid.UUID | None, ready: bool
+    monkeypatch: pytest.MonkeyPatch, current: int | None, ready: bool, rebuild_needed: bool
 ) -> None:
     from app.search import routes
 
@@ -262,6 +265,8 @@ async def test_indexing_status_reports_index_ready_only_with_a_current_index(
     status = await routes.indexing_status(_StatusDatabase(current), None)  # type: ignore[arg-type]
 
     assert status.index_ready is ready
+    # An index an older version built is there, but Search refuses it until it is rebuilt.
+    assert status.rebuild_needed is rebuild_needed
     assert (status.queued, status.running, status.retrying, status.failed) == (3, 0, 0, 1)
     assert status.active_rebuild is None
 

@@ -25,6 +25,7 @@ from app.nlp import execution as nlp_execution
 from app.nlp.models import ArticleNlpState, NlpJob, NlpProcessorRun
 from app.nlp.processors import ConfigurationError
 from app.operations import queries
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchDelivery, SearchIndexTarget
 
 pytestmark = [
@@ -68,7 +69,7 @@ async def _add_jobs(db, kind: str) -> None:  # type: ignore[no-untyped-def]
     target = None
     if kind == "search":
         target = SearchIndexTarget(
-            index_name=f"idx-{uuid.uuid4().hex}", schema_version=1, role="retained"
+            index_name=f"idx-{uuid.uuid4().hex}", schema_version=SCHEMA_VERSION, role="retained"
         )
         db.add(target)
         await db.flush()
@@ -552,7 +553,7 @@ async def test_search_failures_include_retrying_deliveries_with_a_cause() -> Non
     async with session_factory() as db:
         source = await feed(db)
         target = SearchIndexTarget(
-            index_name=f"idx-{uuid.uuid4().hex}", schema_version=1, role="retained"
+            index_name=f"idx-{uuid.uuid4().hex}", schema_version=SCHEMA_VERSION, role="retained"
         )
         db.add(target)
         await db.flush()

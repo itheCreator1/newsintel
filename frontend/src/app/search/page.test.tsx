@@ -324,7 +324,7 @@ it('offers Retry for an unavailable search but not for a required index upgrade'
   expect(await screen.findByText('Safe <script> title')).toBeTruthy()
   cleanup()
 
-  vi.mocked(api.search).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  vi.mocked(api.search).mockRejectedValue(new ApiError('upgrade', 503, { code: 'search_upgrade_required' }))
   renderSearch('entity_id=entity-one')
   expect(await screen.findByText(/Search upgrade required/)).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
@@ -447,7 +447,7 @@ it('offers Retry for unavailable facets but not for a required index upgrade', a
   await vi.waitFor(() => expect(api.facets).toHaveBeenCalledTimes(2))
   cleanup()
 
-  vi.mocked(api.facets).mockRejectedValue(new ApiError('upgrade', 409, { code: 'search_upgrade_required' }))
+  vi.mocked(api.facets).mockRejectedValue(new ApiError('upgrade', 503, { code: 'search_upgrade_required' }))
   renderSearch('q=grid')
   expect(await screen.findByText('Search upgrade required. Rebuild the search index to see facets.')).toBeTruthy()
   expect(within(screen.getByRole('region', { name: 'Refine by' })).queryByRole('button', { name: 'Retry' })).toBeNull()

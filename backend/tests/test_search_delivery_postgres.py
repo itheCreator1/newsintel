@@ -9,6 +9,7 @@ from test_compare_postgres import _article
 
 from app.db.session import session_factory
 from app.search import indexing
+from app.search.documents import SCHEMA_VERSION
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.service import claim_delivery, delivery_due, request_indexing
 
@@ -28,7 +29,7 @@ async def test_a_revision_requested_while_indexing_is_due_as_soon_as_the_old_one
             select(SearchIndexTarget.id).where(SearchIndexTarget.role == "current")
         ):
             target = SearchIndexTarget(
-                index_name=f"idx-{uuid.uuid4().hex}", schema_version=1, role="current"
+                index_name=f"idx-{uuid.uuid4().hex}", schema_version=SCHEMA_VERSION, role="current"
             )
             db.add(target)
         article = await _article(db, await feed(db), datetime.now(UTC))
