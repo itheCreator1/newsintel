@@ -186,7 +186,7 @@ def test_extract_entities_drops_junk_before_grouping(monkeypatch: pytest.MonkeyP
 
     fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
-    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._import_spacy", lambda: fake_spacy)
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
 
     result = extract_entities(context(text, ner_enabled=True))
@@ -213,7 +213,7 @@ def _extract_with_spans(
 
     fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
-    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._import_spacy", lambda: fake_spacy)
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
     loaded: list[str] = []
 
@@ -335,7 +335,7 @@ def _extracted(
 
     fake_spacy = SimpleNamespace(load=lambda _, **__: FakePipeline())
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
-    monkeypatch.setattr("app.nlp.processors.importlib.import_module", lambda _: fake_spacy)
+    monkeypatch.setattr("app.nlp.processors._import_spacy", lambda: fake_spacy)
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
     result = extract_entities(
         context(text, language=language, ner_enabled=True, ner_model_el="el_core_news_sm")
@@ -372,8 +372,8 @@ def test_entity_algorithm_version_marks_the_one_row_per_entity_rule(
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
     monkeypatch.setattr(
-        "app.nlp.processors.importlib.import_module",
-        lambda _: SimpleNamespace(load=lambda *_, **__: _NoEntities()),
+        "app.nlp.processors._import_spacy",
+        lambda: SimpleNamespace(load=lambda *_, **__: _NoEntities()),
     )
 
     result = extract_entities(
@@ -442,8 +442,8 @@ def test_merge_short_person_names_skips_ambiguous_names(monkeypatch: pytest.Monk
 
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
     monkeypatch.setattr(
-        "app.nlp.processors.importlib.import_module",
-        lambda _: SimpleNamespace(load=lambda *_, **__: FakePipeline()),
+        "app.nlp.processors._import_spacy",
+        lambda: SimpleNamespace(load=lambda *_, **__: FakePipeline()),
     )
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
     ambiguous = replace(context(text, ner_enabled=True), ambiguous_names=frozenset({"trump"}))
@@ -528,9 +528,7 @@ def test_enabled_ner_loads_each_model_once_without_unused_components(
         return Pipeline()
 
     monkeypatch.setattr("app.nlp.processors.importlib.util.find_spec", lambda _: object())
-    monkeypatch.setattr(
-        "app.nlp.processors.importlib.import_module", lambda _: SimpleNamespace(load=load)
-    )
+    monkeypatch.setattr("app.nlp.processors._import_spacy", lambda: SimpleNamespace(load=load))
     monkeypatch.setattr("app.nlp.processors._ner_pipelines", {})
 
     for _ in range(3):
