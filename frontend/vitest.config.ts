@@ -16,5 +16,12 @@ export default defineConfig({
     testTimeout: 15_000,
     // One jsdom per worker instead of one per file (57 files): about 30% faster, isolation kept.
     pool: 'vmThreads',
+    // Used only with --coverage (the full gate); the report is kept, no threshold yet.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/lib/types.generated.ts'],
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+    },
   },
 })

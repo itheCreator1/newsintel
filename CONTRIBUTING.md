@@ -130,7 +130,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and every
 - **Dependency audit**: `pip-audit` over every package `uv.lock` pins and `npm audit` in `frontend/` (high and above for what ships, critical for the build and test tooling). A finding with a fixed release is upgraded, not ignored.
 - **Workflow lint**: `actionlint` over the workflow files.
 
-A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run.
+A second workflow (`.github/workflows/full-gate.yml`) runs `./infra/test-docker.sh` after every merge to `main`, nightly, on demand from the Actions tab, and on pull requests that change `infra/`, `docker/`, the Dockerfiles, `.github/actions/` or the workflow itself. Its diagnostics are uploaded as an artifact on every run, with the test coverage: `coverage-backend.xml` and `coverage-backend.txt` (the total) for pytest, `coverage-frontend/` for Vitest. Coverage is reported only; no threshold fails the gate yet.
+
+After a merge to `main` it first looks for a green full run on the same tree (the PR's own, or a `ci-run: full` commit, found by `infra/ci_green_tree.py`) and skips the gate when there is one. When the full gate fails on `main` or in the nightly run, it opens an issue titled "main/nightly is red" (or comments on the open one), and the next green run closes it.
+
+Dependabot (`.github/dependabot.yml`) opens weekly update PRs for uv, npm, Docker, Compose and Actions. `@playwright/test` and the Playwright image in `frontend/Dockerfile.test` move together, by hand.
 
 Run on demand ("Run workflow", on any branch), it can instead run one targeted loop, for checking a fix where Docker is not available:
 
