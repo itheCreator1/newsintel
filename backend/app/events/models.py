@@ -22,6 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.articles.models import Article  # noqa: F401
 from app.clustering.models import StoryCluster  # noqa: F401
+from app.core.ids import uuid7
 from app.db.base import Base
 from app.entities.models import Entity  # noqa: F401
 
@@ -53,7 +54,7 @@ class Event(Base):
         CheckConstraint("ended_at >= started_at", name="ck_events_span"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     algorithm_version: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), default="active", server_default="active")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -132,7 +133,7 @@ class EventAssociationRun(Base):
     __tablename__ = "event_association_runs"
     __table_args__ = (Index("ix_event_association_runs_started", "started_at"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sweep: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))

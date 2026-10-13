@@ -16,6 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 # The values each status column holds; the CHECKs below and migration 0004 are built from them.
@@ -28,7 +29,7 @@ class StoryCluster(Base):
 
     __tablename__ = "story_clusters"
     __table_args__ = (Index("ix_story_clusters_recency", "last_published_at", "id"),)
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     algorithm_version: Mapped[str] = mapped_column(String(64))
     article_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     source_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
@@ -65,7 +66,7 @@ class ArticleClusterState(Base):
         UniqueConstraint("article_id", name="uq_article_cluster_state"),
         CheckConstraint(one_of("status", STATE_STATUSES), name="ck_article_cluster_state_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     requested_generation: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     completed_generation: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
@@ -86,7 +87,7 @@ class ClusterJob(Base):
         Index("ix_cluster_jobs_completed", "completed_at"),
         CheckConstraint(one_of("status", JOB_STATUSES), name="ck_cluster_jobs_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     state_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("article_cluster_state.id", ondelete="CASCADE")
     )

@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 # Every type a root can be shown as. NER writes all but TOPIC; the user may pick any.
@@ -99,7 +100,7 @@ class Entity(Base):
             postgresql_ops={"normalized_text": "gin_trgm_ops"},
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     language: Mapped[str] = mapped_column(String(16))
     # The model's type: part of the identity NER finds the name by, so it never changes. The
     # user's own type goes in preferred_type, which NLP never writes; `kind` is the one to show.
@@ -188,7 +189,7 @@ class EntityAuthorityChange(Base):
         ),
         Index("ix_entity_authority_changes_entity", "entity_id", "created_at"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     action: Mapped[str] = mapped_column(String(32))
     entity_id: Mapped[uuid.UUID]
     other_id: Mapped[uuid.UUID | None]
@@ -214,7 +215,7 @@ class EntityAuthorityRun(Base):
             name="ck_entity_authority_run_status",
         ),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     kind: Mapped[str] = mapped_column(String(16))
     entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))
     cursor: Mapped[str | None] = mapped_column(Text)
@@ -255,7 +256,7 @@ class EntityRelation(Base):
         ),
         Index("ix_entity_relations_object", "object_id"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
     relation_type: Mapped[str] = mapped_column(String(24))
     object_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))

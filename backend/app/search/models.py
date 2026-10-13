@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 # The values each status column holds; the CHECKs below and migration 0004 are built from them.
@@ -39,7 +40,7 @@ class SearchIndexTarget(Base):
     __table_args__ = (
         CheckConstraint(one_of("role", TARGET_ROLES), name="ck_search_index_targets_role"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     index_name: Mapped[str] = mapped_column(String(255), unique=True)
     schema_version: Mapped[int] = mapped_column(Integer)
     role: Mapped[str] = mapped_column(String(24))
@@ -54,7 +55,7 @@ class SearchDelivery(Base):
         Index("ix_search_deliveries_updated_at", "updated_at"),
         CheckConstraint(one_of("status", QUEUE_STATUSES), name="ck_search_deliveries_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     target_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("search_index_targets.id", ondelete="CASCADE")
@@ -81,7 +82,7 @@ class SearchRebuild(Base):
         Index("uq_search_rebuild_active", "active_key", unique=True),
         CheckConstraint(one_of("status", REBUILD_STATUSES), name="ck_search_rebuilds_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     target_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("search_index_targets.id", ondelete="RESTRICT")
     )
@@ -103,7 +104,7 @@ class SourceSearchRefresh(Base):
         Index("ix_source_search_refresh_due", "status", "next_attempt_at"),
         CheckConstraint(one_of("status", QUEUE_STATUSES), name="ck_source_search_refreshes_status"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     status: Mapped[str] = mapped_column(String(24), default="queued")
     article_cursor: Mapped[uuid.UUID | None]

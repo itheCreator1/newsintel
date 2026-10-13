@@ -6,6 +6,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, St
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base
 
 
@@ -18,7 +19,7 @@ class SavedSearch(Base):
         CheckConstraint("state_version > 0", name="ck_saved_searches_state_version"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(120))
     state_version: Mapped[int] = mapped_column(Integer)

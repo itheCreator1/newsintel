@@ -5,6 +5,7 @@ from sqlalchemy import CheckConstraint, DateTime, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.ids import uuid7
 from app.db.base import Base, one_of
 
 KINDS = ("retention",)
@@ -21,7 +22,7 @@ class MaintenanceRun(Base):
         Index("ix_maintenance_runs_kind_started", "kind", "started_at"),
         CheckConstraint(one_of("kind", KINDS), name="ck_maintenance_runs_kind"),
     )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid7)
     kind: Mapped[str] = mapped_column(String(32))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
