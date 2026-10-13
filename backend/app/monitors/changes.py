@@ -29,8 +29,8 @@ TOP = 10
 EVIDENCE = 3
 # A story "grew" when this many distinct sources joined it inside the window.
 MATERIAL_SOURCE_GROWTH = 2
-# Index schema that first carries each kind: entities in v2, story clusters in v3.
-KINDS = {"sources": 1, "entities": 2, "stories": 3}
+# What a change report breaks the window down by.
+KINDS = ("sources", "entities", "stories")
 _NESTED = {
     "sources": ("provenance", "provenance.source_id"),
     "entities": ("entities", "entities.id"),
@@ -54,11 +54,11 @@ class Labels:
     clusters: dict[str, str | None]
 
 
-def _aggs(schema_version: int, include: dict[str, list[str]] | None) -> dict[str, Any]:
+def _aggs(include: dict[str, list[str]] | None) -> dict[str, Any]:
     aggs: dict[str, Any] = {}
-    for name, needs in KINDS.items():
+    for name in KINDS:
         keys = include.get(name) if include is not None else None
-        if schema_version < needs or (include is not None and not keys):
+        if include is not None and not keys:
             continue
         field = _NESTED[name][1] if name in _NESTED else "story_cluster_id"
         terms: dict[str, Any] = {
@@ -89,19 +89,19 @@ def _aggs(schema_version: int, include: dict[str, list[str]] | None) -> dict[str
 
 
 def window_agg_body(
-    query: dict[str, Any], after: datetime | None, upto: datetime, schema_version: int
+    query: dict[str, Any], after: datetime | None, upto: datetime
 ) -> dict[str, Any]:
     """Top keys per kind among matches first discovered in `(after, upto]`, with sample articles."""
     return {
         "size": 0,
         "track_total_hits": True,
         "query": window_filter(query, after, upto),
-        "aggs": _aggs(schema_version, None),
+        "aggs": _aggs(None),
     }
 
 
 def prior_body(
-    query: dict[str, Any], before: datetime, candidates: dict[str, list[str]], schema_version: int
+    query: dict[str, Any], before: datetime, candidates: dict[str, list[str]]
 ) -> dict[str, Any]:
     """Which of the candidate keys the monitor had already matched at or before `before`."""
     # ponytail: scans this monitor's whole match history (`include` bounds buckets, not documents);
@@ -110,7 +110,7 @@ def prior_body(
         "size": 0,
         "track_total_hits": False,
         "query": window_filter(query, None, before),
-        "aggs": _aggs(schema_version, candidates),
+        "aggs": _aggs(candidates),
     }
 
 
@@ -254,20 +254,16 @@ async def monitor_changes(db: AsyncSession, item: Monitor) -> MonitorChanges:
             status.HTTP_409_CONFLICT, {"code": "invalid_monitor_state", "message": problem}
         )
     criteria = await search_criteria(db, **criteria_params(state))
-    index_name, schema_version = await current_search_target(db, criteria)
-    query = build_query(criteria, schema_version)
+    index_name = await current_search_target(db)
+    query = build_query(criteria)
     adapter = ElasticsearchAdapter(get_settings().elasticsearch_url)
     try:
-        current = await adapter.search_index(
-            index_name, window_agg_body(query, after, upto, schema_version)
-        )
+        current = await adapter.search_index(index_name, window_agg_body(query, after, upto))
         found = {name: parse_found(current, name) for name in KINDS}
         candidates = {name: [f.key for f in items] for name, (items, _) in found.items()}
         prior: dict[str, Any] = {}
         if any(candidates.values()):
-            prior = await adapter.search_index(
-                index_name, prior_body(query, after, candidates, schema_version)
-            )
+            prior = await adapter.search_index(index_name, prior_body(query, after, candidates))
     except ElasticsearchUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
     return build_changes(

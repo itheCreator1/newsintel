@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
+import { errorCode } from '../lib/filter-ui'
 
 /** Articles worded like this one, outside its story: text similarity, not story membership. */
 export function RelatedCoveragePanel({ articleId, hrefFor }: { articleId: string; hrefFor: (id: string) => string }) {
@@ -14,7 +15,7 @@ export function RelatedCoveragePanel({ articleId, hrefFor }: { articleId: string
       <h4 id="related-coverage-heading" className="text-sm font-semibold text-foreground">Related coverage</h4>
       <p className="text-sm text-muted-foreground">Other articles with similar wording, outside this article&apos;s story. Similar wording is not a confirmed connection.</p>
       {related.isPending && <p className="text-sm text-muted-foreground">Finding related coverage…</p>}
-      {related.isError && <p className="error text-sm text-destructive">{related.error instanceof ApiError && related.error.status === 409 ? related.error.message : 'Related coverage is unavailable right now.'}</p>}
+      {related.isError && <p className="error text-sm text-destructive">{errorCode(related.error) === 'search_upgrade_required' ? related.error.message : 'Related coverage is unavailable right now.'}</p>}
       {related.data && !items.length && <p className="text-sm text-muted-foreground">No other coverage with similar wording.</p>}
       {items.length > 0 && (
         <ul className="list-none pl-0 flex flex-col gap-1">

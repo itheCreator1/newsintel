@@ -35,7 +35,7 @@ beforeEach(() => {
   // A set-up archive: the getting-started checklist and the entity notice stay hidden.
   vi.mocked(api.feeds).mockResolvedValue({ items: [{} as never], next_cursor: null })
   vi.mocked(api.articles).mockResolvedValue({ items: [{} as never], next_cursor: null })
-  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: true })
+  vi.mocked(api.indexingStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: true, rebuild_needed: false })
   vi.mocked(api.nlpStatus).mockResolvedValue({ queued: 0, running: 0, retrying: 0, failed: 0, capabilities: [{ name: 'entities', state: 'available', detail: null, version: '3.8' }], reprocessing: [] })
 })
 afterEach(cleanup)

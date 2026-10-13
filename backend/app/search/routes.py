@@ -20,7 +20,14 @@ from app.feeds.models import Feed
 from app.feeds.service import encode_cursor
 from app.marks.service import with_marks, with_result_marks
 from app.search.aggregations import date_histogram
-from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
+from app.search.criteria import (
+    SearchCriteria,
+    build_query,
+    current_search_target,
+    live_index,
+    rebuild_needed,
+    search_criteria,
+)
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 from app.search.facets import MAX_FACET_BUCKETS, search_facets
 from app.search.models import SearchDelivery, SearchIndexTarget
@@ -135,15 +142,14 @@ async def search_articles(
                     409, {"code": "restart_search", "message": "Search snapshot expired"}
                 )
             pit_id, search_after = cursor_data["pit"], cursor_data["after"]
-            schema_version = int(cursor_data.get("schema", 1))
         else:
-            index_name, schema_version = await current_search_target(db, criteria)
+            index_name = await current_search_target(db)
             pit_id = await adapter.open_point_in_time(index_name)
         sort_clause = _sort_clause(sort)
         body: dict[str, Any] = {
             "size": limit + 1,  # the extra hit reveals whether a page follows
             "pit": {"id": pit_id, "keep_alive": "5m"},
-            "query": build_query(criteria, schema_version),
+            "query": build_query(criteria),
             "sort": sort_clause,
             "_source": RESULT_FIELDS,
             "highlight": {
@@ -151,7 +157,8 @@ async def search_articles(
                     "title": {},
                     "descriptions": {},
                     "body": {},
-                    **({"entity_text": {}, "keyword_text": {}} if schema_version >= 2 else {}),
+                    "entity_text": {},
+                    "keyword_text": {},
                 },
                 "pre_tags": ["\ue000"],
                 "post_tags": ["\ue001"],
@@ -189,7 +196,6 @@ async def search_articles(
             "session": str(session.id),
             "criteria": criteria_hash,
             "expires": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
-            "schema": schema_version,
         }
         next_cursor = sign_cursor(payload, settings.secret_key)
     return SearchPage(items=items, next_cursor=next_cursor)
@@ -208,9 +214,9 @@ async def search_export(
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     ids: list[uuid.UUID] = []
     try:
-        index_name, schema_version = await current_search_target(db, criteria)
+        index_name = await current_search_target(db)
         pit_id = await adapter.open_point_in_time(index_name)
-        query = build_query(criteria, schema_version)
+        query = build_query(criteria)
         search_after: list[Any] | None = None
         while len(ids) < EXPORT_LIMIT:
             body: dict[str, Any] = {
@@ -249,8 +255,8 @@ async def search_timeline(
 ) -> SearchTimeline:
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
-        index_name, schema_version = await current_search_target(db, criteria)
-        query = build_query(criteria, schema_version)
+        index_name = await current_search_target(db)
+        query = build_query(criteria)
         extent = await adapter.search_index(
             index_name,
             {
@@ -312,10 +318,8 @@ async def search_facet_counts(
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
         # Keyword, entity and country groups need V2 fields and story clusters need V3.
-        index_name, schema_version = await current_search_target(db, criteria, minimum=3)
-        return await search_facets(
-            db, adapter, index_name, build_query(criteria, schema_version), limit
-        )
+        index_name = await current_search_target(db)
+        return await search_facets(db, adapter, index_name, build_query(criteria), limit)
     except ElasticsearchUnavailable as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
 
@@ -349,13 +353,12 @@ async def indexing_status(db: Db, _auth: Auth) -> IndexStatus:
     ).all()
     counts = {name: count for name, count in rows}
     rebuilds = await rebuild_status()
-    current = await db.scalar(
-        select(SearchIndexTarget.id).where(SearchIndexTarget.role == "current").limit(1)
-    )
+    current = await live_index(db)
     return IndexStatus(
         **{name: counts.get(name, 0) for name in ("queued", "running", "retrying", "failed")},
         active_rebuild=next((row for row in rebuilds if row["status"] != "completed"), None),
         index_ready=current is not None,
+        rebuild_needed=rebuild_needed(current),
     )
 
 

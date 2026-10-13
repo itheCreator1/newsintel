@@ -4315,6 +4315,11 @@ export interface components {
              * @default false
              */
             index_ready: boolean;
+            /**
+             * Rebuild Needed
+             * @default false
+             */
+            rebuild_needed: boolean;
         };
         /** IngestionTimelineBucket */
         IngestionTimelineBucket: {

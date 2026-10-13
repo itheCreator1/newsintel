@@ -6,7 +6,7 @@ import { EntityExtractionNotice, GettingStarted } from './GettingStarted'
 
 vi.mock('../lib/api', async importOriginal => ({ ...(await importOriginal<typeof import('../lib/api')>()), api: { feeds: vi.fn(), articles: vi.fn(), indexingStatus: vi.fn(), nlpStatus: vi.fn() } }))
 
-const indexStatus = (ready: boolean) => ({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: ready })
+const indexStatus = (ready: boolean) => ({ queued: 0, running: 0, retrying: 0, failed: 0, active_rebuild: null, index_ready: ready, rebuild_needed: false })
 const nlpStatus = (state: string, detail: string | null = null) => ({ queued: 0, running: 0, retrying: 0, failed: 0, capabilities: [{ name: 'entities', state, detail, version: null }], reprocessing: [] })
 
 beforeEach(() => {

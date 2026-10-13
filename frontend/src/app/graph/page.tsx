@@ -128,7 +128,7 @@ function GraphContent() {
   } : null
   const articles = useQuery({ queryKey: ['entity-graph-articles', articleCriteria], queryFn: () => api.search(articleCriteria!), enabled: Boolean(articleCriteria), retry: false })
   const graphError = graph.error instanceof ApiError ? graph.error : null
-  const upgradeRequired = graphError?.status === 409 && errorCode(graphError) === 'search_upgrade_required'
+  const upgradeRequired = errorCode(graphError) === 'search_upgrade_required'
 
   function navigate(next: Investigation, extra: { focus?: string; selected?: string; expand?: string[]; nodes?: number; minWeight?: number; edge?: string; stated?: boolean } = {}) {
     const query = queryFromState(next)
@@ -212,7 +212,7 @@ function GraphContent() {
           {graph.isError && (
             <ErrorNotice
               message={upgradeRequired ? 'Search upgrade required. Rebuild the search index to use the entity graph.' : graphError?.status === 503 ? 'The entity graph is temporarily unavailable.' : 'Could not load the entity graph.'}
-              onRetry={!upgradeRequired && isTransient(graph.error) ? () => void graph.refetch() : undefined} retrying={graph.isFetching}
+              onRetry={isTransient(graph.error) ? () => void graph.refetch() : undefined} retrying={graph.isFetching}
             />
           )}
           {graph.isSuccess && !nodes.length && (chips.length

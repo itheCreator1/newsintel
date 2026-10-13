@@ -18298,6 +18298,11 @@
             "type": "boolean",
             "title": "Index Ready",
             "default": false
+          },
+          "rebuild_needed": {
+            "type": "boolean",
+            "title": "Rebuild Needed",
+            "default": false
           }
         },
         "type": "object",

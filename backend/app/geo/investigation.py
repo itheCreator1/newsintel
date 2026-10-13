@@ -28,9 +28,6 @@ from app.search.aggregations import ORDER, ROOT_ORDER, ensure_complete
 from app.search.criteria import SearchCriteria, build_query, current_search_target
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 
-# Stories count distinct `story_cluster_id`, a schema 3 field; the floor is explicit because
-# empty criteria never trip `current_search_target`'s own annotation checks.
-SCHEMA_FLOOR = 3
 # ponytail: no truncation flag, ~250 ISO codes fit; add one if codes ever outgrow the cap.
 MAX_COUNTRIES = 300
 # Cardinality is near-exact below this many distinct values per country, approximate above.
@@ -133,10 +130,10 @@ def _midnight(day: date | None) -> datetime | None:
 async def countries(
     db: AsyncSession, adapter: ElasticsearchAdapter, role: ArticleRole, criteria: SearchCriteria
 ) -> GeoCountriesResponse:
-    index_name, schema_version = await current_search_target(db, criteria, minimum=SCHEMA_FLOOR)
+    index_name = await current_search_target(db)
     try:
         response = await adapter.search_index(
-            index_name, countries_body(role, build_query(criteria, schema_version))
+            index_name, countries_body(role, build_query(criteria))
         )
         ensure_complete(response)
     except ElasticsearchUnavailable as exc:
@@ -212,13 +209,13 @@ async def articles(
             raise HTTPException(422, "Map cursor does not match this session, country or view")
         if datetime.fromisoformat(data["expires"]) <= datetime.now(UTC):
             raise _restart()
-        pit_id, after, schema_version = data["pit"], data["after"], int(data["schema"])
+        pit_id, after = data["pit"], data["after"]
     else:
-        index_name, schema_version = await current_search_target(db, criteria, minimum=SCHEMA_FLOOR)
+        index_name = await current_search_target(db)
     try:
         if not cursor:
             pit_id = await adapter.open_point_in_time(index_name)
-        query = build_query(criteria, schema_version)
+        query = build_query(criteria)
         # ponytail: no ensure_complete() here, unlike the counts request above. A shard failure
         # silently drops evidence rows (not just a count), and len(found) <= limit below can then
         # end paging early, closing the PIT on what looks like the last page. Upgrade path: call
@@ -251,7 +248,6 @@ async def articles(
             "criteria": binding,
             "pit": pit_id,
             "after": hits[-1]["sort"],
-            "schema": schema_version,
             "expires": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
         }
         next_cursor = sign_cursor(payload, secret)

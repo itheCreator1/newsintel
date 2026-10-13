@@ -100,8 +100,8 @@ async def monitor_results(
             status.HTTP_409_CONFLICT, {"code": "invalid_monitor_state", "message": problem}
         )
     criteria = await search_criteria(db, **criteria_params(state))
-    index_name, schema_version = await current_search_target(db, criteria)
-    body = results_body(build_query(criteria, schema_version), after, upto, limit, search_after)
+    index_name = await current_search_target(db)
+    body = results_body(build_query(criteria), after, upto, limit, search_after)
     try:
         response = await ElasticsearchAdapter(get_settings().elasticsearch_url).search_index(
             index_name, body
