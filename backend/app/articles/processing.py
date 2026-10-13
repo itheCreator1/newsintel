@@ -6,6 +6,7 @@ import httpx
 import structlog
 from sqlalchemy import select
 
+from app.articles.enrichment import lock_article, mark_enriched
 from app.articles.extraction import EmptyExtraction, TrafilaturaExtractor
 from app.articles.models import (
     Article,
@@ -108,6 +109,9 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         else:
             job.status = "failed"
             job.completed_at = now
+            # The full text will not come; the article is complete once its NLP is.
+            await lock_article(db, job.article_id)
+            await mark_enriched(db, job.article_id, now)
         await request_indexing(db, job.article_id)
 
 
@@ -272,6 +276,8 @@ async def process_claim(job_id: uuid.UUID, token: str) -> None:  # noqa: C901
             job.claim_expires_at = None
             job.temporary_html_key = None
             await request_article_nlp(db, job.article_id)
+            # Unchanged text queues no NLP again, so the article may be complete now.
+            await mark_enriched(db, job.article_id, now)
             await request_indexing(db, job.article_id)
         if not retained_key:
             delete_after_commit(storage, temporary_key, article_id=str(job.article_id))

@@ -52,6 +52,8 @@ class Article(Base):
     first_discovered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # When every processing step had finished (articles/enrichment.py); watches count from here.
+    enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     discoveries: Mapped[list["FeedArticle"]] = relationship(back_populates="article")
     content: Mapped["ArticleContent | None"] = relationship(back_populates="article")
     processing_jobs: Mapped[list["ArticleProcessingJob"]] = relationship(back_populates="article")

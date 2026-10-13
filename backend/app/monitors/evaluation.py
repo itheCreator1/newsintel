@@ -48,7 +48,7 @@ class Window:
     unseen_clusters: int | None = None
     latest_match_at: datetime | None = None
     latest_match_article_id: uuid.UUID | None = None
-    # Matches never announced before: discovered after both cursors and the last announcement.
+    # Matches never announced before: completed after both cursors and the last announcement.
     new_articles: int = 0
 
 
@@ -68,10 +68,13 @@ def criteria_params(state: InvestigationState) -> dict[str, Any]:
 
 
 def window_filter(query: dict[str, Any], after: datetime | None, upto: datetime) -> dict[str, Any]:
+    """Matches completed in `(after, upto]`: an article counts once, when every processing step
+    has finished, so entities that arrive late still reach a watch. One still being processed
+    has no `enriched_at` and waits for a later window."""
     bounds = {"lte": upto.isoformat()}
     if after is not None:
         bounds["gt"] = after.isoformat()
-    return {"bool": {"filter": [query, {"range": {"first_discovered_at": bounds}}]}}
+    return {"bool": {"filter": [query, {"range": {"enriched_at": bounds}}]}}
 
 
 def window_body(
@@ -82,7 +85,7 @@ def window_body(
     clusters: bool,
     size: int = 1,
 ) -> dict[str, Any]:
-    """Count (and at most one hit) for matches first discovered in `(after, upto]`."""
+    """Count (and at most one hit) for matches completed in `(after, upto]`."""
     body: dict[str, Any] = {
         "size": size,
         "track_total_hits": True,
