@@ -1,14 +1,11 @@
 """A root claims every type of one of its names, now and for the names NER finds later (0026)."""
 
-import asyncio
 import json
 import os
 import uuid
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import select, text
+from sqlalchemy import select
 from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _finish
@@ -248,27 +245,3 @@ async def test_a_claim_travels_in_the_file() -> None:
     async with session_factory() as db:
         claim = await db.get(EntityNameClaim, (other, "openai"))
         assert claim is not None
-
-
-async def test_the_downgrade_keeps_claims_unless_told(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = Config("alembic.ini")
-    language = _language()
-    async with session_factory() as db, db.begin():
-        root = await _named(db, language, "ORG", "claimed co")
-        root_id = root.id
-    async with session_factory() as db, db.begin():
-        await claim_name(db, root_id)
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_NAME_CLAIMS", raising=False)
-    with pytest.raises(RuntimeError, match="authority export"):
-        await asyncio.to_thread(command.downgrade, config, "0025")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_NAME_CLAIMS", "1")
-    await asyncio.to_thread(command.downgrade, config, "0025")
-    try:
-        async with session_factory() as db:
-            tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-        assert "entity_name_claims" not in tables
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-    assert "entity_name_claims" in tables

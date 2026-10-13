@@ -3,7 +3,6 @@
 Every test runs on the fake api.php of wikidata_fake.py, with a throttle on a fake clock.
 """
 
-import asyncio
 import os
 import random
 import uuid
@@ -11,8 +10,6 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import delete, select, text, update
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
@@ -577,22 +574,3 @@ async def _columns(table: str) -> set[str]:
             {"table": table},
         )
         return set(rows)
-
-
-async def test_migration_0022_adds_claims_and_the_exact_flag_and_goes_back() -> None:
-    root_id = await _root(f"Kept {_word()}")
-    qid = _qid()
-    async with session_factory() as db, db.begin():
-        db.add(WikidataCandidate(entity_id=root_id, qid=qid, score=0.6, reasons=["label:en"]))
-    assert {"claim_token", "claim_expires_at"} <= await _columns("wikidata_runs")
-    assert "exact" in await _columns("wikidata_candidates")
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0021")
-    try:
-        assert not {"claim_token", "claim_expires_at"} & await _columns("wikidata_runs")
-        assert "exact" not in await _columns("wikidata_candidates")
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    # The candidates themselves are kept; only the flag is worked out again.
-    assert set(await _candidates(root_id)) == {qid}

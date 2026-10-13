@@ -1,0 +1,811 @@
+column article_cluster_state.algorithm_version character varying(64) not_null=t default= identity= generated=
+column article_cluster_state.article_id uuid not_null=t default= identity= generated=
+column article_cluster_state.completed_generation integer not_null=t default=0 identity= generated=
+column article_cluster_state.id uuid not_null=t default= identity= generated=
+column article_cluster_state.requested_generation integer not_null=t default=1 identity= generated=
+column article_cluster_state.status character varying(24) not_null=t default='queued'::character varying identity= generated=
+column article_cluster_state.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_cluster_terms.article_id uuid not_null=t default= identity= generated=
+column article_cluster_terms.effective_at timestamp with time zone not_null=t default= identity= generated=
+column article_cluster_terms.term character varying(64) not_null=t default= identity= generated=
+column article_contents.article_id uuid not_null=t default= identity= generated=
+column article_contents.change_count integer not_null=t default= identity= generated=
+column article_contents.content_hash character varying(64) not_null=t default= identity= generated=
+column article_contents.extracted_at timestamp with time zone not_null=t default= identity= generated=
+column article_contents.extractor_name character varying(64) not_null=t default= identity= generated=
+column article_contents.extractor_version character varying(32) not_null=t default= identity= generated=
+column article_contents.html_object_key character varying(64) not_null=f default= identity= generated=
+column article_contents.last_content_change_at timestamp with time zone not_null=t default= identity= generated=
+column article_contents.previous_content_hash character varying(64) not_null=f default= identity= generated=
+column article_contents.text text not_null=t default= identity= generated=
+column article_country_annotations.article_id uuid not_null=t default= identity= generated=
+column article_country_annotations.country_code character varying(2) not_null=t default= identity= generated=
+column article_country_annotations.id uuid not_null=t default= identity= generated=
+column article_country_annotations.inferred boolean not_null=t default=false identity= generated=
+column article_country_annotations.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_country_annotations.is_current boolean not_null=t default=true identity= generated=
+column article_country_annotations.occurrence_count integer not_null=t default= identity= generated=
+column article_country_annotations.occurrences jsonb not_null=t default= identity= generated=
+column article_country_annotations.role character varying(24) not_null=t default= identity= generated=
+column article_country_annotations.rule_version character varying(128) not_null=t default= identity= generated=
+column article_country_annotations.run_id uuid not_null=t default= identity= generated=
+column article_language_annotations.article_id uuid not_null=t default= identity= generated=
+column article_language_annotations.confidence double precision not_null=t default= identity= generated=
+column article_language_annotations.id uuid not_null=t default= identity= generated=
+column article_language_annotations.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_language_annotations.is_current boolean not_null=t default=true identity= generated=
+column article_language_annotations.language character varying(16) not_null=t default= identity= generated=
+column article_language_annotations.margin double precision not_null=t default= identity= generated=
+column article_language_annotations.run_id uuid not_null=t default= identity= generated=
+column article_marks.article_id uuid not_null=t default= identity= generated=
+column article_marks.note text not_null=f default= identity= generated=
+column article_marks.read_at timestamp with time zone not_null=f default= identity= generated=
+column article_marks.starred boolean not_null=t default=false identity= generated=
+column article_marks.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_nlp_entities.article_id uuid not_null=t default= identity= generated=
+column article_nlp_entities.entity_id uuid not_null=t default= identity= generated=
+column article_nlp_entities.id uuid not_null=t default= identity= generated=
+column article_nlp_entities.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_nlp_entities.is_current boolean not_null=t default=true identity= generated=
+column article_nlp_entities.observed_entity_id uuid not_null=f default= identity= generated=
+column article_nlp_entities.occurrence_count integer not_null=t default= identity= generated=
+column article_nlp_entities.occurrences jsonb not_null=t default= identity= generated=
+column article_nlp_entities.original_label character varying(64) not_null=f default= identity= generated=
+column article_nlp_entities.relevance double precision not_null=t default= identity= generated=
+column article_nlp_entities.run_id uuid not_null=t default= identity= generated=
+column article_nlp_keywords.article_id uuid not_null=t default= identity= generated=
+column article_nlp_keywords.id uuid not_null=t default= identity= generated=
+column article_nlp_keywords.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_nlp_keywords.is_current boolean not_null=t default=true identity= generated=
+column article_nlp_keywords.keyword_id uuid not_null=t default= identity= generated=
+column article_nlp_keywords.occurrence_count integer not_null=t default= identity= generated=
+column article_nlp_keywords.occurrences jsonb not_null=t default= identity= generated=
+column article_nlp_keywords.raw_score double precision not_null=t default= identity= generated=
+column article_nlp_keywords.relevance double precision not_null=t default= identity= generated=
+column article_nlp_keywords.run_id uuid not_null=t default= identity= generated=
+column article_nlp_states.article_id uuid not_null=t default= identity= generated=
+column article_nlp_states.completed_generation integer not_null=t default=0 identity= generated=
+column article_nlp_states.configuration_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_nlp_states.id uuid not_null=t default= identity= generated=
+column article_nlp_states.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column article_nlp_states.processor_name character varying(64) not_null=t default= identity= generated=
+column article_nlp_states.processor_version character varying(64) not_null=t default= identity= generated=
+column article_nlp_states.requested_generation integer not_null=t default=1 identity= generated=
+column article_nlp_states.status character varying(24) not_null=t default='queued'::character varying identity= generated=
+column article_nlp_states.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_processing_attempts.attempt_number integer not_null=t default= identity= generated=
+column article_processing_attempts.completed_at timestamp with time zone not_null=f default= identity= generated=
+column article_processing_attempts.error_category character varying(64) not_null=f default= identity= generated=
+column article_processing_attempts.error_message text not_null=f default= identity= generated=
+column article_processing_attempts.http_status integer not_null=f default= identity= generated=
+column article_processing_attempts.id uuid not_null=t default= identity= generated=
+column article_processing_attempts.job_id uuid not_null=t default= identity= generated=
+column article_processing_attempts.stage character varying(16) not_null=t default= identity= generated=
+column article_processing_attempts.started_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_processing_attempts.status character varying(24) not_null=t default= identity= generated=
+column article_processing_jobs.article_id uuid not_null=t default= identity= generated=
+column article_processing_jobs.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column article_processing_jobs.claim_token character varying(64) not_null=f default= identity= generated=
+column article_processing_jobs.completed_at timestamp with time zone not_null=f default= identity= generated=
+column article_processing_jobs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_processing_jobs.error_category character varying(64) not_null=f default= identity= generated=
+column article_processing_jobs.error_message text not_null=f default= identity= generated=
+column article_processing_jobs.id uuid not_null=t default= identity= generated=
+column article_processing_jobs.next_attempt_at timestamp with time zone not_null=t default=now() identity= generated=
+column article_processing_jobs.requested_mode character varying(24) not_null=t default= identity= generated=
+column article_processing_jobs.stage character varying(16) not_null=t default= identity= generated=
+column article_processing_jobs.started_at timestamp with time zone not_null=f default= identity= generated=
+column article_processing_jobs.status character varying(24) not_null=t default= identity= generated=
+column article_processing_jobs.temporary_html_key character varying(64) not_null=f default= identity= generated=
+column article_search_states.article_id uuid not_null=t default= identity= generated=
+column article_search_states.requested_revision integer not_null=t default= identity= generated=
+column article_search_states.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column articles.first_discovered_at timestamp with time zone not_null=t default=now() identity= generated=
+column articles.id uuid not_null=t default= identity= generated=
+column articles.normalized_title_hash character varying(64) not_null=t default= identity= generated=
+column articles.normalized_url text not_null=t default= identity= generated=
+column articles.original_url text not_null=t default= identity= generated=
+column articles.published_at timestamp with time zone not_null=f default= identity= generated=
+column articles.title text not_null=t default= identity= generated=
+column cluster_jobs.algorithm_version character varying(64) not_null=t default= identity= generated=
+column cluster_jobs.article_id uuid not_null=t default= identity= generated=
+column cluster_jobs.attempt_count integer not_null=t default=0 identity= generated=
+column cluster_jobs.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column cluster_jobs.claim_token character varying(64) not_null=f default= identity= generated=
+column cluster_jobs.completed_at timestamp with time zone not_null=f default= identity= generated=
+column cluster_jobs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column cluster_jobs.error_category character varying(64) not_null=f default= identity= generated=
+column cluster_jobs.error_message text not_null=f default= identity= generated=
+column cluster_jobs.generation integer not_null=t default= identity= generated=
+column cluster_jobs.id uuid not_null=t default= identity= generated=
+column cluster_jobs.next_attempt_at timestamp with time zone not_null=t default=now() identity= generated=
+column cluster_jobs.state_id uuid not_null=t default= identity= generated=
+column cluster_jobs.status character varying(24) not_null=t default='queued'::character varying identity= generated=
+column entity_authority_changes.action character varying(32) not_null=t default= identity= generated=
+column entity_authority_changes.after jsonb not_null=f default= identity= generated=
+column entity_authority_changes.before jsonb not_null=f default= identity= generated=
+column entity_authority_changes.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_authority_changes.entity_id uuid not_null=t default= identity= generated=
+column entity_authority_changes.id uuid not_null=t default= identity= generated=
+column entity_authority_changes.other_id uuid not_null=f default= identity= generated=
+column entity_authority_runs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_authority_runs.cursor text not_null=f default= identity= generated=
+column entity_authority_runs.entity_id uuid not_null=t default= identity= generated=
+column entity_authority_runs.finished_at timestamp with time zone not_null=f default= identity= generated=
+column entity_authority_runs.id uuid not_null=t default= identity= generated=
+column entity_authority_runs.kind character varying(16) not_null=t default= identity= generated=
+column entity_authority_runs.status character varying(16) not_null=t default='running'::character varying identity= generated=
+column entity_distinct.a_id uuid not_null=t default= identity= generated=
+column entity_distinct.b_id uuid not_null=t default= identity= generated=
+column entity_distinct.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_external_ids.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_external_ids.entity_id uuid not_null=t default= identity= generated=
+column entity_external_ids.scheme character varying(16) not_null=t default= identity= generated=
+column entity_external_ids.source character varying(16) not_null=t default='user'::character varying identity= generated=
+column entity_external_ids.value text not_null=t default= identity= generated=
+column entity_name_claims.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_name_claims.language character varying(16) not_null=t default= identity= generated=
+column entity_name_claims.normalized_text text not_null=t default= identity= generated=
+column entity_name_claims.root_id uuid not_null=t default= identity= generated=
+column entity_relations.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_relations.id uuid not_null=t default= identity= generated=
+column entity_relations.note text not_null=f default= identity= generated=
+column entity_relations.object_id uuid not_null=t default= identity= generated=
+column entity_relations.relation_type character varying(24) not_null=t default= identity= generated=
+column entity_relations.source_article_id uuid not_null=f default= identity= generated=
+column entity_relations.subject_id uuid not_null=t default= identity= generated=
+column entity_relations.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column entity_relations.valid_from character varying(10) not_null=f default= identity= generated=
+column entity_relations.valid_to character varying(10) not_null=f default= identity= generated=
+column event_association_runs.completed_at timestamp with time zone not_null=t default= identity= generated=
+column event_association_runs.created integer not_null=t default=0 identity= generated=
+column event_association_runs.deleted integer not_null=t default=0 identity= generated=
+column event_association_runs.error_category character varying(64) not_null=f default= identity= generated=
+column event_association_runs.error_message text not_null=f default= identity= generated=
+column event_association_runs.evaluated integer not_null=t default=0 identity= generated=
+column event_association_runs.failed integer not_null=t default=0 identity= generated=
+column event_association_runs.id uuid not_null=t default= identity= generated=
+column event_association_runs.started_at timestamp with time zone not_null=t default= identity= generated=
+column event_association_runs.sweep boolean not_null=t default=false identity= generated=
+column event_clusters.algorithm_version character varying(64) not_null=t default= identity= generated=
+column event_clusters.cluster_id uuid not_null=t default= identity= generated=
+column event_clusters.cluster_updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column event_clusters.event_id uuid not_null=t default= identity= generated=
+column event_clusters.joined_at timestamp with time zone not_null=t default=now() identity= generated=
+column event_clusters.score double precision not_null=t default= identity= generated=
+column event_clusters.signals jsonb not_null=t default='{}'::jsonb identity= generated=
+column event_entities.article_count integer not_null=t default= identity= generated=
+column event_entities.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column event_entities.entity_id uuid not_null=t default= identity= generated=
+column event_entities.event_id uuid not_null=t default= identity= generated=
+column events.algorithm_version character varying(64) not_null=t default= identity= generated=
+column events.article_count integer not_null=t default=0 identity= generated=
+column events.cluster_count integer not_null=t default=0 identity= generated=
+column events.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column events.ended_at timestamp with time zone not_null=f default= identity= generated=
+column events.id uuid not_null=t default= identity= generated=
+column events.primary_country character varying(2) not_null=f default= identity= generated=
+column events.started_at timestamp with time zone not_null=f default= identity= generated=
+column events.status character varying(16) not_null=t default='active'::character varying identity= generated=
+column events.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column feed_articles.article_id uuid not_null=t default= identity= generated=
+column feed_articles.description text not_null=f default= identity= generated=
+column feed_articles.discovered_at timestamp with time zone not_null=t default=now() identity= generated=
+column feed_articles.feed_id uuid not_null=t default= identity= generated=
+column feed_articles.feed_title text not_null=t default= identity= generated=
+column feed_articles.feed_url text not_null=t default= identity= generated=
+column feed_articles.guid text not_null=f default= identity= generated=
+column feed_articles.id uuid not_null=t default= identity= generated=
+column feed_articles.metadata_json json not_null=t default= identity= generated=
+column feed_fetches.attempt_count integer not_null=t default= identity= generated=
+column feed_fetches.claim_token character varying(64) not_null=t default= identity= generated=
+column feed_fetches.completed_at timestamp with time zone not_null=f default= identity= generated=
+column feed_fetches.duration_ms integer not_null=f default= identity= generated=
+column feed_fetches.entry_count integer not_null=t default= identity= generated=
+column feed_fetches.error_category character varying(64) not_null=f default= identity= generated=
+column feed_fetches.error_message text not_null=f default= identity= generated=
+column feed_fetches.etag text not_null=f default= identity= generated=
+column feed_fetches.feed_id uuid not_null=t default= identity= generated=
+column feed_fetches.http_status integer not_null=f default= identity= generated=
+column feed_fetches.id uuid not_null=t default= identity= generated=
+column feed_fetches.invalid_entry_count integer not_null=t default= identity= generated=
+column feed_fetches.last_modified text not_null=f default= identity= generated=
+column feed_fetches.new_article_count integer not_null=t default= identity= generated=
+column feed_fetches.started_at timestamp with time zone not_null=t default=now() identity= generated=
+column feed_fetches.status character varying(24) not_null=t default= identity= generated=
+column feeds.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column feeds.claim_token character varying(64) not_null=f default= identity= generated=
+column feeds.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column feeds.enabled boolean not_null=t default= identity= generated=
+column feeds.etag text not_null=f default= identity= generated=
+column feeds.expected_language character varying(16) not_null=f default= identity= generated=
+column feeds.fetching_mode character varying(16) not_null=t default= identity= generated=
+column feeds.id uuid not_null=t default= identity= generated=
+column feeds.last_modified text not_null=f default= identity= generated=
+column feeds.last_success_at timestamp with time zone not_null=f default= identity= generated=
+column feeds.name character varying(200) not_null=t default= identity= generated=
+column feeds.next_poll_at timestamp with time zone not_null=t default=now() identity= generated=
+column feeds.poll_interval_minutes integer not_null=t default= identity= generated=
+column feeds.retired_at timestamp with time zone not_null=f default= identity= generated=
+column feeds.source_country character varying(2) not_null=f default= identity= generated=
+column feeds.tags json not_null=t default= identity= generated=
+column feeds.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column feeds.url text not_null=t default= identity= generated=
+column login_failures.failures integer not_null=t default= identity= generated=
+column login_failures.first_failed_at timestamp with time zone not_null=t default= identity= generated=
+column login_failures.locked_until timestamp with time zone not_null=f default= identity= generated=
+column login_failures.username character varying(128) not_null=t default= identity= generated=
+column maintenance_runs.deleted jsonb not_null=f default= identity= generated=
+column maintenance_runs.error_message text not_null=f default= identity= generated=
+column maintenance_runs.finished_at timestamp with time zone not_null=f default= identity= generated=
+column maintenance_runs.id uuid not_null=t default= identity= generated=
+column maintenance_runs.kind character varying(32) not_null=t default= identity= generated=
+column maintenance_runs.started_at timestamp with time zone not_null=t default= identity= generated=
+column monitors.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column monitors.claim_token character varying(64) not_null=f default= identity= generated=
+column monitors.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column monitors.enabled boolean not_null=t default=true identity= generated=
+column monitors.error_category character varying(64) not_null=f default= identity= generated=
+column monitors.error_message text not_null=f default= identity= generated=
+column monitors.eval_cursor_article_id uuid not_null=f default= identity= generated=
+column monitors.eval_cursor_at timestamp with time zone not_null=f default= identity= generated=
+column monitors.id uuid not_null=t default= identity= generated=
+column monitors.kind character varying(16) not_null=t default= identity= generated=
+column monitors.last_evaluated_at timestamp with time zone not_null=f default= identity= generated=
+column monitors.latest_match_article_id uuid not_null=f default= identity= generated=
+column monitors.latest_match_at timestamp with time zone not_null=f default= identity= generated=
+column monitors.name character varying(120) not_null=t default= identity= generated=
+column monitors.next_evaluation_at timestamp with time zone not_null=t default=now() identity= generated=
+column monitors.notified_through timestamp with time zone not_null=f default= identity= generated=
+column monitors.notify boolean not_null=t default=true identity= generated=
+column monitors.pending_notification_articles integer not_null=t default=0 identity= generated=
+column monitors.saved_search_id uuid not_null=f default= identity= generated=
+column monitors.state jsonb not_null=t default= identity= generated=
+column monitors.state_version integer not_null=t default= identity= generated=
+column monitors.unseen_article_count integer not_null=t default=0 identity= generated=
+column monitors.unseen_cluster_count integer not_null=t default=0 identity= generated=
+column monitors.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column monitors.user_id uuid not_null=t default= identity= generated=
+column monitors.viewed_cursor_article_id uuid not_null=f default= identity= generated=
+column monitors.viewed_cursor_at timestamp with time zone not_null=f default= identity= generated=
+column nlp_entities.ambiguous boolean not_null=t default=false identity= generated=
+column nlp_entities.authority_id uuid not_null=f default= identity= generated=
+column nlp_entities.display_text text not_null=t default= identity= generated=
+column nlp_entities.entity_type character varying(32) not_null=t default= identity= generated=
+column nlp_entities.hidden boolean not_null=t default=false identity= generated=
+column nlp_entities.id uuid not_null=t default= identity= generated=
+column nlp_entities.language character varying(16) not_null=t default= identity= generated=
+column nlp_entities.name_source character varying(16) not_null=t default='ner'::character varying identity= generated=
+column nlp_entities.normalized_text text not_null=t default= identity= generated=
+column nlp_entities.note text not_null=f default= identity= generated=
+column nlp_entities.preferred_text text not_null=f default= identity= generated=
+column nlp_entities.preferred_type character varying(32) not_null=f default= identity= generated=
+column nlp_entities.status character varying(16) not_null=t default='provisional'::character varying identity= generated=
+column nlp_jobs.article_id uuid not_null=t default= identity= generated=
+column nlp_jobs.attempt_count integer not_null=t default=0 identity= generated=
+column nlp_jobs.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column nlp_jobs.claim_token character varying(64) not_null=f default= identity= generated=
+column nlp_jobs.completed_at timestamp with time zone not_null=f default= identity= generated=
+column nlp_jobs.configuration_fingerprint character varying(64) not_null=t default= identity= generated=
+column nlp_jobs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_jobs.error_category character varying(64) not_null=f default= identity= generated=
+column nlp_jobs.error_message text not_null=f default= identity= generated=
+column nlp_jobs.generation integer not_null=t default= identity= generated=
+column nlp_jobs.id uuid not_null=t default= identity= generated=
+column nlp_jobs.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column nlp_jobs.next_attempt_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_jobs.processor_name character varying(64) not_null=t default= identity= generated=
+column nlp_jobs.processor_version character varying(64) not_null=t default= identity= generated=
+column nlp_jobs.state_id uuid not_null=t default= identity= generated=
+column nlp_jobs.status character varying(24) not_null=t default='queued'::character varying identity= generated=
+column nlp_keywords.display_text text not_null=t default= identity= generated=
+column nlp_keywords.id uuid not_null=t default= identity= generated=
+column nlp_keywords.kind character varying(24) not_null=t default= identity= generated=
+column nlp_keywords.language character varying(16) not_null=t default= identity= generated=
+column nlp_keywords.normalized_text text not_null=t default= identity= generated=
+column nlp_language_settings.language character varying(16) not_null=t default= identity= generated=
+column nlp_language_settings.ner_enabled boolean not_null=t default=false identity= generated=
+column nlp_language_settings.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_processor_runs.algorithm_version character varying(128) not_null=t default= identity= generated=
+column nlp_processor_runs.article_id uuid not_null=t default= identity= generated=
+column nlp_processor_runs.completed_at timestamp with time zone not_null=f default= identity= generated=
+column nlp_processor_runs.configuration_fingerprint character varying(64) not_null=t default= identity= generated=
+column nlp_processor_runs.detail text not_null=f default= identity= generated=
+column nlp_processor_runs.error_category character varying(64) not_null=f default= identity= generated=
+column nlp_processor_runs.generation integer not_null=t default= identity= generated=
+column nlp_processor_runs.id uuid not_null=t default= identity= generated=
+column nlp_processor_runs.input_fingerprint character varying(64) not_null=t default= identity= generated=
+column nlp_processor_runs.job_id uuid not_null=t default= identity= generated=
+column nlp_processor_runs.model_version character varying(128) not_null=f default= identity= generated=
+column nlp_processor_runs.outcome character varying(24) not_null=t default= identity= generated=
+column nlp_processor_runs.processor_name character varying(64) not_null=t default= identity= generated=
+column nlp_processor_runs.processor_version character varying(64) not_null=t default= identity= generated=
+column nlp_processor_runs.started_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_reprocessing_runs.article_cursor uuid not_null=f default= identity= generated=
+column nlp_reprocessing_runs.completed_at timestamp with time zone not_null=f default= identity= generated=
+column nlp_reprocessing_runs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_reprocessing_runs.enqueued_count integer not_null=t default=0 identity= generated=
+column nlp_reprocessing_runs.error_message text not_null=f default= identity= generated=
+column nlp_reprocessing_runs.id uuid not_null=t default= identity= generated=
+column nlp_reprocessing_runs.processor_names jsonb not_null=t default= identity= generated=
+column nlp_reprocessing_runs.scanned_count integer not_null=t default=0 identity= generated=
+column nlp_reprocessing_runs.selection jsonb not_null=t default= identity= generated=
+column nlp_reprocessing_runs.status character varying(24) not_null=t default='queued'::character varying identity= generated=
+column nlp_stop_word_revisions.configuration_fingerprint character varying(64) not_null=t default= identity= generated=
+column nlp_stop_word_revisions.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column nlp_stop_word_revisions.id uuid not_null=t default= identity= generated=
+column nlp_stop_word_revisions.language character varying(16) not_null=t default= identity= generated=
+column nlp_stop_word_revisions.revision integer not_null=t default= identity= generated=
+column nlp_stop_word_revisions.words jsonb not_null=t default= identity= generated=
+column notification_settings.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column notification_settings.claim_token character varying(64) not_null=f default= identity= generated=
+column notification_settings.digest_enabled boolean not_null=t default=false identity= generated=
+column notification_settings.digest_hour smallint not_null=t default='8'::smallint identity= generated=
+column notification_settings.enabled boolean not_null=t default=false identity= generated=
+column notification_settings.id smallint not_null=t default=nextval('notification_settings_id_seq'::regclass) identity= generated=
+column notification_settings.last_digest_on date not_null=f default= identity= generated=
+column notification_settings.last_error text not_null=f default= identity= generated=
+column notification_settings.last_error_at timestamp with time zone not_null=f default= identity= generated=
+column notification_settings.last_sent_at timestamp with time zone not_null=f default= identity= generated=
+column notification_settings.public_url text not_null=f default= identity= generated=
+column notification_settings.quiet_end time without time zone not_null=f default= identity= generated=
+column notification_settings.quiet_start time without time zone not_null=f default= identity= generated=
+column notification_settings.retry_after timestamp with time zone not_null=f default= identity= generated=
+column notification_settings.server text not_null=f default= identity= generated=
+column notification_settings.timezone character varying(64) not_null=t default='UTC'::character varying identity= generated=
+column notification_settings.token text not_null=f default= identity= generated=
+column notification_settings.topic character varying(64) not_null=f default= identity= generated=
+column notification_settings.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column saved_searches.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column saved_searches.id uuid not_null=t default= identity= generated=
+column saved_searches.name character varying(120) not_null=t default= identity= generated=
+column saved_searches.state jsonb not_null=t default= identity= generated=
+column saved_searches.state_version integer not_null=t default= identity= generated=
+column saved_searches.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column saved_searches.user_id uuid not_null=t default= identity= generated=
+column search_deliveries.article_id uuid not_null=t default= identity= generated=
+column search_deliveries.attempt_count integer not_null=t default=0 identity= generated=
+column search_deliveries.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column search_deliveries.claim_token character varying(64) not_null=f default= identity= generated=
+column search_deliveries.error_category character varying(64) not_null=f default= identity= generated=
+column search_deliveries.error_message text not_null=f default= identity= generated=
+column search_deliveries.id uuid not_null=t default= identity= generated=
+column search_deliveries.indexed_revision integer not_null=t default=0 identity= generated=
+column search_deliveries.next_attempt_at timestamp with time zone not_null=t default=now() identity= generated=
+column search_deliveries.requested_revision integer not_null=t default= identity= generated=
+column search_deliveries.status character varying(24) not_null=t default= identity= generated=
+column search_deliveries.target_id uuid not_null=t default= identity= generated=
+column search_deliveries.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column search_index_targets.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column search_index_targets.id uuid not_null=t default= identity= generated=
+column search_index_targets.index_name character varying(255) not_null=t default= identity= generated=
+column search_index_targets.role character varying(24) not_null=t default= identity= generated=
+column search_index_targets.schema_version integer not_null=t default= identity= generated=
+column search_rebuilds.active_key character varying(16) not_null=f default= identity= generated=
+column search_rebuilds.completed_at timestamp with time zone not_null=f default= identity= generated=
+column search_rebuilds.coordinator_expires_at timestamp with time zone not_null=f default= identity= generated=
+column search_rebuilds.coordinator_token character varying(64) not_null=f default= identity= generated=
+column search_rebuilds.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column search_rebuilds.cutover_intent_at timestamp with time zone not_null=f default= identity= generated=
+column search_rebuilds.error_message text not_null=f default= identity= generated=
+column search_rebuilds.id uuid not_null=t default= identity= generated=
+column search_rebuilds.scan_cursor uuid not_null=f default= identity= generated=
+column search_rebuilds.scanned_count integer not_null=t default=0 identity= generated=
+column search_rebuilds.status character varying(24) not_null=t default= identity= generated=
+column search_rebuilds.target_id uuid not_null=t default= identity= generated=
+column sessions.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column sessions.csrf_token character varying(128) not_null=t default= identity= generated=
+column sessions.expires_at timestamp with time zone not_null=t default= identity= generated=
+column sessions.id uuid not_null=t default= identity= generated=
+column sessions.revoked_at timestamp with time zone not_null=f default= identity= generated=
+column sessions.token_hash character varying(64) not_null=t default= identity= generated=
+column sessions.user_id uuid not_null=t default= identity= generated=
+column source_search_refreshes.article_cursor uuid not_null=f default= identity= generated=
+column source_search_refreshes.attempt_count integer not_null=t default=0 identity= generated=
+column source_search_refreshes.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column source_search_refreshes.claim_token character varying(64) not_null=f default= identity= generated=
+column source_search_refreshes.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column source_search_refreshes.error_message text not_null=f default= identity= generated=
+column source_search_refreshes.feed_id uuid not_null=t default= identity= generated=
+column source_search_refreshes.id uuid not_null=t default= identity= generated=
+column source_search_refreshes.next_attempt_at timestamp with time zone not_null=t default=now() identity= generated=
+column source_search_refreshes.status character varying(24) not_null=t default= identity= generated=
+column story_cluster_members.algorithm_version character varying(64) not_null=t default= identity= generated=
+column story_cluster_members.article_id uuid not_null=t default= identity= generated=
+column story_cluster_members.cluster_id uuid not_null=t default= identity= generated=
+column story_cluster_members.joined_at timestamp with time zone not_null=t default=now() identity= generated=
+column story_cluster_members.score double precision not_null=t default= identity= generated=
+column story_clusters.algorithm_version character varying(64) not_null=t default= identity= generated=
+column story_clusters.article_count integer not_null=t default=0 identity= generated=
+column story_clusters.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column story_clusters.first_published_at timestamp with time zone not_null=f default= identity= generated=
+column story_clusters.id uuid not_null=t default= identity= generated=
+column story_clusters.last_published_at timestamp with time zone not_null=f default= identity= generated=
+column story_clusters.representative_article_id uuid not_null=f default= identity= generated=
+column story_clusters.source_count integer not_null=t default=0 identity= generated=
+column story_clusters.updated_at timestamp with time zone not_null=t default=now() identity= generated=
+column users.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column users.id uuid not_null=t default= identity= generated=
+column users.password_hash character varying(512) not_null=t default= identity= generated=
+column users.username character varying(128) not_null=t default= identity= generated=
+column wikidata_candidates.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_candidates.dismissed boolean not_null=t default=false identity= generated=
+column wikidata_candidates.entity_id uuid not_null=t default= identity= generated=
+column wikidata_candidates.exact boolean not_null=t default=false identity= generated=
+column wikidata_candidates.qid character varying(16) not_null=t default= identity= generated=
+column wikidata_candidates.reasons text[] not_null=t default='{}'::text[] identity= generated=
+column wikidata_candidates.score double precision not_null=t default= identity= generated=
+column wikidata_classes.fetched_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_classes.label_en text not_null=f default= identity= generated=
+column wikidata_classes.qid character varying(16) not_null=t default= identity= generated=
+column wikidata_classes.subclass_of text[] not_null=t default='{}'::text[] identity= generated=
+column wikidata_items.aliases jsonb not_null=t default='{}'::jsonb identity= generated=
+column wikidata_items.checked_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_items.claims_fetched boolean not_null=t default=false identity= generated=
+column wikidata_items.descriptions jsonb not_null=t default='{}'::jsonb identity= generated=
+column wikidata_items.different_from text[] not_null=t default='{}'::text[] identity= generated=
+column wikidata_items.fetched_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_items.ids jsonb not_null=t default='{}'::jsonb identity= generated=
+column wikidata_items.instance_of text[] not_null=t default='{}'::text[] identity= generated=
+column wikidata_items.labels jsonb not_null=t default='{}'::jsonb identity= generated=
+column wikidata_items.qid character varying(16) not_null=t default= identity= generated=
+column wikidata_items.redirect_to character varying(16) not_null=f default= identity= generated=
+column wikidata_items.revision bigint not_null=f default= identity= generated=
+column wikidata_items.sitelinks integer not_null=t default=0 identity= generated=
+column wikidata_items.state character varying(16) not_null=t default= identity= generated=
+column wikidata_request_counts.count integer not_null=t default= identity= generated=
+column wikidata_request_counts.day date not_null=t default= identity= generated=
+column wikidata_request_counts.kind character varying(16) not_null=t default= identity= generated=
+column wikidata_request_counts.outcome character varying(16) not_null=t default= identity= generated=
+column wikidata_request_counts.total_ms bigint not_null=t default= identity= generated=
+column wikidata_runs.add_labels boolean not_null=t default=false identity= generated=
+column wikidata_runs.changed integer not_null=t default=0 identity= generated=
+column wikidata_runs.checked integer not_null=t default=0 identity= generated=
+column wikidata_runs.claim_expires_at timestamp with time zone not_null=f default= identity= generated=
+column wikidata_runs.claim_token uuid not_null=f default= identity= generated=
+column wikidata_runs.created_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_runs.cursor text not_null=f default= identity= generated=
+column wikidata_runs.entity_id uuid not_null=f default= identity= generated=
+column wikidata_runs.error text not_null=f default= identity= generated=
+column wikidata_runs.errors integer not_null=t default=0 identity= generated=
+column wikidata_runs.finished_at timestamp with time zone not_null=f default= identity= generated=
+column wikidata_runs.force boolean not_null=t default=false identity= generated=
+column wikidata_runs.id uuid not_null=t default= identity= generated=
+column wikidata_runs.kind character varying(16) not_null=t default= identity= generated=
+column wikidata_runs.missing integer not_null=t default=0 identity= generated=
+column wikidata_runs.redirected integer not_null=t default=0 identity= generated=
+column wikidata_runs.requests integer not_null=t default=0 identity= generated=
+column wikidata_runs.started_at timestamp with time zone not_null=f default= identity= generated=
+column wikidata_runs.status character varying(16) not_null=t default='queued'::character varying identity= generated=
+column wikidata_searches.fetched_at timestamp with time zone not_null=t default=now() identity= generated=
+column wikidata_searches.language character varying(16) not_null=t default= identity= generated=
+column wikidata_searches.qids text[] not_null=t default='{}'::text[] identity= generated=
+column wikidata_searches.text text not_null=t default= identity= generated=
+column wikidata_throttle.day date not_null=f default= identity= generated=
+column wikidata_throttle.error_strikes integer not_null=t default=0 identity= generated=
+column wikidata_throttle.id smallint not_null=t default=nextval('wikidata_throttle_id_seq'::regclass) identity= generated=
+column wikidata_throttle.last_rate_limited_at timestamp with time zone not_null=f default= identity= generated=
+column wikidata_throttle.next_request_at timestamp with time zone not_null=f default= identity= generated=
+column wikidata_throttle.pause_reason character varying(16) not_null=f default= identity= generated=
+column wikidata_throttle.paused_until timestamp with time zone not_null=f default= identity= generated=
+column wikidata_throttle.requests_today integer not_null=t default=0 identity= generated=
+constraint article_cluster_state article_cluster_state_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_cluster_state article_cluster_state_pkey PRIMARY KEY (id)
+constraint article_cluster_state uq_article_cluster_state UNIQUE (article_id)
+constraint article_cluster_terms article_cluster_terms_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_cluster_terms article_cluster_terms_pkey PRIMARY KEY (article_id, term)
+constraint article_contents article_contents_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_contents article_contents_html_object_key_key UNIQUE (html_object_key)
+constraint article_contents article_contents_pkey PRIMARY KEY (article_id)
+constraint article_country_annotations article_country_annotations_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_country_annotations article_country_annotations_pkey PRIMARY KEY (id)
+constraint article_country_annotations article_country_annotations_run_id_fkey FOREIGN KEY (run_id) REFERENCES nlp_processor_runs(id) ON DELETE CASCADE
+constraint article_language_annotations article_language_annotations_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_language_annotations article_language_annotations_pkey PRIMARY KEY (id)
+constraint article_language_annotations article_language_annotations_run_id_fkey FOREIGN KEY (run_id) REFERENCES nlp_processor_runs(id) ON DELETE CASCADE
+constraint article_marks article_marks_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_marks article_marks_pkey PRIMARY KEY (article_id)
+constraint article_marks ck_article_marks_note_length CHECK ((length(note) <= 4000))
+constraint article_nlp_entities article_nlp_entities_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_nlp_entities article_nlp_entities_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint article_nlp_entities article_nlp_entities_observed_entity_id_fkey FOREIGN KEY (observed_entity_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint article_nlp_entities article_nlp_entities_pkey PRIMARY KEY (id)
+constraint article_nlp_entities article_nlp_entities_run_id_fkey FOREIGN KEY (run_id) REFERENCES nlp_processor_runs(id) ON DELETE CASCADE
+constraint article_nlp_keywords article_nlp_keywords_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_nlp_keywords article_nlp_keywords_keyword_id_fkey FOREIGN KEY (keyword_id) REFERENCES nlp_keywords(id) ON DELETE RESTRICT
+constraint article_nlp_keywords article_nlp_keywords_pkey PRIMARY KEY (id)
+constraint article_nlp_keywords article_nlp_keywords_run_id_fkey FOREIGN KEY (run_id) REFERENCES nlp_processor_runs(id) ON DELETE CASCADE
+constraint article_nlp_states article_nlp_states_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_nlp_states article_nlp_states_pkey PRIMARY KEY (id)
+constraint article_nlp_states uq_article_nlp_state UNIQUE (article_id, processor_name)
+constraint article_processing_attempts article_processing_attempts_job_id_fkey FOREIGN KEY (job_id) REFERENCES article_processing_jobs(id) ON DELETE CASCADE
+constraint article_processing_attempts article_processing_attempts_pkey PRIMARY KEY (id)
+constraint article_processing_jobs article_processing_jobs_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_processing_jobs article_processing_jobs_claim_token_key UNIQUE (claim_token)
+constraint article_processing_jobs article_processing_jobs_pkey PRIMARY KEY (id)
+constraint article_processing_jobs article_processing_jobs_temporary_html_key_key UNIQUE (temporary_html_key)
+constraint article_search_states article_search_states_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint article_search_states article_search_states_pkey PRIMARY KEY (article_id)
+constraint articles articles_pkey PRIMARY KEY (id)
+constraint articles uq_articles_normalized_url UNIQUE (normalized_url)
+constraint cluster_jobs cluster_jobs_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint cluster_jobs cluster_jobs_claim_token_key UNIQUE (claim_token)
+constraint cluster_jobs cluster_jobs_pkey PRIMARY KEY (id)
+constraint cluster_jobs cluster_jobs_state_id_fkey FOREIGN KEY (state_id) REFERENCES article_cluster_state(id) ON DELETE CASCADE
+constraint cluster_jobs uq_cluster_job_generation UNIQUE (article_id, generation)
+constraint entity_authority_changes ck_entity_authority_change_action CHECK (((action)::text = ANY ((ARRAY['merged'::character varying, 'split'::character varying, 'renamed'::character varying, 'status_changed'::character varying, 'ambiguous_changed'::character varying, 'distinct_added'::character varying, 'distinct_removed'::character varying, 'relation_added'::character varying, 'relation_changed'::character varying, 'relation_removed'::character varying, 'wikidata_linked'::character varying, 'wikidata_unlinked'::character varying, 'wikidata_redirected'::character varying, 'wikidata_missing'::character varying, 'type_changed'::character varying, 'hidden_changed'::character varying, 'claim_added'::character varying, 'claim_removed'::character varying])::text[])))
+constraint entity_authority_changes entity_authority_changes_pkey PRIMARY KEY (id)
+constraint entity_authority_runs ck_entity_authority_run_kind CHECK (((kind)::text = ANY ((ARRAY['merge'::character varying, 'split'::character varying, 'reindex'::character varying])::text[])))
+constraint entity_authority_runs ck_entity_authority_run_status CHECK (((status)::text = ANY ((ARRAY['running'::character varying, 'finished'::character varying, 'failed'::character varying])::text[])))
+constraint entity_authority_runs entity_authority_runs_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint entity_authority_runs entity_authority_runs_pkey PRIMARY KEY (id)
+constraint entity_distinct ck_entity_distinct_ordered CHECK ((a_id < b_id))
+constraint entity_distinct entity_distinct_a_id_fkey FOREIGN KEY (a_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint entity_distinct entity_distinct_b_id_fkey FOREIGN KEY (b_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint entity_distinct entity_distinct_pkey PRIMARY KEY (a_id, b_id)
+constraint entity_external_ids ck_entity_external_id_qid CHECK ((((scheme)::text <> 'wikidata'::text) OR (value ~ '^Q[1-9][0-9]*$'::text)))
+constraint entity_external_ids ck_entity_external_id_scheme CHECK (((scheme)::text = ANY ((ARRAY['wikidata'::character varying, 'viaf'::character varying, 'isni'::character varying, 'lcnaf'::character varying])::text[])))
+constraint entity_external_ids ck_entity_external_id_source CHECK (((source)::text = ANY ((ARRAY['user'::character varying, 'wikidata'::character varying])::text[])))
+constraint entity_external_ids entity_external_ids_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint entity_external_ids entity_external_ids_pkey PRIMARY KEY (entity_id, scheme)
+constraint entity_name_claims entity_name_claims_pkey PRIMARY KEY (language, normalized_text)
+constraint entity_name_claims entity_name_claims_root_id_fkey FOREIGN KEY (root_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint entity_relations ck_entity_relation_not_self CHECK ((subject_id <> object_id))
+constraint entity_relations ck_entity_relation_related_ordered CHECK ((((relation_type)::text <> 'related'::text) OR (subject_id < object_id)))
+constraint entity_relations ck_entity_relation_type CHECK (((relation_type)::text = ANY ((ARRAY['succeeded_by'::character varying, 'part_of'::character varying, 'member_of'::character varying, 'leader_of'::character varying, 'related'::character varying])::text[])))
+constraint entity_relations ck_entity_relation_valid_from CHECK (((valid_from IS NULL) OR ((valid_from)::text ~ '^\d{4}(-\d{2}(-\d{2})?)?$'::text)))
+constraint entity_relations ck_entity_relation_valid_to CHECK (((valid_to IS NULL) OR ((valid_to)::text ~ '^\d{4}(-\d{2}(-\d{2})?)?$'::text)))
+constraint entity_relations entity_relations_object_id_fkey FOREIGN KEY (object_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint entity_relations entity_relations_pkey PRIMARY KEY (id)
+constraint entity_relations entity_relations_source_article_id_fkey FOREIGN KEY (source_article_id) REFERENCES articles(id) ON DELETE SET NULL
+constraint entity_relations entity_relations_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint event_association_runs event_association_runs_pkey PRIMARY KEY (id)
+constraint event_clusters event_clusters_cluster_id_fkey FOREIGN KEY (cluster_id) REFERENCES story_clusters(id) ON DELETE CASCADE
+constraint event_clusters event_clusters_event_id_algorithm_version_fkey FOREIGN KEY (event_id, algorithm_version) REFERENCES events(id, algorithm_version) ON DELETE CASCADE
+constraint event_clusters event_clusters_pkey PRIMARY KEY (event_id, cluster_id)
+constraint event_clusters uq_event_clusters_version_cluster UNIQUE (algorithm_version, cluster_id)
+constraint event_entities ck_event_entities_count CHECK ((article_count > 0))
+constraint event_entities event_entities_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint event_entities event_entities_event_id_fkey FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+constraint event_entities event_entities_pkey PRIMARY KEY (event_id, entity_id)
+constraint events ck_events_span CHECK ((ended_at >= started_at))
+constraint events ck_events_status CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'closed'::character varying, 'superseded'::character varying])::text[])))
+constraint events events_pkey PRIMARY KEY (id)
+constraint events uq_events_id_version UNIQUE (id, algorithm_version)
+constraint feed_articles feed_articles_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE RESTRICT
+constraint feed_articles feed_articles_feed_id_fkey FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE RESTRICT
+constraint feed_articles feed_articles_pkey PRIMARY KEY (id)
+constraint feed_articles uq_feed_articles_feed_article UNIQUE (feed_id, article_id)
+constraint feed_articles uq_feed_articles_feed_guid UNIQUE (feed_id, guid)
+constraint feed_fetches feed_fetches_claim_token_key UNIQUE (claim_token)
+constraint feed_fetches feed_fetches_feed_id_fkey FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE RESTRICT
+constraint feed_fetches feed_fetches_pkey PRIMARY KEY (id)
+constraint feeds feeds_claim_token_key UNIQUE (claim_token)
+constraint feeds feeds_pkey PRIMARY KEY (id)
+constraint login_failures ck_login_failures_positive CHECK ((failures > 0))
+constraint login_failures login_failures_pkey PRIMARY KEY (username)
+constraint maintenance_runs maintenance_runs_pkey PRIMARY KEY (id)
+constraint monitors ck_monitors_kind CHECK (((kind)::text = ANY ((ARRAY['search'::character varying, 'entity'::character varying, 'source'::character varying, 'country'::character varying, 'cluster'::character varying, 'event'::character varying])::text[])))
+constraint monitors ck_monitors_name_present CHECK ((length(btrim((name)::text)) > 0))
+constraint monitors ck_monitors_pending_notifications CHECK ((pending_notification_articles >= 0))
+constraint monitors ck_monitors_state_version CHECK ((state_version > 0))
+constraint monitors ck_monitors_unseen_articles CHECK ((unseen_article_count >= 0))
+constraint monitors ck_monitors_unseen_clusters CHECK ((unseen_cluster_count >= 0))
+constraint monitors fk_monitors_saved_search FOREIGN KEY (saved_search_id) REFERENCES saved_searches(id) ON DELETE SET NULL
+constraint monitors monitors_claim_token_key UNIQUE (claim_token)
+constraint monitors monitors_latest_match_article_id_fkey FOREIGN KEY (latest_match_article_id) REFERENCES articles(id) ON DELETE SET NULL
+constraint monitors monitors_pkey PRIMARY KEY (id)
+constraint monitors monitors_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+constraint nlp_entities ck_nlp_entity_name_source CHECK (((name_source)::text = ANY ((ARRAY['ner'::character varying, 'seed'::character varying, 'wikidata'::character varying, 'user'::character varying])::text[])))
+constraint nlp_entities ck_nlp_entity_not_own_authority CHECK (((authority_id IS NULL) OR (authority_id <> id)))
+constraint nlp_entities ck_nlp_entity_preferred_type CHECK (((preferred_type IS NULL) OR ((preferred_type)::text = ANY ((ARRAY['PERSON'::character varying, 'ORG'::character varying, 'GPE'::character varying, 'LOCATION'::character varying, 'EVENT'::character varying, 'PRODUCT'::character varying, 'TOPIC'::character varying, 'OTHER'::character varying])::text[]))))
+constraint nlp_entities ck_nlp_entity_status CHECK (((status)::text = ANY ((ARRAY['provisional'::character varying, 'established'::character varying])::text[])))
+constraint nlp_entities nlp_entities_authority_id_fkey FOREIGN KEY (authority_id) REFERENCES nlp_entities(id) ON DELETE RESTRICT
+constraint nlp_entities nlp_entities_pkey PRIMARY KEY (id)
+constraint nlp_entities uq_nlp_entity_identity UNIQUE (language, entity_type, normalized_text)
+constraint nlp_jobs nlp_jobs_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint nlp_jobs nlp_jobs_claim_token_key UNIQUE (claim_token)
+constraint nlp_jobs nlp_jobs_pkey PRIMARY KEY (id)
+constraint nlp_jobs nlp_jobs_state_id_fkey FOREIGN KEY (state_id) REFERENCES article_nlp_states(id) ON DELETE CASCADE
+constraint nlp_jobs uq_nlp_job_generation UNIQUE (article_id, processor_name, generation)
+constraint nlp_keywords nlp_keywords_pkey PRIMARY KEY (id)
+constraint nlp_keywords uq_nlp_keyword_identity UNIQUE (language, kind, normalized_text)
+constraint nlp_language_settings nlp_language_settings_pkey PRIMARY KEY (language)
+constraint nlp_processor_runs nlp_processor_runs_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint nlp_processor_runs nlp_processor_runs_job_id_fkey FOREIGN KEY (job_id) REFERENCES nlp_jobs(id) ON DELETE CASCADE
+constraint nlp_processor_runs nlp_processor_runs_pkey PRIMARY KEY (id)
+constraint nlp_reprocessing_runs nlp_reprocessing_runs_pkey PRIMARY KEY (id)
+constraint nlp_stop_word_revisions nlp_stop_word_revisions_pkey PRIMARY KEY (id)
+constraint nlp_stop_word_revisions uq_nlp_stop_word_revision UNIQUE (language, revision)
+constraint notification_settings ck_notification_settings_digest_hour CHECK (((digest_hour >= 0) AND (digest_hour <= 23)))
+constraint notification_settings ck_notification_settings_quiet CHECK (((quiet_start IS NULL) = (quiet_end IS NULL)))
+constraint notification_settings ck_notification_settings_single_row CHECK ((id = 1))
+constraint notification_settings notification_settings_pkey PRIMARY KEY (id)
+constraint saved_searches ck_saved_searches_name_present CHECK ((length(btrim((name)::text)) > 0))
+constraint saved_searches ck_saved_searches_state_version CHECK ((state_version > 0))
+constraint saved_searches saved_searches_pkey PRIMARY KEY (id)
+constraint saved_searches saved_searches_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+constraint search_deliveries search_deliveries_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint search_deliveries search_deliveries_claim_token_key UNIQUE (claim_token)
+constraint search_deliveries search_deliveries_pkey PRIMARY KEY (id)
+constraint search_deliveries search_deliveries_target_id_fkey FOREIGN KEY (target_id) REFERENCES search_index_targets(id) ON DELETE CASCADE
+constraint search_deliveries uq_search_delivery_article_target UNIQUE (article_id, target_id)
+constraint search_index_targets search_index_targets_index_name_key UNIQUE (index_name)
+constraint search_index_targets search_index_targets_pkey PRIMARY KEY (id)
+constraint search_rebuilds search_rebuilds_coordinator_token_key UNIQUE (coordinator_token)
+constraint search_rebuilds search_rebuilds_pkey PRIMARY KEY (id)
+constraint search_rebuilds search_rebuilds_target_id_fkey FOREIGN KEY (target_id) REFERENCES search_index_targets(id) ON DELETE RESTRICT
+constraint sessions sessions_pkey PRIMARY KEY (id)
+constraint sessions sessions_token_hash_key UNIQUE (token_hash)
+constraint sessions sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+constraint source_search_refreshes source_search_refreshes_claim_token_key UNIQUE (claim_token)
+constraint source_search_refreshes source_search_refreshes_feed_id_fkey FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE RESTRICT
+constraint source_search_refreshes source_search_refreshes_pkey PRIMARY KEY (id)
+constraint story_cluster_members story_cluster_members_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+constraint story_cluster_members story_cluster_members_cluster_id_fkey FOREIGN KEY (cluster_id) REFERENCES story_clusters(id) ON DELETE CASCADE
+constraint story_cluster_members story_cluster_members_pkey PRIMARY KEY (article_id)
+constraint story_clusters story_clusters_pkey PRIMARY KEY (id)
+constraint story_clusters story_clusters_representative_article_id_fkey FOREIGN KEY (representative_article_id) REFERENCES articles(id) ON DELETE SET NULL
+constraint users users_pkey PRIMARY KEY (id)
+constraint users users_username_key UNIQUE (username)
+constraint wikidata_candidates wikidata_candidates_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint wikidata_candidates wikidata_candidates_pkey PRIMARY KEY (entity_id, qid)
+constraint wikidata_classes wikidata_classes_pkey PRIMARY KEY (qid)
+constraint wikidata_items ck_wikidata_item_state CHECK (((state)::text = ANY ((ARRAY['ok'::character varying, 'redirected'::character varying, 'missing'::character varying])::text[])))
+constraint wikidata_items wikidata_items_pkey PRIMARY KEY (qid)
+constraint wikidata_request_counts wikidata_request_counts_pkey PRIMARY KEY (day, kind, outcome)
+constraint wikidata_runs ck_wikidata_run_kind CHECK (((kind)::text = ANY ((ARRAY['candidates'::character varying, 'refresh'::character varying])::text[])))
+constraint wikidata_runs ck_wikidata_run_status CHECK (((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'finished'::character varying, 'failed'::character varying, 'stopped'::character varying])::text[])))
+constraint wikidata_runs wikidata_runs_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES nlp_entities(id) ON DELETE CASCADE
+constraint wikidata_runs wikidata_runs_pkey PRIMARY KEY (id)
+constraint wikidata_searches wikidata_searches_pkey PRIMARY KEY (language, text)
+constraint wikidata_throttle ck_wikidata_throttle_one_row CHECK ((id = 1))
+constraint wikidata_throttle wikidata_throttle_pkey PRIMARY KEY (id)
+extension pg_trgm
+index article_cluster_state_pkey CREATE UNIQUE INDEX article_cluster_state_pkey ON public.article_cluster_state USING btree (id)
+index article_cluster_terms_pkey CREATE UNIQUE INDEX article_cluster_terms_pkey ON public.article_cluster_terms USING btree (article_id, term)
+index article_contents_html_object_key_key CREATE UNIQUE INDEX article_contents_html_object_key_key ON public.article_contents USING btree (html_object_key)
+index article_contents_pkey CREATE UNIQUE INDEX article_contents_pkey ON public.article_contents USING btree (article_id)
+index article_country_annotations_pkey CREATE UNIQUE INDEX article_country_annotations_pkey ON public.article_country_annotations USING btree (id)
+index article_language_annotations_pkey CREATE UNIQUE INDEX article_language_annotations_pkey ON public.article_language_annotations USING btree (id)
+index article_marks_pkey CREATE UNIQUE INDEX article_marks_pkey ON public.article_marks USING btree (article_id)
+index article_nlp_entities_pkey CREATE UNIQUE INDEX article_nlp_entities_pkey ON public.article_nlp_entities USING btree (id)
+index article_nlp_keywords_pkey CREATE UNIQUE INDEX article_nlp_keywords_pkey ON public.article_nlp_keywords USING btree (id)
+index article_nlp_states_pkey CREATE UNIQUE INDEX article_nlp_states_pkey ON public.article_nlp_states USING btree (id)
+index article_processing_attempts_pkey CREATE UNIQUE INDEX article_processing_attempts_pkey ON public.article_processing_attempts USING btree (id)
+index article_processing_jobs_claim_token_key CREATE UNIQUE INDEX article_processing_jobs_claim_token_key ON public.article_processing_jobs USING btree (claim_token)
+index article_processing_jobs_pkey CREATE UNIQUE INDEX article_processing_jobs_pkey ON public.article_processing_jobs USING btree (id)
+index article_processing_jobs_temporary_html_key_key CREATE UNIQUE INDEX article_processing_jobs_temporary_html_key_key ON public.article_processing_jobs USING btree (temporary_html_key)
+index article_search_states_pkey CREATE UNIQUE INDEX article_search_states_pkey ON public.article_search_states USING btree (article_id)
+index articles_pkey CREATE UNIQUE INDEX articles_pkey ON public.articles USING btree (id)
+index cluster_jobs_claim_token_key CREATE UNIQUE INDEX cluster_jobs_claim_token_key ON public.cluster_jobs USING btree (claim_token)
+index cluster_jobs_pkey CREATE UNIQUE INDEX cluster_jobs_pkey ON public.cluster_jobs USING btree (id)
+index entity_authority_changes_pkey CREATE UNIQUE INDEX entity_authority_changes_pkey ON public.entity_authority_changes USING btree (id)
+index entity_authority_runs_pkey CREATE UNIQUE INDEX entity_authority_runs_pkey ON public.entity_authority_runs USING btree (id)
+index entity_distinct_pkey CREATE UNIQUE INDEX entity_distinct_pkey ON public.entity_distinct USING btree (a_id, b_id)
+index entity_external_ids_pkey CREATE UNIQUE INDEX entity_external_ids_pkey ON public.entity_external_ids USING btree (entity_id, scheme)
+index entity_name_claims_pkey CREATE UNIQUE INDEX entity_name_claims_pkey ON public.entity_name_claims USING btree (language, normalized_text)
+index entity_relations_pkey CREATE UNIQUE INDEX entity_relations_pkey ON public.entity_relations USING btree (id)
+index event_association_runs_pkey CREATE UNIQUE INDEX event_association_runs_pkey ON public.event_association_runs USING btree (id)
+index event_clusters_pkey CREATE UNIQUE INDEX event_clusters_pkey ON public.event_clusters USING btree (event_id, cluster_id)
+index event_entities_pkey CREATE UNIQUE INDEX event_entities_pkey ON public.event_entities USING btree (event_id, entity_id)
+index events_pkey CREATE UNIQUE INDEX events_pkey ON public.events USING btree (id)
+index feed_articles_pkey CREATE UNIQUE INDEX feed_articles_pkey ON public.feed_articles USING btree (id)
+index feed_fetches_claim_token_key CREATE UNIQUE INDEX feed_fetches_claim_token_key ON public.feed_fetches USING btree (claim_token)
+index feed_fetches_pkey CREATE UNIQUE INDEX feed_fetches_pkey ON public.feed_fetches USING btree (id)
+index feeds_claim_token_key CREATE UNIQUE INDEX feeds_claim_token_key ON public.feeds USING btree (claim_token)
+index feeds_pkey CREATE UNIQUE INDEX feeds_pkey ON public.feeds USING btree (id)
+index ix_article_attempts_job CREATE INDEX ix_article_attempts_job ON public.article_processing_attempts USING btree (job_id, started_at)
+index ix_article_cluster_terms_term_date CREATE INDEX ix_article_cluster_terms_term_date ON public.article_cluster_terms USING btree (term, effective_at, article_id)
+index ix_article_country_current CREATE INDEX ix_article_country_current ON public.article_country_annotations USING btree (article_id, role, is_current)
+index ix_article_jobs_article_created CREATE INDEX ix_article_jobs_article_created ON public.article_processing_jobs USING btree (article_id, created_at)
+index ix_article_jobs_completed CREATE INDEX ix_article_jobs_completed ON public.article_processing_jobs USING btree (completed_at)
+index ix_article_jobs_due CREATE INDEX ix_article_jobs_due ON public.article_processing_jobs USING btree (status, next_attempt_at, claim_expires_at)
+index ix_article_language_current CREATE INDEX ix_article_language_current ON public.article_language_annotations USING btree (article_id, is_current)
+index ix_article_marks_starred CREATE INDEX ix_article_marks_starred ON public.article_marks USING btree (article_id) WHERE starred
+index ix_article_nlp_entities_current CREATE INDEX ix_article_nlp_entities_current ON public.article_nlp_entities USING btree (article_id, is_current)
+index ix_article_nlp_entities_entity_article CREATE INDEX ix_article_nlp_entities_entity_article ON public.article_nlp_entities USING btree (entity_id, article_id) WHERE is_current
+index ix_article_nlp_keywords_current CREATE INDEX ix_article_nlp_keywords_current ON public.article_nlp_keywords USING btree (article_id, is_current)
+index ix_articles_discovery CREATE INDEX ix_articles_discovery ON public.articles USING btree (first_discovered_at, id)
+index ix_articles_effective_date CREATE INDEX ix_articles_effective_date ON public.articles USING btree (COALESCE(published_at, first_discovered_at))
+index ix_articles_title_hash CREATE INDEX ix_articles_title_hash ON public.articles USING btree (normalized_title_hash)
+index ix_cluster_jobs_completed CREATE INDEX ix_cluster_jobs_completed ON public.cluster_jobs USING btree (completed_at)
+index ix_cluster_jobs_due CREATE INDEX ix_cluster_jobs_due ON public.cluster_jobs USING btree (status, next_attempt_at, claim_expires_at)
+index ix_entity_authority_changes_entity CREATE INDEX ix_entity_authority_changes_entity ON public.entity_authority_changes USING btree (entity_id, created_at)
+index ix_entity_name_claims_root_id CREATE INDEX ix_entity_name_claims_root_id ON public.entity_name_claims USING btree (root_id)
+index ix_entity_relations_object CREATE INDEX ix_entity_relations_object ON public.entity_relations USING btree (object_id)
+index ix_event_association_runs_started CREATE INDEX ix_event_association_runs_started ON public.event_association_runs USING btree (started_at)
+index ix_event_clusters_cluster CREATE INDEX ix_event_clusters_cluster ON public.event_clusters USING btree (cluster_id)
+index ix_event_entities_entity CREATE INDEX ix_event_entities_entity ON public.event_entities USING btree (entity_id, event_id)
+index ix_events_algorithm CREATE INDEX ix_events_algorithm ON public.events USING btree (algorithm_version, id)
+index ix_events_country_time CREATE INDEX ix_events_country_time ON public.events USING btree (primary_country, ended_at, id)
+index ix_events_size CREATE INDEX ix_events_size ON public.events USING btree (algorithm_version, article_count, ended_at, id)
+index ix_events_status_time CREATE INDEX ix_events_status_time ON public.events USING btree (status, ended_at, id)
+index ix_events_time CREATE INDEX ix_events_time ON public.events USING btree (ended_at, id)
+index ix_feed_articles_article CREATE INDEX ix_feed_articles_article ON public.feed_articles USING btree (article_id, discovered_at)
+index ix_feed_fetches_history CREATE INDEX ix_feed_fetches_history ON public.feed_fetches USING btree (feed_id, started_at)
+index ix_feed_fetches_started CREATE INDEX ix_feed_fetches_started ON public.feed_fetches USING btree (started_at)
+index ix_feeds_due CREATE INDEX ix_feeds_due ON public.feeds USING btree (enabled, retired_at, next_poll_at)
+index ix_feeds_retired_at CREATE INDEX ix_feeds_retired_at ON public.feeds USING btree (retired_at)
+index ix_maintenance_runs_kind_started CREATE INDEX ix_maintenance_runs_kind_started ON public.maintenance_runs USING btree (kind, started_at)
+index ix_monitors_due CREATE INDEX ix_monitors_due ON public.monitors USING btree (next_evaluation_at, id) WHERE enabled
+index ix_monitors_pending_notifications CREATE INDEX ix_monitors_pending_notifications ON public.monitors USING btree (id) WHERE (pending_notification_articles > 0)
+index ix_monitors_user_activity CREATE INDEX ix_monitors_user_activity ON public.monitors USING btree (user_id, latest_match_at, id)
+index ix_monitors_user_order CREATE INDEX ix_monitors_user_order ON public.monitors USING btree (user_id, name, id)
+index ix_nlp_entities_ambiguous CREATE INDEX ix_nlp_entities_ambiguous ON public.nlp_entities USING btree (language, entity_type) WHERE ambiguous
+index ix_nlp_entities_authority CREATE INDEX ix_nlp_entities_authority ON public.nlp_entities USING btree (authority_id) WHERE (authority_id IS NOT NULL)
+index ix_nlp_entities_normalized_trgm CREATE INDEX ix_nlp_entities_normalized_trgm ON public.nlp_entities USING gin (normalized_text gin_trgm_ops)
+index ix_nlp_jobs_created_at CREATE INDEX ix_nlp_jobs_created_at ON public.nlp_jobs USING btree (created_at)
+index ix_nlp_jobs_due CREATE INDEX ix_nlp_jobs_due ON public.nlp_jobs USING btree (status, next_attempt_at, claim_expires_at)
+index ix_nlp_runs_article_processor CREATE INDEX ix_nlp_runs_article_processor ON public.nlp_processor_runs USING btree (article_id, processor_name, started_at)
+index ix_nlp_runs_completed CREATE INDEX ix_nlp_runs_completed ON public.nlp_processor_runs USING btree (completed_at)
+index ix_saved_searches_user_order CREATE INDEX ix_saved_searches_user_order ON public.saved_searches USING btree (user_id, name, id)
+index ix_search_deliveries_due CREATE INDEX ix_search_deliveries_due ON public.search_deliveries USING btree (status, next_attempt_at, claim_expires_at)
+index ix_search_deliveries_updated_at CREATE INDEX ix_search_deliveries_updated_at ON public.search_deliveries USING btree (updated_at)
+index ix_sessions_expires_at CREATE INDEX ix_sessions_expires_at ON public.sessions USING btree (expires_at)
+index ix_sessions_token_hash CREATE UNIQUE INDEX ix_sessions_token_hash ON public.sessions USING btree (token_hash)
+index ix_source_search_refresh_due CREATE INDEX ix_source_search_refresh_due ON public.source_search_refreshes USING btree (status, next_attempt_at)
+index ix_story_cluster_members_cluster CREATE INDEX ix_story_cluster_members_cluster ON public.story_cluster_members USING btree (cluster_id, article_id)
+index ix_story_clusters_recency CREATE INDEX ix_story_clusters_recency ON public.story_clusters USING btree (last_published_at, id)
+index ix_users_username CREATE UNIQUE INDEX ix_users_username ON public.users USING btree (username)
+index ix_wikidata_candidates_qid CREATE INDEX ix_wikidata_candidates_qid ON public.wikidata_candidates USING btree (qid)
+index ix_wikidata_candidates_score CREATE INDEX ix_wikidata_candidates_score ON public.wikidata_candidates USING btree (score DESC)
+index ix_wikidata_runs_status CREATE INDEX ix_wikidata_runs_status ON public.wikidata_runs USING btree (status, created_at)
+index login_failures_pkey CREATE UNIQUE INDEX login_failures_pkey ON public.login_failures USING btree (username)
+index maintenance_runs_pkey CREATE UNIQUE INDEX maintenance_runs_pkey ON public.maintenance_runs USING btree (id)
+index monitors_claim_token_key CREATE UNIQUE INDEX monitors_claim_token_key ON public.monitors USING btree (claim_token)
+index monitors_pkey CREATE UNIQUE INDEX monitors_pkey ON public.monitors USING btree (id)
+index nlp_entities_pkey CREATE UNIQUE INDEX nlp_entities_pkey ON public.nlp_entities USING btree (id)
+index nlp_jobs_claim_token_key CREATE UNIQUE INDEX nlp_jobs_claim_token_key ON public.nlp_jobs USING btree (claim_token)
+index nlp_jobs_pkey CREATE UNIQUE INDEX nlp_jobs_pkey ON public.nlp_jobs USING btree (id)
+index nlp_keywords_pkey CREATE UNIQUE INDEX nlp_keywords_pkey ON public.nlp_keywords USING btree (id)
+index nlp_language_settings_pkey CREATE UNIQUE INDEX nlp_language_settings_pkey ON public.nlp_language_settings USING btree (language)
+index nlp_processor_runs_pkey CREATE UNIQUE INDEX nlp_processor_runs_pkey ON public.nlp_processor_runs USING btree (id)
+index nlp_reprocessing_runs_pkey CREATE UNIQUE INDEX nlp_reprocessing_runs_pkey ON public.nlp_reprocessing_runs USING btree (id)
+index nlp_stop_word_revisions_pkey CREATE UNIQUE INDEX nlp_stop_word_revisions_pkey ON public.nlp_stop_word_revisions USING btree (id)
+index notification_settings_pkey CREATE UNIQUE INDEX notification_settings_pkey ON public.notification_settings USING btree (id)
+index saved_searches_pkey CREATE UNIQUE INDEX saved_searches_pkey ON public.saved_searches USING btree (id)
+index search_deliveries_claim_token_key CREATE UNIQUE INDEX search_deliveries_claim_token_key ON public.search_deliveries USING btree (claim_token)
+index search_deliveries_pkey CREATE UNIQUE INDEX search_deliveries_pkey ON public.search_deliveries USING btree (id)
+index search_index_targets_index_name_key CREATE UNIQUE INDEX search_index_targets_index_name_key ON public.search_index_targets USING btree (index_name)
+index search_index_targets_pkey CREATE UNIQUE INDEX search_index_targets_pkey ON public.search_index_targets USING btree (id)
+index search_rebuilds_coordinator_token_key CREATE UNIQUE INDEX search_rebuilds_coordinator_token_key ON public.search_rebuilds USING btree (coordinator_token)
+index search_rebuilds_pkey CREATE UNIQUE INDEX search_rebuilds_pkey ON public.search_rebuilds USING btree (id)
+index sessions_pkey CREATE UNIQUE INDEX sessions_pkey ON public.sessions USING btree (id)
+index sessions_token_hash_key CREATE UNIQUE INDEX sessions_token_hash_key ON public.sessions USING btree (token_hash)
+index source_search_refreshes_claim_token_key CREATE UNIQUE INDEX source_search_refreshes_claim_token_key ON public.source_search_refreshes USING btree (claim_token)
+index source_search_refreshes_pkey CREATE UNIQUE INDEX source_search_refreshes_pkey ON public.source_search_refreshes USING btree (id)
+index story_cluster_members_pkey CREATE UNIQUE INDEX story_cluster_members_pkey ON public.story_cluster_members USING btree (article_id)
+index story_clusters_pkey CREATE UNIQUE INDEX story_clusters_pkey ON public.story_clusters USING btree (id)
+index uq_article_cluster_state CREATE UNIQUE INDEX uq_article_cluster_state ON public.article_cluster_state USING btree (article_id)
+index uq_article_jobs_active CREATE UNIQUE INDEX uq_article_jobs_active ON public.article_processing_jobs USING btree (article_id) WHERE ((status)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'retrying'::character varying])::text[]))
+index uq_article_nlp_state CREATE UNIQUE INDEX uq_article_nlp_state ON public.article_nlp_states USING btree (article_id, processor_name)
+index uq_articles_normalized_url CREATE UNIQUE INDEX uq_articles_normalized_url ON public.articles USING btree (normalized_url)
+index uq_cluster_job_generation CREATE UNIQUE INDEX uq_cluster_job_generation ON public.cluster_jobs USING btree (article_id, generation)
+index uq_entity_external_id_wikidata CREATE UNIQUE INDEX uq_entity_external_id_wikidata ON public.entity_external_ids USING btree (value) WHERE ((scheme)::text = 'wikidata'::text)
+index uq_entity_relation CREATE UNIQUE INDEX uq_entity_relation ON public.entity_relations USING btree (subject_id, relation_type, object_id, COALESCE(valid_from, ''::character varying))
+index uq_event_clusters_version_cluster CREATE UNIQUE INDEX uq_event_clusters_version_cluster ON public.event_clusters USING btree (algorithm_version, cluster_id)
+index uq_events_id_version CREATE UNIQUE INDEX uq_events_id_version ON public.events USING btree (id, algorithm_version)
+index uq_feed_articles_feed_article CREATE UNIQUE INDEX uq_feed_articles_feed_article ON public.feed_articles USING btree (feed_id, article_id)
+index uq_feed_articles_feed_guid CREATE UNIQUE INDEX uq_feed_articles_feed_guid ON public.feed_articles USING btree (feed_id, guid)
+index uq_monitors_saved_search CREATE UNIQUE INDEX uq_monitors_saved_search ON public.monitors USING btree (saved_search_id) WHERE (saved_search_id IS NOT NULL)
+index uq_monitors_user_name CREATE UNIQUE INDEX uq_monitors_user_name ON public.monitors USING btree (user_id, lower((name)::text))
+index uq_nlp_entity_identity CREATE UNIQUE INDEX uq_nlp_entity_identity ON public.nlp_entities USING btree (language, entity_type, normalized_text)
+index uq_nlp_job_generation CREATE UNIQUE INDEX uq_nlp_job_generation ON public.nlp_jobs USING btree (article_id, processor_name, generation)
+index uq_nlp_keyword_identity CREATE UNIQUE INDEX uq_nlp_keyword_identity ON public.nlp_keywords USING btree (language, kind, normalized_text)
+index uq_nlp_stop_word_revision CREATE UNIQUE INDEX uq_nlp_stop_word_revision ON public.nlp_stop_word_revisions USING btree (language, revision)
+index uq_saved_searches_user_name CREATE UNIQUE INDEX uq_saved_searches_user_name ON public.saved_searches USING btree (user_id, lower((name)::text))
+index uq_search_delivery_article_target CREATE UNIQUE INDEX uq_search_delivery_article_target ON public.search_deliveries USING btree (article_id, target_id)
+index uq_search_rebuild_active CREATE UNIQUE INDEX uq_search_rebuild_active ON public.search_rebuilds USING btree (active_key)
+index users_pkey CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)
+index users_username_key CREATE UNIQUE INDEX users_username_key ON public.users USING btree (username)
+index wikidata_candidates_pkey CREATE UNIQUE INDEX wikidata_candidates_pkey ON public.wikidata_candidates USING btree (entity_id, qid)
+index wikidata_classes_pkey CREATE UNIQUE INDEX wikidata_classes_pkey ON public.wikidata_classes USING btree (qid)
+index wikidata_items_pkey CREATE UNIQUE INDEX wikidata_items_pkey ON public.wikidata_items USING btree (qid)
+index wikidata_request_counts_pkey CREATE UNIQUE INDEX wikidata_request_counts_pkey ON public.wikidata_request_counts USING btree (day, kind, outcome)
+index wikidata_runs_pkey CREATE UNIQUE INDEX wikidata_runs_pkey ON public.wikidata_runs USING btree (id)
+index wikidata_searches_pkey CREATE UNIQUE INDEX wikidata_searches_pkey ON public.wikidata_searches USING btree (language, text)
+index wikidata_throttle_pkey CREATE UNIQUE INDEX wikidata_throttle_pkey ON public.wikidata_throttle USING btree (id)
+row wikidata_throttle {"id":1,"next_request_at":null,"paused_until":null,"pause_reason":null,"error_strikes":0,"last_rate_limited_at":null,"day":null,"requests_today":0}
+sequence notification_settings_id_seq smallint start=1 increment=1
+sequence wikidata_throttle_id_seq smallint start=1 increment=1

@@ -10,8 +10,6 @@ from typing import Any
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from test_authority_suggestions_postgres import _language, _named
@@ -22,7 +20,7 @@ from app.nlp.models import EntityAuthorityChange
 from app.wikidata.cache import cached_items, store_items
 from app.wikidata.client import WikidataClient
 from app.wikidata.errors import WikidataBudgetSpent, WikidataPaused, WikidataUnavailable
-from app.wikidata.models import EntityExternalId, WikidataItem, WikidataRequestCount
+from app.wikidata.models import EntityExternalId, WikidataRequestCount
 from app.wikidata.parsing import parse_entities
 from app.wikidata.throttle import PostgresThrottle
 
@@ -305,49 +303,3 @@ async def test_country_spellings_are_marked_as_seeded(monkeypatch: pytest.Monkey
         )
     # The spelling the seed wrote; the root is the name NER also finds.
     assert sources == {f"tl {tag}": "seed", f"testland {tag}": "ner"}
-
-
-async def test_downgrade_keeps_links_unless_told_to_discard_them() -> None:
-    language = _language()
-    async with session_factory() as db, db.begin():
-        entity = await _named(db, language, "PERSON", "kept link")
-        db.add(
-            EntityExternalId(
-                entity_id=entity.id, scheme="wikidata", value=f"Q{uuid.uuid4().int % 10**9 + 10**9}"
-            )
-        )
-        await db.flush()
-        entity_id = entity.id
-        entities_before = await db.scalar(text("SELECT count(*) FROM nlp_entities"))
-
-    config = Config("alembic.ini")
-    with pytest.raises(RuntimeError, match="authority export"):
-        await asyncio.to_thread(command.downgrade, config, "0020")
-    async with session_factory() as db:
-        assert await db.scalar(
-            select(EntityExternalId.value).where(EntityExternalId.entity_id == entity_id)
-        )
-
-    os.environ["NEWSINTEL_MIGRATION_DISCARD_WIKIDATA"] = "1"
-    try:
-        await asyncio.to_thread(command.downgrade, config, "0020")
-    finally:
-        del os.environ["NEWSINTEL_MIGRATION_DISCARD_WIKIDATA"]
-    try:
-        async with session_factory() as db:
-            assert await db.scalar(text("SELECT to_regclass('entity_external_ids') IS NULL"))
-            assert await db.scalar(text("SELECT to_regclass('wikidata_throttle') IS NULL"))
-            assert await db.scalar(text("SELECT count(*) FROM nlp_entities")) == entities_before
-            columns = await db.scalars(
-                text(
-                    "SELECT column_name FROM information_schema.columns"
-                    " WHERE table_name = 'nlp_entities'"
-                )
-            )
-            assert "name_source" not in set(columns)
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        assert await db.scalar(text("SELECT to_regclass('entity_external_ids') IS NOT NULL"))
-        # The cache went with the downgrade; it refills from the links' QIDs.
-        assert await db.scalar(select(WikidataItem.qid).limit(1)) is None

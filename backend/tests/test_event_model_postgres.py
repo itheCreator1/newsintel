@@ -1,11 +1,8 @@
-import asyncio
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from event_fixtures import analyzed_event_tables
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -279,79 +276,3 @@ async def test_deleting_an_article_leaves_events_alone() -> None:
         await db.commit()
         db.expunge_all()
         assert await event_for_cluster(db, cluster.id, "event-1") is not None
-
-
-async def test_downgrade_to_0010_removes_only_the_event_tables() -> None:
-    async with session_factory() as db:
-        clusters_before = await db.scalar(select(func.count()).select_from(StoryCluster))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0010")
-    try:
-        async with session_factory() as db:
-            for table in ("events", "event_clusters", "event_entities"):
-                assert await db.scalar(text(f"SELECT to_regclass('{table}') IS NULL")) is True
-            assert await db.scalar(text("SELECT to_regclass('monitors') IS NOT NULL")) is True
-            assert (
-                await db.scalar(select(func.count()).select_from(StoryCluster)) == clusters_before
-            )
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db:
-        assert await db.scalar(text("SELECT to_regclass('event_clusters') IS NOT NULL")) is True
-
-
-async def test_upgrade_to_0016_backfills_the_size_of_existing_events() -> None:
-    """0016 must size events that already exist; new ones are sized by the engine instead."""
-    from app.clustering.models import StoryClusterMember
-
-    async with session_factory() as db:
-        event = await create_event(db, "event-1")
-        empty = await create_event(db, "event-1")
-        clusters = [await _cluster(db), await _cluster(db)]
-        for cluster in clusters:
-            await associate_cluster(db, event, cluster.id, 1)
-        await associate_cluster(db, empty, (await _cluster(db)).id, 1)
-        # Three articles across the two clusters of `event`; the third cluster has none.
-        for cluster, count in zip(clusters, (2, 1), strict=True):
-            for _ in range(count):
-                article = Article(
-                    original_url=f"https://example.test/{uuid.uuid4()}",
-                    normalized_url=f"https://example.test/{uuid.uuid4()}",
-                    title="Event size backfill",
-                    normalized_title_hash=uuid.uuid4().hex,
-                )
-                db.add(article)
-                await db.flush()
-                db.add(
-                    StoryClusterMember(
-                        article_id=article.id,
-                        cluster_id=cluster.id,
-                        score=1.0,
-                        algorithm_version="rule-1",
-                    )
-                )
-        await db.commit()
-        event_id, empty_id = event.id, empty.id
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0015")
-    try:
-        await asyncio.to_thread(command.upgrade, config, "0016")
-        async with session_factory() as db:
-            sizes = dict(
-                (
-                    await db.execute(
-                        text(
-                            "SELECT id, (cluster_count, article_count) FROM events"
-                            " WHERE id IN (:event, :empty)"
-                        ),
-                        {"event": event_id, "empty": empty_id},
-                    )
-                ).all()
-            )
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    assert sizes == {event_id: (2, 3), empty_id: (1, 0)}

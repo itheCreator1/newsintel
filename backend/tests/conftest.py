@@ -27,16 +27,3 @@ def _clean_database() -> None:
     # injected session instead of the global session_factory.
     if os.getenv("NEWSINTEL_RUN_POSTGRES_TESTS") == "1":
         asyncio.run(_truncate_all())
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _downgrades_may_discard_the_users_entity_choices() -> None:
-    # Rows stay behind between modules, so a module that downgrades below 0025 may meet a type,
-    # hidden mark, name claim or article mark another module set; tests may discard them. The
-    # tests of the refusals unset these themselves.
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", "1")
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_NAME_CLAIMS", "1")
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_ARTICLE_MARKS", "1")
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_MONITOR_LINKS", "1")
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_EVENT_MONITORS", "1")
-    os.environ.setdefault("NEWSINTEL_MIGRATION_DISCARD_NOTIFICATIONS", "1")

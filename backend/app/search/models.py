@@ -1,7 +1,17 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -40,9 +50,9 @@ class SearchDelivery(Base):
         ForeignKey("search_index_targets.id", ondelete="CASCADE")
     )
     requested_revision: Mapped[int] = mapped_column(Integer)
-    indexed_revision: Mapped[int] = mapped_column(Integer, default=0)
+    indexed_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     status: Mapped[str] = mapped_column(String(24), default="queued")
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -65,7 +75,7 @@ class SearchRebuild(Base):
     active_key: Mapped[str | None] = mapped_column(String(16), default="active")
     status: Mapped[str] = mapped_column(String(24), default="scanning")
     scan_cursor: Mapped[uuid.UUID | None]
-    scanned_count: Mapped[int] = mapped_column(Integer, default=0)
+    scanned_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     coordinator_token: Mapped[str | None] = mapped_column(String(64), unique=True)
     coordinator_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cutover_intent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -81,7 +91,7 @@ class SourceSearchRefresh(Base):
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     status: Mapped[str] = mapped_column(String(24), default="queued")
     article_cursor: Mapped[uuid.UUID | None]
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

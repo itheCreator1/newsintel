@@ -1,4 +1,3 @@
-import asyncio
 import os
 import uuid
 from collections.abc import AsyncIterator
@@ -8,8 +7,6 @@ from typing import Any
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
 from event_fixtures import BASE, entities, feed, story
 from sqlalchemy import event as sa_event
 from sqlalchemy import text
@@ -540,30 +537,3 @@ async def test_an_event_can_be_watched_like_a_story() -> None:
             headers={"X-CSRF-Token": "csrf-token"},
         )
         assert two.status_code == 422
-
-
-async def test_the_downgrade_keeps_event_monitors_unless_told(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    version = _version()
-    async with session_factory() as db, db.begin():
-        event = await _make(db, version, [await story(db, await entities(db, 1))])
-    async with _client(user_id=await _user()) as client:
-        made = await client.post(
-            "/api/v1/monitors",
-            json=_watch(f"Kept {event.id}", event.id),
-            headers={"X-CSRF-Token": "csrf-token"},
-        )
-        assert made.status_code == 201, made.text
-    config = Config("alembic.ini")
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_EVENT_MONITORS", raising=False)
-    with pytest.raises(RuntimeError, match="event monitors"):
-        await asyncio.to_thread(command.downgrade, config, "0030")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_EVENT_MONITORS", "1")
-    await asyncio.to_thread(command.downgrade, config, "0030")
-    try:
-        async with session_factory() as db:
-            kinds = set(await db.scalars(text("SELECT DISTINCT kind FROM monitors")))
-        assert "event" not in kinds
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")

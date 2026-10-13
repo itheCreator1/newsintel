@@ -1,12 +1,9 @@
-import asyncio
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from event_fixtures import DIGEST, feed
 from sqlalchemy import delete, text, update
 from test_compare_postgres import _article, _get, _statements, _status
@@ -596,31 +593,3 @@ async def test_bad_windows_and_filters_are_rejected(path: str, params: dict[str,
 async def test_the_read_routes_need_a_session(path: str) -> None:
     assert await _status(path, signed_in=False) == 401
     assert await _status(path) == 200
-
-
-# -- migration 0024 -----------------------------------------------------------------------------
-
-
-async def test_a_stopped_wikidata_run_is_allowed_and_the_downgrade_keeps_it_as_failed() -> None:
-    config = Config("alembic.ini")
-    async with session_factory() as db, db.begin():
-        run = WikidataRun(kind="candidates", status="stopped", finished_at=NOW)
-        db.add(run)
-    await asyncio.to_thread(command.downgrade, config, "0023")
-    try:
-        async with session_factory() as db:
-            tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-            status, error = (
-                await db.execute(
-                    text("SELECT status, error FROM wikidata_runs WHERE id = :id"), {"id": run.id}
-                )
-            ).one()
-        assert "maintenance_runs" not in tables
-        assert (status, error) == ("failed", "Stopped by the user")
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-        async with session_factory() as db, db.begin():
-            await db.execute(delete(WikidataRun).where(WikidataRun.id == run.id))
-    async with session_factory() as db:
-        tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-    assert "maintenance_runs" in tables

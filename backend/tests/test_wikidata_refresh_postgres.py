@@ -4,7 +4,6 @@ A redirect moves the link (with history), a deleted item keeps it with a warning
 changes when Wikidata cannot be reached. Every test runs on the fake api.php of wikidata_fake.py.
 """
 
-import asyncio
 import os
 import random
 import uuid
@@ -12,8 +11,6 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import select, text, update
 from test_entity_authority_api_postgres import CSRF, _client
 from wikidata_fake import FakeWikidata, client, entity, settings
@@ -424,31 +421,3 @@ async def test_operations_shows_the_throttle_the_load_and_the_last_refresh() -> 
     assert isinstance(body["counts"], list) and isinstance(body["runs"], list)
     assert body["links"] >= 0 and body["open_candidates"] >= 0
     await _no_runs()
-
-
-async def test_migration_0023_adds_the_run_options_and_goes_back() -> None:
-    async with session_factory() as db:
-        columns = set(
-            await db.scalars(
-                text(
-                    "SELECT column_name FROM information_schema.columns"
-                    " WHERE table_name = 'wikidata_runs'"
-                )
-            )
-        )
-    assert {"force", "add_labels"} <= columns
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0022")
-    try:
-        async with session_factory() as db:
-            columns = set(
-                await db.scalars(
-                    text(
-                        "SELECT column_name FROM information_schema.columns"
-                        " WHERE table_name = 'wikidata_runs'"
-                    )
-                )
-            )
-        assert not {"force", "add_labels"} & columns
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")

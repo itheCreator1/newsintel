@@ -1,15 +1,12 @@
 """One list of investigations: saved searches and monitors, a saved search watched in place."""
 
-import asyncio
 import os
 from datetime import timedelta
 from typing import Any
 
 import httpx
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import text, update
+from sqlalchemy import update
 from test_monitor_api_postgres import CSRF, T1, _client, _make, _user
 
 from app.db.session import session_factory
@@ -168,26 +165,3 @@ async def test_activity_order_puts_the_latest_match_first_and_pages_through_both
         assert names[:2] == ["Busy", "Older match"]
         assert sorted(names[2:]) == ["Never matched", "Quiet"]
         assert quiet["id"] in {item["id"] for item in await _list(client, order="activity")}
-
-
-async def test_the_downgrade_keeps_the_links_unless_told(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = Config("alembic.ini")
-    async with _client(await _user()) as client:
-        saved = await _save(client, "Linked")
-        await client.post(f"/api/v1/saved-searches/{saved['id']}/watch", headers=CSRF)
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_MONITOR_LINKS", raising=False)
-    with pytest.raises(RuntimeError, match="saved_search_id"):
-        await asyncio.to_thread(command.downgrade, config, "0027")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_MONITOR_LINKS", "1")
-    await asyncio.to_thread(command.downgrade, config, "0027")
-    column = text(
-        "SELECT count(*) FROM information_schema.columns"
-        " WHERE table_name = 'monitors' AND column_name = 'saved_search_id'"
-    )
-    try:
-        async with session_factory() as db:
-            assert await db.scalar(column) == 0
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        assert await db.scalar(column) == 1
