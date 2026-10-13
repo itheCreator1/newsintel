@@ -4,7 +4,9 @@ import uuid
 
 import pytest
 from event_fixtures import story
-from sqlalchemy import select
+from sqlalchemy import event as sa_event
+from sqlalchemy import select, text
+from sqlalchemy.engine import Engine
 
 from app.articles.models import Article
 from app.db.session import session_factory
@@ -421,6 +423,53 @@ async def test_split_restores_the_observed_links() -> None:
     # Exactly as before the merge: the mentions go back to the name they came from.
     assert await _rows(both) == [(variant_id, None, 2), (root_id, None, 1)]
     assert await _rows(only_variant) == [(variant_id, None, 1)]
+
+
+async def test_merge_and_in_use_queries_do_not_scan_all_entity_rows() -> None:
+    # Every statement a merge, a split and the in-use check run against article_nlp_entities finds
+    # its rows through an index (fix plan Β5): with sequential scans priced out, none is left.
+    from app.entities.authority import merge, split
+    from app.entities.in_use import in_use
+
+    async with session_factory() as db, db.begin():
+        root = await _entity(db, "Index Root")
+        variant = await _entity(db, "Index Variant")
+        await _article(db, [(root, [5]), (variant, [40])])
+        await _article(db, [(variant, [9])])
+        root_id, variant_id = root.id, variant.id
+
+    seen: list[str] = []
+
+    def record(conn, cursor, statement, *_):  # type: ignore[no-untyped-def]
+        if "article_nlp_entities" in statement and not statement.lstrip().startswith("INSERT"):
+            seen.append(statement)
+
+    sa_event.listen(Engine, "before_cursor_execute", record)
+    try:
+        async with session_factory() as db, db.begin():
+            run = await merge(db, variant_id=variant_id, target_id=root_id)
+            merge_run = run.id
+        await _finish(merge_run)
+        async with session_factory() as db:
+            assert await in_use(db, root_id)
+        async with session_factory() as db, db.begin():
+            run = await split(db, variant_id)
+            split_run = run.id
+        await _finish(split_run)
+    finally:
+        sa_event.remove(Engine, "before_cursor_execute", record)
+
+    assert seen
+    scans = []
+    async with session_factory() as db, db.begin():
+        await db.execute(text("SET LOCAL enable_seqscan = off"))
+        for statement in dict.fromkeys(seen):
+            connection = await db.connection()
+            plan = await connection.exec_driver_sql(f"EXPLAIN (GENERIC_PLAN) {statement}")
+            lines = [row[0] for row in plan]
+            if any("Seq Scan on article_nlp_entities" in line for line in lines):
+                scans.append(statement)
+    assert scans == []
 
 
 async def test_split_rejects_a_root() -> None:
