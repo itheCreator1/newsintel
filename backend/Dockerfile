@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 RUN groupadd --system --gid 10001 newsintel && useradd --system --uid 10001 --gid newsintel newsintel
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /usr/local/bin/uv
