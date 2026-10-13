@@ -202,7 +202,9 @@ async def test_dossier_uses_only_current_annotations_and_keeps_aliases_unavailab
     ]
 
 
-async def test_article_pagination_deduplicates_current_annotations_before_limiting() -> None:
+async def test_article_pagination_pages_one_article_at_a_time_newest_first() -> None:
+    # A second current row for the same article and entity was once possible and paged twice;
+    # uq_article_nlp_entities_current now rejects it (test_integrity_postgres.py).
     async with session_factory() as db, db.begin():
         feed = Feed(
             name=f"Pagination Wire {uuid.uuid4()}",
@@ -260,19 +262,16 @@ async def test_article_pagination_deduplicates_current_annotations_before_limiti
                     input_fingerprint=DIGEST,
                     is_current=True,
                 ),
-                *[
-                    ArticleEntity(
-                        article_id=newer.id,
-                        entity_id=focus.id,
-                        run_id=newer_run.id,
-                        occurrence_count=1,
-                        relevance=1,
-                        occurrences=[],
-                        input_fingerprint=DIGEST,
-                        is_current=True,
-                    )
-                    for _ in range(2)
-                ],
+                ArticleEntity(
+                    article_id=newer.id,
+                    entity_id=focus.id,
+                    run_id=newer_run.id,
+                    occurrence_count=1,
+                    relevance=1,
+                    occurrences=[],
+                    input_fingerprint=DIGEST,
+                    is_current=True,
+                ),
             ]
         )
         entity_id, newer_id, older_id = focus.id, newer.id, older.id

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -15,7 +16,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
+
+# The values each status column holds; the CHECKs below and migration 0004 are built from them.
+STATE_STATUSES = ("queued", "running", "retrying", "succeeded", "failed")
+JOB_STATUSES = (*STATE_STATUSES, "superseded")
 
 
 class StoryCluster(Base):
@@ -56,7 +61,10 @@ class StoryClusterMember(Base):
 
 class ArticleClusterState(Base):
     __tablename__ = "article_cluster_state"
-    __table_args__ = (UniqueConstraint("article_id", name="uq_article_cluster_state"),)
+    __table_args__ = (
+        UniqueConstraint("article_id", name="uq_article_cluster_state"),
+        CheckConstraint(one_of("status", STATE_STATUSES), name="ck_article_cluster_state_status"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     requested_generation: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
@@ -76,6 +84,7 @@ class ClusterJob(Base):
         UniqueConstraint("article_id", "generation", name="uq_cluster_job_generation"),
         Index("ix_cluster_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
         Index("ix_cluster_jobs_completed", "completed_at"),
+        CheckConstraint(one_of("status", JOB_STATUSES), name="ck_cluster_jobs_status"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     state_id: Mapped[uuid.UUID] = mapped_column(

@@ -29,6 +29,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base, one_of
 
 SCHEMES = ("wikidata", "viaf", "isni", "lcnaf")
+# Each request to Wikidata is counted by its kind and outcome; any outcome but ok pauses them.
+REQUEST_KINDS = ("search", "info", "entities", "claims")
+REQUEST_OUTCOMES = ("ok", "rate_limited", "blocked", "error")
+PAUSE_REASONS = REQUEST_OUTCOMES[1:]
 
 
 class EntityExternalId(Base):
@@ -191,8 +195,14 @@ class WikidataThrottle(Base):
     """The one row every Wikidata request locks: pace, pauses and today's count."""
 
     __tablename__ = "wikidata_throttle"
-    __table_args__ = (CheckConstraint("id = 1", name="ck_wikidata_throttle_one_row"),)
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_wikidata_throttle_one_row"),
+        CheckConstraint(
+            one_of("pause_reason", PAUSE_REASONS), name="ck_wikidata_throttle_pause_reason"
+        ),
+    )
+    # Always 1, written by migration 0001; no sequence numbers it.
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=False)
     next_request_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pause_reason: Mapped[str | None] = mapped_column(String(16))
@@ -206,6 +216,12 @@ class WikidataRequestCount(Base):
     """Requests sent per day, kind and outcome, with their summed time: our load on Wikidata."""
 
     __tablename__ = "wikidata_request_counts"
+    __table_args__ = (
+        CheckConstraint(one_of("kind", REQUEST_KINDS), name="ck_wikidata_request_counts_kind"),
+        CheckConstraint(
+            one_of("outcome", REQUEST_OUTCOMES), name="ck_wikidata_request_counts_outcome"
+        ),
+    )
     day: Mapped[date] = mapped_column(Date, primary_key=True)
     kind: Mapped[str] = mapped_column(String(16), primary_key=True)
     outcome: Mapped[str] = mapped_column(String(16), primary_key=True)

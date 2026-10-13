@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, String, Text
+from sqlalchemy import CheckConstraint, DateTime, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
+
+KINDS = ("retention",)
 
 
 class MaintenanceRun(Base):
@@ -15,7 +17,10 @@ class MaintenanceRun(Base):
     """
 
     __tablename__ = "maintenance_runs"
-    __table_args__ = (Index("ix_maintenance_runs_kind_started", "kind", "started_at"),)
+    __table_args__ = (
+        Index("ix_maintenance_runs_kind_started", "kind", "started_at"),
+        CheckConstraint(one_of("kind", KINDS), name="ck_maintenance_runs_kind"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     kind: Mapped[str] = mapped_column(String(32))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

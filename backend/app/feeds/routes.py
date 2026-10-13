@@ -5,8 +5,7 @@ from datetime import UTC, date, datetime, time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import and_, cast, func, or_, select, true
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import and_, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -134,7 +133,7 @@ async def list_feeds(  # noqa: C901
             )
         )
     if tag:
-        query = query.where(cast(Feed.tags, JSONB).contains([tag]))
+        query = query.where(Feed.tags.contains([tag]))
 
     name_key = func.lower(Feed.name)
     if sort == "name":
@@ -179,7 +178,7 @@ async def list_feeds(  # noqa: C901
 async def list_feed_tags(db: Db, _auth: Auth) -> list[FeedTagCount]:
     """Every tag on a source that is not retired, with how many sources carry it."""
     tags = (
-        select(func.jsonb_array_elements_text(cast(Feed.tags, JSONB)).label("tag"))
+        select(func.jsonb_array_elements_text(Feed.tags).label("tag"))
         .where(Feed.retired_at.is_(None))
         .subquery()
     )

@@ -365,7 +365,7 @@ async def test_every_process_lists_its_rows_with_a_readable_title_and_link() -> 
             "feeds": FeedFetch(feed_id=source.id, claim_token=uuid.uuid4().hex, status="failed",
                                error_category="http", error_message="HTTP 503",
                                started_at=LATER, completed_at=LATER),
-            "articles": ArticleProcessingJob(article_id=art.id, requested_mode="rss",
+            "articles": ArticleProcessingJob(article_id=art.id, requested_mode="full_text",
                                              stage="extract", status="failed",
                                              error_category="extract", completed_at=LATER,
                                              created_at=LATER),
@@ -466,7 +466,7 @@ async def test_needs_attention_is_running_retrying_and_failures_inside_the_windo
         for status, at in plan:
             art = await _article(db, source, INSIDE)
             art.title = f"{token} {status} {at.isoformat()}"
-            job = ArticleProcessingJob(article_id=art.id, requested_mode="rss", status=status,
+            job = ArticleProcessingJob(article_id=art.id, requested_mode="full_text", status=status,
                                        created_at=at, completed_at=at)  # fmt: skip
             db.add(job)
             jobs[(status, at)] = job
@@ -496,7 +496,7 @@ async def test_the_list_filters_by_process_and_text_and_skips_superseded_jobs() 
         token = uuid.uuid4().hex
         art = await _article(db, source, INSIDE)
         art.title = f"Fire at the {token.upper()} warehouse"
-        db.add(ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
+        db.add(ArticleProcessingJob(article_id=art.id, requested_mode="full_text", status="failed",
                                     created_at=LATER, completed_at=LATER))  # fmt: skip
         nlp = await _nlp_job(db, art, "failed", generation=2, created_at=LATER)
         old = await _nlp_job(db, art, "superseded", created_at=LATER)
@@ -512,7 +512,7 @@ async def test_article_rows_carry_their_attempts() -> None:
     async with session_factory() as db:
         source = await feed(db)
         art = await _article(db, source, INSIDE)
-        job = ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
+        job = ArticleProcessingJob(article_id=art.id, requested_mode="full_text", status="failed",
                                    stage="extract", created_at=LATER, completed_at=LATER)
         db.add(job)
         await db.flush()
@@ -544,8 +544,8 @@ async def test_the_cursor_walks_every_row_once_newest_first() -> None:
             art = await _article(db, source, INSIDE)
             art.title = f"{token} {minute}"
             at = LATER + timedelta(minutes=minute % 3)  # ties on time break on id
-            job = ArticleProcessingJob(article_id=art.id, requested_mode="rss", status="failed",
-                                       created_at=at, completed_at=at)  # fmt: skip
+            job = ArticleProcessingJob(article_id=art.id, requested_mode="full_text",
+                                       status="failed", created_at=at, completed_at=at)  # fmt: skip
             db.add(job)
             made.append(job)
         await db.flush()

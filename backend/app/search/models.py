@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -14,7 +15,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
+
+# The values each status column holds; the CHECKs below and migration 0004 are built from them.
+TARGET_ROLES = ("current", "replacement", "retained")
+QUEUE_STATUSES = ("queued", "running", "retrying", "succeeded", "failed")
+REBUILD_STATUSES = ("scanning", "catching_up", "completed")
 
 
 class ArticleSearchState(Base):
@@ -30,6 +36,9 @@ class ArticleSearchState(Base):
 
 class SearchIndexTarget(Base):
     __tablename__ = "search_index_targets"
+    __table_args__ = (
+        CheckConstraint(one_of("role", TARGET_ROLES), name="ck_search_index_targets_role"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     index_name: Mapped[str] = mapped_column(String(255), unique=True)
     schema_version: Mapped[int] = mapped_column(Integer)
@@ -43,6 +52,7 @@ class SearchDelivery(Base):
         UniqueConstraint("article_id", "target_id", name="uq_search_delivery_article_target"),
         Index("ix_search_deliveries_due", "status", "next_attempt_at", "claim_expires_at"),
         Index("ix_search_deliveries_updated_at", "updated_at"),
+        CheckConstraint(one_of("status", QUEUE_STATUSES), name="ck_search_deliveries_status"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
@@ -67,7 +77,10 @@ class SearchDelivery(Base):
 
 class SearchRebuild(Base):
     __tablename__ = "search_rebuilds"
-    __table_args__ = (Index("uq_search_rebuild_active", "active_key", unique=True),)
+    __table_args__ = (
+        Index("uq_search_rebuild_active", "active_key", unique=True),
+        CheckConstraint(one_of("status", REBUILD_STATUSES), name="ck_search_rebuilds_status"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     target_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("search_index_targets.id", ondelete="RESTRICT")
@@ -86,7 +99,10 @@ class SearchRebuild(Base):
 
 class SourceSearchRefresh(Base):
     __tablename__ = "source_search_refreshes"
-    __table_args__ = (Index("ix_source_search_refresh_due", "status", "next_attempt_at"),)
+    __table_args__ = (
+        Index("ix_source_search_refresh_due", "status", "next_attempt_at"),
+        CheckConstraint(one_of("status", QUEUE_STATUSES), name="ck_source_search_refreshes_status"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     feed_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("feeds.id", ondelete="RESTRICT"))
     status: Mapped[str] = mapped_column(String(24), default="queued")

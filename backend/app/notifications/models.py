@@ -33,7 +33,10 @@ class NotificationSettings(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=SETTINGS_ID)
+    # Always SETTINGS_ID; no sequence numbers it.
+    id: Mapped[int] = mapped_column(
+        SmallInteger, primary_key=True, autoincrement=False, default=SETTINGS_ID
+    )
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     server: Mapped[str | None] = mapped_column(Text)
     topic: Mapped[str | None] = mapped_column(String(64))

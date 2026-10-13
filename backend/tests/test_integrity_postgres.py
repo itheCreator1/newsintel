@@ -110,6 +110,8 @@ async def test_an_unknown_status_is_rejected(table: str, column: str) -> None:
             {"table": table, "name": f"ck_{table}_{column}"},
         )
         assert expression is not None, f"the database has no ck_{table}_{column}"
+        # Migration 0004 writes its own copy of the values; it must be the model's.
+        assert sorted(re.findall(r"'([^']*)'", expression)) == sorted(values)
         # The constraint's own expression, evaluated against one value in place of the column.
         check = text(
             f"SELECT {expression} FROM (SELECT CAST(:value AS varchar) AS {column}) AS candidate"

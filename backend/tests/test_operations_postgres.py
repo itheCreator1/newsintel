@@ -78,7 +78,7 @@ async def _add_jobs(db, kind: str) -> None:  # type: ignore[no-untyped-def]
         if kind == "article":
             db.add(
                 ArticleProcessingJob(
-                    article_id=article.id, requested_mode="rss", stage="fetch", status=status,
+                    article_id=article.id, requested_mode="full_text", stage="fetch", status=status,
                     next_attempt_at=due, claim_expires_at=lease, completed_at=finished,
                 )
             )  # fmt: skip
@@ -161,7 +161,10 @@ async def test_the_window_edge_is_inclusive_and_a_narrower_window_excludes() -> 
         edge = NOW - timedelta(hours=HOURS)
         db.add(
             ArticleProcessingJob(
-                article_id=article.id, requested_mode="rss", stage="fetch", status="succeeded",
+                article_id=article.id,
+                requested_mode="full_text",
+                stage="fetch",
+                status="succeeded",
                 completed_at=edge,
             )
         )  # fmt: skip

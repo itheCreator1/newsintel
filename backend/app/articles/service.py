@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.articles.models import (
+    ACTIVE_STATUSES,
     Article,
     ArticleContent,
     ArticleProcessingAttempt,
@@ -14,7 +15,6 @@ from app.articles.models import (
 from app.articles.storage_locks import lock_storage_keys
 from app.search.service import request_indexing
 
-ACTIVE_STATUSES = ("queued", "running", "retrying")
 MODE_STRENGTH = {"full_text": 1, "full_text_html": 2}
 
 

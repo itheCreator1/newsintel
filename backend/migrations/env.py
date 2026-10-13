@@ -2,7 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import Column, pool
+from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.articles.models import (  # noqa: F401
@@ -72,23 +72,6 @@ if config.config_file_name:
 target_metadata = Base.metadata
 
 
-def compare_server_default(
-    context: object,
-    inspected_column: object,
-    metadata_column: Column[object],
-    inspected_default: str | None,
-    metadata_default: object,
-    rendered_metadata_default: str | None,
-) -> bool | None:
-    """Compare server defaults as alembic does, but for one known difference (below)."""
-    # The single-row settings table got a sequence default from its old migration although its
-    # one id is always written; the model, which writes it, has a Python default. Β4 drops the
-    # sequence (with wikidata_throttle's, which alembic already skips as the autoincrement key).
-    if metadata_column.table.name == "notification_settings" and metadata_column.name == "id":
-        return False
-    return None
-
-
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url").replace("+asyncpg", ""),
@@ -103,7 +86,7 @@ def do_run_migrations(connection: object) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_server_default=compare_server_default,
+        compare_server_default=True,
     )
     with context.begin_transaction():
         context.run_migrations()

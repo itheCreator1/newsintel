@@ -63,6 +63,7 @@ class Entity(Base):
             "preferred_type IS NULL OR " + one_of("preferred_type", ENTITY_TYPES),
             name="ck_nlp_entity_preferred_type",
         ),
+        CheckConstraint(one_of("entity_type", ENTITY_TYPES), name="ck_nlp_entities_entity_type"),
         CheckConstraint(
             one_of("status", ("provisional", "established")), name="ck_nlp_entity_status"
         ),
