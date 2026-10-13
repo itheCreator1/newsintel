@@ -53,7 +53,6 @@ async def test_unchanged_input_does_not_create_redundant_nlp_generations() -> No
                 feed_title=article.title,
                 feed_url=article.original_url,
                 description="A stable description with enough words to annotate.",
-                metadata_json={},
             )
         )
         await db.flush()
@@ -176,7 +175,6 @@ async def test_country_job_claim_and_publication_are_durable() -> None:
                 feed_title=article.title,
                 feed_url=article.original_url,
                 description="Officials in France described the policy. Germany replied.",
-                metadata_json={},
             )
         )
         await db.flush()
@@ -576,7 +574,6 @@ async def _run_entities_job(
                 feed_title=title,
                 feed_url=article.original_url,
                 description=description,
-                metadata_json={},
             )
         )
         await db.flush()
@@ -881,7 +878,6 @@ async def _greek_article(processors: tuple[str, ...]) -> list[uuid.UUID]:
                 feed_title=article.title,
                 feed_url=article.original_url,
                 description=GREEK_DESCRIPTION,
-                metadata_json={},
             )
         )
         await db.flush()

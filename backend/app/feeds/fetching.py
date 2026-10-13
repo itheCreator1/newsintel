@@ -20,7 +20,6 @@ class ParsedEntry:
     url: str
     description: str | None
     published_at: datetime | None
-    metadata: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -117,7 +116,7 @@ def parse_feed_document(content: bytes, feed_url: str) -> ParsedFeed:
         guid = _text(_child(node, "guid")) or _text(_child(node, "id"))
         entries.append(
             ParsedEntry(
-                guid, title, urljoin(base, link), _plain_text(description), _date(published), {}
+                guid, title, urljoin(base, link), _plain_text(description), _date(published)
             )
         )
     return ParsedFeed(_text(_child(container, "title")), entries, invalid)

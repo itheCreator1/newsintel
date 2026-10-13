@@ -103,7 +103,6 @@ async def _article(  # type: ignore[no-untyped-def]
                 feed_title=title,
                 feed_url=article.original_url,
                 description=description or title,
-                metadata_json={},
             )
         )
     await db.flush()

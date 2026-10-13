@@ -45,7 +45,6 @@ async def _discover(db, article_id: uuid.UUID, *feeds) -> None:  # type: ignore[
                 guid=uuid.uuid4().hex,
                 feed_title="t",
                 feed_url=f"https://example.test/{uuid.uuid4()}",
-                metadata_json={},
             )
         )
     await db.flush()

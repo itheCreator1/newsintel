@@ -154,7 +154,6 @@ async def story(  # type: ignore[no-untyped-def]
                     guid=uuid.uuid4().hex,
                     feed_title=title,
                     feed_url=article.original_url,
-                    metadata_json={},
                 )
             )
     await db.flush()

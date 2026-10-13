@@ -109,7 +109,6 @@ async def test_dossier_uses_only_current_annotations_and_keeps_aliases_unavailab
                 feed_title=article.title,
                 feed_url=article.original_url,
                 description=None,
-                metadata_json={},
             )
         )
         run = await _run(db, article.id)
@@ -245,7 +244,6 @@ async def test_article_pagination_deduplicates_current_annotations_before_limiti
                     feed_title=item.title,
                     feed_url=item.original_url,
                     description=None,
-                    metadata_json={},
                 )
             )
         older_run = await _run(db, older.id)

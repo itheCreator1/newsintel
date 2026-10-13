@@ -92,7 +92,6 @@ class FeedArticle(Base):
     feed_title: Mapped[str] = mapped_column(Text)
     feed_url: Mapped[str] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     discovered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
