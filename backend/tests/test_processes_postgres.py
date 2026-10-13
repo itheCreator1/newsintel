@@ -9,20 +9,16 @@ from sqlalchemy import delete, text, update
 from test_compare_postgres import _article, _get, _statements, _status
 from test_operations_postgres import _add_jobs
 
+from app.articles.models import ArticleProcessingAttempt, ArticleProcessingJob
 from app.auth.models import User
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.models import Entity, EntityAuthorityRun
 from app.events.models import EventAssociationRun
-from app.feeds.models import ArticleProcessingAttempt, ArticleProcessingJob, FeedFetch
+from app.feeds.models import FeedFetch
 from app.monitors.models import Monitor
-from app.nlp.models import (
-    ArticleNlpState,
-    Entity,
-    EntityAuthorityRun,
-    NlpJob,
-    NlpReprocessingRun,
-)
+from app.nlp.models import ArticleNlpState, NlpJob, NlpReprocessingRun
 from app.operations.models import MaintenanceRun
 from app.processes import activity, summary
 from app.search.models import SearchDelivery, SearchIndexTarget, SearchRebuild, SourceSearchRefresh

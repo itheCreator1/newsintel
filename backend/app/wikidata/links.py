@@ -13,7 +13,7 @@ from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.entities.authority import AuthorityError, record
-from app.nlp.models import Entity
+from app.entities.models import Entity
 from app.wikidata.cache import cached_items
 from app.wikidata.models import EntityExternalId, WikidataCandidate, WikidataItem, WikidataRun
 from app.wikidata.names import Name, NameState, add_names, item_names, name_states

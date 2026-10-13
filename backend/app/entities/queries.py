@@ -8,7 +8,9 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.sqltypes import Date
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.entities.schemas import (
     EntityArticlePage,
     EntityClusterPage,
@@ -20,9 +22,9 @@ from app.entities.schemas import (
     RelatedEntityResponse,
     RelatedFeedResponse,
 )
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import article_response, encode_cursor
-from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, Entity
+from app.nlp.models import ArticleCountryAnnotation, ArticleEntity
 
 
 def window_start(days: int, now: datetime | None = None) -> datetime:

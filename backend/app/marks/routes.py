@@ -4,11 +4,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_csrf
+from app.articles.models import Article
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import get_db
-from app.feeds.models import Article
 from app.marks.models import ArticleMark
 from app.marks.schemas import ArticleMarkResponse, ArticleMarkUpdate
 from app.marks.service import mark_response, update_mark

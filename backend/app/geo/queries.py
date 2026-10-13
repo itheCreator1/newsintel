@@ -6,12 +6,13 @@ from sqlalchemy import Select, and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.articles.models import Article
 from app.clustering.models import StoryClusterMember
 from app.compare.queries import ANNOTATION_ROLE, subject_articles
 from app.entities.queries import effective_date, window_start
 from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.models import Event
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import article_response, encode_cursor
 from app.geo.schemas import (
     ArticleRole,

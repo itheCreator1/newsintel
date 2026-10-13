@@ -4,9 +4,10 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
+from app.articles.models import Article
 from app.db.session import session_factory
 from app.feeds.ingestion import ingest_claim
-from app.feeds.models import Article, Feed, FeedArticle, FeedFetch
+from app.feeds.models import Feed, FeedArticle, FeedFetch
 from app.feeds.service import claim_feed
 
 pytestmark = [

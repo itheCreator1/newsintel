@@ -12,8 +12,8 @@ from sqlalchemy import event as sa_event
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from app.auth.dependencies import current_session
 from app.auth.models import Session, User
-from app.auth.routes import current_session
 from app.clustering.models import StoryCluster
 from app.db.session import session_factory
 from app.events.engine import EVENT_ALGORITHM_VERSION

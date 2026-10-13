@@ -28,18 +28,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article, ArticleProcessingAttempt, ArticleProcessingJob
 from app.clustering.models import ClusterJob
+from app.entities.models import Entity, EntityAuthorityRun
 from app.events.models import EventAssociationRun
-from app.feeds.models import (
-    Article,
-    ArticleProcessingAttempt,
-    ArticleProcessingJob,
-    Feed,
-    FeedFetch,
-)
+from app.feeds.models import Feed, FeedFetch
 from app.feeds.service import decode_cursor, encode_cursor
 from app.monitors.models import Monitor
-from app.nlp.models import Entity, EntityAuthorityRun, NlpJob, NlpReprocessingRun
+from app.nlp.models import NlpJob, NlpReprocessingRun
 from app.operations.models import MaintenanceRun
 from app.processes import states
 from app.processes.schemas import (

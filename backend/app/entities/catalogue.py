@@ -10,8 +10,9 @@ from sqlalchemy import ColumnElement, exists, func, literal, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.entities.models import Entity, EntityAuthorityChange
 from app.feeds.service import encode_cursor
-from app.nlp.models import ArticleEntity, Entity, EntityAuthorityChange
+from app.nlp.models import ArticleEntity
 from app.wikidata.models import EntityExternalId
 
 __all__ = ["RootCursor", "decode_root_cursor", "recent_changes", "roots"]

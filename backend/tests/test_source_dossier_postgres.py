@@ -12,18 +12,12 @@ from sqlalchemy import event as sa_event
 from sqlalchemy import select, text
 from sqlalchemy.engine import Engine
 
+from app.articles.models import Article, ArticleContent, ArticleProcessingJob
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.db.session import session_factory
-from app.feeds.models import (
-    Article,
-    ArticleContent,
-    ArticleProcessingJob,
-    Feed,
-    FeedArticle,
-    FeedFetch,
-)
+from app.feeds.models import Feed, FeedArticle, FeedFetch
 from app.main import create_app
 from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, ArticleLanguageAnnotation
 

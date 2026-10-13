@@ -24,7 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.entities.authority import PLACE_TYPES
-from app.nlp.models import ArticleEntity, Entity, EntityDistinct
+from app.entities.models import Entity, EntityDistinct
+from app.nlp.models import ArticleEntity
 from app.wikidata.cache import cached_items
 from app.wikidata.models import EntityExternalId
 from app.wikidata.names import identity, item_names

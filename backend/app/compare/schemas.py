@@ -4,8 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.articles.schemas import ArticleResponse
 from app.entities.schemas import EntityClusterResponse
-from app.feeds.schemas import ArticleResponse
 
 Kind = Literal["entity", "source", "country"]
 # `story` and `mentioned` are the country annotation roles (`primary` and `mentioned`); `source`

@@ -5,10 +5,10 @@ from typing import Any
 from sqlalchemy import ColumnElement, Select, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.engine import CLUSTER_ALGORITHM_VERSION
 from app.clustering.models import ArticleClusterState, ClusterJob
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.nlp.service import next_retry_at
 
 MAX_ATTEMPTS = 5

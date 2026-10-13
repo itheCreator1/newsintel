@@ -15,10 +15,10 @@ from sqlalchemy import Select, delete, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.articles.models import ArticleProcessingJob
 from app.auth.models import Session
 from app.clustering.models import ClusterJob
 from app.db.session import session_factory
-from app.feeds.models import ArticleProcessingJob
 from app.nlp.models import NlpJob
 from app.operations.models import MaintenanceRun
 from app.search.models import SearchDelivery, SearchIndexTarget

@@ -10,8 +10,8 @@ import httpx
 import pytest
 from sqlalchemy import update
 
+from app.auth.dependencies import current_session
 from app.auth.models import Session, User
-from app.auth.routes import current_session
 from app.db.session import session_factory
 from app.investigations.schemas import InvestigationState
 from app.main import create_app

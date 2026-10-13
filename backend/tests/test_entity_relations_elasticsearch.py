@@ -10,11 +10,11 @@ from test_monitor_evaluation_elasticsearch import SETTLE, _evaluate, _index, _wa
 
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.models import Entity
 from app.entities.relations import add_relation
 from app.investigations.schemas import InvestigationState
 from app.monitors import evaluation
 from app.monitors.evaluation import criteria_params
-from app.nlp.models import Entity
 from app.search.criteria import build_query, search_criteria
 from app.search.documents import ARTICLE_INDEX_SETTINGS_V3
 from app.search.elasticsearch import ElasticsearchAdapter

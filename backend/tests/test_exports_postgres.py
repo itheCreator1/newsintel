@@ -12,6 +12,7 @@ from event_fixtures import BASE, feed, story
 from sqlalchemy import update
 from test_entity_authority_postgres import _article, _entity
 
+from app.articles.models import Article
 from app.compare.queries import Spec
 from app.compare.routes import compare_export
 from app.db.session import session_factory
@@ -20,7 +21,7 @@ from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.models import Event, EventCluster
 from app.events.routes import get_event_export
 from app.exports.service import export_rows
-from app.feeds.models import Article, FeedArticle
+from app.feeds.models import FeedArticle
 
 pytestmark = [
     pytest.mark.skipif(

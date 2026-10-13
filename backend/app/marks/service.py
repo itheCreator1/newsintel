@@ -10,7 +10,7 @@ from app.marks.models import ArticleMark
 from app.marks.schemas import ArticleMarkResponse, ArticleMarkUpdate
 
 if TYPE_CHECKING:
-    from app.feeds.schemas import ArticleResponse
+    from app.articles.schemas import ArticleResponse
     from app.search.schemas import SearchResult
 
 

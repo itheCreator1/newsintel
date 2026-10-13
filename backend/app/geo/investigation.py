@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import read_cursor, sign_cursor
 from app.feeds.service import article_response
 from app.geo.schemas import (
     ArticleRole,
@@ -26,7 +27,6 @@ from app.graph.service import articles_by_id
 from app.search.aggregations import ORDER, ROOT_ORDER, ensure_complete
 from app.search.criteria import SearchCriteria, build_query, current_search_target
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
-from app.search.routes import read_cursor, sign_cursor
 
 # Stories count distinct `story_cluster_id`, a schema 3 field; the floor is explicit because
 # empty criteria never trip `current_search_target`'s own annotation checks.

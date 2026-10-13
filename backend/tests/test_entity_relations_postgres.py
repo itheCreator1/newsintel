@@ -8,9 +8,9 @@ from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
 
+from app.articles.models import Article
 from app.db.session import session_factory
-from app.feeds.models import Article
-from app.nlp.models import Entity
+from app.entities.models import Entity
 
 pytestmark = [
     pytest.mark.skipif(

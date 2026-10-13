@@ -18,16 +18,11 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.articles.models import Article
 from app.entities import authority, relations
+from app.entities.models import Entity, EntityDistinct, EntityNameClaim, EntityRelation
 from app.entities.schemas import EntityType
-from app.feeds.models import Article
-from app.nlp.models import (
-    ArticleEntity,
-    Entity,
-    EntityDistinct,
-    EntityNameClaim,
-    EntityRelation,
-)
+from app.nlp.models import ArticleEntity
 from app.wikidata.links import queue_fetch
 from app.wikidata.models import EntityExternalId
 from app.wikidata.parsing import is_qid

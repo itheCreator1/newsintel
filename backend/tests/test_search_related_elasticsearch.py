@@ -12,10 +12,11 @@ from test_compare_postgres import _cluster
 from test_monitor_api_postgres import _client, _user
 from test_monitor_evaluation_elasticsearch import _index
 
+from app.articles.models import Article
 from app.clustering.models import StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article, FeedArticle
+from app.feeds.models import FeedArticle
 from app.marks.schemas import ArticleMarkUpdate
 from app.marks.service import update_mark
 from app.search import related

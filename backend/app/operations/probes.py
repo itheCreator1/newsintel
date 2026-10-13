@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.nlp.capabilities import capabilities
 from app.operations import heartbeat
 from app.operations.schemas import Probe, QueueDepth, State
 from app.search.elasticsearch import ElasticsearchAdapter
@@ -68,9 +69,7 @@ def elasticsearch_check(adapter: ElasticsearchAdapter) -> Check:
 
 def nlp_check(settings: Settings) -> Check:
     async def check() -> tuple[State, str | None]:
-        from app.nlp.routes import _capabilities
-
-        found = _capabilities(settings)
+        found = capabilities(settings)
         broken = [c.name for c in found if c.state == "configuration_failure"]
         if broken:
             return "degraded", f"{', '.join(broken)}: configuration failure"

@@ -6,9 +6,11 @@ from typing import Any
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster
-from app.feeds.models import Article, Feed
-from app.nlp.models import Entity, Keyword
+from app.entities.models import Entity
+from app.feeds.models import Feed
+from app.nlp.models import Keyword
 from app.search.aggregations import Counted, ensure_complete, read_terms, terms
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.schemas import FacetBucket, FacetGroup, SearchFacets

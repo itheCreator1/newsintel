@@ -5,6 +5,12 @@ from alembic import context
 from sqlalchemy import Column, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from app.articles.models import (  # noqa: F401
+    Article,
+    ArticleContent,
+    ArticleProcessingAttempt,
+    ArticleProcessingJob,
+)
 from app.auth.models import LoginFailure, Session, User  # noqa: F401
 from app.clustering.models import (  # noqa: F401
     ArticleClusterState,
@@ -14,16 +20,16 @@ from app.clustering.models import (  # noqa: F401
 )
 from app.core.config import get_settings
 from app.db.base import Base
-from app.events.models import Event, EventCluster, EventEntity  # noqa: F401
-from app.feeds.models import (  # noqa: F401
-    Article,
-    ArticleContent,
-    ArticleProcessingAttempt,
-    ArticleProcessingJob,
-    Feed,
-    FeedArticle,
-    FeedFetch,
+from app.entities.models import (  # noqa: F401
+    Entity,
+    EntityAuthorityChange,
+    EntityAuthorityRun,
+    EntityDistinct,
+    EntityNameClaim,
+    EntityRelation,
 )
+from app.events.models import Event, EventCluster, EventEntity  # noqa: F401
+from app.feeds.models import Feed, FeedArticle, FeedFetch  # noqa: F401
 from app.investigations.models import SavedSearch  # noqa: F401
 from app.marks.models import ArticleMark  # noqa: F401
 from app.monitors.models import Monitor  # noqa: F401
@@ -33,7 +39,6 @@ from app.nlp.models import (  # noqa: F401
     ArticleKeyword,
     ArticleLanguageAnnotation,
     ArticleNlpState,
-    Entity,
     Keyword,
     NlpJob,
     NlpProcessorRun,

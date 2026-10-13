@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.api.cursors import cursor_or_400
-from app.auth.routes import current_session
+from app.auth.dependencies import current_session
 from app.db.session import get_db
 from app.feeds.service import encode_cursor
 from app.main import create_app

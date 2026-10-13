@@ -7,25 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.sqltypes import Date
 
+from app.articles.models import Article, ArticleContent, ArticleProcessingJob
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.entities.queries import effective_date, load_representatives, window_start
 from app.entities.schemas import RelatedCountryResponse, RelatedEntityResponse
-from app.feeds.models import (
-    Article,
-    ArticleContent,
-    ArticleProcessingJob,
-    Feed,
-    FeedArticle,
-    FeedFetch,
-)
+from app.feeds.models import Feed, FeedArticle, FeedFetch
 from app.feeds.schemas import FeedResponse, FetchPage, FetchResponse
 from app.feeds.service import article_response, encode_cursor
-from app.nlp.models import (
-    ArticleCountryAnnotation,
-    ArticleEntity,
-    ArticleLanguageAnnotation,
-    Entity,
-)
+from app.nlp.models import ArticleCountryAnnotation, ArticleEntity, ArticleLanguageAnnotation
 from app.sources.schemas import (
     SourceArticlePage,
     SourceClusterPage,

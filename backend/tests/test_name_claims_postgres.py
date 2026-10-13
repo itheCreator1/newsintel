@@ -13,7 +13,7 @@ from test_nlp_jobs_postgres import ENGLISH_DESCRIPTION, _entity_row, _run_entiti
 
 from app.db.session import session_factory
 from app.entities.authority import AuthorityError, claim_name, merge, release_name
-from app.nlp.models import Entity, EntityAuthorityChange, EntityDistinct, EntityNameClaim
+from app.entities.models import Entity, EntityAuthorityChange, EntityDistinct, EntityNameClaim
 
 pytestmark = [
     pytest.mark.skipif(

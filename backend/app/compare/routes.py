@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.cursors import cursor_or_400
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.compare import queries
 from app.compare.queries import Spec
 from app.compare.schemas import (

@@ -5,6 +5,7 @@ from typing import Any, Literal
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.cursors import read_cursor, sign_cursor
 from app.core.config import get_settings
 from app.monitors.evaluation import criteria_params, window_filter
 from app.monitors.models import Monitor
@@ -12,7 +13,7 @@ from app.monitors.schemas import MonitorResultPage
 from app.monitors.service import parse_state
 from app.search.criteria import build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
-from app.search.routes import RESULT_FIELDS, read_cursor, search_result, sign_cursor
+from app.search.results import RESULT_FIELDS, search_result
 
 Scope = Literal["unseen", "recent"]
 

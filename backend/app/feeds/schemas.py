@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
+from app.articles.schemas import ArticleResponse
 from app.marks.schemas import ArticleMarkResponse
 
 MAX_TAG_LENGTH = 40
@@ -123,29 +124,6 @@ class PollResponse(BaseModel):
     fetch_id: uuid.UUID
     status: str
     reused: bool
-
-
-class ArticleProvenance(BaseModel):
-    feed_id: uuid.UUID
-    feed_name: str
-    guid: str | None
-    title: str
-    url: str
-    description: str | None
-    discovered_at: datetime
-
-
-class ArticleResponse(BaseModel):
-    id: uuid.UUID
-    original_url: str
-    normalized_url: str
-    title: str
-    published_at: datetime | None
-    first_discovered_at: datetime
-    provenance: list[ArticleProvenance]
-    # The reader's own marks, filled wherever articles are listed.
-    read: bool = False
-    starred: bool = False
 
 
 class ArticleContentResponse(BaseModel):

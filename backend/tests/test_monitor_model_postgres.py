@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
+from app.articles.models import Article
 from app.auth.models import User
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.investigations.schemas import STATE_VERSION, InvestigationState
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate, MonitorUpdate

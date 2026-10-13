@@ -14,7 +14,7 @@ from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityAuthorityRun
+from app.entities.models import Entity, EntityAuthorityRun
 from app.nlp.processors import greek_name_key
 from app.wikidata.cache import store_items
 from app.wikidata.models import EntityExternalId

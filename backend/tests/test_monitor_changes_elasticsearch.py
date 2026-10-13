@@ -11,10 +11,11 @@ from test_clustering_postgres import _article, _attach_entities, _entity, _feed
 from test_monitor_api_postgres import CSRF, _client
 from test_monitor_evaluation_elasticsearch import _evaluate, _index, _watch
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article, FeedArticle
+from app.feeds.models import FeedArticle
 from app.monitors import changes, evaluation
 from app.monitors.changes import cluster_growth
 from app.monitors.models import Monitor

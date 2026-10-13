@@ -104,6 +104,7 @@
 "test_notifications_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_operations_api.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_operations_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false, note = "Mentions Elasticsearch only to assert graceful degradation when ES is unreachable (asserts probe state is down when the ES url ends in \":1\"); does not require a live cluster." }
+"test_package_owners.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_processes.py" = { kind = "unit", postgres = false, elasticsearch = false, fixture_server = false }
 "test_processes_actions_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }
 "test_processes_postgres.py" = { kind = "integration", postgres = true, elasticsearch = false, fixture_server = false }

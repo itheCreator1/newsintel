@@ -11,8 +11,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.models import StoryClusterMember
-from app.feeds.models import Article
 from app.feeds.service import article_response
 from app.graph.service import articles_by_id
 from app.search.aggregations import ensure_complete

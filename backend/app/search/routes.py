@@ -1,7 +1,6 @@
 import base64
 import binascii
 import hashlib
-import hmac
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -11,10 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.api.cursors import cursor_or_400, read_cursor, sign_cursor
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.exports.service import EXPORT_LIMIT, ExportFormat, export_response, export_rows
@@ -28,8 +26,8 @@ from app.search.facets import MAX_FACET_BUCKETS, search_facets
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.rebuild import rebuild_status
 from app.search.related import MAX_RELATED, related_articles
+from app.search.results import RESULT_FIELDS, search_result
 from app.search.schemas import (
-    HighlightSegment,
     IndexFailure,
     IndexFailurePage,
     IndexStatus,
@@ -37,13 +35,9 @@ from app.search.schemas import (
     RetryIndexResponse,
     SearchFacets,
     SearchPage,
-    SearchResult,
-    SearchResultEntity,
-    SearchResultSource,
     SearchSource,
     SearchSourcePage,
     SearchTimeline,
-    StoryClusterRef,
     TimelineBucket,
 )
 from app.search.timeline import (
@@ -62,95 +56,8 @@ Criteria = Annotated[SearchCriteria, Depends(search_criteria)]
 Sort = Literal["relevance", "newest", "oldest", "most_sources"]
 
 
-RESULT_FIELDS = [
-    "article_id",
-    "title",
-    "effective_date",
-    "distinct_source_count",
-    "provenance",
-    "primary_story_country",
-    "story_cluster_id",
-    "cluster_source_count",
-    "entities",
-]
-# Entity chips shown on a result; indexing stores an article's entities most relevant first.
-RESULT_ENTITIES = 3
 # An export walks one snapshot in pages of this many ids.
 EXPORT_PAGE = 500
-
-
-def sign_cursor(payload: dict[str, Any], secret: str) -> str:
-    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    signature = hmac.new(secret.encode(), raw, hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(raw + signature).decode()
-
-
-def read_cursor(value: str, secret: str) -> dict[str, Any]:
-    try:
-        decoded = base64.urlsafe_b64decode(value.encode())
-        raw, signature = decoded[:-32], decoded[-32:]
-        expected = hmac.new(secret.encode(), raw, hashlib.sha256).digest()
-        if not hmac.compare_digest(signature, expected):
-            raise ValueError
-        result: dict[str, Any] = json.loads(raw)
-        return result
-    except (ValueError, json.JSONDecodeError) as exc:
-        raise HTTPException(422, "Invalid search cursor; restart the search") from exc
-
-
-def _segments(values: list[str]) -> list[HighlightSegment]:
-    text_value = " … ".join(values)[:1200]
-    parts = text_value.split("\ue000")
-    output: list[HighlightSegment] = []
-    marked = False
-    for part in parts:
-        if "\ue001" in part:
-            marked_text, remainder = part.split("\ue001", 1)
-            if marked_text:
-                output.append(HighlightSegment(text=marked_text, marked=True))
-            if remainder:
-                output.append(HighlightSegment(text=remainder))
-            marked = False
-        elif part:
-            output.append(HighlightSegment(text=part, marked=marked))
-        marked = True
-    return output
-
-
-def search_result(hit: dict[str, Any]) -> SearchResult:
-    """One Elasticsearch article hit as a result; highlights appear only if the hit has them."""
-    source = hit["_source"]
-    highlight_values = [value for values in hit.get("highlight", {}).values() for value in values]
-    segments = _segments(highlight_values)
-    refs = {
-        item["source_id"]: SearchResultSource(
-            id=item["source_id"], name=item["source_name"], country=item.get("source_country")
-        )
-        for item in source["provenance"]
-    }
-    return SearchResult(
-        article_id=source["article_id"],
-        title=source["title"],
-        effective_date=source["effective_date"],
-        distinct_source_count=source["distinct_source_count"],
-        sources=sorted({item["source_name"] for item in source["provenance"]}),
-        source_refs=sorted(refs.values(), key=lambda ref: (ref.name.lower(), str(ref.id))),
-        story_country=source.get("primary_story_country"),
-        story_cluster=(
-            StoryClusterRef(
-                id=source["story_cluster_id"],
-                source_count=source["cluster_source_count"],
-            )
-            if source.get("story_cluster_id")
-            else None
-        ),
-        summary="".join(segment.text for segment in segments)[:500] or None,
-        highlights=segments,
-        entities=[
-            SearchResultEntity(id=item["id"], text=item["text"], type=item["type"])
-            for item in source.get("entities", [])[:RESULT_ENTITIES]
-        ],
-    )
 
 
 @router.get("/search/sources", response_model=SearchSourcePage)

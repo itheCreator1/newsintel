@@ -8,12 +8,13 @@ import pytest
 from event_fixtures import annotate, entities, feed
 from fastapi import HTTPException
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.clustering.routes import get_cluster_summary
 from app.db.session import session_factory
 from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.models import Event, EventCluster
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 
 pytestmark = [
     pytest.mark.skipif(

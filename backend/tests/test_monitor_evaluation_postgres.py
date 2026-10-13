@@ -9,10 +9,10 @@ import pytest
 from fastapi import HTTPException
 
 from app import scheduler
+from app.articles.models import Article
 from app.auth.models import User
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.investigations.schemas import InvestigationState
 from app.jobs import monitors as monitor_jobs
 from app.monitors import evaluation

@@ -6,16 +6,17 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article, FeedArticle
+from app.entities.models import Entity
+from app.feeds.models import FeedArticle
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
     ArticleKeyword,
     ArticleLanguageAnnotation,
-    Entity,
     Keyword,
 )
 from app.search.documents import (

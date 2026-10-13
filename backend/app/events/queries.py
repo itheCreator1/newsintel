@@ -9,7 +9,9 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.sqltypes import Date
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
+from app.entities.models import Entity
 from app.entities.queries import effective_date, load_representatives
 from app.entities.resolver import names_of
 from app.events.models import Event, EventCluster, EventEntity
@@ -27,9 +29,8 @@ from app.events.schemas import (
     EventTimelinePage,
     TimelineEvidence,
 )
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import article_response, decode_cursor, encode_cursor
-from app.nlp.models import Entity
 
 LIST_ENTITIES = 5
 DETAIL_ENTITIES = 20

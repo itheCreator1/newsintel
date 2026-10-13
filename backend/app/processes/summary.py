@@ -11,11 +11,13 @@ from typing import Any
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.core.config import Settings
+from app.entities.models import Entity, EntityAuthorityRun
 from app.events.models import EventAssociationRun
-from app.feeds.models import Article, Feed, FeedFetch
+from app.feeds.models import Feed, FeedFetch
 from app.monitors.models import Monitor
-from app.nlp.models import Entity, EntityAuthorityRun, NlpReprocessingRun
+from app.nlp.models import NlpReprocessingRun
 from app.nlp.reprocessing import selection_size
 from app.operations import queries
 from app.operations.models import MaintenanceRun

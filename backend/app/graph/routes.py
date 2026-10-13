@@ -5,10 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
+from app.entities.models import Entity
 from app.entities.resolver import entity_group
 from app.graph.schemas import EdgeEvidenceResponse, GraphResponse
 from app.graph.service import (
@@ -22,7 +23,6 @@ from app.graph.service import (
 )
 from app.graph.service import edge_evidence as collect_edge_evidence
 from app.graph.service import entity_graph as collect_entity_graph
-from app.nlp.models import Entity
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 

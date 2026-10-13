@@ -9,9 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster
+from app.entities.models import Entity, EntityRelation
 from app.entities.relations import LABELS
-from app.feeds.models import Article, FeedArticle
+from app.feeds.models import FeedArticle
 from app.feeds.service import article_response
 from app.graph.schemas import (
     EdgeCluster,
@@ -23,7 +25,6 @@ from app.graph.schemas import (
     StatedEdge,
 )
 from app.marks.service import apply_marks, marks_for
-from app.nlp.models import Entity, EntityRelation
 from app.search.aggregations import ROOT_ORDER
 from app.search.elasticsearch import ElasticsearchAdapter
 

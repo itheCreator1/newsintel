@@ -15,7 +15,8 @@ from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.entities import authority
-from app.nlp.models import ArticleEntity, Entity
+from app.entities.models import Entity
+from app.nlp.models import ArticleEntity
 from app.nlp.processors import canonical_entity
 from app.wikidata.models import WikidataItem
 

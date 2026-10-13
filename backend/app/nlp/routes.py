@@ -11,20 +11,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.articles.models import Article
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.feeds.models import Article, Feed, FeedArticle
+from app.entities.models import Entity
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.service import encode_cursor
+from app.nlp.capabilities import capabilities
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
     ArticleKeyword,
     ArticleLanguageAnnotation,
     ArticleNlpState,
-    Entity,
     Keyword,
     NlpJob,
     NlpLanguageSetting,
@@ -36,7 +37,6 @@ from app.nlp.schemas import (
     AnnotationLookupItem,
     AnnotationLookupPage,
     ArticleAnnotationsResponse,
-    CapabilityResponse,
     CountryAnnotationResponse,
     EntityAnnotationResponse,
     GreekEntitiesResponse,
@@ -77,52 +77,6 @@ def _greek_unavailable(settings: Settings) -> str | None:
     if not settings.nlp_ner_model_el or importlib.util.find_spec(settings.nlp_ner_model_el) is None:
         return f"The Greek model {settings.nlp_ner_model_el!r} is not installed"
     return None
-
-
-def _capabilities(settings: Settings, greek_ner: bool = False) -> list[CapabilityResponse]:
-    ner_installed = importlib.util.find_spec("spacy") is not None
-    models = [settings.nlp_ner_model]
-    if greek_ner and settings.nlp_ner_model_el:
-        models.append(settings.nlp_ner_model_el)
-    missing = [
-        model for model in models if not ner_installed or importlib.util.find_spec(model) is None
-    ]
-    if not settings.nlp_ner_enabled:
-        ner_state, detail = "disabled", "Enable the optional local spaCy image to run NER"
-    elif not ner_installed:
-        ner_state, detail = "configuration_failure", "spaCy is enabled but not installed"
-    elif missing:
-        ner_state, detail = (
-            "configuration_failure",
-            f"spaCy model {missing[0]!r} is not installed",
-        )
-    else:
-        ner_state, detail = "available", ", ".join(models)
-    return [
-        CapabilityResponse(
-            name="language",
-            state="available",
-            version=importlib.metadata.version("lingua-language-detector"),
-        ),
-        CapabilityResponse(
-            name="keywords",
-            state="available",
-            version=importlib.metadata.version("yake"),
-            detail="English and Greek",
-        ),
-        CapabilityResponse(
-            name="countries",
-            state="available",
-            version="iso-3166-reviewed-1",
-            detail="English and Greek",
-        ),
-        CapabilityResponse(
-            name="entities",
-            state=ner_state,
-            version=importlib.metadata.version("spacy") if ner_installed else None,
-            detail=detail,
-        ),
-    ]
 
 
 def _occurrences(values: list[dict[str, object]]) -> list[OccurrenceResponse]:
@@ -294,7 +248,7 @@ async def article_annotations(
             )
             for state in states
         ],
-        capabilities=_capabilities(settings, await greek_ner_enabled(db)),
+        capabilities=capabilities(settings, await greek_ner_enabled(db)),
     )
 
 
@@ -308,7 +262,7 @@ async def nlp_status(db: Db, _auth: Auth, settings: Config) -> NlpStatusResponse
     }
     return NlpStatusResponse(
         **{name: counts.get(name, 0) for name in ("queued", "running", "retrying", "failed")},
-        capabilities=_capabilities(settings, await greek_ner_enabled(db)),
+        capabilities=capabilities(settings, await greek_ner_enabled(db)),
         reprocessing=await reprocessing_status(),
     )
 

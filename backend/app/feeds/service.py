@@ -6,13 +6,13 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.feeds.models import FETCH_FINISHED, Article, Feed, FeedFetch
+from app.articles.models import Article
+from app.articles.schemas import ArticleProvenance, ArticleResponse
+from app.feeds.models import FETCH_FINISHED, Feed, FeedFetch
 from app.feeds.schemas import (
     ArticleContentResponse,
     ArticleDetailResponse,
     ArticleJobSummary,
-    ArticleProvenance,
-    ArticleResponse,
     ArticleStoryCluster,
     RelatedArticle,
 )

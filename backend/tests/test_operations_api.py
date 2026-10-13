@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from fastapi.routing import APIRoute
 
-from app.auth.routes import current_session
+from app.auth.dependencies import current_session
 from app.main import create_app
 from app.operations import heartbeat, probes
 from app.operations import schemas as ops_schemas

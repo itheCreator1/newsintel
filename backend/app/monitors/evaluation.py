@@ -9,9 +9,9 @@ from fastapi import HTTPException
 from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article
 from app.investigations.schemas import InvestigationState
 from app.monitors.models import Monitor
 from app.monitors.service import parse_state

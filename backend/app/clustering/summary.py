@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.clustering.schemas import (
     StoryEntity,
@@ -14,12 +15,13 @@ from app.clustering.schemas import (
     StoryTimeline,
     StoryTimelineBucket,
 )
+from app.entities.models import Entity
 from app.entities.queries import effective_date
 from app.events import queries as event_queries
 from app.events.engine import EVENT_ALGORITHM_VERSION
 from app.events.models import Event, EventCluster
-from app.feeds.models import Article, Feed, FeedArticle
-from app.nlp.models import ArticleEntity, Entity
+from app.feeds.models import Feed, FeedArticle
+from app.nlp.models import ArticleEntity
 
 STORY_ENTITIES = 12
 STORY_SOURCES = 100

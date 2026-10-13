@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.clustering.service import request_clustering
 from app.core.config import get_settings
 from app.db.session import session_factory
+from app.entities.models import Entity, EntityAuthorityChange, EntityNameClaim
 from app.nlp.authority import RowPart, combine_rows
 from app.nlp.models import (
     ArticleCountryAnnotation,
@@ -18,9 +19,6 @@ from app.nlp.models import (
     ArticleKeyword,
     ArticleLanguageAnnotation,
     ArticleNlpState,
-    Entity,
-    EntityAuthorityChange,
-    EntityNameClaim,
     Keyword,
     NlpJob,
     NlpProcessorRun,

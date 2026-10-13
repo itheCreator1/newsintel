@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.feeds.schemas import ArticleResponse
+from app.articles.schemas import ArticleResponse
 
 
 class MentionTimelineDay(BaseModel):
@@ -13,7 +13,7 @@ class MentionTimelineDay(BaseModel):
 
 
 EntityStatus = Literal["provisional", "established"]
-# app.nlp.models.ENTITY_TYPES, spelled out so the API contract lists them.
+# app.entities.models.ENTITY_TYPES, spelled out so the API contract lists them.
 EntityType = Literal["PERSON", "ORG", "GPE", "LOCATION", "EVENT", "PRODUCT", "TOPIC", "OTHER"]
 
 

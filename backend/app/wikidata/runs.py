@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.db.session import session_factory
-from app.nlp.models import ArticleEntity, Entity
+from app.entities.models import Entity
+from app.nlp.models import ArticleEntity
 from app.wikidata.candidates import find_candidates
 from app.wikidata.client import BATCH, WikidataClient, contact_ok
 from app.wikidata.errors import (
@@ -30,6 +31,7 @@ from app.wikidata.errors import (
 from app.wikidata.links import LinkError, queue_fetch
 from app.wikidata.models import EntityExternalId, WikidataItem, WikidataRun, WikidataThrottle
 from app.wikidata.refresh import refresh_roots
+from app.wikidata.schemas import WikidataRunResponse
 from app.wikidata.throttle import PostgresThrottle, ThrottleState, wait_seconds
 from app.wikidata.types import TYPE_ROOTS
 
@@ -424,3 +426,23 @@ async def schedule_wikidata(
         log.exception("wikidata_queue_failed", run_id=str(run_id))
         return 0
     return 1
+
+
+def run_response(run: WikidataRun) -> WikidataRunResponse:
+    """A run as the API shows it, on its own page and in the operations status."""
+    return WikidataRunResponse(
+        id=str(run.id),
+        kind=run.kind,
+        status=run.status,
+        entity_id=str(run.entity_id) if run.entity_id else None,
+        checked=run.checked,
+        changed=run.changed,
+        redirected=run.redirected,
+        missing=run.missing,
+        errors=run.errors,
+        requests=run.requests,
+        error=run.error,
+        created_at=run.created_at,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+    )

@@ -12,7 +12,8 @@ from test_monitor_api_postgres import _client, _user
 from app.clustering.models import StoryCluster
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.nlp.models import Entity, Keyword
+from app.entities.models import Entity
+from app.nlp.models import Keyword
 from app.search import routes
 from app.search.documents import (
     ARTICLE_INDEX_SETTINGS_V3,

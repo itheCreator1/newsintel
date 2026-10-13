@@ -8,8 +8,8 @@ from sqlalchemy import ColumnElement, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.articles.models import Article
 from app.core.config import get_settings
-from app.feeds.models import Article
 from app.nlp.input import InputDocument, build_input_document
 from app.nlp.models import (
     ArticleCountryAnnotation,

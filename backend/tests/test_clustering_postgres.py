@@ -7,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import func, select
 
+from app.articles.models import Article
 from app.clustering.engine import (
     CLUSTER_SCORE_THRESHOLD,
     Assignment,
@@ -30,13 +31,14 @@ from app.clustering.service import (
 )
 from app.core.config import get_settings
 from app.db.session import session_factory
-from app.feeds.models import Article, Feed, FeedArticle
+from app.entities.models import Entity
+from app.feeds.models import Feed, FeedArticle
 from app.feeds.routes import get_article
 from app.graph.schemas import GraphResponse
 from app.graph.service import MAX_NODES, edges_body, focus_query, parse_edges
 from app.graph.service import entity_graph as collect_entity_graph
 from app.nlp.execution import process_job as process_nlp_job
-from app.nlp.models import ArticleEntity, ArticleNlpState, Entity, NlpJob, NlpProcessorRun
+from app.nlp.models import ArticleEntity, ArticleNlpState, NlpJob, NlpProcessorRun
 from app.nlp.service import claim_job as claim_nlp_job
 from app.nlp.service import request_article_nlp
 from app.search.criteria import SearchCriteria, build_query

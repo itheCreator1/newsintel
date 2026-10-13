@@ -6,6 +6,7 @@ import structlog
 from redis.asyncio import Redis
 from sqlalchemy import or_, select
 
+from app.articles.models import ArticleProcessingJob
 from app.articles.service import claim_due_job, due_filter
 from app.clustering.models import ClusterJob
 from app.clustering.service import claim_job as claim_cluster_job
@@ -13,7 +14,7 @@ from app.clustering.service import job_due as cluster_job_due
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.entities.authority import scan_authority_runs
-from app.feeds.models import ArticleProcessingJob, Feed
+from app.feeds.models import Feed
 from app.feeds.service import claim_feed
 from app.jobs.articles import process_article
 from app.jobs.clustering import process_clustering

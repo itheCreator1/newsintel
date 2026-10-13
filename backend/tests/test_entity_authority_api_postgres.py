@@ -9,11 +9,11 @@ import httpx
 import pytest
 from test_entity_authority_postgres import _article, _entity, _finish, _rows
 
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.db.session import session_factory
+from app.entities.models import Entity
 from app.main import create_app
-from app.nlp.models import Entity
 
 pytestmark = [
     pytest.mark.skipif(

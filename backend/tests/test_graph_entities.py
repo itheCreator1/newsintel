@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.config import Settings
+from app.entities.models import Entity
 from app.graph.routes import entity_graph
 from app.graph.schemas import GraphResponse
 from app.graph.service import (
@@ -23,7 +24,6 @@ from app.graph.service import (
     recent_since,
 )
 from app.main import create_app
-from app.nlp.models import Entity
 from app.search.aggregations import ROOT_ORDER
 from app.search.criteria import SearchCriteria, build_query
 from app.search.elasticsearch import ElasticsearchUnavailable

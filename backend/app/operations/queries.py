@@ -13,10 +13,11 @@ from sqlalchemy import Integer, String, func, literal, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from app.articles.models import ArticleContent, ArticleProcessingJob
 from app.clustering.models import ClusterJob
 from app.events.engine import EVENT_ALGORITHM_VERSION, dirty_clusters
 from app.events.models import EventAssociationRun
-from app.feeds.models import ArticleContent, ArticleProcessingJob, Feed, FeedFetch
+from app.feeds.models import Feed, FeedFetch
 from app.monitors.models import Monitor
 from app.nlp.models import NlpJob, NlpProcessorRun
 from app.operations.schemas import (

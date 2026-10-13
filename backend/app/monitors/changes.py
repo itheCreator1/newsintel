@@ -7,9 +7,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.models import Article
 from app.clustering.models import StoryCluster, StoryClusterMember
 from app.core.config import get_settings
-from app.feeds.models import Article, Feed, FeedArticle
+from app.entities.models import Entity
+from app.feeds.models import Feed, FeedArticle
 from app.monitors.evaluation import criteria_params, window_filter
 from app.monitors.models import Monitor
 from app.monitors.schemas import (
@@ -20,7 +22,6 @@ from app.monitors.schemas import (
     StoryChange,
 )
 from app.monitors.service import parse_state
-from app.nlp.models import Entity
 from app.search.criteria import build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
 

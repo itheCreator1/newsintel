@@ -5,8 +5,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
+from app.articles.models import Article
 from app.db.session import session_factory
-from app.feeds.models import Article, Feed, FeedArticle
+from app.feeds.models import Feed, FeedArticle
 from app.nlp.execution import process_job
 from app.nlp.models import (
     ArticleCountryAnnotation,
@@ -602,7 +603,8 @@ async def _run_entities_job(
 
 
 async def _current_entity_rows(article_id: uuid.UUID) -> list[tuple[str, str, str]]:
-    from app.nlp.models import ArticleEntity, Entity
+    from app.entities.models import Entity
+    from app.nlp.models import ArticleEntity
 
     async with session_factory() as db:
         rows = (
@@ -690,7 +692,7 @@ async def _entity_row(article_id: uuid.UUID) -> list[tuple[uuid.UUID, uuid.UUID 
 async def test_ner_writes_the_root_and_keeps_the_observed_variant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.nlp.models import Entity
+    from app.entities.models import Entity
 
     token = uuid.uuid4().hex[:8]
     async with session_factory() as db, db.begin():
@@ -738,7 +740,7 @@ async def test_ner_leaves_observed_empty_for_a_root(monkeypatch: pytest.MonkeyPa
 
 
 async def test_ner_never_overwrites_a_preferred_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.nlp.models import Entity
+    from app.entities.models import Entity
 
     token = uuid.uuid4().hex[:8]
     async with session_factory() as db, db.begin():
@@ -769,7 +771,7 @@ async def test_ner_never_overwrites_a_preferred_name(monkeypatch: pytest.MonkeyP
 
 
 async def test_ambiguous_surname_is_not_folded(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.nlp.models import Entity
+    from app.entities.models import Entity
 
     surname = f"Kestrelwick{uuid.uuid4().hex[:6]}"
     async with session_factory() as db, db.begin():
@@ -800,7 +802,8 @@ async def test_ambiguous_surname_is_not_folded(monkeypatch: pytest.MonkeyPatch) 
 async def test_ner_stores_two_names_of_one_root_as_one_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.nlp.models import ArticleEntity, Entity
+    from app.entities.models import Entity
+    from app.nlp.models import ArticleEntity
 
     token = uuid.uuid4().hex[:8]
     async with session_factory() as db, db.begin():

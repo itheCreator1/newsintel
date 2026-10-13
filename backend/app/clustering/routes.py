@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.cursors import cursor_or_400
-from app.auth.dependencies import require_csrf
+from app.articles.models import Article
+from app.auth.dependencies import current_session, require_csrf
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.clustering.engine import CLUSTER_ALGORITHM_VERSION
 from app.clustering.models import ClusterJob, StoryCluster, StoryClusterMember
 from app.clustering.schemas import (
@@ -26,7 +26,7 @@ from app.clustering.schemas import (
 from app.clustering.service import request_clustering
 from app.clustering.summary import story_summary
 from app.db.session import get_db
-from app.feeds.models import Article, FeedArticle
+from app.feeds.models import FeedArticle
 from app.feeds.service import encode_cursor
 
 router = APIRouter(tags=["clustering"])

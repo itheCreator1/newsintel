@@ -10,7 +10,7 @@ from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_api_postgres import CSRF, _client
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityAuthorityChange
+from app.entities.models import Entity, EntityAuthorityChange
 from app.wikidata.cache import store_items
 from app.wikidata.models import EntityExternalId, WikidataCandidate, WikidataRun
 from app.wikidata.parsing import Item

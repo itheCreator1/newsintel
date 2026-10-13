@@ -2,10 +2,11 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from app.auth.routes import current_session
+from app.auth.dependencies import current_session
 from app.core.config import Settings
 from app.main import create_app
-from app.nlp.routes import _capabilities, _greek_unavailable, _lookup_cursor
+from app.nlp.capabilities import capabilities as installed_capabilities
+from app.nlp.routes import _greek_unavailable, _lookup_cursor
 
 
 @pytest.mark.asyncio
@@ -64,7 +65,9 @@ def test_enabled_ner_reports_a_missing_configured_model(monkeypatch: pytest.Monk
     )
     monkeypatch.setattr("app.nlp.routes.importlib.metadata.version", lambda _name: "3.8.16")
 
-    capabilities = _capabilities(Settings(nlp_ner_enabled=True, nlp_ner_model="missing_model"))
+    capabilities = installed_capabilities(
+        Settings(nlp_ner_enabled=True, nlp_ner_model="missing_model")
+    )
 
     entities = next(item for item in capabilities if item.name == "entities")
     assert entities.state == "configuration_failure"
@@ -82,12 +85,14 @@ def test_greek_ner_reports_a_missing_greek_model(monkeypatch: pytest.MonkeyPatch
 
     assert _greek_unavailable(settings) == "The Greek model 'el_core_news_sm' is not installed"
     entities = next(
-        item for item in _capabilities(settings, greek_ner=True) if item.name == "entities"
+        item for item in installed_capabilities(settings, greek_ner=True) if item.name == "entities"
     )
     assert entities.state == "configuration_failure"
     assert entities.detail == "spaCy model 'el_core_news_sm' is not installed"
     # With Greek off, the missing Greek model does not mark English NER as broken.
-    english_only = next(item for item in _capabilities(settings) if item.name == "entities")
+    english_only = next(
+        item for item in installed_capabilities(settings) if item.name == "entities"
+    )
     assert english_only.state == "available"
 
 

@@ -5,7 +5,7 @@ import pytest
 from test_entity_authority_postgres import _article
 
 from app.db.session import session_factory
-from app.nlp.models import Entity, EntityDistinct
+from app.entities.models import Entity, EntityDistinct
 
 pytestmark = [
     pytest.mark.skipif(

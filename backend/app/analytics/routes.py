@@ -24,11 +24,11 @@ from app.analytics.timeline import (
     daily_counts,
     detect_spikes,
 )
+from app.auth.dependencies import current_session
 from app.auth.models import Session
-from app.auth.routes import current_session
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
-from app.nlp.models import Entity
+from app.entities.models import Entity
 from app.search.aggregations import date_histogram, ensure_complete, read_terms, terms
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
 from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
