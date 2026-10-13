@@ -94,7 +94,10 @@ class NlpProcessorRun(Base):
         CheckConstraint(one_of("outcome", RUN_OUTCOMES), name="ck_nlp_processor_runs_outcome"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_jobs.id", ondelete="CASCADE"))
+    # Indexed: retention deletes jobs, and each delete looks up the job's runs here.
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("nlp_jobs.id", ondelete="CASCADE"), index=True
+    )
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     processor_name: Mapped[str] = mapped_column(String(64))
     processor_version: Mapped[str] = mapped_column(String(64))
@@ -124,8 +127,9 @@ class ArticleLanguageAnnotation(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
+        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE"), index=True
     )
     language: Mapped[str] = mapped_column(String(16))
     confidence: Mapped[float] = mapped_column(Float)
@@ -162,11 +166,12 @@ class ArticleEntity(Base):
     __tablename__ = "article_nlp_entities"
     __table_args__ = (
         Index("ix_article_nlp_entities_current", "article_id", "is_current"),
+        # Every row, not only current ones: merge, split and in-use look up past rows too.
+        Index("ix_article_nlp_entities_entity_article", "entity_id", "article_id"),
         Index(
-            "ix_article_nlp_entities_entity_article",
-            "entity_id",
-            "article_id",
-            postgresql_where=text("is_current"),
+            "ix_article_nlp_entities_observed",
+            "observed_entity_id",
+            postgresql_where=text("observed_entity_id IS NOT NULL"),
         ),
         Index(
             "uq_article_nlp_entities_current",
@@ -184,8 +189,9 @@ class ArticleEntity(Base):
     observed_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("nlp_entities.id", ondelete="RESTRICT")
     )
+    # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
+        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE"), index=True
     )
     original_label: Mapped[str | None] = mapped_column(String(64))
     occurrence_count: Mapped[int] = mapped_column(Integer)
@@ -210,10 +216,11 @@ class ArticleKeyword(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     keyword_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("nlp_keywords.id", ondelete="RESTRICT")
+        ForeignKey("nlp_keywords.id", ondelete="RESTRICT"), index=True
     )
+    # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
+        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE"), index=True
     )
     occurrence_count: Mapped[int] = mapped_column(Integer)
     raw_score: Mapped[float] = mapped_column(Float)
@@ -239,8 +246,9 @@ class ArticleCountryAnnotation(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
+    # Indexed: retention deletes runs, and each delete looks up the run's rows here.
     run_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE")
+        ForeignKey("nlp_processor_runs.id", ondelete="CASCADE"), index=True
     )
     country_code: Mapped[str] = mapped_column(String(2))
     role: Mapped[str] = mapped_column(String(24))

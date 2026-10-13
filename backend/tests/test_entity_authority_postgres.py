@@ -438,11 +438,11 @@ async def test_merge_and_in_use_queries_do_not_scan_all_entity_rows() -> None:
         await _article(db, [(variant, [9])])
         root_id, variant_id = root.id, variant.id
 
-    seen: list[str] = []
+    seen: list[tuple[str, object]] = []
 
-    def record(conn, cursor, statement, *_):  # type: ignore[no-untyped-def]
+    def record(conn, cursor, statement, parameters, *_):  # type: ignore[no-untyped-def]
         if "article_nlp_entities" in statement and not statement.lstrip().startswith("INSERT"):
-            seen.append(statement)
+            seen.append((statement, parameters))
 
     sa_event.listen(Engine, "before_cursor_execute", record)
     try:
@@ -463,9 +463,9 @@ async def test_merge_and_in_use_queries_do_not_scan_all_entity_rows() -> None:
     scans = []
     async with session_factory() as db, db.begin():
         await db.execute(text("SET LOCAL enable_seqscan = off"))
-        for statement in dict.fromkeys(seen):
-            connection = await db.connection()
-            plan = await connection.exec_driver_sql(f"EXPLAIN (GENERIC_PLAN) {statement}")
+        connection = await db.connection()
+        for statement, parameters in seen:
+            plan = await connection.exec_driver_sql(f"EXPLAIN {statement}", parameters)  # type: ignore[arg-type]
             lines = [row[0] for row in plan]
             if any("Seq Scan on article_nlp_entities" in line for line in lines):
                 scans.append(statement)

@@ -11,12 +11,12 @@ import uuid
 from dataclasses import dataclass
 from typing import Literal
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.entities import authority
+from app.entities.in_use import in_use
 from app.entities.models import Entity
-from app.nlp.models import ArticleEntity
 from app.nlp.processors import canonical_entity
 from app.wikidata.models import WikidataItem
 
@@ -92,22 +92,6 @@ async def name_states(db: AsyncSession, root: Entity, item: WikidataItem) -> lis
     return states
 
 
-async def _in_use(db: AsyncSession, entity_id: uuid.UUID) -> bool:
-    return bool(
-        await db.scalar(
-            select(
-                exists().where(
-                    or_(
-                        ArticleEntity.entity_id == entity_id,
-                        ArticleEntity.observed_entity_id == entity_id,
-                    )
-                )
-                | exists().where(Entity.authority_id == entity_id)
-            )
-        )
-    )
-
-
 async def add_names(
     db: AsyncSession, root: Entity, item: WikidataItem, chosen: list[Name]
 ) -> list[Name]:
@@ -142,7 +126,7 @@ async def add_names(
             existing.id != root.id
             and existing.authority_id is None
             and not existing.ambiguous
-            and not await _in_use(db, existing.id)
+            and not await in_use(db, existing.id)
         ):
             try:
                 await authority.adopt(db, variant_id=existing.id, root_id=root.id)

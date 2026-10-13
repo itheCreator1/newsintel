@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.models import StoryClusterMember
 from app.db.session import session_factory
+from app.entities.in_use import in_use
 from app.entities.models import (
     ENTITY_TYPES,
     Entity,
@@ -370,18 +371,7 @@ async def adopt(db: AsyncSession, *, variant_id: uuid.UUID, root_id: uuid.UUID) 
     problem = await _problem(db, variant, root)
     if problem is not None:
         raise AuthorityError(*problem)
-    in_use = await db.scalar(
-        select(
-            exists().where(
-                or_(
-                    ArticleEntity.entity_id == variant.id,
-                    ArticleEntity.observed_entity_id == variant.id,
-                )
-            )
-            | exists().where(Entity.authority_id == variant.id)
-        )
-    )
-    if in_use:
+    if await in_use(db, variant.id):
         raise AuthorityError(409, "This entity has articles or variants; merge it instead")
     await _move_relations(db, variant.id, root.id)
     await _move_external_ids(db, variant.id, root.id)

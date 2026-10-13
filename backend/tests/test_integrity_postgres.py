@@ -307,7 +307,6 @@ UNINDEXED_FOREIGN_KEYS = {
     "entity_distinct(b_id)": "a few rows, one per pair the user kept apart",
     "entity_relations(source_article_id)": "articles are never deleted",
     "monitors(latest_match_article_id)": "a few rows, one per watch",
-    "monitors(saved_search_id)": "a few rows, one per watch",
     "search_deliveries(target_id)": "an index target is never deleted",
     "search_rebuilds(target_id)": "a few rows, one per rebuild",
     "sessions(user_id)": "one user, a few sessions",
@@ -321,6 +320,23 @@ async def test_every_foreign_key_has_an_index() -> None:
     # Deleting a parent row looks up its children by the key (to cascade, null or refuse); without
     # an index whose first column is the key's, that is a scan of the child table per parent row.
     # Retention deleted 200 NLP jobs in 13.1 s that way (database review #1).
+    unindexed = await _unindexed_foreign_keys()
+    assert sorted(unindexed - set(UNINDEXED_FOREIGN_KEYS)) == []
+    # An exception that has since got its index leaves the list.
+    assert sorted(set(UNINDEXED_FOREIGN_KEYS) - unindexed) == []
+
+
+async def test_the_foreign_key_indexes_go_with_their_downgrade() -> None:
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0004")
+    try:
+        assert len(await _unindexed_foreign_keys() - set(UNINDEXED_FOREIGN_KEYS)) == 8
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+    assert await _unindexed_foreign_keys() == set(UNINDEXED_FOREIGN_KEYS)
+
+
+async def _unindexed_foreign_keys() -> set[str]:
     async with session_factory() as db:
         rows = await db.execute(
             text(
@@ -342,7 +358,4 @@ async def test_every_foreign_key_has_an_index() -> None:
                 """
             )
         )
-        unindexed = set(rows.scalars())
-    assert sorted(unindexed - set(UNINDEXED_FOREIGN_KEYS)) == []
-    # An exception that has since got its index leaves the list.
-    assert sorted(set(UNINDEXED_FOREIGN_KEYS) - unindexed) == []
+        return set(rows.scalars())
