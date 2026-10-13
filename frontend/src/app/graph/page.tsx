@@ -3,7 +3,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useWhenChanged } from '../../lib/use-when-changed'
 import { EdgeEvidencePanel } from '../../components/EdgeEvidencePanel'
 import { ActiveFilterBar } from '../../components/ActiveFilterBar'
 import { EntityGraph, type ColourBy } from '../../components/EntityGraph'
@@ -69,18 +70,16 @@ function GraphContent() {
   const [advancedOpen, setAdvancedOpen] = useState(advanced > 0)
 
   // Every URL change resyncs the form, and reopens Advanced when it holds criteria.
-  useEffect(() => {
+  useWhenChanged(searchParams.toString(), () => {
     setForm(formFromState(state, nodeCount, minWeight))
     if (advanced > 0) setAdvancedOpen(true)
-  }, [searchParams.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   const sourcePages = useInfiniteQuery({ queryKey: ['graph-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const sources = sourcePages.data?.pages.flatMap(page => page.items) ?? []
   // Picked sources keep their names while the search box lists others.
   const [sourceNames, setSourceNames] = useState(() => new Map<string, string>())
-  useEffect(() => {
-    if (sources.some(source => !sourceNames.has(source.id))) setSourceNames(known => new Map([...known, ...sources.map(source => [source.id, source.name] as const)]))
-  }, [sources, sourceNames])
+  if (sources.some(source => !sourceNames.has(source.id))) setSourceNames(known => new Map([...known, ...sources.map(source => [source.id, source.name] as const)]))
 
   // Only the fields the graph filter form exposes are sent: the graph endpoint accepts more (entity_id,
   // keyword_id, story_cluster_id, ...) via the shared search criteria, but leaking whatever happens to be

@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, onUnauthorized, type User } from './api'
 
 interface AuthState {
@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     client.removeQueries()
   }
 
+  const sessionExpired = useEffectEvent(() => { if (signedIn.current) endSession(SESSION_EXPIRED) })
+
   useEffect(() => {
     let cancelled = false
     api.me().then(
@@ -38,9 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       () => { if (!cancelled) setUser(null) },
     ).finally(() => { if (!cancelled) setLoading(false) })
     // A 401 on any request while signed in means the session ended: go back to sign-in once, not one error per panel.
-    const unsubscribe = onUnauthorized(() => { if (signedIn.current) endSession(SESSION_EXPIRED) })
+    const unsubscribe = onUnauthorized(sessionExpired)
     return () => { cancelled = true; unsubscribe() }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   async function signIn(username: string, password: string) {
     setError('')

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useWhenChanged } from '../lib/use-when-changed'
 import { useAuth } from '../lib/auth-context'
 import { displayFont, monoFont } from '../lib/fonts'
 import { NavLink } from './NavLink'
@@ -37,7 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => { setMenuOpen(false) }, [pathname])
+  useWhenChanged(pathname, () => setMenuOpen(false))
   useEffect(() => { if (!loading) document.title = pageTitle(pathname, Boolean(user)) }, [pathname, user, loading])
 
   // Until the session check answers, show nothing rather than flashing the sign-in form at a signed-in user.

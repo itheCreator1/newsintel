@@ -3,7 +3,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, useState, type ReactNode } from 'react'
+import { useWhenChanged } from '../../lib/use-when-changed'
 import { AuthorityPanel } from '../../components/AuthorityPanel'
 import { CheckboxPicker } from '../../components/CheckboxPicker'
 import { refreshAuthority } from '../../components/EntityAuthority'
@@ -357,7 +358,7 @@ function AuthorityTable({ view, onOpen }: { view: AuthoritiesView; onOpen(id: st
 /** A text filter typed freely, written to the URL as it changes. */
 function useText(value: string, write: (text: string) => void): [string, (text: string) => void] {
   const [text, setText] = useState(value)
-  useEffect(() => { setText(value) }, [value])
+  useWhenChanged(value, () => setText(value))
   return [text, next => { setText(next); write(next) }]
 }
 
