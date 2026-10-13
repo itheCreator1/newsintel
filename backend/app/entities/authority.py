@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import cast, delete, exists, func, or_, select, update
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy import delete, exists, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clustering.models import StoryClusterMember
@@ -822,7 +822,7 @@ async def _split_article(
 
 
 def _split_rows(variant_id: uuid.UUID, root_id: uuid.UUID):  # type: ignore[no-untyped-def]
-    tagged = cast(ArticleEntity.occurrences, JSONB).contains([{"entity_id": str(variant_id)}])
+    tagged = ArticleEntity.occurrences.contains([{"entity_id": str(variant_id)}])
     return select(ArticleEntity).where(
         ArticleEntity.entity_id == root_id,
         or_(ArticleEntity.observed_entity_id == variant_id, tagged),

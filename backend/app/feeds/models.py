@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -83,6 +84,7 @@ class Article(Base):
         UniqueConstraint("normalized_url", name="uq_articles_normalized_url"),
         Index("ix_articles_discovery", "first_discovered_at", "id"),
         Index("ix_articles_title_hash", "normalized_title_hash"),
+        Index("ix_articles_effective_date", text("COALESCE(published_at, first_discovered_at)")),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     original_url: Mapped[str] = mapped_column(Text)
@@ -143,6 +145,13 @@ class ArticleProcessingJob(Base):
         Index("ix_article_jobs_due", "status", "next_attempt_at", "claim_expires_at"),
         Index("ix_article_jobs_article_created", "article_id", "created_at"),
         Index("ix_article_jobs_completed", "completed_at"),
+        # One active job per article.
+        Index(
+            "uq_article_jobs_active",
+            "article_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running', 'retrying')"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
