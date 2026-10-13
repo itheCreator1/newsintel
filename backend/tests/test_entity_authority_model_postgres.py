@@ -1,15 +1,11 @@
-import asyncio
 import os
 import uuid
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import session_factory
-from app.nlp.models import Entity
 
 pytestmark = [
     pytest.mark.skipif(
@@ -107,36 +103,6 @@ async def test_entity_status_accepts_only_provisional_or_established() -> None:
         )
 
 
-async def test_downgrade_to_0017_removes_only_the_authority_schema(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Going below 0021 discards Wikidata links other test files may have made.
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_WIKIDATA", "1")
-    async with session_factory() as db, db.begin():
-        await _insert_old_style_entity(db, f"downgrade-{uuid.uuid4().hex}")
-    async with session_factory() as db:
-        entities_before = await db.scalar(select(func.count()).select_from(Entity))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0017")
-    try:
-        async with session_factory() as db:
-            for table in AUTHORITY_TABLES:
-                assert await db.scalar(text(f"SELECT to_regclass('{table}') IS NULL")) is True
-            assert not set(AUTHORITY_COLUMNS) & await _columns(db, "nlp_entities")
-            assert "observed_entity_id" not in await _columns(db, "article_nlp_entities")
-            assert await db.scalar(text("SELECT count(*) FROM nlp_entities")) == entities_before
-            assert (
-                await db.scalar(text("SELECT to_regclass('nlp_language_settings') IS NOT NULL"))
-                is True
-            )
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db:
-        assert set(AUTHORITY_COLUMNS) <= await _columns(db, "nlp_entities")
-
-
 async def _run(db, kind: str) -> uuid.UUID:  # type: ignore[no-untyped-def]
     entity_id = await _insert_old_style_entity(db, f"run-{uuid.uuid4().hex}")
     run_id = uuid.uuid4()
@@ -149,28 +115,3 @@ async def _run(db, kind: str) -> uuid.UUID:  # type: ignore[no-untyped-def]
         {"id": run_id, "kind": kind, "entity": entity_id},
     )
     return run_id
-
-
-async def test_downgrade_to_0018_keeps_merge_and_split_runs_only(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Going below 0021 discards Wikidata links other test files may have made.
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_WIKIDATA", "1")
-    async with session_factory() as db, db.begin():
-        kept = [await _run(db, "merge"), await _run(db, "split")]
-        dropped = await _run(db, "reindex")
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0018")
-    try:
-        async with session_factory() as db:
-            found = set((await db.scalars(text("SELECT id FROM entity_authority_runs"))).all())
-            assert set(kept) <= found and dropped not in found
-        with pytest.raises(IntegrityError):
-            async with session_factory() as db, db.begin():
-                await _run(db, "reindex")
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db, db.begin():
-        await _run(db, "reindex")

@@ -1,12 +1,9 @@
-import asyncio
 import json
 import os
 import uuid
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import func, select, text
+from sqlalchemy import select
 from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
@@ -262,39 +259,6 @@ async def test_export_and_import_carry_the_relations() -> None:
             (item.label, item.entity.normalized_text, item.relation.valid_from)
             for item in await see_also(db, new_co.id)
         ) == [("earlier_name", "old co", "2020-05"), ("related", "dee ash", None)]
-
-
-async def test_downgrade_to_0019_removes_only_relations() -> None:
-    language = _language()
-    ids = await _entities(language, ("ORG", "keep co"), ("ORG", "next co"))
-    async with _client() as client:
-        await _link(client, ids["keep co"], "later_name", ids["next co"])
-        await client.patch(
-            f"/entities/{ids['keep co']}", json={"status": "established"}, headers=CSRF
-        )
-    async with session_factory() as db:
-        entities_before = await db.scalar(select(func.count()).select_from(Entity))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0019")
-    try:
-        async with session_factory() as db:
-            assert await db.scalar(text("SELECT to_regclass('entity_relations') IS NULL")) is True
-            actions = set(
-                (
-                    await db.scalars(
-                        text("SELECT action FROM entity_authority_changes WHERE entity_id = :id"),
-                        {"id": ids["keep co"]},
-                    )
-                ).all()
-            )
-            assert actions == {"status_changed"}
-            assert await db.scalar(text("SELECT count(*) FROM nlp_entities")) == entities_before
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db:
-        assert await db.scalar(text("SELECT to_regclass('entity_relations') IS NOT NULL")) is True
 
 
 async def _chain(language: str) -> dict[str, uuid.UUID]:

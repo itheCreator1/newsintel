@@ -206,20 +206,6 @@ async def test_country_job_claim_and_publication_are_durable() -> None:
     assert job is not None and job.status == "succeeded"
     assert {annotation.country_code for annotation in annotations} == {"FR", "DE"}
 
-    # A rule_version this long is only possible after the 0009 migration widened the
-    # column; leaving it behind would break test_clustering_postgres's downgrade-to-0007
-    # round trip, which passes through 0009's downgrade on a shared test database.
-    async with session_factory() as db, db.begin():
-        feed_article = await db.scalar(
-            select(FeedArticle).where(FeedArticle.article_id == article.id)
-        )
-        assert feed_article is not None
-        await db.delete(feed_article)
-        await db.flush()
-        stored_article = await db.get(Article, article.id)
-        assert stored_article is not None
-        await db.delete(stored_article)
-
 
 async def test_expired_worker_cannot_publish_nlp_output() -> None:
     async with session_factory() as db, db.begin():
@@ -678,36 +664,6 @@ async def test_one_current_row_per_article_and_entity(monkeypatch: pytest.Monkey
     listed = [(item.entity_type, item.normalized_text) for item in annotations.entities]
     assert listed == [("GPE", "united states")]
     assert annotations.entities[0].occurrence_count == 2
-
-
-async def test_downgrade_to_0016_removes_only_the_language_settings() -> None:
-    import asyncio
-
-    from alembic import command
-    from alembic.config import Config
-    from sqlalchemy import func, text
-
-    from app.nlp.models import NlpLanguageSetting
-
-    async with session_factory() as db, db.begin():
-        await db.merge(NlpLanguageSetting(language="el", ner_enabled=False))
-    async with session_factory() as db:
-        jobs_before = await db.scalar(select(func.count()).select_from(NlpJob))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0016")
-    try:
-        async with session_factory() as db:
-            assert (
-                await db.scalar(text("SELECT to_regclass('nlp_language_settings') IS NULL")) is True
-            )
-            assert await db.scalar(select(func.count()).select_from(NlpJob)) == jobs_before
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db:
-        # Back at head the table exists again, empty: Greek entities are off until turned on.
-        assert await db.scalar(select(func.count()).select_from(NlpLanguageSetting)) == 0
 
 
 ENGLISH_DESCRIPTION = (

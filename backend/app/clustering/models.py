@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,8 +25,8 @@ class StoryCluster(Base):
     __table_args__ = (Index("ix_story_clusters_recency", "last_published_at", "id"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     algorithm_version: Mapped[str] = mapped_column(String(64))
-    article_count: Mapped[int] = mapped_column(Integer, default=0)
-    source_count: Mapped[int] = mapped_column(Integer, default=0)
+    article_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    source_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     first_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     representative_article_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -58,10 +59,12 @@ class ArticleClusterState(Base):
     __table_args__ = (UniqueConstraint("article_id", name="uq_article_cluster_state"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
-    requested_generation: Mapped[int] = mapped_column(Integer, default=1)
-    completed_generation: Mapped[int] = mapped_column(Integer, default=0)
+    requested_generation: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    completed_generation: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     algorithm_version: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(24), default="queued")
+    status: Mapped[str] = mapped_column(
+        String(24), default="queued", server_default=text("'queued'")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -81,8 +84,10 @@ class ClusterJob(Base):
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     generation: Mapped[int] = mapped_column(Integer)
     algorithm_version: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(24), default="queued")
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(
+        String(24), default="queued", server_default=text("'queued'")
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -1,18 +1,14 @@
-import asyncio
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.auth.models import User
 from app.db.session import session_factory
 from app.feeds.models import Article
-from app.investigations.models import SavedSearch
 from app.investigations.schemas import STATE_VERSION, InvestigationState
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate, MonitorUpdate
@@ -255,22 +251,3 @@ async def test_claim_tokens_are_unique() -> None:
         with pytest.raises(IntegrityError):
             await db.commit()
         await db.rollback()
-
-
-async def test_downgrade_to_0009_removes_only_monitors() -> None:
-    async with session_factory() as db:
-        articles_before = await db.scalar(select(func.count()).select_from(Article))
-        searches_before = await db.scalar(select(func.count()).select_from(SavedSearch))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0009")
-    try:
-        async with session_factory() as db:
-            assert await db.scalar(text("SELECT to_regclass('monitors') IS NULL")) is True
-            assert await db.scalar(select(func.count()).select_from(Article)) == articles_before
-            assert await db.scalar(select(func.count()).select_from(SavedSearch)) == searches_before
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-    async with session_factory() as db:
-        assert await db.scalar(text("SELECT to_regclass('monitors') IS NOT NULL")) is True

@@ -116,8 +116,9 @@ Rebuild the images first: they copy the source at build time, so a stale image p
 PostgreSQL is the source of truth (README, P1), so every schema change is an Alembic migration in `backend/migrations/versions/`.
 
 - **Naming.** Files are `NNNN_short_description.py` with `revision = "NNNN"` and `down_revision` set to the previous number. Take the next number after the highest existing one.
+- **Baseline.** `0001_baseline.py` is the whole schema the first 31 migrations built; they were squashed into it in October 2026 and live on in git history. The next migration is `0002`. `test_migration_baseline_postgres.py` keeps the baseline equal to that schema (`tests/snapshots/schema_0031.txt`), and its downgrade empty. A database or dump from before the squash is at `0031`: run `alembic stamp 0001 --purge` on it once, then upgrade as usual.
 - **One head.** The full gate and every browser group check that the migrations have exactly one head (`alembic.single-head`). If your branch and `main` both added a migration, renumber yours after merging `main`.
-- **Write it by hand.** Models live in each domain module; compare your migration against them rather than trusting autogenerate.
+- **Write it by hand.** Models live in each domain module; compare your migration against them rather than trusting autogenerate. `test_models_match_migrations` runs `alembic check`, server defaults included, so a column, index, constraint or default in one and not the other fails it.
 - **Apply it locally** with `dc run --rm api alembic upgrade head`. The full gate and the browser groups run `alembic upgrade head` against an empty database, and the restore rehearsal runs it against a dump.
 - **Existing data.** Operators upgrade in place and restore older dumps before upgrading (README §6), so a migration must work on a populated database, not only an empty one.
 

@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
 
 
 class ArticleNlpState(Base):
@@ -31,12 +31,14 @@ class ArticleNlpState(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"))
     processor_name: Mapped[str] = mapped_column(String(64))
-    requested_generation: Mapped[int] = mapped_column(Integer, default=1)
-    completed_generation: Mapped[int] = mapped_column(Integer, default=0)
+    requested_generation: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    completed_generation: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     input_fingerprint: Mapped[str] = mapped_column(String(64))
     processor_version: Mapped[str] = mapped_column(String(64))
     configuration_fingerprint: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(24), default="queued")
+    status: Mapped[str] = mapped_column(
+        String(24), default="queued", server_default=text("'queued'")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -61,8 +63,10 @@ class NlpJob(Base):
     input_fingerprint: Mapped[str] = mapped_column(String(64))
     processor_version: Mapped[str] = mapped_column(String(64))
     configuration_fingerprint: Mapped[str] = mapped_column(String(64))
-    status: Mapped[str] = mapped_column(String(24), default="queued")
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(
+        String(24), default="queued", server_default=text("'queued'")
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -110,11 +114,34 @@ class ArticleLanguageAnnotation(Base):
     confidence: Mapped[float] = mapped_column(Float)
     margin: Mapped[float] = mapped_column(Float)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
-    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 # Every type a root can be shown as. NER writes all but TOPIC; the user may pick any.
 ENTITY_TYPES = ("PERSON", "ORG", "GPE", "LOCATION", "EVENT", "PRODUCT", "TOPIC", "OTHER")
+AUTHORITY_ACTIONS = (
+    "merged",
+    "split",
+    "renamed",
+    "status_changed",
+    "ambiguous_changed",
+    "distinct_added",
+    "distinct_removed",
+    "relation_added",
+    "relation_changed",
+    "relation_removed",
+    "wikidata_linked",
+    "wikidata_unlinked",
+    "wikidata_redirected",
+    "wikidata_missing",
+    "type_changed",
+    "hidden_changed",
+    "claim_added",
+    "claim_removed",
+)
+RELATION_TYPES = ("succeeded_by", "part_of", "member_of", "leader_of", "related")
+# Partial dates: "2009", "2021-10" or "2021-10-28".
+PARTIAL_DATE = r"^\d{4}(-\d{2}(-\d{2})?)?$"
 
 
 class Entity(Base):
@@ -124,10 +151,18 @@ class Entity(Base):
             "language", "entity_type", "normalized_text", name="uq_nlp_entity_identity"
         ),
         CheckConstraint(
-            "preferred_type IS NULL OR preferred_type IN ("
-            + ", ".join(f"'{value}'" for value in ENTITY_TYPES)
-            + ")",
+            "preferred_type IS NULL OR " + one_of("preferred_type", ENTITY_TYPES),
             name="ck_nlp_entity_preferred_type",
+        ),
+        CheckConstraint(
+            one_of("status", ("provisional", "established")), name="ck_nlp_entity_status"
+        ),
+        CheckConstraint(
+            one_of("name_source", ("ner", "seed", "wikidata", "user")),
+            name="ck_nlp_entity_name_source",
+        ),
+        CheckConstraint(
+            "authority_id IS NULL OR authority_id <> id", name="ck_nlp_entity_not_own_authority"
         ),
         Index(
             "ix_nlp_entities_authority",
@@ -232,7 +267,12 @@ class EntityAuthorityChange(Base):
     """What changed in the authority file and when."""
 
     __tablename__ = "entity_authority_changes"
-    __table_args__ = (Index("ix_entity_authority_changes_entity", "entity_id", "created_at"),)
+    __table_args__ = (
+        CheckConstraint(
+            one_of("action", AUTHORITY_ACTIONS), name="ck_entity_authority_change_action"
+        ),
+        Index("ix_entity_authority_changes_entity", "entity_id", "created_at"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     action: Mapped[str] = mapped_column(String(32))
     entity_id: Mapped[uuid.UUID]
@@ -250,6 +290,15 @@ class EntityAuthorityRun(Base):
     """
 
     __tablename__ = "entity_authority_runs"
+    __table_args__ = (
+        CheckConstraint(
+            one_of("kind", ("merge", "split", "reindex")), name="ck_entity_authority_run_kind"
+        ),
+        CheckConstraint(
+            one_of("status", ("running", "finished", "failed")),
+            name="ck_entity_authority_run_status",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     kind: Mapped[str] = mapped_column(String(16))
     entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="RESTRICT"))
@@ -266,6 +315,20 @@ class EntityRelation(Base):
 
     __tablename__ = "entity_relations"
     __table_args__ = (
+        CheckConstraint(one_of("relation_type", RELATION_TYPES), name="ck_entity_relation_type"),
+        CheckConstraint("subject_id <> object_id", name="ck_entity_relation_not_self"),
+        # One row per symmetric pair.
+        CheckConstraint(
+            "relation_type <> 'related' OR subject_id < object_id",
+            name="ck_entity_relation_related_ordered",
+        ),
+        CheckConstraint(
+            f"valid_from IS NULL OR valid_from ~ '{PARTIAL_DATE}'",
+            name="ck_entity_relation_valid_from",
+        ),
+        CheckConstraint(
+            f"valid_to IS NULL OR valid_to ~ '{PARTIAL_DATE}'", name="ck_entity_relation_valid_to"
+        ),
         # An expression index, not a constraint: a second period of the same link is a second row.
         Index(
             "uq_entity_relation",
@@ -281,7 +344,6 @@ class EntityRelation(Base):
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
     relation_type: Mapped[str] = mapped_column(String(24))
     object_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
-    # Partial dates: "2009", "2021-10" or "2021-10-28".
     valid_from: Mapped[str | None] = mapped_column(String(10))
     valid_to: Mapped[str | None] = mapped_column(String(10))
     note: Mapped[str | None] = mapped_column(Text)
@@ -344,7 +406,7 @@ class ArticleEntity(Base):
     relevance: Mapped[float] = mapped_column(Float)
     occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
-    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class ArticleKeyword(Base):
@@ -363,7 +425,7 @@ class ArticleKeyword(Base):
     relevance: Mapped[float] = mapped_column(Float)
     occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
-    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class ArticleCountryAnnotation(Base):
@@ -376,12 +438,12 @@ class ArticleCountryAnnotation(Base):
     )
     country_code: Mapped[str] = mapped_column(String(2))
     role: Mapped[str] = mapped_column(String(24))
-    inferred: Mapped[bool] = mapped_column(Boolean, default=False)
+    inferred: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     rule_version: Mapped[str] = mapped_column(String(128))
     occurrence_count: Mapped[int] = mapped_column(Integer)
     occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
-    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class StopWordRevision(Base):
@@ -398,12 +460,14 @@ class StopWordRevision(Base):
 class NlpReprocessingRun(Base):
     __tablename__ = "nlp_reprocessing_runs"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    status: Mapped[str] = mapped_column(String(24), default="queued")
+    status: Mapped[str] = mapped_column(
+        String(24), default="queued", server_default=text("'queued'")
+    )
     processor_names: Mapped[list[str]] = mapped_column(JSONB)
     selection: Mapped[dict[str, object]] = mapped_column(JSONB)
     article_cursor: Mapped[uuid.UUID | None]
-    scanned_count: Mapped[int] = mapped_column(Integer, default=0)
-    enqueued_count: Mapped[int] = mapped_column(Integer, default=0)
+    scanned_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    enqueued_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

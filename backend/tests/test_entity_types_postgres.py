@@ -1,14 +1,11 @@
-"""The user's own type for a root, and roots hidden as "not a name" (migration 0025)."""
+"""The user's own type for a root, and roots hidden as "not a name"."""
 
-import asyncio
 import json
 import os
 import uuid
 
 import pytest
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import select, text
+from sqlalchemy import select
 from test_authority_suggestions_postgres import _language, _named
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article, _entity, _finish
@@ -290,48 +287,6 @@ async def test_the_type_and_hidden_travel_in_the_file() -> None:
         item.pop("hidden")
     async with session_factory() as db, db.begin():
         assert not (await import_authorities(db, old)).conflicts
-
-
-# -- migration 0025 ----------------------------------------------------------------------------
-
-
-async def test_the_downgrade_keeps_the_choices_unless_told_and_the_upgrade_restores_columns(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    config = Config("alembic.ini")
-    async with session_factory() as db, db.begin():
-        entity = await _entity(db, "Downgraded Topic", "ORG", preferred_type="TOPIC", hidden=True)
-        entity_id = entity.id
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", raising=False)
-    with pytest.raises(RuntimeError, match="authority export"):
-        await asyncio.to_thread(command.downgrade, config, "0024")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_ENTITY_TYPES", "1")
-    await asyncio.to_thread(command.downgrade, config, "0024")
-    try:
-        async with session_factory() as db:
-            columns = set(
-                await db.scalars(
-                    text(
-                        "SELECT column_name FROM information_schema.columns"
-                        " WHERE table_name = 'nlp_entities'"
-                    )
-                )
-            )
-            kept = await db.scalar(
-                text("SELECT entity_type FROM nlp_entities WHERE id = :id"), {"id": entity_id}
-            )
-        assert not {"preferred_type", "hidden"} & columns
-        assert kept == "ORG"
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        entity = await db.get(Entity, entity_id)
-        assert entity is not None and (entity.kind, entity.hidden) == ("ORG", False)
-        with pytest.raises(Exception, match="ck_nlp_entity_preferred_type"):
-            await db.execute(
-                text("UPDATE nlp_entities SET preferred_type = 'WIDGET' WHERE id = :id"),
-                {"id": entity_id},
-            )
 
 
 # -- merges across types (PR-B) ----------------------------------------------------------------

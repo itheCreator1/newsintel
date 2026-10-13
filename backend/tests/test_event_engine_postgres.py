@@ -1,12 +1,9 @@
-import asyncio
 import os
 import uuid
 from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from alembic import command
-from alembic.config import Config
 from event_fixtures import BASE, analyzed_event_tables, annotate, entities, event_of, story
 from sqlalchemy import delete, func, select, text
 
@@ -462,33 +459,3 @@ async def test_candidates_are_bounded_recent_and_index_backed(
         events_by_id = ("events_pkey", "uq_events_id_version")
         assert "ix_events_status_time" in plan or any(i in plan for i in events_by_id), plan
         await db.rollback()
-
-
-async def test_downgrade_to_0011_drops_only_the_basis_column() -> None:
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0011")
-    try:
-        async with session_factory() as db:
-            assert (
-                await db.scalar(
-                    text(
-                        "SELECT count(*) FROM information_schema.columns"
-                        " WHERE table_name = 'event_clusters'"
-                        " AND column_name = 'cluster_updated_at'"
-                    )
-                )
-                == 0
-            )
-            assert await db.scalar(text("SELECT to_regclass('event_clusters') IS NOT NULL"))
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        assert (
-            await db.scalar(
-                text(
-                    "SELECT count(*) FROM information_schema.columns"
-                    " WHERE table_name = 'event_clusters' AND column_name = 'cluster_updated_at'"
-                )
-            )
-            == 1
-        )

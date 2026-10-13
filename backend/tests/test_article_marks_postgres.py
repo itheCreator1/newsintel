@@ -1,14 +1,11 @@
 """Read, starred and a note per article: the reader's own marks, kept in Postgres."""
 
-import asyncio
 import os
 import uuid
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from event_fixtures import entities, story
-from sqlalchemy import select, text
+from sqlalchemy import select
 from test_compare_postgres import _get, build_world
 from test_entity_authority_api_postgres import CSRF, _client
 from test_entity_authority_postgres import _article
@@ -149,24 +146,3 @@ async def test_every_article_list_says_which_are_read_and_starred() -> None:
     events = _marks((await _get(f"/events/{event.id}/articles"))["items"])
     assert events[str(members[0])] == (True, True)
     assert events[str(members[1])] == (False, False)
-
-
-async def test_the_downgrade_keeps_marks_unless_told(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = Config("alembic.ini")
-    article_id = await _new_article()
-    async with _client() as client:
-        await client.put(f"/articles/{article_id}/mark", json={"starred": True}, headers=CSRF)
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_ARTICLE_MARKS", raising=False)
-    with pytest.raises(RuntimeError, match="article_marks"):
-        await asyncio.to_thread(command.downgrade, config, "0026")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_ARTICLE_MARKS", "1")
-    await asyncio.to_thread(command.downgrade, config, "0026")
-    try:
-        async with session_factory() as db:
-            tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-        assert "article_marks" not in tables
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db:
-        tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-    assert "article_marks" in tables

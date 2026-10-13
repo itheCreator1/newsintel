@@ -1,6 +1,5 @@
 """Notifications end to end: what a monitor owes, when it is sent, and the settings behind it."""
 
-import asyncio
 import os
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
@@ -8,9 +7,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from alembic import command
-from alembic.config import Config
-from sqlalchemy import delete, text, update
+from sqlalchemy import update
 from test_monitor_api_postgres import CSRF, _client, _user
 from test_monitor_evaluation_postgres import (
     FakeAdapter,
@@ -26,7 +23,6 @@ from app.monitors.evaluation import process_monitor
 from app.monitors.models import Monitor
 from app.notifications import routes as notification_routes
 from app.notifications import service
-from app.notifications.models import NotificationSettings
 from app.notifications.ntfy import Message, NtfyError
 
 pytestmark = [
@@ -286,23 +282,3 @@ async def test_settings_round_trip_without_ever_returning_the_token(
         assert failed.status_code == 502 and failed.json()["detail"] == "no route"
         current = (await client.get("/api/v1/notifications/settings")).json()
     assert current["quiet_start"] == "23:00:00" and current["digest_hour"] == 8
-
-
-async def test_the_downgrade_keeps_the_settings_unless_told(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    await _configure()
-    config = Config("alembic.ini")
-    monkeypatch.delenv("NEWSINTEL_MIGRATION_DISCARD_NOTIFICATIONS", raising=False)
-    with pytest.raises(RuntimeError, match="notification_settings"):
-        await asyncio.to_thread(command.downgrade, config, "0028")
-    monkeypatch.setenv("NEWSINTEL_MIGRATION_DISCARD_NOTIFICATIONS", "1")
-    await asyncio.to_thread(command.downgrade, config, "0028")
-    try:
-        async with session_factory() as db:
-            tables = set(await db.scalars(text("SELECT tablename FROM pg_tables")))
-        assert "notification_settings" not in tables
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
-    async with session_factory() as db, db.begin():
-        await db.execute(delete(NotificationSettings))

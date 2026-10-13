@@ -242,6 +242,8 @@ dc up -d
 dc run --rm api python -m app.cli rebuild-search   # the index no longer matches the restored rows; resume-search-rebuild <id> if catching_up
 ```
 
+A dump taken before the migrations were squashed into one baseline (October 2026) is at revision `0031`, which no longer exists. Its schema is the baseline's, so tell Alembic so before upgrading: `dc run --rm api alembic stamp 0001 --purge`.
+
 The dump carries the authority file, with its Wikidata links and cached items, with everything else. To keep your naming decisions across a fresh database instead, export them first and apply them to the new database before the feeds are ingested again:
 
 ```sh

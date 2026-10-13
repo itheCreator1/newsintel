@@ -10,6 +10,7 @@ from datetime import date, datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -25,7 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, one_of
 
 SCHEMES = ("wikidata", "viaf", "isni", "lcnaf")
 
@@ -35,6 +36,13 @@ class EntityExternalId(Base):
 
     __tablename__ = "entity_external_ids"
     __table_args__ = (
+        CheckConstraint(one_of("scheme", SCHEMES), name="ck_entity_external_id_scheme"),
+        CheckConstraint(
+            one_of("source", ("user", "wikidata")), name="ck_entity_external_id_source"
+        ),
+        CheckConstraint(
+            "scheme <> 'wikidata' OR value ~ '^Q[1-9][0-9]*$'", name="ck_entity_external_id_qid"
+        ),
         Index(
             "uq_entity_external_id_wikidata",
             "value",
@@ -56,19 +64,38 @@ class WikidataItem(Base):
     """The few fields we keep of an item; refetched only when its revision changes."""
 
     __tablename__ = "wikidata_items"
+    __table_args__ = (
+        CheckConstraint(
+            one_of("state", ("ok", "redirected", "missing")), name="ck_wikidata_item_state"
+        ),
+    )
     qid: Mapped[str] = mapped_column(String(16), primary_key=True)
     state: Mapped[str] = mapped_column(String(16))
     redirect_to: Mapped[str | None] = mapped_column(String(16))
     revision: Mapped[int | None] = mapped_column(BigInteger)
-    labels: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
-    aliases: Mapped[dict[str, list[str]]] = mapped_column(JSONB, default=dict)
-    descriptions: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
-    instance_of: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
-    different_from: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
-    ids: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
-    sitelinks: Mapped[int] = mapped_column(Integer, default=0)
+    labels: Mapped[dict[str, str]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    aliases: Mapped[dict[str, list[str]]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    descriptions: Mapped[dict[str, str]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    instance_of: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'::text[]")
+    )
+    different_from: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'::text[]")
+    )
+    ids: Mapped[dict[str, str]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    sitelinks: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     # A candidate is fetched without claims; the claims come when the user links the item.
-    claims_fetched: Mapped[bool] = mapped_column(Boolean, default=False)
+    claims_fetched: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -79,7 +106,9 @@ class WikidataClass(Base):
     __tablename__ = "wikidata_classes"
     qid: Mapped[str] = mapped_column(String(16), primary_key=True)
     label_en: Mapped[str | None] = mapped_column(Text)
-    subclass_of: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    subclass_of: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'::text[]")
+    )
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -89,7 +118,8 @@ class WikidataSearch(Base):
     __tablename__ = "wikidata_searches"
     language: Mapped[str] = mapped_column(String(16), primary_key=True)
     text: Mapped[str] = mapped_column(Text, primary_key=True)
-    qids: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    # A plain string: the column above shadows sqlalchemy's text() in this class body.
+    qids: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list, server_default="{}")
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -106,7 +136,9 @@ class WikidataCandidate(Base):
     )
     qid: Mapped[str] = mapped_column(String(16), primary_key=True)
     score: Mapped[float] = mapped_column(Float)
-    reasons: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    reasons: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'::text[]")
+    )
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     # The root's one candidate with its exact label and the right type: "approve all exact".
     exact: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
@@ -117,7 +149,14 @@ class WikidataRun(Base):
     """A candidate search or a refresh: queued by the scheduler or a button, worked in batches."""
 
     __tablename__ = "wikidata_runs"
-    __table_args__ = (Index("ix_wikidata_runs_status", "status", "created_at"),)
+    __table_args__ = (
+        CheckConstraint(one_of("kind", ("candidates", "refresh")), name="ck_wikidata_run_kind"),
+        CheckConstraint(
+            one_of("status", ("queued", "running", "finished", "failed", "stopped")),
+            name="ck_wikidata_run_status",
+        ),
+        Index("ix_wikidata_runs_status", "status", "created_at"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     kind: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(
@@ -152,6 +191,7 @@ class WikidataThrottle(Base):
     """The one row every Wikidata request locks: pace, pauses and today's count."""
 
     __tablename__ = "wikidata_throttle"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_wikidata_throttle_one_row"),)
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     next_request_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     paused_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

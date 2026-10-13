@@ -4,10 +4,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi import HTTPException
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 
 from app.clustering.engine import (
     CLUSTER_SCORE_THRESHOLD,
@@ -1023,36 +1021,3 @@ async def test_entity_graph_aggregates_real_co_occurrence_within_a_bounded_paylo
         frozenset((str(authority.id), str(trust.id))),
     }
     assert truncated is False
-
-
-async def test_downgrade_to_0007_removes_clustering_without_touching_the_archive() -> None:
-    async with session_factory() as db:
-        articles_before = await db.scalar(select(func.count()).select_from(Article))
-
-    config = Config("alembic.ini")
-    await asyncio.to_thread(command.downgrade, config, "0007")
-    try:
-        async with session_factory() as db:
-            articles_after = await db.scalar(select(func.count()).select_from(Article))
-            missing = (
-                await db.execute(
-                    text(
-                        "SELECT to_regclass('story_clusters') IS NULL,"
-                        " to_regclass('story_cluster_members') IS NULL,"
-                        " to_regclass('article_cluster_state') IS NULL,"
-                        " to_regclass('cluster_jobs') IS NULL,"
-                        " to_regclass('article_cluster_terms') IS NULL"
-                    )
-                )
-            ).one()
-            indexes = await db.scalar(
-                text(
-                    "SELECT count(*) FROM pg_indexes"
-                    " WHERE indexname = 'ix_articles_effective_date'"
-                )
-            )
-        assert all(missing), "the downgrade removes every Phase 7 table"
-        assert indexes == 0
-        assert articles_after == articles_before
-    finally:
-        await asyncio.to_thread(command.upgrade, config, "head")
