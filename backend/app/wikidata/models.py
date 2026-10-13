@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
@@ -33,6 +34,14 @@ class EntityExternalId(Base):
     """An authority root's identifier in another file: one per scheme, a QID on one root only."""
 
     __tablename__ = "entity_external_ids"
+    __table_args__ = (
+        Index(
+            "uq_entity_external_id_wikidata",
+            "value",
+            unique=True,
+            postgresql_where=text("scheme = 'wikidata'"),
+        ),
+    )
     entity_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("nlp_entities.id", ondelete="RESTRICT"), primary_key=True
     )
@@ -88,6 +97,10 @@ class WikidataCandidate(Base):
     """A QID the engine suggests for a root; only the user links it. Dismissed ones stay out."""
 
     __tablename__ = "wikidata_candidates"
+    __table_args__ = (
+        Index("ix_wikidata_candidates_qid", "qid"),
+        Index("ix_wikidata_candidates_score", text("score DESC")),
+    )
     entity_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("nlp_entities.id", ondelete="CASCADE"), primary_key=True
     )
@@ -104,6 +117,7 @@ class WikidataRun(Base):
     """A candidate search or a refresh: queued by the scheduler or a button, worked in batches."""
 
     __tablename__ = "wikidata_runs"
+    __table_args__ = (Index("ix_wikidata_runs_status", "status", "created_at"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     kind: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(

@@ -2,7 +2,6 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     ColumnElement,
@@ -130,6 +129,25 @@ class Entity(Base):
             + ")",
             name="ck_nlp_entity_preferred_type",
         ),
+        Index(
+            "ix_nlp_entities_authority",
+            "authority_id",
+            postgresql_where=text("authority_id IS NOT NULL"),
+        ),
+        # Every entities job reads the few ambiguous names; keep that off a full table scan.
+        Index(
+            "ix_nlp_entities_ambiguous",
+            "language",
+            "entity_type",
+            postgresql_where=text("ambiguous"),
+        ),
+        # Name search with a typo or part of a name (pg_trgm).
+        Index(
+            "ix_nlp_entities_normalized_trgm",
+            "normalized_text",
+            postgresql_using="gin",
+            postgresql_ops={"normalized_text": "gin_trgm_ops"},
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     language: Mapped[str] = mapped_column(String(16))
@@ -214,6 +232,7 @@ class EntityAuthorityChange(Base):
     """What changed in the authority file and when."""
 
     __tablename__ = "entity_authority_changes"
+    __table_args__ = (Index("ix_entity_authority_changes_entity", "entity_id", "created_at"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     action: Mapped[str] = mapped_column(String(32))
     entity_id: Mapped[uuid.UUID]
@@ -246,6 +265,18 @@ class EntityRelation(Base):
     """A see-also link the user stated between two roots; the inverse is read, never stored."""
 
     __tablename__ = "entity_relations"
+    __table_args__ = (
+        # An expression index, not a constraint: a second period of the same link is a second row.
+        Index(
+            "uq_entity_relation",
+            "subject_id",
+            "relation_type",
+            "object_id",
+            text("coalesce(valid_from, '')"),
+            unique=True,
+        ),
+        Index("ix_entity_relations_object", "object_id"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     subject_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("nlp_entities.id", ondelete="CASCADE"))
     relation_type: Mapped[str] = mapped_column(String(24))
@@ -311,7 +342,7 @@ class ArticleEntity(Base):
     original_label: Mapped[str | None] = mapped_column(String(64))
     occurrence_count: Mapped[int] = mapped_column(Integer)
     relevance: Mapped[float] = mapped_column(Float)
-    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -330,7 +361,7 @@ class ArticleKeyword(Base):
     occurrence_count: Mapped[int] = mapped_column(Integer)
     raw_score: Mapped[float] = mapped_column(Float)
     relevance: Mapped[float] = mapped_column(Float)
-    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -348,7 +379,7 @@ class ArticleCountryAnnotation(Base):
     inferred: Mapped[bool] = mapped_column(Boolean, default=False)
     rule_version: Mapped[str] = mapped_column(String(128))
     occurrence_count: Mapped[int] = mapped_column(Integer)
-    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSON)
+    occurrences: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
     input_fingerprint: Mapped[str] = mapped_column(String(64))
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -359,7 +390,7 @@ class StopWordRevision(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     language: Mapped[str] = mapped_column(String(16))
     revision: Mapped[int] = mapped_column(Integer)
-    words: Mapped[list[str]] = mapped_column(JSON)
+    words: Mapped[list[str]] = mapped_column(JSONB)
     configuration_fingerprint: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -368,8 +399,8 @@ class NlpReprocessingRun(Base):
     __tablename__ = "nlp_reprocessing_runs"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(24), default="queued")
-    processor_names: Mapped[list[str]] = mapped_column(JSON)
-    selection: Mapped[dict[str, object]] = mapped_column(JSON)
+    processor_names: Mapped[list[str]] = mapped_column(JSONB)
+    selection: Mapped[dict[str, object]] = mapped_column(JSONB)
     article_cursor: Mapped[uuid.UUID | None]
     scanned_count: Mapped[int] = mapped_column(Integer, default=0)
     enqueued_count: Mapped[int] = mapped_column(Integer, default=0)
