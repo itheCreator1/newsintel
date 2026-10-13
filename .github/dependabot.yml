@@ -1,0 +1,46 @@
+# Weekly update PRs, one per ecosystem and directory: the minor and patch bumps come grouped in one
+# PR, a major bump in a PR of its own. Every PR runs the same gates as any other.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The frontend-test image is the Playwright image of the same version (frontend/Dockerfile.test);
+      # the two move together, by hand.
+      - dependency-name: "@playwright/test"
+
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: weekly
+    ignore:
+      # Moves with @playwright/test, by hand (see above).
+      - dependency-name: mcr.microsoft.com/playwright
+
+  - package-ecosystem: docker-compose
+    directory: /docker
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

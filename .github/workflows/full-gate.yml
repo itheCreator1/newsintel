@@ -58,8 +58,35 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  same-tree:
+    # A merge to main whose tree already passed the full gate (on its PR, or from a `ci-run: full`
+    # commit) does not run it again. Any doubt (no match, an API error) runs it.
+    name: Same tree already green
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run: ${{ steps.find.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/full-gate.yml/runs?status=success&per_page=100" > "$RUNNER_TEMP/full.json" &&
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/targeted.yml/runs?status=success&per_page=100" > "$RUNNER_TEMP/targeted.json" &&
+            run=$(python3 infra/ci_green_tree.py "$(git rev-parse 'HEAD^{tree}')" "$RUNNER_TEMP/full.json" "$RUNNER_TEMP/targeted.json") || run=
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          if [ -n "$run" ]; then echo "This tree passed the full gate in $run" >> "$GITHUB_STEP_SUMMARY"; fi
+
   full:
     name: Full gate (infra/test-docker.sh)
+    needs: same-tree
+    # Runs unless same-tree found a green run; a skipped or failed same-tree job runs it too.
+    if: ${{ !cancelled() && needs.same-tree.outputs.run == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -118,3 +145,33 @@ jobs:
           name: full-gate-artifacts
           path: ${{ runner.temp }}/test-artifacts
           if-no-files-found: ignore
+
+  report:
+    # main and the nightly run keep one issue open while they are red, and close it when green.
+    name: Report main's state
+    needs: [same-tree, full]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RESULT: ${{ needs.full.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: main/nightly is red
+    steps:
+      - run: |
+          issue=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == env.TITLE)) | .[0].number // empty")
+          case $RESULT in
+            failure)
+              if [ -n "$issue" ]; then
+                gh issue comment "$issue" --body "Still red: $RUN_URL"
+              else
+                gh issue create --title "$TITLE" --body "The full gate failed on main: $RUN_URL"
+              fi ;;
+            success|skipped)
+              if [ -n "$issue" ]; then gh issue close "$issue" --comment "Green again: $RUN_URL"; fi ;;
+          esac
