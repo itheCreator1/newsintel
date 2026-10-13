@@ -52,7 +52,8 @@ def _nested_of(properties: dict[str, Any], field: str) -> str | None:
     node: dict[str, Any] = {"properties": properties}
     nested, parts = "", []
     for part in field.split("."):
-        found = node.get("properties", {}).get(part)
+        # A multi-field ("title.el") is the same text analyzed another way.
+        found = node.get("properties", {}).get(part) or node.get("fields", {}).get(part)
         if found is None:
             return None
         node = found
@@ -66,7 +67,7 @@ def _container(properties: dict[str, Any], field: str) -> bool:
     """An object or nested field: a query or aggregation on it silently matches nothing."""
     node: dict[str, Any] = {"properties": properties}
     for part in field.split("."):
-        node = node["properties"][part]
+        node = node.get("properties", {}).get(part) or node["fields"][part]
     return "properties" in node
 
 
@@ -126,8 +127,9 @@ def unmapped(body: dict[str, Any], properties: dict[str, Any]) -> list[str]:
                 for field in value:
                     ref(field, context, "_source", placed=False)
             elif key == "highlight":
-                for field in value["fields"]:
-                    ref(field, context, "highlight")
+                for field, options in value["fields"].items():
+                    for name in [field, *options.get("matched_fields", [])]:
+                        ref(name, context, "highlight")
             elif key in ("aggs", "aggregations"):
                 walk(value, children)
             else:
@@ -271,7 +273,52 @@ def test_the_long_aggregations_key_sets_the_nested_context() -> None:
 
 
 # ponytail: a hash, not a diff; on failure compare ARTICLE_INDEX_SETTINGS with git history.
-LAYOUT_SHA256 = {3: "fcd853441f9f4e7e9743243f597f2d1723a7a5024ac9a9872b2d940ebc71dadd"}
+LAYOUT_SHA256 = {
+    3: "fcd853441f9f4e7e9743243f597f2d1723a7a5024ac9a9872b2d940ebc71dadd",
+    4: "c20c5fba8b3af1551cce3a996d4aed51582a69118250d76ad50d6e4229a0c1a7",
+}
+
+TEXT_FIELDS = ["title", "descriptions", "body", "entity_text", "keyword_text"]
+LANGUAGE_FIELDS = {
+    "el": {"type": "text", "analyzer": "greek"},
+    "en": {"type": "text", "analyzer": "english"},
+}
+
+
+@pytest.mark.parametrize("field", TEXT_FIELDS)
+def test_text_fields_carry_greek_and_english_subfields(field: str) -> None:
+    # The field itself keeps the standard analyzer, for exact phrases; .el and .en add accents
+    # folded away, Greek and English stems and each language's stop words.
+    assert PROPERTIES[field] == {"type": "text", "analyzer": "standard", "fields": LANGUAGE_FIELDS}
+
+
+def test_a_language_subfield_resolves_and_an_unknown_one_is_reported() -> None:
+    body = {"query": {"match": {"title.el": "Αθήνα", "title.fr": "Athènes"}}}
+    assert unmapped(body, PROPERTIES) == ["match: title.fr is not mapped"]
+
+
+def test_a_word_matches_in_every_language_and_a_quoted_phrase_stays_exact() -> None:
+    must = build_query(_criteria('Αθήνα "power cut"'))["bool"]["must"]
+    fields = ["title^3", "title.el^3", "title.en^3"] + [
+        f"{field}{suffix}" for field in TEXT_FIELDS[1:] for suffix in ("", ".el", ".en")
+    ]
+    assert must == [
+        {
+            "multi_match": {
+                "query": "Αθήνα",
+                "fields": fields,
+                "type": "most_fields",
+                "operator": "and",
+            }
+        },
+        {
+            "multi_match": {
+                "query": "power cut",
+                "fields": ["title^3", "descriptions", "body", "entity_text", "keyword_text"],
+                "type": "phrase",
+            }
+        },
+    ]
 
 
 def test_the_index_layout_is_the_one_its_schema_version_names() -> None:
@@ -346,7 +393,7 @@ async def test_timeline_bodies_resolve_against_the_mapping(monkeypatch: pytest.M
     monkeypatch.setattr(_Adapter, "bodies", [])
     monkeypatch.setattr(_Adapter, "unavailable", False)
 
-    await search_timeline(_Database(3), object(), Settings(), _maximal(), "auto")  # type: ignore[arg-type]
+    await search_timeline(_Database(SCHEMA_VERSION), object(), Settings(), _maximal(), "auto")  # type: ignore[arg-type]
 
     assert len(_Adapter.bodies) == 2
     assert [unmapped(body, PROPERTIES) for _index, body in _Adapter.bodies] == [[], []]
@@ -369,9 +416,9 @@ async def test_analytics_bodies_resolve_against_the_mapping(
     monkeypatch.setattr(_Adapter, "unavailable", False)
     criteria = _maximal()
 
-    await ingestion_timeline(_Database(3), object(), Settings(), criteria)  # type: ignore[arg-type]
-    await top_countries(_Database(3), object(), Settings(), criteria, "recent")  # type: ignore[arg-type]
-    await top_entities(_CatalogueDatabase(3), object(), Settings(), criteria, "recent")  # type: ignore[arg-type]
+    await ingestion_timeline(_Database(SCHEMA_VERSION), object(), Settings(), criteria)  # type: ignore[arg-type]
+    await top_countries(_Database(SCHEMA_VERSION), object(), Settings(), criteria, "recent")  # type: ignore[arg-type]
+    await top_entities(_CatalogueDatabase(SCHEMA_VERSION), object(), Settings(), criteria, "recent")  # type: ignore[arg-type]
 
     assert len(_Adapter.bodies) == 3
     assert [unmapped(body, PROPERTIES) for _index, body in _Adapter.bodies] == [[], [], []]

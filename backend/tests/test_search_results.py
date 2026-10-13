@@ -121,6 +121,11 @@ async def test_results_carry_filterable_source_and_story_country_references(
     ]
     assert result.story_country == "DE"
     assert "primary_story_country" in _Adapter.body["_source"]
+    # A word found only in Greek or English form ("ΑΘΗΝΑ" for Αθήνα) is still highlighted.
+    assert _Adapter.body["highlight"]["fields"] == {
+        field: {"matched_fields": [field, f"{field}.el", f"{field}.en"]}
+        for field in ("title", "descriptions", "body", "entity_text", "keyword_text")
+    }
 
 
 CLUSTER = "55555555-5555-4555-8555-555555555555"

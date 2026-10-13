@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.main import create_app
-from app.search.criteria import SearchCriteria, build_query
+from app.search.criteria import WORD_FIELDS, SearchCriteria, build_query
 from app.search.documents import SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchUnavailable
 from app.search.query import parse_query
@@ -49,13 +49,7 @@ def test_build_query_keeps_source_and_country_on_one_provenance_entry() -> None:
     )
 
     must, filters = query["bool"]["must"], query["bool"]["filter"]
-    assert must[0]["multi_match"]["fields"] == [
-        "title^3",
-        "descriptions",
-        "body",
-        "entity_text",
-        "keyword_text",
-    ]
+    assert must[0]["multi_match"]["fields"] == WORD_FIELDS
     assert filters[0]["nested"]["query"]["bool"]["must"] == [
         {"terms": {"provenance.source_id": ["s1"]}},
         {"terms": {"provenance.source_country": ["GR"]}},
