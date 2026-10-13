@@ -24,6 +24,12 @@ from app.search.service import request_indexing
 
 log = structlog.get_logger()
 
+# A fetch stops this long before its lease runs out, to record its outcome while it still holds it.
+LEASE_MARGIN_SECONDS = 2.0
+# A Retry-After longer than this is read as a day.
+MAX_RETRY_AFTER_SECONDS = 86_400.0
+_sleep = asyncio.sleep
+
 
 class TransientHttpStatus(Exception):
     def __init__(self, status_code: int, retry_after: float | None) -> None:
@@ -168,8 +174,16 @@ async def _finish_unchanged(feed_id: uuid.UUID, token: str, duration_ms: int, at
 
 
 async def _finish_failure(
-    feed_id: uuid.UUID, token: str, category: str, message: str, attempt: int
+    feed_id: uuid.UUID,
+    token: str,
+    category: str,
+    message: str,
+    attempt: int,
+    *,
+    retry_at: datetime | None = None,
 ) -> None:
+    """Fail the fetch and release the feed: it is polled again after its interval, or at
+    `retry_at` when the server said when to come back."""
     now = datetime.now(UTC)
     async with session_factory() as db, db.begin():
         feed = await db.scalar(select(Feed).where(Feed.id == feed_id).with_for_update())
@@ -185,7 +199,7 @@ async def _finish_failure(
         fetch.error_category = category
         fetch.error_message = message[:1000]
         fetch.completed_at = now
-        feed.next_poll_at = now + timedelta(minutes=feed.poll_interval_minutes)
+        feed.next_poll_at = retry_at or now + timedelta(minutes=feed.poll_interval_minutes)
         release(feed)
 
 
@@ -196,7 +210,7 @@ def _category(exc: Exception) -> tuple[str, bool]:
         return "malformed_feed", False
     if isinstance(exc, FeedTooLarge):
         return "response_too_large", False
-    if isinstance(exc, httpx.TimeoutException):
+    if isinstance(exc, (httpx.TimeoutException, TimeoutError)):
         return "timeout", True
     if isinstance(exc, TransientHttpStatus):
         return "http_transient", True
@@ -223,14 +237,22 @@ async def ingest_claim(feed_id: uuid.UUID, token: str) -> None:  # noqa: C901
                 await db.commit()
                 return
             url, etag, modified = feed.url, feed.etag, feed.last_modified
+            lease_ends = feed.claim_expires_at
         started = datetime.now(UTC)
+        # Every attempt ends before the lease does; past it, another worker may claim the feed.
+        deadline = lease_ends - timedelta(seconds=LEASE_MARGIN_SECONDS) if lease_ends else started
         try:
             validators = {}
             if etag:
                 validators["If-None-Match"] = etag
             if modified:
                 validators["If-Modified-Since"] = modified
-            response = await fetch_feed_http(url, validators, settings)
+            remaining = (deadline - started).total_seconds()
+            if remaining <= 0:
+                raise TimeoutError("No time left in the fetch's lease")
+            response = await asyncio.wait_for(
+                fetch_feed_http(url, validators, settings), timeout=remaining
+            )
             duration = int((datetime.now(UTC) - started).total_seconds() * 1000)
             if response.status_code == 304:
                 await _finish_unchanged(feed_id, token, duration, attempt)
@@ -272,8 +294,16 @@ async def ingest_claim(feed_id: uuid.UUID, token: str) -> None:  # noqa: C901
             retry_after = (
                 last_error.retry_after if isinstance(last_error, TransientHttpStatus) else None
             )
-            await asyncio.sleep(
-                next_retry_delay(attempt, retry_after=retry_after, jitter=random.random())
-            )
+            delay = next_retry_delay(attempt, retry_after=retry_after, jitter=random.random())
+            now = datetime.now(UTC)
+            if now + timedelta(seconds=delay + settings.feed_timeout_seconds) > deadline:
+                # The wait and another attempt would outlive the lease: come back later instead.
+                wait = delay if retry_after is None else min(retry_after, MAX_RETRY_AFTER_SECONDS)
+                retry_at = now + timedelta(seconds=wait)
+                await _finish_failure(
+                    feed_id, token, category, str(exc), attempt, retry_at=retry_at
+                )
+                return
+            await _sleep(delay)
     if last_error:
         await _finish_failure(feed_id, token, "internal", str(last_error), 3)

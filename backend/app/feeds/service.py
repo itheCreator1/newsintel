@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.articles.models import Article
 from app.articles.schemas import ArticleProvenance, ArticleResponse
+from app.core.config import get_settings
 from app.feeds.models import FETCH_FINISHED, Feed, FeedFetch
 from app.feeds.schemas import (
     ArticleContentResponse,
@@ -29,10 +30,9 @@ def decode_cursor(value: str) -> tuple[datetime, uuid.UUID]:
     return datetime.fromisoformat(timestamp), uuid.UUID(item_id)
 
 
-async def claim_feed(
-    db: AsyncSession, feed_id: uuid.UUID, lease_seconds: int = 300
-) -> tuple[FeedFetch, bool] | None:
+async def claim_feed(db: AsyncSession, feed_id: uuid.UUID) -> tuple[FeedFetch, bool] | None:
     now = datetime.now(UTC)
+    lease_seconds = get_settings().feed_lease_seconds
     feed = await db.scalar(select(Feed).where(Feed.id == feed_id).with_for_update())
     if feed is None or not feed.enabled or feed.retired_at is not None:
         return None
