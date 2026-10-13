@@ -2,12 +2,13 @@
 
 import { BarChart as EchartsBarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent } from 'echarts/components'
-import { init, use, type ECharts } from 'echarts/core'
+import { init, use as registerParts, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import { useChartTheme } from '../lib/chart-theme'
 
-use([EchartsBarChart, GridComponent, TooltipComponent, CanvasRenderer])
+// echarts calls this `use`; the alias keeps the hooks lint from taking it for React's use().
+registerParts([EchartsBarChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 
 export interface BarChartItem {
@@ -29,22 +30,20 @@ export function BarChart({ items, orientation = 'vertical', valueLabel, ariaLabe
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const chartTheme = useChartTheme()
-  const stateRef = useRef({ items, onSelect })
-  stateRef.current = { items, onSelect }
+  const select = useEffectEvent((index: number) => {
+    const item = items[index]
+    if (item) onSelect(item)
+  })
 
   useEffect(() => {
     const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
     chartRef.current = chart
     chart.on('click', (event: { dataIndex?: number }) => {
-      if (event.dataIndex === undefined) return
-      const { items: currentItems, onSelect: currentOnSelect } = stateRef.current
-      const item = currentItems[event.dataIndex]
-      if (item) currentOnSelect(item)
+      if (event.dataIndex !== undefined) select(event.dataIndex)
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(elementRef.current!)
     return () => { observer.disconnect(); chart.dispose() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

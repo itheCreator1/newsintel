@@ -2,9 +2,9 @@
 
 import { GraphChart } from 'echarts/charts'
 import { LegendComponent, TooltipComponent } from 'echarts/components'
-import { init, use, type ECharts } from 'echarts/core'
+import { init, use as registerParts, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import type { GraphEdge, GraphNode, StatedEdge } from '../lib/api-types'
 import { lightChart, useChartTheme, type ChartTheme } from '../lib/chart-theme'
 import { communities } from '../lib/graph-communities'
@@ -13,7 +13,8 @@ import { statedText } from '../lib/see-also'
 import { chipClass } from '../lib/ui-classes'
 import { cn } from '../lib/utils'
 
-use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
+// echarts calls this `use`; the alias keeps the hooks lint from taking it for React's use().
+registerParts([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
 /** Smaller groups than the palette has colours for share the fallback grey as "Other groups". */
 const OTHER_GROUPS = 'Other groups'
@@ -180,19 +181,17 @@ export function EntityGraph({ nodes, edges, focus, selectedEdge, colourBy, recen
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const theme = useChartTheme()
-  const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
-  const onSelectEdgeRef = useRef(onSelectEdge)
-  onSelectEdgeRef.current = onSelectEdge
+  const selectNode = useEffectEvent((id: string) => onSelect(id))
+  const selectEdge = useEffectEvent((source: string, target: string) => onSelectEdge(source, target))
 
   useEffect(() => {
     const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
     chartRef.current = chart
     chart.on('click', (event: unknown) => {
       const params = event as { dataType?: string; data?: { id?: string; source?: string; target?: string; stated?: boolean } }
-      if (params.dataType === 'node' && params.data?.id) onSelectRef.current(params.data.id)
+      if (params.dataType === 'node' && params.data?.id) selectNode(params.data.id)
       // A stated link has no co-occurrence evidence to open.
-      if (params.dataType === 'edge' && !params.data?.stated && params.data?.source && params.data.target) onSelectEdgeRef.current(params.data.source, params.data.target)
+      if (params.dataType === 'edge' && !params.data?.stated && params.data?.source && params.data.target) selectEdge(params.data.source, params.data.target)
     })
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(elementRef.current!)

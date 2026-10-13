@@ -2,13 +2,14 @@
 
 import { MapChart } from 'echarts/charts'
 import { TooltipComponent, VisualMapComponent } from 'echarts/components'
-import { init, registerMap, use, type ECharts } from 'echarts/core'
+import { init, registerMap, use as registerParts, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import world from '../lib/world.geo.json'
 import { useChartTheme } from '../lib/chart-theme'
 
-use([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
+// echarts calls this `use`; the alias keeps the hooks lint from taking it for React's use().
+registerParts([MapChart, TooltipComponent, VisualMapComponent, CanvasRenderer])
 // The outline is bundled with the app (Natural Earth, public domain), so nothing is fetched.
 registerMap('world', world as unknown as Parameters<typeof registerMap>[1])
 
@@ -31,14 +32,13 @@ export function GeoChart({ items, selected, unit, ariaLabel, onSelect }: Props) 
   const chartTheme = useChartTheme()
   const pendingRef = useRef<Parameters<ECharts['setOption']>[0] | undefined>(undefined)
   const syncRef = useRef(() => {})
-  const stateRef = useRef({ items, onSelect })
-  stateRef.current = { items, onSelect }
+  const select = useEffectEvent((code: string) => onSelect(code))
 
   useEffect(() => {
     const element = elementRef.current!
     const chart = init(element, undefined, { renderer: 'canvas' })
     chart.on('click', (event: { name?: string }) => {
-      if (event.name) stateRef.current.onSelect(event.name)
+      if (event.name) select(event.name)
     })
     // ECharts 6.1 lays a map out by inverting its view transform and throws on the singular one a
     // box with no width or no height gives. A container reports that size while hidden and for a
