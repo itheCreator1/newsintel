@@ -1,6 +1,7 @@
 import { useMutation, type UseInfiniteQueryResult, type InfiniteData } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useWhenChanged } from '../../lib/use-when-changed'
 import { api } from '../../lib/api'
 import type { ActivityFilter, ActivityItem, ActivityPage, ProcessKey } from '../../lib/api-types'
 import { since } from '../../lib/operations'
@@ -62,7 +63,7 @@ export function ActivityList({ activity, labels, process, status, q, onFilter, o
 }) {
   const [text, setText] = useState(q)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
-  useEffect(() => { setText(q) }, [q])
+  useWhenChanged(q, () => setText(q))
   const failed = (error: unknown) => setMessage({ text: failure(error, 'That did not work.'), error: true })
   const retry = useMutation({ mutationFn: (item: ActivityItem) => api.retryProcessItem(item.process, item.id), onSuccess: () => { setMessage({ text: 'Retry scheduled.' }); onDone() }, onError: failed })
   const stop = useMutation({ mutationFn: (item: ActivityItem) => api.stopProcessRun(item.process, item.id), onSuccess: () => { setMessage({ text: 'Stopped.' }); onDone() }, onError: failed })

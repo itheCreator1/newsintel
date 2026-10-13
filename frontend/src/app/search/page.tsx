@@ -3,7 +3,8 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Suspense, useEffect, useId, useRef, useState } from 'react'
+import { Suspense, useId, useRef, useState } from 'react'
+import { useWhenChanged } from '../../lib/use-when-changed'
 import { api, ApiError, exportHref } from '../../lib/api'
 import type { SearchPage } from '../../lib/api-types'
 import { ActiveFilterBar } from '../../components/ActiveFilterBar'
@@ -70,10 +71,10 @@ function SearchContent() {
   const [advancedOpen, setAdvancedOpen] = useState(advanced > 0)
 
   // Every URL change (submit, chip, cross-filter, Back) resyncs the form, and reopens Advanced when it holds criteria.
-  useEffect(() => {
+  useWhenChanged(urlParams.toString(), () => {
     setForm(formFromState(state))
     if (advanced > 0) setAdvancedOpen(true)
-  }, [urlParams.toString()]) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
   const sourcePages = useInfiniteQuery({ queryKey: ['search-sources', sourceTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.searchSources(sourceTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })
   const entityPages = useInfiniteQuery({ queryKey: ['nlp-entities', entityTerm], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => api.nlpEntities(entityTerm, pageParam), getNextPageParam: page => page.next_cursor ?? undefined })

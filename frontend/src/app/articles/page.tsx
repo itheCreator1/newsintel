@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient, useInfiniteQuery, type InfiniteD
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useWhenChanged } from '../../lib/use-when-changed'
 import { api, type ArticleFilters } from '../../lib/api'
 import type { ArticleDetail, ArticleListPage, ArticleMark, ArticleMarkUpdate } from '../../lib/api-types'
 import { clusterHref, entityHref, parseHref, queryFromState, refine, sourceHref, stateFromQuery, toHref, type ListField } from '../../lib/investigation'
@@ -106,23 +107,29 @@ function ArticlesContent() {
   // Both queries refetch while work runs; unchanged data keeps its identity, so this does not recompute.
   const ranges = useMemo(() => highlights && text && annotations.data ? highlightRanges(text, annotations.data) : [], [highlights, text, annotations.data])
   const mark: ArticleMark | null = detail.data?.mark ?? null
-  const [noteDraft, setNoteDraft] = useState('')
+  const [noteDraft, setNoteDraft] = useState(mark?.note ?? '')
   const [noteSaved, setNoteSaved] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const autoRead = useRef<string | undefined>(undefined)
   const listRef = useRef<HTMLElement>(null)
   const readerRef = useRef<HTMLElement>(null)
 
-  useEffect(() => { process.reset(); reprocess.reset(); setNoteSaved(false) /* eslint-disable-line react-hooks/exhaustive-deps */ }, [selectedId])
+  // Another article starts with no result from the last one's buttons.
+  const { reset: resetProcess } = process
+  const { reset: resetReprocess } = reprocess
+  useEffect(() => { resetProcess(); resetReprocess() }, [selectedId, resetProcess, resetReprocess])
+  useWhenChanged(selectedId, () => setNoteSaved(false))
 
   // Opening an article marks it read, once: marking it unread again is not undone while it stays open.
   const loadedId = detail.data?.id
+  const loadedRead = Boolean(mark?.read)
+  const { mutate: mutateMark } = markArticle
   useEffect(() => {
     if (!loadedId || autoRead.current === loadedId) return
     autoRead.current = loadedId
-    if (!detail.data?.mark?.read) markArticle.mutate({ read: true })
-  }, [loadedId]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setNoteDraft(mark?.note ?? '') }, [loadedId, mark?.note])
+    if (!loadedRead) mutateMark({ read: true })
+  }, [loadedId, loadedRead, mutateMark])
+  useWhenChanged(`${loadedId}\n${mark?.note ?? ''}`, () => setNoteDraft(mark?.note ?? ''))
 
   function toggleStar() { if (detail.data) markArticle.mutate({ starred: !mark?.starred }) }
   function saveNote() { markArticle.mutate({ note: noteDraft }, { onSuccess: () => setNoteSaved(true) }) }

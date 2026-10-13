@@ -2,14 +2,15 @@
 
 import { BarChart } from 'echarts/charts'
 import { BrushComponent, GridComponent, TooltipComponent } from 'echarts/components'
-import { init, use, type ECharts } from 'echarts/core'
+import { init, use as registerParts, type ECharts } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import { bucketEnd } from '../lib/investigation'
 import type { SearchTimeline } from '../lib/api-types'
 import { useChartTheme } from '../lib/chart-theme'
 
-use([BarChart, BrushComponent, GridComponent, TooltipComponent, CanvasRenderer])
+// echarts calls this `use`; the alias keeps the hooks lint from taking it for React's use().
+registerParts([BarChart, BrushComponent, GridComponent, TooltipComponent, CanvasRenderer])
 
 interface Props {
   buckets: SearchTimeline['buckets']
@@ -17,28 +18,24 @@ interface Props {
   onSelect(range: { start: string; end: string }): void
 }
 
+function bucketLabel(start: string, interval: Props['interval']) {
+  const date = new Date(start)
+  if (interval === 'hour') return date.toISOString().slice(0, 16).replace('T', ' ')
+  if (interval === 'month') return date.toISOString().slice(0, 7)
+  if (interval === 'year') return date.toISOString().slice(0, 4)
+  return date.toISOString().slice(0, 10)
+}
+
 export function TimelineChart({ buckets, interval, onSelect }: Props) {
   const elementRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<ECharts | undefined>(undefined)
   const chartTheme = useChartTheme()
-  const stateRef = useRef({ buckets, interval, onSelect })
-  stateRef.current = { buckets, interval, onSelect }
 
-  function label(start: string) {
-    const date = new Date(start)
-    const current = stateRef.current.interval
-    if (current === 'hour') return date.toISOString().slice(0, 16).replace('T', ' ')
-    if (current === 'month') return date.toISOString().slice(0, 7)
-    if (current === 'year') return date.toISOString().slice(0, 4)
-    return date.toISOString().slice(0, 10)
-  }
-
-  function selectBuckets(first: number, last: number) {
-    const { buckets: currentBuckets, interval: currentInterval, onSelect: currentOnSelect } = stateRef.current
-    const low = Math.max(0, Math.min(first, last)), high = Math.min(currentBuckets.length - 1, Math.max(first, last))
+  const selectBuckets = useEffectEvent((first: number, last: number) => {
+    const low = Math.max(0, Math.min(first, last)), high = Math.min(buckets.length - 1, Math.max(first, last))
     if (low > high) return
-    currentOnSelect({ start: currentBuckets[low].start, end: bucketEnd(currentBuckets[high].start, currentInterval) })
-  }
+    onSelect({ start: buckets[low].start, end: bucketEnd(buckets[high].start, interval) })
+  })
 
   useEffect(() => {
     const chart = init(elementRef.current!, undefined, { renderer: 'canvas' })
@@ -52,7 +49,6 @@ export function TimelineChart({ buckets, interval, onSelect }: Props) {
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(elementRef.current!)
     return () => { observer.disconnect(); chart.dispose() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -63,7 +59,7 @@ export function TimelineChart({ buckets, interval, onSelect }: Props) {
       grid: { left: 44, right: 16, top: 16, bottom: 32 },
       tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => `${value} articles` },
       brush: { xAxisIndex: 0, brushType: 'lineX', brushMode: 'single', throttleType: 'debounce', brushStyle: { color: chartTheme.brushFill, borderColor: chartTheme.highlight } },
-      xAxis: { type: 'category', data: buckets.map(bucket => label(bucket.start)), axisLabel: { color: chartTheme.axisLabel }, axisLine: { lineStyle: { color: chartTheme.axisLine } } },
+      xAxis: { type: 'category', data: buckets.map(bucket => bucketLabel(bucket.start, interval)), axisLabel: { color: chartTheme.axisLabel }, axisLine: { lineStyle: { color: chartTheme.axisLine } } },
       yAxis: { type: 'value', minInterval: 1, axisLabel: { color: chartTheme.axisLabel }, splitLine: { lineStyle: { color: chartTheme.splitLine } } },
       series: [{ type: 'bar', data: buckets.map(bucket => bucket.count), itemStyle: { color: chartTheme.barStrong, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 28 }],
     }, true)

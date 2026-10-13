@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import type { NotificationSettings, NotificationSettingsUpdate } from '../lib/api-types'
 import { fieldClass, ghostButtonClass, labelClass, primaryButtonClass } from '../lib/ui-classes'
@@ -32,7 +32,7 @@ export function NotificationSettingsPanel() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [hasToken, setHasToken] = useState(false)
   // The form starts from the saved settings once; later refetches must not overwrite what is being typed.
-  useEffect(() => { if (settings.data && !draft) { setDraft(draftFrom(settings.data)); setHasToken(settings.data.has_token) } }, [settings.data, draft])
+  if (settings.data && !draft) { setDraft(draftFrom(settings.data)); setHasToken(settings.data.has_token) }
   const zones = useMemo(() => timeZones(draft?.timezone ?? 'UTC'), [draft?.timezone])
 
   const payload = (current: Draft): NotificationSettingsUpdate => ({
