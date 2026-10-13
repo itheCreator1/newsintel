@@ -5,12 +5,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import exists, select
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.entities.in_use import in_use
 from app.entities.models import Entity
-from app.nlp.models import ArticleEntity
 from app.nlp.processors import country_spellings
 
 
@@ -157,15 +157,9 @@ async def seed_countries(db: AsyncSession) -> SeedReport:
             if existing.authority_id == root.id:
                 report.already_linked += 1
                 continue
-            in_use = await db.scalar(
-                select(
-                    exists().where(ArticleEntity.entity_id == existing.id)
-                    | exists().where(Entity.authority_id == existing.id)
-                )
-            )
             # A root the user typed or hid is theirs; only a root can carry those choices.
             chosen = existing.preferred_type is not None or existing.hidden
-            if existing.authority_id is not None or in_use or chosen:
+            if existing.authority_id is not None or chosen or await in_use(db, existing.id):
                 report.skipped.append(f"{code}: {written}")
                 continue
             existing.authority_id = root.id

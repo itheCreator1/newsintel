@@ -297,3 +297,65 @@ async def test_the_integrity_rules_go_with_their_downgrade() -> None:
 async def test_the_models_match_the_migrations() -> None:
     # Autogenerate finds nothing to add: types, defaults, indexes and unique constraints agree.
     await asyncio.to_thread(command.check, Config("alembic.ini"))
+
+
+# Foreign keys without an index, each with why a scan of its table on a parent's delete is fine.
+UNINDEXED_FOREIGN_KEYS = {
+    "cluster_jobs(state_id)": "a state goes only with its article, and articles are never deleted",
+    "nlp_jobs(state_id)": "a state goes only with its article, and articles are never deleted",
+    "entity_authority_runs(entity_id)": "a few rows per merge or split the user made",
+    "entity_distinct(b_id)": "a few rows, one per pair the user kept apart",
+    "entity_relations(source_article_id)": "articles are never deleted",
+    "monitors(latest_match_article_id)": "a few rows, one per watch",
+    "search_deliveries(target_id)": "an index target is never deleted",
+    "search_rebuilds(target_id)": "a few rows, one per rebuild",
+    "sessions(user_id)": "one user, a few sessions",
+    "source_search_refreshes(feed_id)": "a few rows per source; sources are retired, not deleted",
+    "story_clusters(representative_article_id)": "articles are never deleted",
+    "wikidata_runs(entity_id)": "a few rows per Wikidata search the user started",
+}
+
+
+async def test_every_foreign_key_has_an_index() -> None:
+    # Deleting a parent row looks up its children by the key (to cascade, null or refuse); without
+    # an index whose first column is the key's, that is a scan of the child table per parent row.
+    # Retention deleted 200 NLP jobs in 13.1 s that way (database review #1).
+    unindexed = await _unindexed_foreign_keys()
+    assert sorted(unindexed - set(UNINDEXED_FOREIGN_KEYS)) == []
+    # An exception that has since got its index leaves the list.
+    assert sorted(set(UNINDEXED_FOREIGN_KEYS) - unindexed) == []
+
+
+async def test_the_foreign_key_indexes_go_with_their_downgrade() -> None:
+    config = Config("alembic.ini")
+    await asyncio.to_thread(command.downgrade, config, "0004")
+    try:
+        assert len(await _unindexed_foreign_keys() - set(UNINDEXED_FOREIGN_KEYS)) == 8
+    finally:
+        await asyncio.to_thread(command.upgrade, config, "head")
+    assert await _unindexed_foreign_keys() == set(UNINDEXED_FOREIGN_KEYS)
+
+
+async def _unindexed_foreign_keys() -> set[str]:
+    async with session_factory() as db:
+        rows = await db.execute(
+            text(
+                """
+                SELECT format('%s(%s)', c.conrelid::regclass, string_agg(a.attname, ', '
+                              ORDER BY k.ord))
+                FROM pg_constraint c
+                CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+                WHERE c.contype = 'f' AND c.connamespace = 'public'::regnamespace
+                  AND NOT EXISTS (
+                    SELECT 1 FROM pg_index i
+                    WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1]
+                      AND (i.indpred IS NULL
+                           OR pg_get_expr(i.indpred, i.indrelid) = format('(%s IS NOT NULL)',
+                              (SELECT attname FROM pg_attribute
+                               WHERE attrelid = c.conrelid AND attnum = c.conkey[1]))))
+                GROUP BY c.oid, c.conrelid
+                """
+            )
+        )
+        return set(rows.scalars())

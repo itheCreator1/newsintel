@@ -20,9 +20,9 @@ from sqlalchemy.orm import aliased
 
 from app.articles.models import Article
 from app.entities import authority, relations
+from app.entities.in_use import in_use
 from app.entities.models import Entity, EntityDistinct, EntityNameClaim, EntityRelation
 from app.entities.schemas import EntityType
-from app.nlp.models import ArticleEntity
 from app.wikidata.links import queue_fetch
 from app.wikidata.models import EntityExternalId
 from app.wikidata.parsing import is_qid
@@ -304,22 +304,6 @@ async def _find_or_create(db: AsyncSession, name: _Name) -> tuple[Entity, bool]:
     return entity, created is not None
 
 
-async def _in_use(db: AsyncSession, entity_id: uuid.UUID) -> bool:
-    return bool(
-        await db.scalar(
-            select(
-                exists().where(
-                    or_(
-                        ArticleEntity.entity_id == entity_id,
-                        ArticleEntity.observed_entity_id == entity_id,
-                    )
-                )
-                | exists().where(Entity.authority_id == entity_id)
-            )
-        )
-    )
-
-
 async def _marks(db: AsyncSession, entity: Entity, record: _Variant) -> bool:
     """Bring the name's ambiguity and note in line with the file; True when one changed."""
     note = record.note.strip() if record.note and record.note.strip() else None
@@ -387,7 +371,7 @@ async def _import_root(db: AsyncSession, record: _Root, report: ImportReport) ->
                 report.unchanged += 1
             continue
         try:
-            if variant.authority_id is None and not await _in_use(db, variant.id):
+            if variant.authority_id is None and not await in_use(db, variant.id):
                 await authority.adopt(db, variant_id=variant.id, root_id=root.id)
             else:
                 await authority.merge(db, variant_id=variant.id, target_id=root.id)
