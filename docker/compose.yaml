@@ -117,7 +117,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:8.2-alpine
+    image: redis:8.10-alpine
     restart: ${NEWSINTEL_RESTART_POLICY:-unless-stopped}
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes: ["redis-data:/data"]
