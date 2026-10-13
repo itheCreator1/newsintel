@@ -33,6 +33,31 @@ ni_e2e_calls() {
   ' "$1/infra/test-e2e.sh" | grep -oE 'e2e "[^"]*"' | sed -e 's/^e2e "//' -e 's/"$//'
 }
 
+# ni_e2e_unselected <root> <outdir> <list-command...>: fails, naming each one, when a Playwright test
+# matches no e2e() call of any group in test-e2e.sh. Such a test would never run in any gate, and
+# nothing else notices: the gate only rejects tests that ran and were skipped. <list-command> is
+# `playwright test --list` in whatever runs it (the frontend-test container in the gates); this
+# function appends `--grep <pattern>` for the second listing. Writes e2e-all.txt and
+# e2e-selected.txt to <outdir>.
+ni_e2e_unselected() {
+  ni_eu_root=$1
+  ni_eu_out=$2
+  shift 2
+  ni_eu_pattern=$(for ni_eu_group in search investigations monitors graph; do
+    ni_e2e_calls "$ni_eu_root" "$ni_eu_group"
+  done | sort -u | tr '\n' '|' | sed 's/|$//')
+  [ -n "$ni_eu_pattern" ] || { echo "No e2e() calls found in infra/test-e2e.sh" >&2; return 1; }
+  "$@" | grep ' › ' | sort > "$ni_eu_out/e2e-all.txt"
+  "$@" --grep "$ni_eu_pattern" | grep ' › ' | sort > "$ni_eu_out/e2e-selected.txt"
+  [ -s "$ni_eu_out/e2e-all.txt" ] || { echo "Playwright listed no tests" >&2; return 1; }
+  ni_eu_missing=$(comm -23 "$ni_eu_out/e2e-all.txt" "$ni_eu_out/e2e-selected.txt")
+  [ -z "$ni_eu_missing" ] || {
+    echo "These browser tests match no e2e() call in infra/test-e2e.sh, so no gate runs them:" >&2
+    echo "$ni_eu_missing" >&2
+    return 1
+  }
+}
+
 # ni_single_head <compose> <service> <message> [run-flag]
 # Runs the duplicated "exactly one migration head" assertion; exits 1 with <message> on stderr
 # if it fails (matches the two scripts' pre-existing, slightly different wording). [run-flag],
