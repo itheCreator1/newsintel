@@ -228,7 +228,7 @@ async def test_a_rewound_window_counts_only_what_was_never_announced() -> None:
     window = await search_evaluator(None, adapter, snapshot, HORIZON)  # type: ignore[arg-type]
 
     assert (window.new_articles, window.unseen_articles) == (2, 9)
-    fresh = adapter.bodies[2]["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    fresh = adapter.bodies[2]["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert fresh == {"gt": EARLIER.isoformat(), "lte": HORIZON.isoformat()}
 
 

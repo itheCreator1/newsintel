@@ -276,6 +276,7 @@ def test_the_long_aggregations_key_sets_the_nested_context() -> None:
 LAYOUT_SHA256 = {
     3: "fcd853441f9f4e7e9743243f597f2d1723a7a5024ac9a9872b2d940ebc71dadd",
     4: "c20c5fba8b3af1551cce3a996d4aed51582a69118250d76ad50d6e4229a0c1a7",
+    5: "64b61058bd4e26cc98181cec7ecc5f5e3b5f9f1063f3aedc477461812af5b125",
 }
 
 TEXT_FIELDS = ["title", "descriptions", "body", "entity_text", "keyword_text"]
@@ -283,6 +284,11 @@ LANGUAGE_FIELDS = {
     "el": {"type": "text", "analyzer": "greek"},
     "en": {"type": "text", "analyzer": "english"},
 }
+
+
+def test_the_index_records_when_an_article_was_complete() -> None:
+    # Watches count an article by this date, once every processing step has finished.
+    assert PROPERTIES["enriched_at"] == {"type": "date"}
 
 
 @pytest.mark.parametrize("field", TEXT_FIELDS)

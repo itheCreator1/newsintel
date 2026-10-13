@@ -91,7 +91,7 @@ def _aggs(include: dict[str, list[str]] | None) -> dict[str, Any]:
 def window_agg_body(
     query: dict[str, Any], after: datetime | None, upto: datetime
 ) -> dict[str, Any]:
-    """Top keys per kind among matches first discovered in `(after, upto]`, with sample articles."""
+    """Top keys per kind among matches completed in `(after, upto]`, with sample articles."""
     return {
         "size": 0,
         "track_total_hits": True,

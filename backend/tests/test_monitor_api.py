@@ -66,13 +66,13 @@ def test_activity_cursor_round_trips_with_and_without_a_latest_match() -> None:
 def test_results_body_covers_only_the_window_newest_first_without_highlights() -> None:
     body = results_body({"match_all": {}}, AFTER, UPTO, 5, None)
 
-    bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    bounds = body["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert bounds == {"gt": AFTER.isoformat(), "lte": UPTO.isoformat()}
     assert body["size"] == 5 and "highlight" not in body and "search_after" not in body
     assert body["sort"] == [{"first_discovered_at": "desc"}, {"article_id": "desc"}]
     paged = results_body({"match_all": {}}, None, UPTO, 5, [1, "a"])
     assert paged["search_after"] == [1, "a"]
-    assert "gt" not in paged["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    assert "gt" not in paged["query"]["bool"]["filter"][1]["range"]["enriched_at"]
 
 
 def test_results_cursor_pins_the_window_and_rejects_other_owners() -> None:

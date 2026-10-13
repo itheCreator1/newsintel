@@ -72,12 +72,12 @@ def test_window_body_is_bounded_and_fetches_at_most_one_hit() -> None:
     body = window_body({"match_all": {}}, EARLIER, HORIZON, clusters=True)
 
     assert body["size"] == 1 and body["track_total_hits"] is True
-    bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    bounds = body["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert bounds == {"gt": EARLIER.isoformat(), "lte": HORIZON.isoformat()}
     assert body["sort"][0] == {"first_discovered_at": "desc"}
     assert body["aggs"]["clusters"]["cardinality"]["field"] == "story_cluster_id"
     open_start = window_body({"match_all": {}}, None, HORIZON, clusters=False)
-    assert "gt" not in open_start["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    assert "gt" not in open_start["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert "aggs" not in open_start
 
 
@@ -118,8 +118,8 @@ async def test_new_hits_set_counts_from_the_unseen_window() -> None:
     assert (window.unseen_articles, window.unseen_clusters) == (7, 2)
     assert window.latest_match_article_id == ARTICLE
     delta, unseen = (body["query"]["bool"]["filter"][1]["range"] for body in adapter.bodies)
-    assert delta["first_discovered_at"]["gt"] == EARLIER.isoformat()
-    assert unseen["first_discovered_at"]["gt"] == viewed.isoformat()
+    assert delta["enriched_at"]["gt"] == EARLIER.isoformat()
+    assert unseen["enriched_at"]["gt"] == viewed.isoformat()
 
 
 @pytest.mark.asyncio

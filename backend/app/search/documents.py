@@ -81,6 +81,8 @@ class ArticleDocument:
     mentioned_countries: list[str] | None = None
     story_cluster_id: uuid.UUID | None = None
     cluster_source_count: int | None = None
+    # When every processing step had finished; None while one is still to run.
+    enriched_at: datetime | None = None
 
     def to_index_payload(self) -> dict[str, Any]:
         sources = {item.source_id for item in self.provenance}
@@ -108,12 +110,13 @@ class ArticleDocument:
             "mentioned_countries": sorted(set(self.mentioned_countries or [])),
             "story_cluster_id": str(self.story_cluster_id) if self.story_cluster_id else None,
             "cluster_source_count": self.cluster_source_count,
+            "enriched_at": self.enriched_at.isoformat() if self.enriched_at else None,
         }
 
 
 # The index layout this version writes and reads. A change to it bumps SCHEMA_VERSION, and the
 # live index is then rebuilt (python -m app.cli rebuild-search) before Search reads it again.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Each free-text field is also analyzed as Greek and as English: accents and case folded away,
 # words stemmed ("Τσίπρα" finds "Τσίπρας", "flood" finds "floods") and each language's stop words
@@ -195,6 +198,7 @@ ARTICLE_INDEX_SETTINGS: dict[str, Any] = {
             },
             "story_cluster_id": {"type": "keyword"},
             "cluster_source_count": {"type": "integer"},
+            "enriched_at": {"type": "date"},
         },
     },
 }

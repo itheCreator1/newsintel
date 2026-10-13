@@ -25,7 +25,7 @@ def results_body(
     limit: int,
     search_after: list[Any] | None,
 ) -> dict[str, Any]:
-    """The articles first discovered in `(after, upto]`, newest first, one page."""
+    """The articles completed in `(after, upto]`, newest discovered first, one page."""
     body: dict[str, Any] = {
         "size": limit,
         "query": window_filter(query, after, upto),

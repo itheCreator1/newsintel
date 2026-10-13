@@ -149,6 +149,7 @@ async def _load_document(
             body=article.content.text if article.content else None,
             published_at=article.published_at,
             first_discovered_at=article.first_discovered_at,
+            enriched_at=article.enriched_at,
             content_available=article.content is not None,
             processing_status=latest_job.status if latest_job else None,
             provenance=[

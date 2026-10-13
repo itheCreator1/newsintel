@@ -5,8 +5,18 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 from sqlalchemy import select, update
-from test_clustering_postgres import _article, _feed, _membership, _run_clustering
+from test_clustering_postgres import (
+    _article,
+    _attach_entities,
+    _entity,
+    _feed,
+    _membership,
+    _run_clustering,
+)
+from test_enrichment_postgres import _article as _enrichable_article
+from test_enrichment_postgres import _run
 
+from app.articles.models import Article
 from app.auth.models import User
 from app.core.config import get_settings
 from app.db.session import session_factory
@@ -14,7 +24,10 @@ from app.monitors import evaluation
 from app.monitors.evaluation import claim_monitor, process_monitor
 from app.monitors.models import Monitor
 from app.monitors.schemas import MonitorCreate
-from app.monitors.service import create_monitor
+from app.monitors.service import create_monitor, mark_viewed
+from app.nlp import execution
+from app.nlp.processors import ConfigurationError
+from app.nlp.service import PROCESSORS
 from app.search.documents import ARTICLE_INDEX_SETTINGS, SCHEMA_VERSION
 from app.search.elasticsearch import ElasticsearchAdapter
 from app.search.indexing import process_delivery
@@ -202,3 +215,82 @@ async def test_articles_of_one_story_count_as_one_unseen_cluster(index_name: str
         await _evaluate(monitor_id, now0 + SETTLE)  # baseline before either article existed
         counted = await _evaluate(monitor_id, now0 + timedelta(hours=1))
         assert (counted.unseen_article_count, counted.unseen_cluster_count) == (2, 1)
+
+
+async def test_a_watch_is_notified_of_an_article_whose_entities_arrive_after_the_settle_window(
+    index_name: str,
+) -> None:
+    now0 = datetime.now(UTC).replace(microsecond=0)
+    async with session_factory() as db, db.begin():
+        wire = await _feed(db, "Γ3 Wire")
+        person = await _entity(db, f"Nadia Orlov {uuid.uuid4().hex[:8]}", "PERSON")
+        article = await _article(
+            db, feeds=[wire], title=f"Port talks {uuid.uuid4().hex[:8]}",
+            title_hash=uuid.uuid4().hex, discovered=now0 + timedelta(minutes=1), enriched=False,
+        )  # fmt: skip
+    await _index(index_name, [article.id])
+    watching = await _watch("Person", "search", entity_id=[str(person.id)])
+    await _evaluate(watching, now0)  # baseline
+    waiting = await _evaluate(watching, now0 + timedelta(hours=1))
+    assert waiting.unseen_article_count == 0  # its entities have not arrived yet
+
+    # The named entities arrive long after the article was discovered, and it is complete.
+    async with session_factory() as db, db.begin():
+        await _attach_entities(db, article.id, [person])
+        await db.execute(
+            update(Article)
+            .where(Article.id == article.id)
+            .values(enriched_at=now0 + timedelta(hours=1, minutes=5))
+        )
+    await _index(index_name, [article.id])
+    notified = await _evaluate(watching, now0 + timedelta(hours=2))
+    assert notified.unseen_article_count == 1
+    assert notified.latest_match_article_id == article.id
+
+
+async def test_an_article_is_counted_once_even_when_it_is_reindexed_later(
+    index_name: str,
+) -> None:
+    word = f"quayside{uuid.uuid4().hex[:8]}"
+    now0 = datetime.now(UTC).replace(microsecond=0)
+    async with session_factory() as db, db.begin():
+        article = await _article(
+            db, feeds=[await _feed(db, "Γ3 Reindex Wire")], title=f"{word} cranes",
+            title_hash=uuid.uuid4().hex, discovered=now0 + timedelta(minutes=1),
+        )  # fmt: skip
+    await _index(index_name, [article.id])
+    watching = await _watch("Once", "search", q=word)
+    await _evaluate(watching, now0)
+    counted = await _evaluate(watching, now0 + timedelta(hours=1))
+    assert counted.unseen_article_count == 1
+    async with session_factory() as db:
+        item = await db.get(Monitor, watching, with_for_update=True)
+        assert item is not None and counted.eval_cursor_at is not None
+        await mark_viewed(db, item, counted.eval_cursor_at)  # the user looked
+
+    await _index(index_name, [article.id])  # a merge or a reprocessing writes it again
+    later = await _evaluate(watching, now0 + timedelta(hours=2))
+    assert later.unseen_article_count == 0
+
+
+async def test_an_article_whose_nlp_failed_still_reaches_title_watches(
+    index_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_processor = execution._run_processor
+
+    def broken_entities(loaded: execution.LoadedJob) -> object:
+        if loaded.processor_name == "entities":
+            raise ConfigurationError("the NER model is missing")
+        return run_processor(loaded)
+
+    monkeypatch.setattr(execution, "_run_processor", broken_entities)
+    now0 = datetime.now(UTC).replace(microsecond=0)
+    watching = await _watch("Title", "search", q="harbour contract")
+    await _evaluate(watching, now0 - timedelta(minutes=10))
+    article_id = await _enrichable_article()
+    for processor in PROCESSORS:
+        await _run(article_id, processor)
+    await _index(index_name, [article_id])
+    counted = await _evaluate(watching, now0 + timedelta(hours=1))
+    assert counted.unseen_article_count == 1
+    assert counted.latest_match_article_id == article_id

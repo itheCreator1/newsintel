@@ -48,6 +48,7 @@ def test_article_document_preserves_nested_provenance_and_effective_date() -> No
     assert payload["effective_date"] == "2026-09-14T10:00:00+00:00"
     assert payload["descriptions"] == ["Plain description"]
     assert payload["distinct_source_count"] == 1
+    assert payload["enriched_at"] is None  # still being processed: no watch counts it yet
     assert payload["provenance"] == [
         {
             "source_id": "22222222-2222-2222-2222-222222222222",
@@ -55,6 +56,23 @@ def test_article_document_preserves_nested_provenance_and_effective_date() -> No
             "source_country": "GR",
         }
     ]
+
+
+def test_an_enriched_article_carries_when_it_was_complete() -> None:
+    at = datetime(2026, 9, 14, 12, tzinfo=UTC)
+    document = ArticleDocument(
+        article_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
+        title="A title",
+        descriptions=[],
+        body=None,
+        published_at=None,
+        first_discovered_at=datetime(2026, 9, 14, 10, tzinfo=UTC),
+        content_available=False,
+        processing_status=None,
+        provenance=[],
+        enriched_at=at,
+    )
+    assert document.to_index_payload()["enriched_at"] == "2026-09-14T12:00:00+00:00"
 
 
 def test_bulk_requests_are_bounded_and_oversized_documents_are_visible() -> None:

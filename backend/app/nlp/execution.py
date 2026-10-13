@@ -8,6 +8,7 @@ from sqlalchemy import func, literal_column, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.articles.enrichment import lock_article, mark_enriched
 from app.clustering.service import request_clustering
 from app.core.config import get_settings
 from app.db.session import session_factory
@@ -188,6 +189,8 @@ def _model_version(result: ProcessorResult) -> str | None:
 async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bool:  # noqa: C901
     now = datetime.now(UTC)
     async with session_factory() as db, db.begin():
+        # The article first, then the job: the order request_article_nlp takes them in.
+        await lock_article(db, loaded.article_id)
         job = await db.scalar(select(NlpJob).where(NlpJob.id == loaded.job_id).with_for_update())
         state = await db.get(ArticleNlpState, loaded.state_id, with_for_update=True)
         if (
@@ -393,6 +396,7 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
         if job.processor_name == "entities":
             # Entities feed candidate selection, so clustering follows their publication.
             await request_clustering(db, job.article_id)
+        await mark_enriched(db, job.article_id, now)
         await request_indexing(db, job.article_id)
     return True
 
@@ -430,6 +434,9 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
     if not permanent:
         category = "processor"
     async with session_factory() as db, db.begin():
+        article_id = await db.scalar(select(NlpJob.article_id).where(NlpJob.id == job_id))
+        if article_id is not None:
+            await lock_article(db, article_id)
         job = await db.scalar(select(NlpJob).where(NlpJob.id == job_id).with_for_update())
         if (
             job is None
@@ -466,6 +473,9 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
             job.next_attempt_at = next_retry_at(now, job.attempt_count)
         if state is not None:
             state.status = job.status
+        # A step that failed for good is finished: the article may be complete without it.
+        if job.status == "failed" and await mark_enriched(db, job.article_id, now):
+            await request_indexing(db, job.article_id)
 
 
 async def process_job(job_id: uuid.UUID, token: str) -> None:

@@ -41,7 +41,7 @@ def _agg(buckets: list[dict], other: int = 0) -> dict:
 def test_window_body_is_bounded_and_asks_for_top_ten_with_evidence_per_kind() -> None:
     body = window_agg_body(QUERY, AFTER, UPTO)
 
-    bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    bounds = body["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert bounds == {"gt": AFTER.isoformat(), "lte": UPTO.isoformat()}
     assert body["size"] == 0 and body["track_total_hits"] is True
     assert set(body["aggs"]) == {"sources", "entities", "stories"}
@@ -66,7 +66,7 @@ def test_every_kind_is_asked_for() -> None:
 def test_prior_body_looks_only_at_candidates_up_to_the_viewed_boundary() -> None:
     body = prior_body(QUERY, AFTER, {"sources": ["a", "b"], "entities": [], "stories": ["c"]})
 
-    bounds = body["query"]["bool"]["filter"][1]["range"]["first_discovered_at"]
+    bounds = body["query"]["bool"]["filter"][1]["range"]["enriched_at"]
     assert bounds == {"lte": AFTER.isoformat()}
     assert set(body["aggs"]) == {"sources", "stories"}  # nothing to look for, nothing asked
     terms = body["aggs"]["sources"]["aggs"]["keys"]["terms"]
