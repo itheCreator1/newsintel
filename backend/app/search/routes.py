@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,8 +28,9 @@ from app.search.criteria import (
     rebuild_needed,
     search_criteria,
 )
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
 from app.search.facets import MAX_FACET_BUCKETS, search_facets
+from app.search.failures import search_failure, snapshot_gone
 from app.search.models import SearchDelivery, SearchIndexTarget
 from app.search.rebuild import rebuild_status
 from app.search.related import MAX_RELATED, related_articles
@@ -167,13 +168,12 @@ async def search_articles(
         if search_after:
             body["search_after"] = search_after
         response = await adapter.search(body)
-    except ElasticsearchUnavailable as exc:
-        message = str(exc)
-        if cursor and ("404" in message or "point in time" in message.lower()):
+    except ElasticsearchError as exc:
+        if cursor and snapshot_gone(exc):
             raise HTTPException(
                 409, {"code": "restart_search", "message": "Search snapshot expired"}
             ) from exc
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+        raise search_failure(exc) from exc
     found = response.get("hits", {}).get("hits", [])
     hits = found[:limit]
     items = [search_result(hit) for hit in hits]
@@ -185,7 +185,7 @@ async def search_articles(
         # A replay of this page's cursor then gets the existing restart_search response.
         try:
             await adapter.close_point_in_time(pit_id)
-        except ElasticsearchUnavailable:
+        except ElasticsearchError:
             pass
     else:
         payload = {
@@ -236,10 +236,10 @@ async def search_export(
             search_after = hits[-1]["sort"]
         try:
             await adapter.close_point_in_time(pit_id)
-        except ElasticsearchUnavailable:
+        except ElasticsearchError:
             pass
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
     return export_response(await export_rows(db, ids), format, "search")
 
 
@@ -291,8 +291,8 @@ async def search_timeline(
                 "aggs": {"timeline": date_histogram("effective_date", chosen, first, last)},
             },
         )
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
     buckets = [
         TimelineBucket(
             start=datetime.fromtimestamp(item["key"] / 1000, UTC), count=item["doc_count"]
@@ -318,8 +318,8 @@ async def search_facet_counts(
         # Keyword, entity and country groups need V2 fields and story clusters need V3.
         index_name = await current_search_target(db)
         return await search_facets(db, adapter, index_name, build_query(criteria), limit)
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Search is unavailable") from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc) from exc
 
 
 @router.get("/articles/{article_id}/related", response_model=RelatedCoverage)
@@ -334,10 +334,8 @@ async def related_coverage(
     adapter = ElasticsearchAdapter(settings.elasticsearch_url)
     try:
         found = await related_articles(db, adapter, article_id, limit)
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Related coverage is unavailable"
-        ) from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc, "Related coverage is unavailable") from exc
     await with_marks(db, [item.article for item in found.items])
     return found
 

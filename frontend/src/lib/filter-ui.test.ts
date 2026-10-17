@@ -68,6 +68,8 @@ describe('filter chips', () => {
     expect(isTransient(new ApiError('conflict', 409))).toBe(false)
     // A search index from an older version answers 503 until it is rebuilt; retrying cannot help.
     expect(isTransient(new ApiError('upgrade', 503, { code: 'search_upgrade_required' }))).toBe(false)
+    // A query Elasticsearch refused is refused again on a retry.
+    expect(isTransient(new ApiError('rejected', 502, { code: 'search_rejected' }))).toBe(false)
   })
 })
 

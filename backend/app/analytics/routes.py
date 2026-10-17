@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,7 +31,8 @@ from app.db.session import get_db
 from app.entities.models import Entity
 from app.search.aggregations import date_histogram, ensure_complete, read_terms, terms
 from app.search.criteria import SearchCriteria, build_query, current_search_target, search_criteria
-from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchAdapter, ElasticsearchError
+from app.search.failures import search_failure
 
 router = APIRouter(tags=["analytics"])
 Db = Annotated[AsyncSession, Depends(get_db)]
@@ -79,10 +80,8 @@ async def _aggregate(
             index_name, {"size": 0, "track_total_hits": False, "query": query, "aggs": aggs}
         )
         ensure_complete(response)
-    except ElasticsearchUnavailable as exc:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Analytics are unavailable"
-        ) from exc
+    except ElasticsearchError as exc:
+        raise search_failure(exc, "Analytics are unavailable") from exc
     aggregations: dict[str, Any] = response.get("aggregations", {})
     return aggregations
 

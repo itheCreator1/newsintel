@@ -130,3 +130,12 @@ async def test_a_horizon_that_has_not_moved_forward_changes_nothing() -> None:
 
     assert window.eval_cursor_at == HORIZON and window.unseen_articles is None
     assert adapter.bodies == []
+
+
+def test_a_rejected_query_is_recorded_as_search_rejected() -> None:
+    # A query Elasticsearch refuses is not an outage; the watch's error says which it was.
+    from app.search.elasticsearch import ElasticsearchRejected, ElasticsearchUnavailable
+
+    rejected = ElasticsearchRejected("parsing_exception", 400)
+    assert evaluation._category(rejected) == "search_rejected"
+    assert evaluation._category(ElasticsearchUnavailable("down")) == "search_unavailable"

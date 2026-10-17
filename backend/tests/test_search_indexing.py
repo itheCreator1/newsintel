@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from app.search import indexing
 from app.search.documents import (
     SCHEMA_VERSION,
     ArticleDocument,
@@ -16,6 +17,8 @@ from app.search.documents import (
 from app.search.elasticsearch import (
     BulkDocument,
     ElasticsearchAdapter,
+    ElasticsearchRejected,
+    ElasticsearchUnavailable,
     OversizedDocument,
     close_shared_client,
     open_shared_client,
@@ -304,3 +307,39 @@ async def test_indexing_status_reports_the_unfinished_rebuild(
 
     assert status.active_rebuild == {"status": "copying"}
     assert status.index_ready is False
+
+
+async def _deliver_against(monkeypatch: pytest.MonkeyPatch, failure: Exception) -> list[object]:
+    """The outcome a delivery records when the whole _bulk request fails with `failure`."""
+    delivery = SimpleNamespace(claim_token="token", requested_revision=2)
+    document = SimpleNamespace(article_id=uuid.uuid4(), to_index_payload=lambda: {"title": "x"})
+    outcomes: list[object] = []
+
+    async def load(_delivery_id: uuid.UUID) -> tuple[object, ...]:
+        return delivery, "articles-test", SCHEMA_VERSION, document
+
+    async def acknowledge(*args: object) -> None:
+        outcomes.append(args[3])
+
+    class _Adapter(ElasticsearchAdapter):
+        async def bulk(self, batch: object) -> list[object]:  # type: ignore[override]
+            raise failure
+
+    monkeypatch.setattr(indexing, "_load_document", load)
+    monkeypatch.setattr(indexing, "_acknowledge", acknowledge)
+    monkeypatch.setattr(indexing, "ElasticsearchAdapter", _Adapter)
+    await indexing.process_delivery(str(uuid.uuid4()), "token")
+    return outcomes
+
+
+@pytest.mark.asyncio
+async def test_a_whole_bulk_400_is_permanent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Elasticsearch will refuse the same body every time; retrying it only fills the queue.
+    rejected = ElasticsearchRejected("parsing_exception", 400)
+    assert await _deliver_against(monkeypatch, rejected) == ["permanent"]
+
+
+@pytest.mark.asyncio
+async def test_a_whole_bulk_503_is_transient(monkeypatch: pytest.MonkeyPatch) -> None:
+    unavailable = ElasticsearchUnavailable("unavailable", 503)
+    assert await _deliver_against(monkeypatch, unavailable) == ["transient"]

@@ -21,7 +21,7 @@ from app.geo.investigation import (
 from app.geo.routes import geo_articles, geo_countries
 from app.search.criteria import build_query
 from app.search.documents import SCHEMA_VERSION
-from app.search.elasticsearch import ElasticsearchUnavailable
+from app.search.elasticsearch import ElasticsearchRejected
 from app.search.query import parse_query
 
 QUERY: dict[str, Any] = {"match_all": {}}
@@ -423,7 +423,8 @@ async def test_a_cursor_replays_only_for_its_session_country_criteria_and_page_s
 async def test_a_released_snapshot_asks_for_a_restart(paged: dict[str, Any]) -> None:
     _PitAdapter.responses = [
         {"hits": {"hits": [_hit(A, 3), _hit(C, 1), _hit(D, 0)]}},
-        ElasticsearchUnavailable("404 No search context found for point in time"),
+        # What Elasticsearch answers for a snapshot it has released: a 404, without the words.
+        ElasticsearchRejected("search_context_missing_exception: No search context found", 404),
     ]
     cursor = (await geo_articles(**paged)).next_cursor
     with pytest.raises(HTTPException) as raised:
@@ -437,7 +438,7 @@ async def test_a_close_failure_still_returns_the_last_page(
     paged: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     async def fail(_self: object, _pit: str) -> None:
-        raise ElasticsearchUnavailable("down")
+        raise ElasticsearchRejected("search_context_missing_exception", 404)
 
     monkeypatch.setattr(_PitAdapter, "close_point_in_time", fail)
     _PitAdapter.responses = [{"hits": {"hits": [_hit(A, 3)]}}]
