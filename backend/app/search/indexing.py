@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.db.session import session_factory
 from app.entities.models import Entity
 from app.feeds.models import FeedArticle
+from app.jobs.leasing import record_failure, release
 from app.nlp.models import (
     ArticleCountryAnnotation,
     ArticleEntity,
@@ -34,7 +35,7 @@ from app.search.elasticsearch import (
     OversizedDocument,
 )
 from app.search.models import SearchDelivery, SearchIndexTarget
-from app.search.service import next_retry_at
+from app.search.service import SEARCH_RETRIES
 
 Outcome = Literal["success", "duplicate", "transient", "permanent"]
 
@@ -198,8 +199,7 @@ async def _acknowledge(
         )
         if delivery is None or delivery.claim_token != token:
             return
-        delivery.claim_token = None
-        delivery.claim_expires_at = None
+        release(delivery)
         # A newer revision was requested while this one ran; request_indexing already queued it,
         # and releasing the claim makes it due now instead of when this lease expires.
         if delivery.requested_revision != revision:
@@ -210,14 +210,24 @@ async def _acknowledge(
             delivery.error_category = None
             delivery.error_message = None
         elif outcome == "transient":
-            delivery.status = "retrying"
-            delivery.next_attempt_at = next_retry_at(datetime.now(UTC), delivery.attempt_count)
-            delivery.error_category = "elasticsearch_transient"
-            delivery.error_message = (error or "Elasticsearch temporarily unavailable")[:1000]
+            record_failure(
+                delivery,
+                datetime.now(UTC),
+                "elasticsearch_transient",
+                error or "Elasticsearch temporarily unavailable",
+                SEARCH_RETRIES,
+                attempts=delivery.attempt_count,
+            )
         else:
-            delivery.status = "failed"
-            delivery.error_category = "document"
-            delivery.error_message = (error or "Elasticsearch rejected document")[:1000]
+            record_failure(
+                delivery,
+                datetime.now(UTC),
+                "document",
+                error or "Elasticsearch rejected document",
+                SEARCH_RETRIES,
+                attempts=delivery.attempt_count,
+                permanent=True,
+            )
 
 
 async def process_delivery(delivery_id: str, claim_token: str) -> None:

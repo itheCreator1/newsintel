@@ -23,6 +23,7 @@ from app.clustering.service import request_clustering
 from app.core.config import Settings
 from app.feeds.models import Feed, FeedFetch
 from app.feeds.service import QueueUnavailable, fetch_now, send_fetch
+from app.jobs.leasing import release
 from app.monitors.models import Monitor
 from app.nlp.models import ArticleNlpState, NlpJob, NlpReprocessingRun
 from app.nlp.service import request_article_nlp
@@ -347,7 +348,6 @@ async def stop(db: AsyncSession, key: ProcessKey, run_id: uuid.UUID) -> bool:
         return False
     # The worker holding it sees the status at its next write and stops there.
     wikidata.status = "stopped"
-    wikidata.claim_token = None
-    wikidata.claim_expires_at = None
+    release(wikidata)
     wikidata.finished_at = _now()
     return True

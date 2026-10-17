@@ -1,7 +1,7 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -13,6 +13,7 @@ from app.articles.models import (
     ArticleProcessingJob,
 )
 from app.articles.storage_locks import lock_storage_keys
+from app.jobs.leasing import claim, claimable, due
 from app.search.service import request_indexing
 
 MODE_STRENGTH = {"full_text": 1, "full_text_html": 2}
@@ -60,9 +61,7 @@ async def claim_due_job(
     job = await db.scalar(
         select(ArticleProcessingJob).where(ArticleProcessingJob.id == job_id).with_for_update()
     )
-    if not job or job.status not in ACTIVE_STATUSES or job.next_attempt_at > now:
-        return None
-    if job.claim_expires_at and job.claim_expires_at > now:
+    if not job or not claimable(job, now):
         return None
     if job.claim_token and job.claim_expires_at and job.claim_expires_at <= now:
         abandoned = await db.scalars(
@@ -76,10 +75,8 @@ async def claim_due_job(
             attempt.error_category = "lease_expired"
             attempt.error_message = "Processing lease expired before the attempt completed"
             attempt.completed_at = now
-    token = uuid.uuid4().hex
-    job.claim_token = token
-    job.claim_expires_at = now + timedelta(seconds=lease_seconds)
-    job.status = "running"
+    # Attempts are counted per stage, in ArticleProcessingAttempt.
+    token = claim(job, now, lease_seconds, count_attempt=False)
     job.started_at = job.started_at or now
     await request_indexing(db, job.article_id)
     await db.commit()
@@ -150,11 +147,4 @@ async def retry_processing(
 
 
 def due_filter(now: datetime) -> ColumnElement[bool]:
-    return (
-        ArticleProcessingJob.status.in_(("queued", "retrying", "running"))
-        & (ArticleProcessingJob.next_attempt_at <= now)
-        & or_(
-            ArticleProcessingJob.claim_expires_at.is_(None),
-            ArticleProcessingJob.claim_expires_at <= now,
-        )
-    )
+    return due(ArticleProcessingJob, now)

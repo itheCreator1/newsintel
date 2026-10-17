@@ -18,6 +18,7 @@ from app.feeds.models import FETCH_FINISHED, Feed, FeedArticle, FeedFetch
 from app.feeds.network import UnsafeFeedUrl
 from app.feeds.normalization import normalize_article_url, normalized_title_hash
 from app.feeds.scheduling import lease_is_current, next_retry_delay
+from app.jobs.leasing import release
 from app.nlp.service import request_article_nlp
 from app.search.service import request_indexing
 
@@ -145,8 +146,7 @@ async def _persist_success(  # noqa: C901
             feed.last_modified = modified
         feed.last_success_at = now
         feed.next_poll_at = now + timedelta(minutes=feed.poll_interval_minutes)
-        feed.claim_token = None
-        feed.claim_expires_at = None
+        release(feed)
     return True
 
 
@@ -186,8 +186,7 @@ async def _finish_failure(
         fetch.error_message = message[:1000]
         fetch.completed_at = now
         feed.next_poll_at = now + timedelta(minutes=feed.poll_interval_minutes)
-        feed.claim_token = None
-        feed.claim_expires_at = None
+        release(feed)
 
 
 def _category(exc: Exception) -> tuple[str, bool]:

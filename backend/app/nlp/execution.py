@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func, literal_column, select, text, update
 from sqlalchemy.dialects.postgresql import insert
@@ -13,6 +13,14 @@ from app.clustering.service import request_clustering
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.entities.models import Entity, EntityAuthorityChange, EntityNameClaim
+from app.jobs.leasing import (
+    heartbeat,
+    heartbeat_interval,
+    holds,
+    record_failure,
+    release,
+    renew,
+)
 from app.nlp.authority import RowPart, combine_rows
 from app.nlp.models import (
     ArticleCountryAnnotation,
@@ -40,10 +48,10 @@ from app.nlp.processors import (
 )
 from app.nlp.service import (
     ANNOTATION_LANGUAGES,
+    NLP_RETRIES,
     current_stop_words,
     greek_ner_enabled,
     load_input_document,
-    next_retry_at,
 )
 from app.search.service import request_indexing
 
@@ -67,12 +75,7 @@ async def _load_job(job_id: uuid.UUID, token: str) -> LoadedJob | None:
     async with session_factory() as db, db.begin():
         await db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
         job = await db.get(NlpJob, job_id)
-        if (
-            job is None
-            or job.claim_token != token
-            or job.claim_expires_at is None
-            or job.claim_expires_at <= datetime.now(UTC)
-        ):
+        if job is None or not holds(job, token, datetime.now(UTC)):
             return None
         state = await db.get(ArticleNlpState, job.state_id)
         if (
@@ -156,26 +159,10 @@ def _run_processor(loaded: LoadedJob) -> ProcessorResult:
 
 
 async def _renew_lease(job_id: uuid.UUID, token: str) -> bool:
-    settings = get_settings()
+    lease_seconds = get_settings().nlp_lease_seconds
     async with session_factory() as db, db.begin():
         job = await db.scalar(select(NlpJob).where(NlpJob.id == job_id).with_for_update())
-        if job is None or job.claim_token != token or job.status != "running":
-            return False
-        if job.claim_expires_at is None or job.claim_expires_at <= datetime.now(UTC):
-            return False
-        job.claim_expires_at = datetime.now(UTC) + timedelta(seconds=settings.nlp_lease_seconds)
-        return True
-
-
-async def _heartbeat(job_id: uuid.UUID, token: str, finished: asyncio.Event) -> None:
-    interval = max(1.0, min(30.0, get_settings().nlp_lease_seconds / 3))
-    while True:
-        try:
-            await asyncio.wait_for(finished.wait(), timeout=interval)
-            return
-        except TimeoutError:
-            if not await _renew_lease(job_id, token):
-                return
+        return renew(job, token, datetime.now(UTC), lease_seconds)
 
 
 def _algorithm(result: ProcessorResult) -> str:
@@ -196,9 +183,7 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
         if (
             job is None
             or state is None
-            or job.claim_token != token
-            or job.claim_expires_at is None
-            or job.claim_expires_at <= now
+            or not holds(job, token, now)
             or state.requested_generation != loaded.generation
             or state.input_fingerprint != loaded.input_fingerprint
             or state.processor_version != loaded.processor_version
@@ -386,8 +371,7 @@ async def _publish(loaded: LoadedJob, token: str, result: ProcessorResult) -> bo
                     )
                 )
         job.status = "succeeded"
-        job.claim_token = None
-        job.claim_expires_at = None
+        release(job)
         job.error_category = None
         job.error_message = None
         job.completed_at = now
@@ -438,12 +422,7 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
         if article_id is not None:
             await lock_article(db, article_id)
         job = await db.scalar(select(NlpJob).where(NlpJob.id == job_id).with_for_update())
-        if (
-            job is None
-            or job.claim_token != token
-            or job.claim_expires_at is None
-            or job.claim_expires_at <= now
-        ):
+        if job is None or not holds(job, token, now):
             return
         state = await db.get(ArticleNlpState, job.state_id, with_for_update=True)
         run = NlpProcessorRun(
@@ -462,15 +441,15 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
             completed_at=now,
         )
         db.add(run)
-        job.claim_token = None
-        job.claim_expires_at = None
-        job.error_category = category
-        job.error_message = str(exc)[:1000]
-        if permanent or job.attempt_count >= 5:
-            job.status = "failed"
-        else:
-            job.status = "retrying"
-            job.next_attempt_at = next_retry_at(now, job.attempt_count)
+        record_failure(
+            job,
+            now,
+            category,
+            str(exc),
+            NLP_RETRIES,
+            attempts=job.attempt_count,
+            permanent=permanent,
+        )
         if state is not None:
             state.status = job.status
         # A step that failed for good is finished: the article may be complete without it.
@@ -480,7 +459,10 @@ async def _record_failure(job_id: uuid.UUID, token: str, exc: Exception) -> None
 
 async def process_job(job_id: uuid.UUID, token: str) -> None:
     finished = asyncio.Event()
-    heartbeat = asyncio.create_task(_heartbeat(job_id, token, finished))
+    interval = heartbeat_interval(get_settings().nlp_lease_seconds)
+    beating = asyncio.create_task(
+        heartbeat(lambda: _renew_lease(job_id, token), interval, finished)
+    )
     try:
         loaded = await _load_job(job_id, token)
         if loaded is None:
@@ -491,4 +473,4 @@ async def process_job(job_id: uuid.UUID, token: str) -> None:
         await _record_failure(job_id, token, exc)
     finally:
         finished.set()
-        await heartbeat
+        await beating

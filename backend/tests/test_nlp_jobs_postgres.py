@@ -984,3 +984,32 @@ async def test_stop_words_routes_take_a_language() -> None:
     assert saved.language == "el" and "αυτοσ" in saved.words
     async with session_factory() as db:
         assert "αυτοσ" not in (await routes.get_stop_words(db, None)).words  # type: ignore[arg-type]
+
+
+async def test_a_job_that_fails_for_good_records_when_it_ended(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A finished job carries its end, whether it succeeded or failed (fix plan Δ2α).
+    from test_enrichment_postgres import _article, _run
+
+    from app.nlp import execution
+    from app.nlp.processors import ConfigurationError
+
+    run_processor = execution._run_processor
+
+    def broken_entities(loaded: execution.LoadedJob) -> object:
+        if loaded.processor_name == "entities":
+            raise ConfigurationError("the NER model is missing")
+        return run_processor(loaded)
+
+    monkeypatch.setattr(execution, "_run_processor", broken_entities)
+    article_id = await _article()
+    await _run(article_id, "entities")
+    async with session_factory() as db:
+        job = await db.scalar(
+            select(NlpJob).where(
+                NlpJob.article_id == article_id, NlpJob.processor_name == "entities"
+            )
+        )
+    assert job is not None and job.status == "failed"
+    assert job.completed_at is not None

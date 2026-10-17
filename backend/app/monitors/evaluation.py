@@ -13,6 +13,7 @@ from app.articles.models import Article
 from app.core.config import get_settings
 from app.db.session import session_factory
 from app.investigations.schemas import InvestigationState
+from app.jobs.leasing import MESSAGE_CHARS, holds, leased, release
 from app.monitors.models import Monitor
 from app.monitors.service import parse_state
 from app.notifications.service import notifications_on
@@ -178,12 +179,7 @@ def monitor_due(now: datetime) -> ColumnElement[bool]:
 async def claim_monitor(db: AsyncSession, monitor_id: uuid.UUID, lease_seconds: int) -> str | None:
     now = datetime.now(UTC)
     item = await db.scalar(select(Monitor).where(Monitor.id == monitor_id).with_for_update())
-    if (
-        item is None
-        or not item.enabled
-        or item.next_evaluation_at > now
-        or (item.claim_expires_at is not None and item.claim_expires_at > now)
-    ):
+    if item is None or not item.enabled or item.next_evaluation_at > now or leased(item, now):
         return None
     item.claim_token = uuid.uuid4().hex
     item.claim_expires_at = now + timedelta(seconds=lease_seconds)
@@ -193,12 +189,7 @@ async def claim_monitor(db: AsyncSession, monitor_id: uuid.UUID, lease_seconds: 
 
 def _holds_lease(item: Monitor | None, token: str) -> bool:
     # The lease runs on the wall clock even when a caller supplies its own evaluation time.
-    return (
-        item is not None
-        and item.claim_token == token
-        and item.claim_expires_at is not None
-        and item.claim_expires_at > datetime.now(UTC)
-    )
+    return holds(item, token, datetime.now(UTC))
 
 
 async def _publish(
@@ -229,7 +220,7 @@ async def _publish(
             item.notified_through = window.eval_cursor_at
         item.last_evaluated_at = now
         item.next_evaluation_at = now + timedelta(seconds=get_settings().monitor_interval_seconds)
-        item.claim_token = item.claim_expires_at = None
+        release(item)
         item.error_category = item.error_message = None
 
 
@@ -252,9 +243,9 @@ async def _record_failure(monitor_id: uuid.UUID, token: str, exc: Exception, now
         item = await db.scalar(select(Monitor).where(Monitor.id == monitor_id).with_for_update())
         if item is None or item.claim_token != token:
             return
-        item.claim_token = item.claim_expires_at = None
+        release(item)
         item.error_category = category
-        item.error_message = str(exc)[:1000]
+        item.error_message = str(exc)[:MESSAGE_CHARS]
         # ponytail: fixed retry delay (the row has no attempt counter); add one for backoff.
         item.next_evaluation_at = now + timedelta(seconds=get_settings().monitor_retry_seconds)
 

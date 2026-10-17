@@ -20,6 +20,7 @@ from app.jobs.articles import process_article
 from app.jobs.clustering import process_clustering
 from app.jobs.events import associate_events
 from app.jobs.ingestion import ingest_feed
+from app.jobs.leasing import release
 from app.jobs.monitors import evaluate_monitor
 from app.jobs.nlp import process_nlp
 from app.jobs.search import index_article
@@ -84,8 +85,7 @@ async def schedule_due_feeds(batch_size: int = 50) -> int:
                 )
                 feed = await db.get(Feed, feed_id, with_for_update=True)
                 if feed and feed.claim_token == fetch.claim_token:
-                    feed.claim_token = None
-                    feed.claim_expires_at = None
+                    release(feed)
                     fetch.status = "failed"
                     fetch.error_category = "queue"
                     fetch.error_message = str(exc)[:1000]
